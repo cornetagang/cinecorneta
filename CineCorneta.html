@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cine Corneta - Sala de Cine</title>
+<style>
+:root {
+  --bg: #0b0b0e;
+  --panel: #141419;
+  --accent: #e2b714;
+  --accent-2: #c44536;
+  --text: #e6e3db;
+  --muted: #8a8a92;
+}
+
+/* Fondo general */
+html, body {
+  height: 100%;
+  margin: 0;
+  background: radial-gradient(1200px 800px at 80% -10%, rgba(226,183,20,0.2), transparent 60%),
+              radial-gradient(800px 600px at 10% 120%, rgba(196,69,54,0.25), transparent 70%),
+              linear-gradient(135deg, #1a1a2e, #3a0f0f);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  letter-spacing: 0.2px;
+}
+
+/* Wrap principal */
+.wrap {
+  min-height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  row-gap: 20px;
+  justify-items: center;
+  padding: 16px 20px;
+}
+
+/* Panel del título */
+.title-panel {
+  background: rgba(20, 20, 25, 0.85);
+  padding: 20px 40px;
+  border-radius: 20px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.5);
+  display: inline-block;
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.title-panel h1 {
+  margin: 0;
+  font-size: clamp(28px, 5vw, 48px);
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* Grid de películas */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 20px;
+  width: 100%;
+  max-width: 1200px;
+}
+
+.movie-card {
+  background: var(--panel);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.45);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  aspect-ratio: 3/4;
+  cursor: pointer;
+}
+
+.movie-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.55), 0 0 15px var(--accent);
+}
+
+.thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Sala de cine */
+#cinema {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at 50% 20%, #222, #000);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+
+#cinema.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.screen {
+  width: 80%;
+  max-width: 900px;
+  aspect-ratio: 16/9;
+  background: #000;
+  box-shadow: 0 0 50px rgba(0,0,0,0.7);
+  margin-bottom: 40px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+#cinema iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.seats {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+}
+
+.row {
+  display: flex;
+  gap: 6px;
+}
+
+.seat {
+  width: 20px;
+  height: 20px;
+  background: #444;
+  border-radius: 4px;
+}
+
+.close-btn {
+  position: absolute;
+  top: 20px;
+  right: 30px;
+  background: var(--accent-2);
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 16px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.close-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 8px var(--accent), 0 0 12px var(--accent), 0 4px 8px rgba(0,0,0,0.5);
+}
+
+/* Responsivo */
+@media (max-width: 560px) {
+  .grid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- Panel del título -->
+  <div class="title-panel">
+    <h1>Cine Corneta</h1>
+  </div>
+
+  <!-- Grid de películas -->
+  <div class="grid">
+    <div class="movie-card" onclick="openCinema('1M2P0y3llzW-Yf_HVNQdRip-l-Q8CY40-')">
+      <img class="thumb" src="https://image.tmdb.org/t/p/w342//lfMKNOaaS2jGT3QKUaiFA8cO7DC.jpg" alt="Película 1" loading="lazy" />
+    </div>
+
+    <div class="movie-card" onclick="openCinema('10oAZjQx4nOaud0xPubCnQvL-5fllOyTw')">
+      <img class="thumb" src="https://image.tmdb.org/t/p/w342//hME3AVfVT3dCaHgNSEAeLCORZBm.jpg" alt="Película 2" loading="lazy" />
+    </div>
+
+    <div class="movie-card" onclick="openCinema('1iz8aUY4lDmewawSFJbHaPlwPNoJspeHC')">
+      <img class="thumb" src="https://image.tmdb.org/t/p/w342//1DY7eSoQLoTNhJTT455N74VuHHx.jpg" alt="Película 3" loading="lazy" />
+    </div>
+
+    <div class="movie-card" onclick="openCinema('16abUo2Az6CChgacccUj4_mL2Aiej6bpq')"> 
+      <img class="thumb" src="https://image.tmdb.org/t/p/w342//fbUwSqYIP0isCiJXey3staY3DNn.jpg" alt="Película 4" loading="lazy" /> 
+    </div> 
+
+    <div class="movie-card" onclick="openCinema('1f6b5zCtAre2pO3mQ87C-HP-iG3DVgFFo')"> 
+      <img class="thumb" src="https://image.tmdb.org/t/p/w342//9kJH2MZ5vaOjuHVvUcnwpa3qCuS.jpg" alt="Película 5" loading="lazy" /> 
+    </div> 
+  </div>
+
+</div>
+
+<!-- Sala de cine -->
+<div id="cinema">
+  <button class="close-btn" onclick="closeCinema()">X</button>
+  <div class="screen">
+    <iframe id="video-frame" src="" allow="autoplay" allowfullscreen></iframe>
+  </div>
+</div>
+
+<script>
+function openCinema(fileId) {
+  const cinema = document.getElementById('cinema');
+  const iframe = document.getElementById('video-frame');
+  iframe.src = `https://drive.google.com/file/d/${fileId}/preview`;
+  cinema.classList.add('show');
+}
+
+function closeCinema() {
+  const cinema = document.getElementById('cinema');
+  const iframe = document.getElementById('video-frame');
+  iframe.src = '';
+  cinema.classList.remove('show');
+}
+</script>
+
+</body>
+</html>
