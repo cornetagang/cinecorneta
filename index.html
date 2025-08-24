@@ -118,7 +118,7 @@ html, body {
   aspect-ratio: 16/9;
   background: #000;
   box-shadow: 0 0 50px rgba(0,0,0,0.7);
-  margin-bottom: 40px;
+  margin-bottom: 20px;
   border-radius: 12px;
   overflow: hidden;
 }
@@ -127,25 +127,6 @@ html, body {
   width: 100%;
   height: 100%;
   border: none;
-}
-
-.seats {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: center;
-}
-
-.row {
-  display: flex;
-  gap: 6px;
-}
-
-.seat {
-  width: 20px;
-  height: 20px;
-  background: #444;
-  border-radius: 4px;
 }
 
 .close-btn {
@@ -167,6 +148,75 @@ html, body {
 .close-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 0 8px var(--accent), 0 0 12px var(--accent), 0 4px 8px rgba(0,0,0,0.5);
+}
+
+/* Mensaje de estreno */
+#release-box {
+  display: none;
+  background: var(--panel);
+  color: var(--accent);
+  padding: 15px 20px;
+  border-radius: 12px;
+  box-shadow: 0 0 15px rgba(0,0,0,0.6);
+  font-weight: bold;
+  text-align: center;
+  max-width: 300px;
+}
+
+/* Modal episodios */
+#episodesModal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.8);
+  z-index: 1100;
+}
+
+#episodesModal .modal-content {
+  background: var(--panel);
+  padding: 20px 30px;
+  border-radius: 16px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+  text-align: center;
+}
+
+#episodesModal h2 {
+  margin-bottom: 20px;
+  color: var(--accent);
+}
+
+#release-box {
+  display: none;
+  background: var(--panel);
+  color: var(--accent);
+  padding: 15px 20px;
+  border-radius: 12px;
+  box-shadow: 0 0 15px rgba(0,0,0,0.6);
+  font-weight: bold;
+  text-align: center;
+  max-width: 300px;
+  font-size: 18px;
+}
+
+.episode-btn {
+  display: block;
+  margin: 10px auto;
+  padding: 10px 16px;
+  background: var(--accent);
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  width: 200px;
+  transition: background 0.2s;
+}
+
+.episode-btn:hover {
+  background: var(--accent-2);
+  color: #fff;
 }
 
 /* Responsivo */
@@ -196,8 +246,9 @@ html, body {
       <img class="thumb" src="https://image.tmdb.org/t/p/w342//hME3AVfVT3dCaHgNSEAeLCORZBm.jpg" alt="The Batman" loading="lazy" />
     </div>
 
-    <div class="movie-card" onclick="openCinema('17xtxxhhPR2tYT5ZtmNzaEb5iA8UCtQ1x')">
-      <img class="thumb" src="https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/a939d96b-7ffb-4481-96f6-472838d104ca/a6b96013-7ea7-11f0-964c-12b0dca5d883?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=1024&w=1024" alt="Ted" loading="lazy" />
+    <!-- Peacemaker abre menú de episodios -->
+    <div class="movie-card" onclick="openEpisodes()">
+      <img class="thumb" src="https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/a939d96b-7ffb-4481-96f6-472838d104ca/a6b96013-7ea7-11f0-964c-12b0dca5d883?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=1024&w=1024" alt="Peacemaker" loading="lazy" />
     </div>
 
     <div class="movie-card" onclick="openCinema('16abUo2Az6CChgacccUj4_mL2Aiej6bpq')"> 
@@ -208,8 +259,27 @@ html, body {
       <img class="thumb" src="https://image.tmdb.org/t/p/w342//9kJH2MZ5vaOjuHVvUcnwpa3qCuS.jpg" alt="Aniquilación" loading="lazy" /> 
     </div> 
   </div>
-  
+
 </div>
+
+<!-- Modal episodios Peacemaker -->
+<div id="episodesModal">
+  <div class="modal-content">
+    <h2>Peacemaker - Episodios</h2>
+
+    <button class="episode-btn" onclick="openCinema('17xtxxhhPR2tYT5ZtmNzaEb5iA8UCtQ1x')">Episodio 1</button>
+    <button class="episode-btn" onclick="showRelease('Episodio 2', '2025-08-29T21:00:00', 'ID_VIDEO_2')">Episodio 2</button>
+    <button class="episode-btn" onclick="showRelease('Episodio 3', '2025-09-05T21:00:00', 'ID_VIDEO_3')">Episodio 3</button>
+    <button class="episode-btn" onclick="showRelease('Episodio 4', '2025-09-12T21:00:00', 'ID_VIDEO_4')">Episodio 4</button>
+    <button class="episode-btn" onclick="showRelease('Episodio 5', '2025-09-19T21:00:00', 'ID_VIDEO_5')">Episodio 5</button>
+    <button class="episode-btn" onclick="showRelease('Episodio 6', '2025-09-26T21:00:00', 'ID_VIDEO_6')">Episodio 6</button>
+    <button class="episode-btn" onclick="showRelease('Episodio 7', '2025-10-03T21:00:00', 'ID_VIDEO_7')">Episodio 7</button>
+    <button class="episode-btn" onclick="showRelease('Episodio 8', '2025-10-10T21:00:00', 'ID_VIDEO_8')">Episodio 8</button>
+
+    <button class="episode-btn" onclick="closeEpisodes()">Cancelar</button>
+  </div>
+</div>
+
 
 <!-- Sala de cine -->
 <div id="cinema">
@@ -217,12 +287,16 @@ html, body {
   <div class="screen">
     <iframe id="video-frame" src="" allow="autoplay" allowfullscreen></iframe>
   </div>
+  <div id="release-box"></div>
 </div>
 
 <script>
 function openCinema(fileId) {
+  closeEpisodes(); // cerrar modal si estaba abierto
   const cinema = document.getElementById('cinema');
   const iframe = document.getElementById('video-frame');
+  const releaseBox = document.getElementById('release-box');
+  releaseBox.style.display = 'none';
   iframe.src = `https://drive.google.com/file/d/${fileId}/preview`;
   cinema.classList.add('show');
 }
@@ -230,17 +304,57 @@ function openCinema(fileId) {
 function closeCinema() {
   const cinema = document.getElementById('cinema');
   const iframe = document.getElementById('video-frame');
+  const releaseBox = document.getElementById('release-box');
   iframe.src = '';
+  releaseBox.style.display = 'none';
   cinema.classList.remove('show');
 }
+
+function openEpisodes() {
+  document.getElementById('episodesModal').style.display = 'flex';
+}
+
+function closeEpisodes() {
+  document.getElementById('episodesModal').style.display = 'none';
+}
+
+let countdownInterval;
+
+function showRelease(message, releaseDate, fileId = null) {
+  closeEpisodes();
+  const cinema = document.getElementById('cinema');
+  const releaseBox = document.getElementById('release-box');
+
+  clearInterval(countdownInterval); // limpiar intervalos anteriores
+  releaseBox.style.display = 'block';
+  cinema.classList.add('show');
+
+  const targetDate = new Date(releaseDate);
+
+  function updateCountdown() {
+    const now = new Date();
+    const diff = targetDate - now;
+
+    if (diff <= 0) {
+      clearInterval(countdownInterval);
+      releaseBox.textContent = '¡Disponible ahora!';
+      if (fileId) openCinema(fileId);
+      return;
+    }
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+    const minutes = Math.floor((diff / (1000 * 60)) % 60);
+    const seconds = Math.floor((diff / 1000) % 60);
+
+    releaseBox.textContent = `${message} en ${days}d ${hours}h ${minutes}m ${seconds}s`;
+  }
+
+  updateCountdown();
+  countdownInterval = setInterval(updateCountdown, 1000);
+}
+
 </script>
 
 </body>
 </html>
-
-
-
-
-
-
-
