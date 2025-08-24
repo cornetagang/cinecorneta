@@ -7,10 +7,10 @@
 <link rel="icon" type="image/png" href="https://i.imgur.com/u71QEFc.png">
 <style>
 :root {
+  --accent: #FFD700;
+  --accent-2: #c44536;
   --bg: #0b0b0e;
   --panel: #141419;
-  --accent: #e2b714;
-  --accent-2: #c44536;
   --text: #e6e3db;
   --muted: #8a8a92;
 }
@@ -69,7 +69,6 @@ html, body {
   max-width: 1200px;
 }
 
-/* Movie card */
 .movie-card {
   background: var(--panel);
   border-radius: 16px;
@@ -82,6 +81,12 @@ html, body {
   aspect-ratio: 2/3;
   cursor: pointer;
 }
+
+.movie-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.55), 0 0 15px var(--accent);
+}
+
 
 .thumb {
   width: 100%;
