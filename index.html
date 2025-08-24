@@ -15,57 +15,61 @@
   --muted: #8a8a92;
 }
 
-/* Fondo general */
 html, body {
   height: 100%;
   margin: 0;
+  padding: 0;
+  min-height: 100%;
   background: radial-gradient(1200px 800px at 80% -10%, rgba(226,183,20,0.2), transparent 60%),
               radial-gradient(800px 600px at 10% 120%, rgba(196,69,54,0.25), transparent 70%),
               linear-gradient(135deg, #1a1a2e, #3a0f0f);
   color: var(--text);
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
   letter-spacing: 0.2px;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
-/* Wrap principal */
 .wrap {
-  min-height: 100%;
+  min-height: 100vh;
   display: grid;
   grid-template-rows: auto 1fr;
   row-gap: 20px;
   justify-items: center;
   padding: 16px 20px;
+  box-sizing: border-box;
 }
 
-/* Panel del título */
 .title-panel {
   background: rgba(20, 20, 25, 0.85);
-  padding: 20px 40px;
+  padding: 30px 25px;
   border-radius: 20px;
   box-shadow: 0 8px 25px rgba(0,0,0,0.5);
   display: inline-block;
   text-align: center;
   margin-bottom: 40px;
+  max-width: 500px;
 }
 
 .title-panel h1 {
   margin: 0;
-  font-size: clamp(28px, 5vw, 48px);
+  font-size: clamp(24px, 4vw, 36px);
   font-weight: 800;
   letter-spacing: 1px;
   text-transform: uppercase;
-  color: var(--accent);
+  color: #FFD700;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.7);
 }
 
-/* Grid de películas */
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(5, 1fr);
   gap: 20px;
   width: 100%;
   max-width: 1200px;
 }
 
+/* Movie card */
 .movie-card {
   background: var(--panel);
   border-radius: 16px;
@@ -75,23 +79,30 @@ html, body {
   display: flex;
   flex-direction: column;
   width: 100%;
-  aspect-ratio: 3/4;
+  aspect-ratio: 2/3;
   cursor: pointer;
-}
-
-.movie-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 20px 40px rgba(0,0,0,0.55), 0 0 15px var(--accent);
 }
 
 .thumb {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block;
 }
 
-/* Sala de cine */
+
+.peliculas {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+}
+
+.item {
+  background: #444;
+  padding: 20px;
+  text-align: center;
+  color: white;
+}
+
 #cinema {
   position: fixed;
   inset: 0;
@@ -150,7 +161,6 @@ html, body {
   box-shadow: 0 0 8px var(--accent), 0 0 12px var(--accent), 0 4px 8px rgba(0,0,0,0.5);
 }
 
-/* Mensaje de estreno */
 #release-box {
   display: none;
   background: var(--panel);
@@ -163,7 +173,6 @@ html, body {
   max-width: 300px;
 }
 
-/* Modal episodios */
 #episodesModal {
   position: fixed;
   inset: 0;
@@ -219,7 +228,6 @@ html, body {
   color: #fff;
 }
 
-/* Responsivo */
 @media (max-width: 560px) {
   .grid {
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -231,38 +239,39 @@ html, body {
 
 <div class="wrap">
 
-  <!-- Panel del título -->
   <div class="title-panel">
     <h1>Cine Corneta</h1>
   </div>
 
-  <!-- Grid de películas -->
-  <div class="grid">
-    <div class="movie-card" onclick="openCinema('1M2P0y3llzW-Yf_HVNQdRip-l-Q8CY40-')">
-      <img class="thumb" src="https://image.tmdb.org/t/p/w342//lfMKNOaaS2jGT3QKUaiFA8cO7DC.jpg" alt="Superman" loading="lazy" />
-    </div>
-
-    <div class="movie-card" onclick="openCinema('1Y4iCS1QUzmbrP2hYPqy6Fvc2-HqEvyYk')">
-      <img class="thumb" src="https://image.tmdb.org/t/p/w342//hME3AVfVT3dCaHgNSEAeLCORZBm.jpg" alt="The Batman" loading="lazy" />
-    </div>
-
-    <!-- Peacemaker abre menú de episodios -->
-    <div class="movie-card" onclick="openEpisodes()">
-      <img class="thumb" src="https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/a939d96b-7ffb-4481-96f6-472838d104ca/a6b96013-7ea7-11f0-964c-12b0dca5d883?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=1024&w=1024" alt="Peacemaker" loading="lazy" />
-    </div>
-
-    <div class="movie-card" onclick="openCinema('16abUo2Az6CChgacccUj4_mL2Aiej6bpq')"> 
-      <img class="thumb" src="https://image.tmdb.org/t/p/w342//fbUwSqYIP0isCiJXey3staY3DNn.jpg" alt="Interestelar" loading="lazy" /> 
-    </div> 
-
-    <div class="movie-card" onclick="openCinema('1f6b5zCtAre2pO3mQ87C-HP-iG3DVgFFo')"> 
-      <img class="thumb" src="https://image.tmdb.org/t/p/w342//9kJH2MZ5vaOjuHVvUcnwpa3qCuS.jpg" alt="Aniquilación" loading="lazy" /> 
-    </div> 
+<div class="grid">
+  <div class="movie-card" onclick="openCinema('1M2P0y3llzW-Yf_HVNQdRip-l-Q8CY40-')">
+    <img class="thumb" src="https://image.tmdb.org/t/p/w342//lfMKNOaaS2jGT3QKUaiFA8cO7DC.jpg" alt="Superman" loading="lazy" />
   </div>
+
+  <div class="movie-card" onclick="openCinema('1Y4iCS1QUzmbrP2hYPqy6Fvc2-HqEvyYk')">
+    <img class="thumb" src="https://image.tmdb.org/t/p/w342//hME3AVfVT3dCaHgNSEAeLCORZBm.jpg" alt="The Batman" loading="lazy" />
+  </div>
+
+  <!-- Peacemaker abre menú de episodios -->
+  <div class="movie-card" onclick="openEpisodes()">
+    <img class="thumb" src="https://i.imgur.com/A7Nuu0S.png" alt="Peacemaker" loading="lazy" />
+  </div>
+
+  <div class="movie-card" onclick="openCinema('16abUo2Az6CChgacccUj4_mL2Aiej6bpq')"> 
+    <img class="thumb" src="https://image.tmdb.org/t/p/w342//fbUwSqYIP0isCiJXey3staY3DNn.jpg" alt="Interestelar" loading="lazy" /> 
+  </div> 
+
+  <div class="movie-card" onclick="openCinema('1f6b5zCtAre2pO3mQ87C-HP-iG3DVgFFo')"> 
+    <img class="thumb" src="https://image.tmdb.org/t/p/w342//9kJH2MZ5vaOjuHVvUcnwpa3qCuS.jpg" alt="Aniquilación" loading="lazy" /> 
+  </div> 
+
+  <div class="movie-card" onclick="openCinema('1aZ333XH9OGah78an6pTYs5S83A13c0iV')"> 
+    <img class="thumb" src="https://m.media-amazon.com/images/M/MV5BMmNhZDkxYTgtMDM3ZC00NTQ3LWFjZTUtNzc1Y2QyNWZjNDRmXkEyXkFqcGc@._V1_FMjpg_UX1000_.jpg" alt="Ocean Eleven" loading="lazy" /> 
+  </div> 
+</div>
 
 </div>
 
-<!-- Modal episodios Peacemaker -->
 <div id="episodesModal">
   <div class="modal-content">
     <h2>Peacemaker - Episodios</h2>
@@ -280,8 +289,6 @@ html, body {
   </div>
 </div>
 
-
-<!-- Sala de cine -->
 <div id="cinema">
   <button class="close-btn" onclick="closeCinema()">X</button>
   <div class="screen">
@@ -292,7 +299,7 @@ html, body {
 
 <script>
 function openCinema(fileId) {
-  closeEpisodes(); // cerrar modal si estaba abierto
+  closeEpisodes();
   const cinema = document.getElementById('cinema');
   const iframe = document.getElementById('video-frame');
   const releaseBox = document.getElementById('release-box');
@@ -325,7 +332,7 @@ function showRelease(message, releaseDate, fileId = null) {
   const cinema = document.getElementById('cinema');
   const releaseBox = document.getElementById('release-box');
 
-  clearInterval(countdownInterval); // limpiar intervalos anteriores
+  clearInterval(countdownInterval);
   releaseBox.style.display = 'block';
   cinema.classList.add('show');
 
@@ -354,7 +361,7 @@ function showRelease(message, releaseDate, fileId = null) {
   countdownInterval = setInterval(updateCountdown, 1000);
 }
 
-</script>
+    </script>
 
-</body>
+  </body>
 </html>
