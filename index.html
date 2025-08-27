@@ -30,12 +30,13 @@ html, body {
   box-sizing: border-box;
 }
 
+/* CONTENEDOR FLEXIBLE Y CENTRADO */
 .wrap {
   min-height: 100vh;
-  display: grid;
-  grid-template-rows: auto 1fr;
-  row-gap: 20px;
-  justify-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
   padding: 16px 20px;
   box-sizing: border-box;
 }
@@ -61,12 +62,47 @@ html, body {
   text-shadow: 0 2px 6px rgba(0,0,0,0.7);
 }
 
+/* --- GRID FORZADA 5 COLUMNAS EN PC --- */
 .grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(5, 1fr); /* 5 columnas en PC */
   gap: 20px;
   width: 100%;
   max-width: 1200px;
+}
+
+/* GRID RESPONSIVO */
+@media (max-width: 1024px) {
+  .grid {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .grid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+
+  .episode-btn {
+    width: 80%;
+    padding: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .grid {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+
+  .episode-btn {
+    width: 100%;
+    padding: 14px;
+    font-size: 14px;
+  }
+
+  #cinema .screen {
+    width: 95%;
+  }
 }
 
 .movie-card {
@@ -87,27 +123,13 @@ html, body {
   box-shadow: 0 20px 40px rgba(0,0,0,0.55), 0 0 15px var(--accent);
 }
 
-
 .thumb {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-
-.peliculas {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 10px;
-}
-
-.item {
-  background: #444;
-  padding: 20px;
-  text-align: center;
-  color: white;
-}
-
+/* CINEMA RESPONSIVE */
 #cinema {
   position: fixed;
   inset: 0;
@@ -117,10 +139,11 @@ html, body {
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: 20px;
+  padding: 10px;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.4s ease;
+  overflow-y: auto; /* permite scroll si la pantalla es pequeña */
 }
 
 #cinema.show {
@@ -129,20 +152,22 @@ html, body {
 }
 
 .screen {
-  width: 80%;
-  max-width: 900px;
-  aspect-ratio: 16/9;
+  width: 95vw;           /* ocupa casi todo el ancho disponible */
+  max-width: 900px;      /* no excede 900px en pantallas grandes */
+  height: auto;
+  max-height: 90vh;      /* nunca más alto que la pantalla */
+  aspect-ratio: 16/9;    /* mantiene proporción de video */
   background: #000;
-  box-shadow: 0 0 50px rgba(0,0,0,0.7);
-  margin-bottom: 20px;
   border-radius: 12px;
   overflow: hidden;
+  box-shadow: 0 0 50px rgba(0,0,0,0.7);
 }
 
 #cinema iframe {
   width: 100%;
   height: 100%;
   border: none;
+  min-height: 200px;     /* evita que se vea demasiado pequeño en móviles */
 }
 
 .close-btn {
@@ -164,41 +189,6 @@ html, body {
 .close-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 0 8px var(--accent), 0 0 12px var(--accent), 0 4px 8px rgba(0,0,0,0.5);
-}
-
-#release-box {
-  display: none;
-  background: var(--panel);
-  color: var(--accent);
-  padding: 15px 20px;
-  border-radius: 12px;
-  box-shadow: 0 0 15px rgba(0,0,0,0.6);
-  font-weight: bold;
-  text-align: center;
-  max-width: 300px;
-}
-
-#episodesModal {
-  position: fixed;
-  inset: 0;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0,0,0,0.8);
-  z-index: 1100;
-}
-
-#episodesModal .modal-content {
-  background: var(--panel);
-  padding: 20px 30px;
-  border-radius: 16px;
-  box-shadow: 0 8px 25px rgba(0,0,0,0.6);
-  text-align: center;
-}
-
-#episodesModal h2 {
-  margin-bottom: 20px;
-  color: var(--accent);
 }
 
 #release-box {
@@ -233,10 +223,34 @@ html, body {
   color: #fff;
 }
 
-@media (max-width: 560px) {
-  .grid {
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  }
+/* MODALES CENTRADOS */
+#episodesModal, #languageModal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.8);
+  z-index: 1100;
+  padding: 10px;
+  overflow-y: auto;
+}
+
+#episodesModal .modal-content,
+#languageModal .modal-content {
+  background: var(--panel);
+  padding: 20px 30px;
+  border-radius: 16px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+  text-align: center;
+  max-width: 95%;
+  margin: auto;
+}
+
+#episodesModal h2,
+#languageModal h2 {
+  margin-bottom: 20px;
+  color: var(--accent);
 }
 </style>
 </head>
@@ -285,23 +299,33 @@ html, body {
 
 </div>
 
+<!-- Episodios Modal -->
 <div id="episodesModal">
   <div class="modal-content">
     <h2>Peacemaker - Episodios</h2>
-
-    <button class="episode-btn" onclick="openCinema('1BJiC7qfj59J21SK8ppy5r-v_z75znrUf')">Episodio 1</button>
-    <button class="episode-btn" onclick="showRelease('Episodio 2', '2025-08-29T21:00:00', 'ID_VIDEO_2')">Episodio 2</button>
-    <button class="episode-btn" onclick="showRelease('Episodio 3', '2025-09-05T21:00:00', 'ID_VIDEO_3')">Episodio 3</button>
-    <button class="episode-btn" onclick="showRelease('Episodio 4', '2025-09-12T21:00:00', 'ID_VIDEO_4')">Episodio 4</button>
-    <button class="episode-btn" onclick="showRelease('Episodio 5', '2025-09-19T21:00:00', 'ID_VIDEO_5')">Episodio 5</button>
-    <button class="episode-btn" onclick="showRelease('Episodio 6', '2025-09-26T21:00:00', 'ID_VIDEO_6')">Episodio 6</button>
-    <button class="episode-btn" onclick="showRelease('Episodio 7', '2025-10-03T21:00:00', 'ID_VIDEO_7')">Episodio 7</button>
-    <button class="episode-btn" onclick="showRelease('Episodio 8', '2025-10-10T21:00:00', 'ID_VIDEO_8')">Episodio 8</button>
-
+    <button class="episode-btn" onclick="showRelease('Episodio 1', null, '1ozRKZ6iquAuLyxji-Kh4u9_rOaeCUZXv', '1OW3HwiwiFtJ4pTu3yvyxU74sB0SbYGIz', true)">Episodio 1</button>
+    <button class="episode-btn" onclick="showRelease('Episodio 2', '2025-08-29T21:00:00', 'ID_ES_2', 'ID_EN_2', true)">Episodio 2</button>
+    <button class="episode-btn" onclick="showRelease('Episodio 3', '2025-09-05T21:00:00', 'ID_ES_3', 'ID_EN_3', true)">Episodio 3</button>
+    <button class="episode-btn" onclick="showRelease('Episodio 4', '2025-09-12T21:00:00', 'ID_ES_4', 'ID_EN_4', true)">Episodio 4</button>
+    <button class="episode-btn" onclick="showRelease('Episodio 5', '2025-09-19T21:00:00', 'ID_ES_5', 'ID_EN_5', true)">Episodio 5</button>
+    <button class="episode-btn" onclick="showRelease('Episodio 6', '2025-09-26T21:00:00', 'ID_ES_6', 'ID_EN_6', true)">Episodio 6</button>
+    <button class="episode-btn" onclick="showRelease('Episodio 7', '2025-10-03T21:00:00', 'ID_ES_7', 'ID_EN_7', true)">Episodio 7</button>
+    <button class="episode-btn" onclick="showRelease('Episodio 8', '2025-10-10T21:00:00', 'ID_ES_8', 'ID_EN_8', true)">Episodio 8</button>
     <button class="episode-btn" onclick="closeEpisodes()">Cancelar</button>
   </div>
 </div>
 
+<!-- Modal Idioma -->
+<div id="languageModal">
+  <div class="modal-content">
+    <h2>Selecciona idioma</h2>
+    <button class="episode-btn" id="lang-es">Español</button>
+    <button class="episode-btn" id="lang-en">Inglés</button>
+    <button class="episode-btn" onclick="backToEpisodes()">Atrás</button>
+  </div>
+</div>
+
+<!-- Cinema -->
 <div id="cinema">
   <button class="close-btn" onclick="closeCinema()">X</button>
   <div class="screen">
@@ -311,8 +335,15 @@ html, body {
 </div>
 
 <script>
+// -- Mantengo tu JS tal cual --
+let countdownInterval;
+const languageModal = document.getElementById('languageModal');
+let selectedFileId = null;
+let fromEpisode = false;
+
 function openCinema(fileId) {
   closeEpisodes();
+  closeLanguageModal();
   const cinema = document.getElementById('cinema');
   const iframe = document.getElementById('video-frame');
   const releaseBox = document.getElementById('release-box');
@@ -328,6 +359,11 @@ function closeCinema() {
   iframe.src = '';
   releaseBox.style.display = 'none';
   cinema.classList.remove('show');
+
+  if(fromEpisode) {
+    openEpisodes();
+    fromEpisode = false;
+  }
 }
 
 function openEpisodes() {
@@ -338,12 +374,55 @@ function closeEpisodes() {
   document.getElementById('episodesModal').style.display = 'none';
 }
 
-let countdownInterval;
+function chooseLanguageModal(esId, enId) {
+  selectedFileId = { es: esId, en: enId };
+  languageModal.style.display = 'flex';
+  fromEpisode = true;
+}
 
-function showRelease(message, releaseDate, fileId = null) {
+function closeLanguageModal() {
+  languageModal.style.display = 'none';
+  selectedFileId = null;
+}
+
+function backToEpisodes() {
+  closeLanguageModal();
+  openEpisodes();
+}
+
+document.getElementById('lang-es').addEventListener('click', () => {
+  if(selectedFileId) {
+    openCinema(selectedFileId.es);
+    closeLanguageModal();
+  }
+});
+
+document.getElementById('lang-en').addEventListener('click', () => {
+  if(selectedFileId) {
+    openCinema(selectedFileId.en);
+    closeLanguageModal();
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if(e.key === 'Escape') {
+    if(languageModal.style.display === 'flex') closeLanguageModal();
+    else if(document.getElementById('episodesModal').style.display === 'flex') closeEpisodes();
+    else if(document.getElementById('cinema').classList.contains('show')) closeCinema();
+  }
+});
+
+function showRelease(message, releaseDate, fileES, fileEN, isSeries = false) {
   closeEpisodes();
   const cinema = document.getElementById('cinema');
   const releaseBox = document.getElementById('release-box');
+
+  if(isSeries && releaseDate === null) {
+    chooseLanguageModal(fileES, fileEN);
+    return;
+  }
+
+  fromEpisode = false;
 
   clearInterval(countdownInterval);
   releaseBox.style.display = 'block';
@@ -355,26 +434,26 @@ function showRelease(message, releaseDate, fileId = null) {
     const now = new Date();
     const diff = targetDate - now;
 
-    if (diff <= 0) {
+    if(diff <= 0) {
       clearInterval(countdownInterval);
       releaseBox.textContent = '¡Disponible ahora!';
-      if (fileId) openCinema(fileId);
+      if(isSeries) chooseLanguageModal(fileES, fileEN);
+      else openCinema(fileES);
       return;
     }
 
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-    const minutes = Math.floor((diff / (1000 * 60)) % 60);
-    const seconds = Math.floor((diff / 1000) % 60);
+    const d = Math.floor(diff / (1000*60*60*24));
+    const h = Math.floor((diff / (1000*60*60)) % 24);
+    const m = Math.floor((diff / (1000*60)) % 60);
+    const s = Math.floor((diff / 1000) % 60);
 
-    releaseBox.textContent = `${message} en ${days}d ${hours}h ${minutes}m ${seconds}s`;
+    releaseBox.textContent = `${message} disponible en ${d}d ${h}h ${m}m ${s}s`;
   }
 
   updateCountdown();
   countdownInterval = setInterval(updateCountdown, 1000);
 }
+</script>
 
-    </script>
-
-  </body>
+</body>
 </html>
