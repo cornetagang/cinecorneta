@@ -431,15 +431,14 @@ html, body {
 .player-layout-container {
   display: flex;
   flex-direction: row;
-  justify-content: flex-start; 
+  justify-content: flex-start; /* <-- Vuelve a alinear al inicio (izquierda) */
   align-items: center;
   width: 100%;
   height: 100%;
   gap: 20px;
 }
-
 #episode-sidebar {
-  flex: 0 0 425px; /* Increased width */
+  flex: 0 0 450px; 
   background: rgba(10, 10, 12, 0.8);
   border-radius: 12px;
   padding: 20px;
@@ -448,6 +447,14 @@ html, body {
   backdrop-filter: blur(5px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   height: 85vh; 
+  
+  /* --- AÑADIDO PARA CENTRAR LA BARRA LATERAL --- */
+  margin-left: auto; 
+  margin-right: auto;
+  /* --- FIN AÑADIDO --- */
+
+  transition: margin-left 0.4s ease; /* Animación de deslizamiento */
+  position: relative; /* Necesario para posicionar el botón de toggle */
 }
 
 #episode-sidebar h2 {
@@ -633,59 +640,14 @@ html, body {
   text-align: center;
 }
 
-#toggle-sidebar-btn {
-  position: absolute;
-  top: 50%;
-  right: -20px; /* Se asoma por el borde derecho */
-  transform: translateY(-50%);
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: var(--panel);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: var(--text);
-  cursor: pointer;
-  z-index: 10;
-  font-size: 20px;
+.player-layout-container {
   display: flex;
+  flex-direction: row;
+  justify-content: flex-start; 
   align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
-}
-
-#toggle-sidebar-btn:hover {
-  background: var(--accent);
-  color: #000;
-}
-
-#episode-sidebar {
-  transition: margin-left 0.4s ease; /* Animación de deslizamiento */
-}
-
-#toggle-sidebar-btn .icon-show {
-  display: none;
-}
-
-/* ESTADO OCULTO */
-.sidebar-collapsed #episode-sidebar {
-  margin-left: -390px; /* Oculta la barra deslizándola a la izquierda */
-}
-
-.sidebar-collapsed #toggle-sidebar-btn {
-  right: -50px; /* Mueve el botón para que sea visible */
-}
-
-.sidebar-collapsed #toggle-sidebar-btn .icon-hide {
-  display: none;
-}
-
-.sidebar-collapsed #toggle-sidebar-btn .icon-show {
-  display: block;
-}
-
-.player-container img {
-  /* Resplandor rojo principal para el logo de Dexter, con menos intensidad */
-  filter: drop-shadow(0 0 5px #EC1C24) drop-shadow(0 0 2px #F4545C); /* Valores reducidos */
+  width: 100%;
+  height: 100%;
+  gap: 20px;
 }
 
 #dexterCinemaTitle {
@@ -695,6 +657,11 @@ html, body {
   text-align: center;
   /* Resplandor sutil para el texto del título */
   text-shadow: 0 0 5px #EC1C24, 0 0 10px #F4545C;
+}
+
+.sidebar-spacer {
+  flex-shrink: 0; /* Evita que se encoja */
+  width: 8vw; /
 }
 
 </style>
@@ -815,30 +782,30 @@ html, body {
   <button class="close-btn" onclick="closeCinemaDexter()">X</button>
 
   <div class="player-layout-container">
-    
+
+    <div class="sidebar-spacer"></div>
+
     <div id="episode-sidebar">
       <h2>Temporadas y Episodios</h2>
-
-    <button id="toggle-sidebar-btn" onclick="toggleSidebar()">
-        <span class="icon-hide">«</span>
-        <span class="icon-show">»</span>
-    </button>
       <select id="season-selector" class="season-dropdown"></select>
-    <div id="episode-list-container">
-      </div>
+      <div id="episode-list-container">
+        </div>
     </div>
 
     <div class="player-container">
       <img src="https://i.imgur.com/pntevFY.png" alt="Dexter" style="width:200px; max-width:90%; margin: 10px auto; display:block;">
       <div id="dexterCinemaTitle"></div>
       <div class="screen">
-        <iframe id="video-frame-dexter" src="" allowfullscreen></iframe>
+        <iframe id="video-frame-dexter" src="" allowfullscreen=""></iframe>
       </div>
       <div id="cinemaDexterControls">
         <button class="episode-btn" id="dexterPrevBtn" onclick="previousEpisode()">Anterior</button>
         <button class="episode-btn" id="dexterNextBtn" onclick="nextEpisode()">Siguiente</button>
       </div>
     </div>
+
+  </div>
+</div>
     
   </div>
 </div>
@@ -1208,11 +1175,6 @@ document.addEventListener('keydown', (e) => {
             break; // Solo cierra uno a la vez
         }
     }
-  }
-
-function toggleSidebar() {
-  const layoutContainer = document.querySelector('.player-layout-container');
-  layoutContainer.classList.toggle('sidebar-collapsed');
   }
 });
 </script>
