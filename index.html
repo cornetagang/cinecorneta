@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Cine Corneta</title>
 <link rel="icon" type="image/png" href="https://i.imgur.com/u71QEFc.png">
+<link href="https://fonts.googleapis.com/css2?family=Bungee&display=swap" rel="stylesheet">
 <style>
 :root {
   --accent: #FFD700;
@@ -41,24 +42,91 @@ html, body {
 }
 
 .title-panel {
-  background: rgba(20, 20, 25, 0.85);
-  padding: 30px 25px;
-  border-radius: 20px;
-  box-shadow: 0 8px 25px rgba(0,0,0,0.5);
-  display: inline-block;
+  background: #1C1C1C; /* Un fondo oscuro para el letrero */
+  font-family: 'Bungee', cursive; /* La nueva fuente que agregamos */
+  padding: 20px;
+  border-radius: 10px;
+  border: 4px solid #444;
+  border-bottom: 8px solid #333; /* Efecto 3D */
   text-align: center;
   margin-bottom: 40px;
-  max-width: 500px;
+  /* Efecto de luces de bombilla con sombra */
+  box-shadow: 
+    inset 0 0 15px rgba(0,0,0,0.7), /* Sombra interior */
+    0 0 0 5px #111, /* Borde oscuro exterior */
+    0 0 5px 5px #EC1C24, /* Resplandor rojo de la paleta de Dexter */
+    0 0 15px 5px #FFD700; /* Resplandor amarillo */
+}
+
+/* REEMPLAZA las reglas .title-panel y .title-panel h1 CON ESTO */
+
+.title-panel {
+  background: #1C1C1C; /* Fondo oscuro */
+  font-family: 'Bungee', cursive;
+  padding: 20px 30px; /* Ajustado para dar espacio a los focos */
+  border-radius: 8px; /* Un poco más suave que antes */
+  border: 4px solid #8B0000; /* Borde rojo oscuro para simular el metal */
+  text-align: center;
+  margin-bottom: 40px;
+  position: relative; /* Necesario para posicionar los "focos" */
+  overflow: hidden; /* Asegura que los focos no se salgan del borde si son muy grandes */
+  box-shadow: 
+    inset 0 0 10px rgba(0,0,0,0.8), /* Sombra interior suave */
+    0 5px 15px rgba(0,0,0,0.6); /* Sombra exterior para darle profundidad */
+}
+
+/* Base para el efecto de focos */
+.title-panel::before {
+  content: '';
+  position: absolute;
+  top: -5px; bottom: -5px; left: -5px; right: -5px; /* Cubre el borde */
+  border: 5px solid #FFD700; /* Borde exterior amarillo brillante para los focos */
+  border-radius: 10px; /* Un poco más de radio para el borde de las luces */
+  pointer-events: none;
+  /* Creamos múltiples focos usando box-shadow */
+  box-shadow:
+    /* Luces superiores */
+    0 0 0 5px #FFD700, /* Base de la luz */
+    0 0 10px 8px #FFD700, /* Resplandor de la luz */
+    /* Focos individuales (ejemplo, puedes ajustar la posición y el color) */
+    0 0 0 2px #FECB00, 0 0 5px 2px #FEDB00, /* Luz 1 */
+    15px 0 0 2px #FECB00, 15px 0 5px 2px #FEDB00, /* Luz 2 */
+    30px 0 0 2px #FECB00, 30px 0 5px 2px #FEDB00, /* Luz 3 */
+    /* ...añade más focos ajustando las posiciones (ej. 45px 0, 60px 0, etc.) */
+    /* Las sombras de texto ahora simularán las luces intermitentes */
+    -15px -15px 0 3px rgba(255, 255, 0, 0.8), -15px -15px 10px 6px rgba(255, 255, 0, 0.6), /* Foco arriba izquierda */
+    15px -15px 0 3px rgba(255, 255, 0, 0.8), 15px -15px 10px 6px rgba(255, 255, 0, 0.6), /* Foco arriba derecha */
+    -15px 15px 0 3px rgba(255, 255, 0, 0.8), -15px 15px 10px 6px rgba(255, 255, 0, 0.6), /* Foco abajo izquierda */
+    15px 15px 0 3px rgba(255, 255, 0, 0.8), 15px 15px 10px 6px rgba(255, 255, 0, 0.6); /* Foco abajo derecha */
 }
 
 .title-panel h1 {
   margin: 0;
-  font-size: clamp(24px, 4vw, 36px);
-  font-weight: 800;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: #FFD700;
-  text-shadow: 0 2px 6px rgba(0,0,0,0.7);
+  font-size: clamp(32px, 5vw, 50px);
+  font-weight: normal;
+  letter-spacing: 3px; /* Más espaciado entre letras */
+  color: #F8F8F8; /* Un blanco roto o gris claro para el texto */
+  text-shadow:
+    0 0 8px rgba(255,255,255,0.7), /* Resplandor interior blanco */
+    0 0 20px #FFD700, /* Resplandor exterior amarillo */
+    0 0 30px #EC1C24; /* Resplandor exterior rojo */
+  animation: flicker 2s infinite alternate; /* Mantenemos el parpadeo */
+  position: relative; /* Para asegurar que el texto esté por encima de cualquier foco */
+  z-index: 1; /* Para superponer al ::before si es necesario */
+}
+
+/* Mantén la animación de parpadeo como está */
+@keyframes flicker {
+  0%, 18%, 22%, 25%, 53%, 57%, 100% {
+    text-shadow:
+      0 0 8px rgba(255,255,255,0.7),
+      0 0 20px #FFD700,
+      0 0 30px #EC1C24;
+  }
+  20%, 24%, 55% {        
+    text-shadow:
+      0 0 5px rgba(255,255,255,0.3); /* Un brillo más tenue cuando "parpadea" */
+  }
 }
 
 .grid {
@@ -816,6 +884,9 @@ let countdownInterval;
 // Objeto para manejar el estado del reproductor de Dexter
 let playerState = {}; 
 
+// ===========================================================
+// DATABASE DE DEXTER (COMPLETA Y ORDENADA)
+// ===========================================================
 const dexterData = {
   1: [
     { title: "Dexter", videoId: "1xfWPP4ZMSbM6R9nHqVEjg6UPNpemnhUC", thumbnail: "https://image.tmdb.org/t/p/w300/70rjTrItEJCyr6u8zmAVQrdmcrP.jpg", description: "Dexter Morgan, analista de salpicaduras de sangre del Departamento de Policía de Miami, lleva una doble vida como un asesino en serie justiciero que persigue a criminales que han eludido el sistema de justicia." },
@@ -931,6 +1002,9 @@ const dexterData = {
   ]
 };
 
+// ===========================================================
+// FUNCIONES GENERALES Y DE OTRAS SERIES
+// ===========================================================
 function openCinema(fileId) {
   const cinema = document.getElementById('cinema');
   const iframe = document.getElementById('video-frame');
@@ -1019,8 +1093,21 @@ function showRelease(message, releaseDate, fileES, fileEN) {
   countdownInterval = setInterval(updateCountdown, 1000);
 }
 
+
+// ===========================================================
+// LÓGICA DE DEXTER (NUEVA INTERFAZ)
+// ===========================================================
+function saveDexterProgress(season, episode) {
+  const progress = {
+    season: season,
+    episode: episode,
+    timestamp: new Date().getTime() 
+  };
+  localStorage.setItem('dexterProgress', JSON.stringify(progress));
+}
+
 function openDexter() {
-    playerState.activeItem = { seasons: dexterData }; 
+    playerState.activeItem = { seasons: dexterData };
     const seasonSelector = document.getElementById('season-selector');
     seasonSelector.innerHTML = '';
 
@@ -1034,20 +1121,34 @@ function openDexter() {
     seasonSelector.onchange = (event) => {
         const seasonNum = event.target.value;
         populateEpisodeList(seasonNum);
-        // ▼▼▼ CAMBIO 1: AÑADIMOS UN PEQUEÑO RETRASO ▼▼▼
         setTimeout(() => {
-            openDexterEpisode(seasonNum, 0); 
-        }, 0); // Este retraso permite que el DOM se actualice
+            openDexterEpisode(seasonNum, 0);
+        }, 0);
     };
 
-    const initialSeason = Object.keys(dexterData)[0] || '1';
+    const savedProgress = localStorage.getItem('dexterProgress');
+    let initialSeason = '1';
+    let initialEpisode = 0;
+
+    if (savedProgress) {
+        try {
+            const progress = JSON.parse(savedProgress);
+            if (progress.season && progress.episode !== undefined) {
+                initialSeason = progress.season;
+                initialEpisode = progress.episode;
+            }
+        } catch (e) {
+            console.error("Error al parsear el progreso guardado:", e);
+        }
+    }
+
     seasonSelector.value = initialSeason;
-    populateEpisodeList(initialSeason); 
+    populateEpisodeList(initialSeason);
     
-    // ▼▼▼ CAMBIO 2: AÑADIMOS EL MISMO RETRASO AQUÍ ▼▼▼
+    // Aquí es donde está el cambio: agregamos un setTimeout para asegurar que se cargue la lista de episodios.
     setTimeout(() => {
-        openDexterEpisode(initialSeason, 0); 
-    }, 0);
+        openDexterEpisode(initialSeason, initialEpisode);
+    }, 50); // Un pequeño retraso de 50ms es suficiente.
 
     document.getElementById('cinemaDexter').classList.add('show');
 }
@@ -1066,17 +1167,20 @@ function populateEpisodeList(seasonNum) {
               class="episode-card" 
               id="episode-${seasonNum}-${index}" 
               onclick="openDexterEpisode(${seasonNum}, ${index})" 
+              title="${desc}"
             >
                 <img src="${thumb}" class="episode-card-thumb">
                 <div class="episode-card-info">
                     <h3>${index + 1}. ${episode.title}</h3>
-                    <p title="${desc}">${desc}</p> </div>
+                    <p>${desc}</p>
+                </div>
             </div>
         `;
         
         episodeContainer.innerHTML += cardHTML;
     });
 }
+
 function openDexterEpisode(season, episodeIndex) {
     playerState.currentSeason = parseInt(season);
     playerState.currentEpisode = parseInt(episodeIndex);
@@ -1096,6 +1200,7 @@ function openDexterEpisode(season, episodeIndex) {
     
     document.getElementById('season-selector').value = season;
     updateDexterNavButtons(); 
+    saveDexterProgress(season, episodeIndex);
 }
 
 function closeCinemaDexter() {
