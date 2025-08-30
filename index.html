@@ -965,6 +965,17 @@ html, body {
     // LÓGICA DE DEXTER
     // ===========================================================
     function openDexter() {
+    // Cargar progreso guardado
+    try {
+        const savedProgress = localStorage.getItem('dexterProgress');
+        if (savedProgress) {
+            const progress = JSON.parse(savedProgress);
+            playerState.dexter.season = progress.season;
+            playerState.dexter.episodeIndex = progress.episodeIndex;
+        }
+    } catch (e) {
+        console.error("Error al cargar el progreso de Dexter:", e);
+    }
         document.getElementById('cinemaDexter').classList.add('show');
         populateDexterSeasonDropdown();
         populateDexterEpisodeList(playerState.dexter.season);
@@ -1035,6 +1046,7 @@ html, body {
         }
         
         updateDexterNavButtons();
+        saveDexterProgress(season, episodeIndex);
     }
 
     function updateDexterNavButtons() {
@@ -1072,11 +1084,36 @@ html, body {
         openDexterEpisode(season, episodeIndex);
     }
 
-    // ===========================================================
-    // LÓGICA DE PEACEMAKER
-    // ===========================================================
+    function saveDexterProgress(season, episodeIndex) {
+    try {
+        const progress = { season: season, episodeIndex: episodeIndex };
+        localStorage.setItem('dexterProgress', JSON.stringify(progress));
+    } catch (e) {
+        console.error("Error al guardar el progreso de Dexter:", e);
+    }
+}
+
+    function savePeacemakerProgress(season, episodeIndex) {
+        try {
+            const progress = { season: season, episodeIndex: episodeIndex };
+            localStorage.setItem('peacemakerProgress', JSON.stringify(progress));
+    }   catch (e) {
+            console.error("Error al guardar el progreso de Peacemaker:", e);
+    }
+}
 
     function openPeacemakerCinema() {
+    // Cargar progreso guardado
+    try {
+        const savedProgress = localStorage.getItem('peacemakerProgress');
+        if (savedProgress) {
+            const progress = JSON.parse(savedProgress);
+            playerState.peacemaker.season = progress.season;
+            playerState.peacemaker.episodeIndex = progress.episodeIndex;
+        }
+    } catch (e) {
+        console.error("Error al cargar el progreso de Peacemaker:", e);
+    }
         document.getElementById('cinemaPeacemaker').classList.add('show');
         populatePeacemakerSeasonDropdown();
         populatePeacemakerEpisodeList(playerState.peacemaker.season);
@@ -1235,6 +1272,7 @@ html, body {
         }
         
         updatePeacemakerNavButtons();
+        savePeacemakerProgress(seasonName, episodeIndex);
     }
 
     function setupPeacemakerLanguageButtons(episode) {
