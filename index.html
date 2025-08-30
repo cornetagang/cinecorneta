@@ -1334,6 +1334,32 @@ html, body {
         }
     }
 
+    // --- LÓGICA PARA FORZAR PANTALLA HORIZONTAL EN MÓVILES ---
+
+// Esta función se activa cada vez que entramos o salimos de pantalla completa
+    async function gestionarOrientacionPantalla() {
+    // Primero, revisamos si el navegador soporta la API de orientación
+        if (!screen.orientation || !screen.orientation.lock) {
+            return; // Si no lo soporta, no hacemos nada
+    }
+
+    try {
+        // Si hay un elemento en pantalla completa...
+        if (document.fullscreenElement) {
+            // ...intentamos bloquear la pantalla en modo horizontal.
+            await screen.orientation.lock('landscape');
+        } else {
+            // Si salimos de pantalla completa, desbloqueamos la orientación.
+            screen.orientation.unlock();
+        }
+    } catch (error) {
+        // El navegador o el usuario pueden denegar el permiso, lo ignoramos.
+        console.error("No se pudo cambiar la orientación de la pantalla:", error);
+    }
+}
+
+    document.addEventListener('fullscreenchange', gestionarOrientacionPantalla);
+
     // ===========================================================
     // INICIALIZACIÓN DE EVENTOS
     // ===========================================================
@@ -1368,4 +1394,3 @@ html, body {
 </script>
 </body>
 </html>
-
