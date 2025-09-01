@@ -662,6 +662,49 @@ html { scrollbar-width: none; }
         font-size: 18px;
     }
 }
+
+/* ===== NUEVOS ESTILOS PARA PAGINACIÓN MÓVIL ===== */
+.pagination-controls-mobile {
+    display: none; /* Oculto por defecto */
+    justify-content: center;
+    gap: 20px;
+    margin-top: 20px;
+    width: 100%;
+}
+
+.pagination-controls-mobile button {
+    background: transparent;
+    border: 2px solid var(--text-muted);
+    color: var(--text-muted);
+    border-radius: 50%;
+    width: 45px;
+    height: 45px;
+    font-size: 22px;
+    font-weight: bold;
+    cursor: pointer;
+    display: none; /* JS se encargará de mostrarlo */
+}
+
+/* Media Query para activar los cambios en móviles */
+@media (max-width: 768px) {
+    /* 1. Ocultar los botones originales del header */
+    .header-container #prev-page-btn,
+    .header-container #next-page-btn {
+        display: none !important; /* !important para asegurar que se oculten */
+    }
+
+    /* 2. Mostrar el nuevo contenedor de botones móviles */
+    .pagination-controls-mobile {
+        display: flex;
+    }
+    
+    /* 3. Ajustar el grid para que tenga menos columnas */
+    .grid {
+        grid-template-columns: repeat(2, 1fr); /* 2 columnas en móvil */
+        gap: 4vw;
+    }
+}
+
 </style>
 </head>
 <body>
@@ -744,6 +787,12 @@ html { scrollbar-width: none; }
             </div>
         </div>
     </div>
+
+    </div> <div class="pagination-controls-mobile">
+        <button id="prev-page-btn-mobile">&lt;</button>
+        <button id="next-page-btn-mobile">&gt;</button>
+    </div>
+
     <div id="languageModal">
         <div class="modal-content">
             <h2>Selecciona idioma</h2>
@@ -1460,6 +1509,42 @@ html { scrollbar-width: none; }
             console.error("No se pudo cambiar la orientación de la pantalla:", error);
         }
     }
+
+function setupPagination() {
+    allMovieCards = Array.from(document.querySelectorAll('.grid .movie-card'));
+    if (allMovieCards.length === 0) return;
+    totalPages = Math.ceil(allMovieCards.length / MOVIES_PER_PAGE);
+    
+    // --- BOTONES ORIGINALES ---
+    const prevBtn = document.getElementById('prev-page-btn');
+    const nextBtn = document.getElementById('next-page-btn');
+
+    // --- NUEVOS BOTONES MÓVILES ---
+    const prevBtnMobile = document.getElementById('prev-page-btn-mobile');
+    const nextBtnMobile = document.getElementById('next-page-btn-mobile');
+
+    function goPrev() {
+        if (currentPage > 1) {
+            currentPage--;
+            renderPage(currentPage);
+        }
+    }
+
+    function goNext() {
+        if (currentPage < totalPages) {
+            currentPage++;
+            renderPage(currentPage);
+        }
+    }
+
+    // Asignar eventos a ambos pares de botones
+    if (prevBtn) prevBtn.addEventListener('click', goPrev);
+    if (nextBtn) nextBtn.addEventListener('click', goNext);
+    if (prevBtnMobile) prevBtnMobile.addEventListener('click', goPrev);
+    if (nextBtnMobile) nextBtnMobile.addEventListener('click', goNext);
+    
+    renderPage(currentPage);
+}
     
     // ===========================================================
     // LÓGICA DE PAGINACIÓN
@@ -1525,14 +1610,19 @@ html { scrollbar-width: none; }
     }
 
     function updatePaginationButtons() {
-        const prevBtn = document.getElementById('prev-page-btn');
-        const nextBtn = document.getElementById('next-page-btn');
+    // Botones de escritorio
+    const prevBtn = document.getElementById('prev-page-btn');
+    const nextBtn = document.getElementById('next-page-btn');
+    // Botones de móvil
+    const prevBtnMobile = document.getElementById('prev-page-btn-mobile');
+    const nextBtnMobile = document.getElementById('next-page-btn-mobile');
 
-        if(!prevBtn || !nextBtn) return;
-
-        prevBtn.style.display = currentPage > 1 ? 'block' : 'none';
-        nextBtn.style.display = currentPage < totalPages ? 'block' : 'none';
-    }
+    if (prevBtn) prevBtn.style.display = currentPage > 1 ? 'block' : 'none';
+    if (nextBtn) nextBtn.style.display = currentPage < totalPages ? 'block' : 'none';
+    
+    if (prevBtnMobile) prevBtnMobile.style.display = currentPage > 1 ? 'block' : 'none';
+    if (nextBtnMobile) nextBtnMobile.style.display = currentPage < totalPages ? 'block' : 'none';
+}
 
     // ===========================================================
     // LÓGICA DE LA RULETA
