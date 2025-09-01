@@ -654,20 +654,65 @@ html { scrollbar-width: none; }
     }
 }
 
+.header-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    max-width: 1400px;
+    margin-bottom: 40px;
+    position: relative;
+}
+
+.header-container button {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: 2px solid var(--text-muted);
+    color: var(--text-muted);
+    border-radius: 50%;
+    width: 45px;
+    height: 45px;
+    font-size: 22px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+#prev-page-btn { left: 0; }
+#next-page-btn { right: 0; }
+
+.header-container button:hover {
+    background-color: var(--primary-red);
+    border-color: var(--primary-red);
+    color: white;
+    transform: translateY(-50%) scale(1.1);
+}
+
+@media (max-width: 768px) {
+    .header-container button {
+        width: 35px;
+        height: 35px;
+        font-size: 18px;
+    }
+}
+
 </style>
 </head>
 <body>
 
 <div class="wrap">
     <div class="header-container">
-        <button id="prev-page-btn">&lt;</button>
-        <div class="title-panel">
-            <h1>Cine Corneta</h1>
-        </div>
-        <button id="next-page-btn">&gt;</button>
+    <button id="prev-page-btn">&lt;</button>
+    <div class="title-panel">
+        <h1>Cine Corneta</h1>
     </div>
-    <div class="grid-container">
-        <div class="grid">
+    <button id="next-page-btn">&gt;</button>
+</div>
+
+<div class="grid-container">
+    <div class="grid">
             <div class="movie-card" onclick="openCinema('1M2P0y3llzW-Yf_HVNQdRip-l-Q8CY40-')">
                 <img class="thumb" src="https://image.tmdb.org/t/p/original/wPLysNDLffQLOVebZQCbXJEv6E6.jpg" alt="Superman" loading="lazy" />
             </div>
