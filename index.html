@@ -33,6 +33,10 @@ html, body {
     overflow-x: hidden;
 }
 
+/* Ocultar scrollbar principal */
+body::-webkit-scrollbar { display: none; }
+html { scrollbar-width: none; }
+
 .wrap {
     width: 100%;
     min-height: 100vh;
@@ -43,7 +47,17 @@ html, body {
     padding: 24px;
 }
 
-/* ===== TÍTULO Y TARJETAS PRINCIPALES ===== */
+/* ===== HEADER Y PAGINACIÓN ===== */
+.header-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    max-width: 1400px;
+    margin-bottom: 40px;
+    position: relative;
+}
+
 .title-panel {
     background: #1C1C1C;
     font-family: 'Bungee', cursive;
@@ -51,7 +65,7 @@ html, body {
     border-radius: 8px;
     border: 4px solid var(--secondary-red);
     text-align: center;
-    margin-bottom: 40px;
+    margin: 0;
     position: relative;
     overflow: hidden;
     box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8), 0 5px 15px rgba(0, 0, 0, 0.6);
@@ -67,25 +81,52 @@ html, body {
     color: #F8F8F8;
     text-shadow: 0 0 8px rgba(255,255,255,0.7), 0 0 20px var(--primary-red), 0 0 30px var(--secondary-red);
     animation: flicker 2s infinite alternate;
-    position: relative;
-    z-index: 1;
 }
 
 @keyframes flicker {
-    0%, 18%, 22%, 25%, 53%, 57%, 100% {
-        text-shadow: 0 0 8px rgba(255, 255, 255, 0.7), 0 0 20px var(--primary-red), 0 0 30px var(--secondary-red);
-    }
-    20%, 24%, 55% {
-        text-shadow: 0 0 5px rgba(229, 9, 20, 0.3);
-    }
+    0%, 18%, 22%, 25%, 53%, 57%, 100% { text-shadow: 0 0 8px rgba(255, 255, 255, 0.7), 0 0 20px var(--primary-red), 0 0 30px var(--secondary-red); }
+    20%, 24%, 55% { text-shadow: 0 0 5px rgba(229, 9, 20, 0.3); }
+}
+
+.header-container button {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: 2px solid var(--text-muted);
+    color: var(--text-muted);
+    border-radius: 50%;
+    width: 45px;
+    height: 45px;
+    font-size: 22px;
+    font-weight: bold;
+    cursor: pointer;
+    display: none;
+    transition: all 0.2s ease;
+}
+
+#prev-page-btn { left: 0; }
+#next-page-btn { right: 0; }
+
+.header-container button:hover {
+    background-color: var(--primary-red);
+    border-color: var(--primary-red);
+    color: white;
+    transform: translateY(-50%) scale(1.1);
+}
+
+/* ===== GRID DE PELÍCULAS ===== */
+.grid-container {
+    position: relative;
+    width: 100%;
+    max-width: 1400px;
 }
 
 .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 24px;
-    width: 100%;
-    max-width: 1400px;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1.5vw;
+    transition: opacity 0.4s ease-out, transform 0.4s ease-out;
 }
 
 .movie-card {
@@ -93,12 +134,17 @@ html, body {
     border-radius: 16px;
     overflow: hidden;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
     display: flex;
     flex-direction: column;
     width: 100%;
     aspect-ratio: 2/3;
     cursor: pointer;
+    transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+}
+
+.movie-card.hidden {
+    opacity: 0;
+    transform: translateY(20px);
 }
 
 .movie-card:hover {
@@ -113,40 +159,27 @@ html, body {
 }
 
 /* ===== MODALES GENERALES ===== */
-#cinema, #cinemaDexter, #cinemaPeacemaker, #languageModal {
+#cinema, #cinemaDexter, #cinemaPeacemaker, #languageModal, #roulette-modal {
     position: fixed;
     inset: 0;
-    z-index: 1000;
-    display: flex;
+    z-index: 2000;
+    display: none;
     align-items: center;
     justify-content: center;
     padding: 16px;
     background: rgba(0, 0, 0, 0.85);
     backdrop-filter: blur(5px);
     opacity: 0;
-    pointer-events: none;
     transition: opacity 0.4s ease;
     overflow-y: auto;
 }
 
-#cinema {
-    flex-direction: column;
-}
-
-#cinema.show, #cinemaDexter.show, #cinemaPeacemaker.show {
-    opacity: 1;
-    pointer-events: auto;
-}
-
-#languageModal {
-    display: none;
-}
-
-#languageModal.show {
+#cinema.show, #cinemaDexter.show, #cinemaPeacemaker.show, #languageModal.show, #roulette-modal.show {
     display: flex;
     opacity: 1;
-    pointer-events: auto;
 }
+
+#cinema { flex-direction: column; }
 
 .modal-content {
     background: var(--panel-dark);
@@ -489,6 +522,112 @@ html, body {
     letter-spacing: 2px;
 }
 
+/* ===== ESTILOS RULETA ===== */
+#open-roulette-btn {
+    position: fixed;
+    bottom: 25px;
+    right: 25px;
+    width: 70px;
+    height: 70px;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    z-index: 999;
+    transition: transform 0.2s ease;
+}
+#open-roulette-btn:hover {
+    transform: scale(1.15);
+}
+#open-roulette-btn img {
+    width: 100%;
+}
+.roulette-container {
+    background: var(--panel-dark);
+    border-radius: 20px;
+    padding: 30px;
+    text-align: center;
+    width: 90%;
+    max-width: 800px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.roulette-container h2 {
+    color: var(--text-light);
+    margin-top: 0;
+    margin-bottom: 20px;
+}
+.roulette-wheel-container {
+    position: relative;
+    width: 100%;
+    height: 200px;
+    border: 1px solid #444;
+    border-radius: 8px;
+    margin: 20px 0;
+    overflow: hidden; 
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.roulette-wheel-container::-webkit-scrollbar {
+    display: none;
+}
+.roulette-wheel {
+    display: flex;
+    height: 100%;
+    position: absolute;
+    left: 0;
+    top: 0;
+}
+.roulette-item {
+    width: 130px;
+    height: 100%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 5px;
+}
+.roulette-item img {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 2/3;
+    object-fit: cover;
+    border-radius: 6px;
+}
+.roulette-pointer {
+    position: absolute;
+    top: -2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: calc(100% + 4px);
+    background: var(--primary-red);
+    box-shadow: 0 0 10px var(--primary-red);
+    z-index: 10;
+}
+.roulette-controls {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+}
+#roulette-result {
+    margin-top: 20px;
+    min-height: 225px;
+}
+#roulette-result .movie-card {
+    margin: 0 auto;
+    width: 150px;
+    animation: bounce-in 0.5s ease;
+}
+@keyframes bounce-in {
+    0% { transform: scale(0.5); opacity: 0; }
+    70% { transform: scale(1.05); opacity: 1; }
+    100% { transform: scale(1); }
+}
+
 /* ===== REGLAS RESPONSIVAS (MEDIA QUERIES) ===== */
 @media (max-width: 1024px) {
     .player-layout-container {
@@ -516,84 +655,6 @@ html, body {
         max-height: 50vh;
      }
 }
-
-/* ===== NUEVOS ESTILOS PARA HEADER Y PAGINACIÓN (CORREGIDO) ===== */
-
-.header-container {
-    display: flex;
-    justify-content: center; /* Centramos el contenido principal (el título) */
-    align-items: center;
-    width: 100%;
-    max-width: 1400px;
-    margin-bottom: 40px;
-    position: relative; /* Contenedor para los botones posicionados absolutamente */
-}
-
-/* El título se centra automáticamente */
-.title-panel {
-    margin-bottom: 0;
-}
-
-/* Nuevos estilos para los botones */
-.header-container button {
-    /* Posicionamos los botones de forma absoluta para que no afecten al título */
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-
-    background: transparent;
-    border: 2px solid var(--text-muted);
-    color: var(--text-muted);
-    border-radius: 50%;
-    width: 45px;
-    height: 45px;
-    font-size: 22px;
-    font-weight: bold;
-    cursor: pointer;
-    display: none; /* JS los mostrará cuando sea necesario */
-    transition: all 0.2s ease;
-}
-
-#prev-page-btn {
-    left: 0; /* Botón izquierdo pegado a la izquierda del contenedor */
-}
-
-#next-page-btn {
-    right: 0; /* Botón derecho pegado a la derecha del contenedor */
-}
-
-.header-container button:hover {
-    background-color: var(--primary-red);
-    border-color: var(--primary-red);
-    color: white;
-    transform: translateY(-50%) scale(1.1); /* Ajustamos el transform */
-}
-
-/* ===== ESTILOS PARA LA NUEVA TRANSICIÓN ESCALONADA ===== */
-
-.grid {
-    grid-template-columns: repeat(5, 1fr);
-    gap: 1.5vw;
-    /* Quitamos la transición del contenedor grid */
-}
-
-/* Las tarjetas ahora tienen la transición */
-.movie-card {
-    /* ...todas las propiedades que ya tienes... */
-    background: var(--panel-dark);
-    border-radius: 16px;
-    cursor: pointer;
-    /* AÑADIMOS ESTO */
-    transition: opacity 0.4s ease-out, transform 0.4s ease-out;
-}
-
-/* Estado inicial de las tarjetas antes de aparecer */
-.movie-card.hidden {
-    opacity: 0;
-    transform: translateY(20px);
-}
-
-/* Media query para ajustar en pantallas más pequeñas */
 @media (max-width: 768px) {
     .header-container button {
         width: 35px;
@@ -601,15 +662,6 @@ html, body {
         font-size: 18px;
     }
 }
-body::-webkit-scrollbar {
-    display: none;
-}
-
-/* Para Firefox */
-html {
-    scrollbar-width: none;
-}
-
 </style>
 </head>
 <body>
@@ -623,147 +675,167 @@ html {
         <button id="next-page-btn">&gt;</button>
     </div>
     <div class="grid-container">
-    <div class="grid">
-        <div class="movie-card" onclick="openCinema('1M2P0y3llzW-Yf_HVNQdRip-l-Q8CY40-')">
-            <img class="thumb" src="https://image.tmdb.org/t/p/original/wPLysNDLffQLOVebZQCbXJEv6E6.jpg" alt="Superman" loading="lazy" />
-        </div>
-        <div class="movie-card" onclick="openCinema('1Y4iCS1QUzmbrP2hYPqy6Fvc2-HqEvyYk')">
-            <img class="thumb" src="https://image.tmdb.org/t/p/original/seyWFgGInaLqW7nOZvu0ZC95rtx.jpg" alt="The Batman" loading="lazy" />
-        </div>
-        <div class="movie-card" onclick="openPeacemakerCinema()">
-            <img class="thumb" src="https://image.tmdb.org/t/p/original/yb4F1Oocq8GfQt6iIuAgYEBokhG.jpg" alt="Peacemaker" loading="lazy" />
-        </div>
-        <div class="movie-card" onclick="openCinema('1dc06j5pPDeEr95hHvpH0Sf4lpXW1K0UN')">
-            <img class="thumb" src="https://image.tmdb.org/t/p/original/9kBF4eu6Im5KsEMocMEnSrK2K6R.jpg" alt="Secreto en la Montaña" loading="lazy" />
-        </div>
-        <div class="movie-card" onclick="openCinema('16abUo2Az6CChgacccUj4_mL2Aiej6bpq')">
-            <img class="thumb" src="https://image.tmdb.org/t/p/original/hbGNJb88HjoQurnRYYWg45YBFtz.jpg" alt="Interestelar" loading="lazy" />
-        </div>
-        <div class="movie-card" onclick="openCinema('1f6b5zCtAre2pO3mQ87C-HP-iG3DVgFFo')">
-            <img class="thumb" src="https://image.tmdb.org/t/p/original/o0hPp6XrJxUSViAEynFbPRfiyY9.jpg" alt="Aniquilación" loading="lazy" />
-        </div>
-        <div class="movie-card" onclick="openCinema('1aZ333XH9OGah78an6pTYs5S83A13c0iV')">
-            <img class="thumb" src="https://image.tmdb.org/t/p/original/v5D7K4EHuQHFSjveq8LGxdSfrGS.jpg" alt="Ocean Eleven" loading="lazy" />
-        </div>
-        <div class="movie-card" onclick="openDexter()">
-            <img class="thumb" src="https://image.tmdb.org/t/p/original/uQwpPjM3gScW914MYYOx7li8sN3.jpg" alt="Dexter" loading="lazy" />
-        </div>
-        <div class="movie-card" onclick="openCinema('1dOyG3Citdla0WL2TsZSksnFU7USozUKN')">
-            <img class="thumb" src="https://image.tmdb.org/t/p/original/jSziioSwPVrOy9Yow3XhWIBDjq1.jpg" alt="El Club de la Pelea" loading="lazy" />
-        </div>
-        <div class="movie-card" onclick="openCinema('1Y24D827VR7W5KKmK7ToO4-c5OI4ADvf2')">
-            <img class="thumb" src="https://image.tmdb.org/t/p/original/pIrjgBmZYnwKvx4WoTkhyhKSHTp.jpg" alt="El Reino de los Cielos" loading="lazy" />
-        </div>
-        <div class="movie-card" onclick="openCinema('1_F4emKvSz4hVWy1naoHoRFmB01_atPE9')">
-            <img class="thumb" src="https://image.tmdb.org/t/p/w600_and_h900_bestv2/3dSivDtOuyxLDxPH4v2tcNG1fP7.jpg" alt="The Creator" loading="lazy" />
-        </div>
-        <div class="movie-card" onclick="openCinema('1uNUOd1FFt_AkSQmdT38CBDhAR93XQORd')">
-            <img class="thumb" src="https://image.tmdb.org/t/p/original/2uSWRTtCG336nuBiG8jOTEUKSy8.jpg" alt="Alien: Romulus" loading="lazy" />
-        </div>
-        <div class="movie-card" onclick="openCinema('1dm0oxuOfYW_rYKqeQ29g6GH6UiQTZmkJ')">
-            <img class="thumb" src="https://image.tmdb.org/t/p/original/ekstpH614fwDX8DUln1a2Opz0N8.jpg" alt="Taxi Driver" loading="lazy" />
-        </div>
-        <div class="movie-card" onclick="openCinema('1RAt2BAruevDFwVXHeZiqq45a0yjVOiZV')">
-            <img class="thumb" src="https://image.tmdb.org/t/p/original/105stT9GkiENXiYqvWYKoAuHKQL.jpg" alt="Mad God" loading="lazy" />
-        </div>
-        <div class="movie-card" onclick="openCinema('1SQqvoCSlTAtQI5dJFVfK1qbVUHpaNUPl')">
-            <img class="thumb" src="https://image.tmdb.org/t/p/original/d5NXSklXo0qyIYkgV94XAgMIckC.jpg" alt="Dune Parte 1" loading="lazy" />
-        </div>
-        <div class="movie-card" onclick="openCinema('1OgjIL6-1Vhk0eE4G00RzXBVb070SjznI')">
-            <img class="thumb" src="https://image.tmdb.org/t/p/original/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg" alt="Dune Parte 2" loading="lazy" />
-        </div>
-        <div class="movie-card" onclick="openCinema('1_r57qlv_LODMPrgS6tFzX_0l5RQXyi92')">
-            <img class="thumb" src="https://image.tmdb.org/t/p/original/bj1v6YKF8yHqA489VFfnQvOJpnc.jpg" alt="Sin lugar para los debiles" loading="lazy" />
-        </div>
-        <div class="movie-card" onclick="openCinema('1na2M_44Eh8n56ldsslQXVQukKdstOvRn')">
-            <img class="thumb" src="https://image.tmdb.org/t/p/original/rxw9l9YNL14ODdmAavUwHLBjiDo.jpg" alt="La última puerta" loading="lazy" />
-        </div>
-        <div class="movie-card" onclick="openCinema('1bgCcQEGBuV8NojNHF_UL8ezfaGcaAzvo')">
-            <img class="thumb" src="https://image.tmdb.org/t/p/original/rT70FZPn3DEFB5UdMHlkwaYQWNV.jpg" alt="El día después de mañana" loading="lazy" />
-        </div>
-        <div class="movie-card" onclick="openCinema('1GS6GVgwbIbJGeMCmCMwTM7-lipD6wg3v')">
-            <img class="thumb" src="https://image.tmdb.org/t/p/original/vQWk5YBFWF4bZaofAbv0tShwBvQ.jpg" alt="Pulp Fiction" loading="lazy" />
-        </div>
-        <div class="movie-card" onclick="openCinema('1vYcd6qzaksYUa_JZF1YkedZhH0KEPo5x')">
-            <img class="thumb" src="https://image.tmdb.org/t/p/original/g67jg52BoaT2ldKRQgZM0Xb8QLT.jpg" alt="Oldboy" loading="lazy" />
-        </div>
-        <div class="movie-card" onclick="openCinema('1San4TfDkYFqMS8NY1DiZwidZDZjQ4HQ8')">
-            <img class="thumb" src="https://image.tmdb.org/t/p/original/7lLJgKnAicAcR5UEuo8xhSMj18w.jpg" alt="Naufrago" loading="lazy" />
-        </div>
-    </div>
-
-<div id="languageModal">
-    <div class="modal-content">
-        <h2>Selecciona idioma</h2>
-        <button class="episode-btn" id="lang-es">Español</button>
-        <button class="episode-btn" id="lang-en">Inglés</button>
-    </div>
-</div>
-
-<div id="cinema">
-    <button class="close-btn" onclick="closeCinema()">X</button>
-    <div class="screen">
-        <iframe id="video-frame" src="" allow="autoplay" allowfullscreen></iframe>
-    </div>
-    <div id="release-box"></div>
-</div>
-
-<div id="cinemaDexter">
-    <button class="close-btn" onclick="closeCinemaDexter()">X</button>
-    <div class="player-layout-container">
-        <div class="player-container">
-            <img src="https://i.imgur.com/pntevFY.png" alt="Dexter Logo" style="width:200px; max-width:90%; margin-bottom: 10px; display:block;">
-            <div id="dexterCinemaTitle"></div>
-            <div class="screen">
-                <iframe id="video-frame-dexter" src="" allowfullscreen></iframe>
+        <div class="grid">
+            <div class="movie-card" onclick="openCinema('1M2P0y3llzW-Yf_HVNQdRip-l-Q8CY40-')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/wPLysNDLffQLOVebZQCbXJEv6E6.jpg" alt="Superman" loading="lazy" />
             </div>
-            <div class="player-controls" id="cinemaDexterControls">
-                <button class="episode-btn" id="dexterPrevBtn">Anterior</button>
-                <button class="episode-btn" id="dexterNextBtn">Siguiente</button>
-                <div class="episode-counter-wrap">
-                    <span id="dexterEpisodeCounter"></span>
+            <div class="movie-card" onclick="openCinema('1Y4iCS1QUzmbrP2hYPqy6Fvc2-HqEvyYk')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/seyWFgGInaLqW7nOZvu0ZC95rtx.jpg" alt="The Batman" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openPeacemakerCinema()">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/yb4F1Oocq8GfQt6iIuAgYEBokhG.jpg" alt="Peacemaker" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1dc06j5pPDeEr95hHvpH0Sf4lpXW1K0UN')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/9kBF4eu6Im5KsEMocMEnSrK2K6R.jpg" alt="Secreto en la Montaña" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('16abUo2Az6CChgacccUj4_mL2Aiej6bpq')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/hbGNJb88HjoQurnRYYWg45YBFtz.jpg" alt="Interestelar" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1f6b5zCtAre2pO3mQ87C-HP-iG3DVgFFo')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/o0hPp6XrJxUSViAEynFbPRfiyY9.jpg" alt="Aniquilación" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1aZ333XH9OGah78an6pTYs5S83A13c0iV')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/v5D7K4EHuQHFSjveq8LGxdSfrGS.jpg" alt="Ocean Eleven" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openDexter()">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/uQwpPjM3gScW914MYYOx7li8sN3.jpg" alt="Dexter" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1dOyG3Citdla0WL2TsZSksnFU7USozUKN')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/jSziioSwPVrOy9Yow3XhWIBDjq1.jpg" alt="El Club de la Pelea" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1Y24D827VR7W5KKmK7ToO4-c5OI4ADvf2')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/pIrjgBmZYnwKvx4WoTkhyhKSHTp.jpg" alt="El Reino de los Cielos" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1_F4emKvSz4hVWy1naoHoRFmB01_atPE9')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/w600_and_h900_bestv2/3dSivDtOuyxLDxPH4v2tcNG1fP7.jpg" alt="The Creator" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1uNUOd1FFt_AkSQmdT38CBDhAR93XQORd')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/2uSWRTtCG336nuBiG8jOTEUKSy8.jpg" alt="Alien: Romulus" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1dm0oxuOfYW_rYKqeQ29g6GH6UiQTZmkJ')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/ekstpH614fwDX8DUln1a2Opz0N8.jpg" alt="Taxi Driver" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1RAt2BAruevDFwVXHeZiqq45a0yjVOiZV')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/105stT9GkiENXiYqvWYKoAuHKQL.jpg" alt="Mad God" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1SQqvoCSlTAtQI5dJFVfK1qbVUHpaNUPl')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/d5NXSklXo0qyIYkgV94XAgMIckC.jpg" alt="Dune Parte 1" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1OgjIL6-1Vhk0eE4G00RzXBVb070SjznI')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg" alt="Dune Parte 2" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1_r57qlv_LODMPrgS6tFzX_0l5RQXyi92')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/bj1v6YKF8yHqA489VFfnQvOJpnc.jpg" alt="Sin lugar para los debiles" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1na2M_44Eh8n56ldsslQXVQukKdstOvRn')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/rxw9l9YNL14ODdmAavUwHLBjiDo.jpg" alt="La última puerta" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1bgCcQEGBuV8NojNHF_UL8ezfaGcaAzvo')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/rT70FZPn3DEFB5UdMHlkwaYQWNV.jpg" alt="El día después de mañana" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1GS6GVgwbIbJGeMCmCMwTM7-lipD6wg3v')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/vQWk5YBFWF4bZaofAbv0tShwBvQ.jpg" alt="Pulp Fiction" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1vYcd6qzaksYUa_JZF1YkedZhH0KEPo5x')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/g67jg52BoaT2ldKRQgZM0Xb8QLT.jpg" alt="Oldboy" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1San4TfDkYFqMS8NY1DiZwidZDZjQ4HQ8')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/7lLJgKnAicAcR5UEuo8xhSMj18w.jpg" alt="Naufrago" loading="lazy" />
+            </div>
+        </div>
+    </div>
+    <div id="languageModal">
+        <div class="modal-content">
+            <h2>Selecciona idioma</h2>
+            <button class="episode-btn" id="lang-es">Español</button>
+            <button class="episode-btn" id="lang-en">Inglés</button>
+        </div>
+    </div>
+    <div id="cinema">
+        <button class="close-btn" onclick="closeCinema()">X</button>
+        <div class="screen">
+            <iframe id="video-frame" src="" allow="autoplay" allowfullscreen></iframe>
+        </div>
+        <div id="release-box"></div>
+    </div>
+    <div id="cinemaDexter">
+        <button class="close-btn" onclick="closeCinemaDexter()">X</button>
+        <div class="player-layout-container">
+            <div class="player-container">
+                <img src="https://i.imgur.com/pntevFY.png" alt="Dexter Logo" style="width:200px; max-width:90%; margin-bottom: 10px; display:block;">
+                <div id="dexterCinemaTitle"></div>
+                <div class="screen">
+                    <iframe id="video-frame-dexter" src="" allowfullscreen></iframe>
+                </div>
+                <div class="player-controls" id="cinemaDexterControls">
+                    <button class="episode-btn" id="dexterPrevBtn">Anterior</button>
+                    <button class="episode-btn" id="dexterNextBtn">Siguiente</button>
+                    <div class="episode-counter-wrap">
+                        <span id="dexterEpisodeCounter"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="episode-sidebar" id="dexter-sidebar">
+                <h2>Temporadas y Episodios</h2>
+                <select id="season-selector" class="season-dropdown"></select>
+                <div class="episode-list-container" id="episode-list-container"></div>
+            </div>
+        </div>
+    </div>
+    <div id="cinemaPeacemaker">
+        <button class="close-btn" onclick="closePeacemakerCinema()">X</button>
+        <div class="player-layout-container">
+            <div class="player-container">
+                <img src="https://i.imgur.com/kSvrSb2.png" alt="Peacemaker Logo" style="width:300px; max-width:90%; margin-bottom: 10px; display:block;">
+                <div id="peacemakerCinemaTitle"></div>
+                <div class="screen">
+                    <iframe id="video-frame-peacemaker" src="" allowfullscreen></iframe>
+                </div>
+                <div id="peacemaker-countdown-box" class="countdown-box"></div>
+                <div class="player-controls">
+                    <button class="episode-btn" id="peacemakerPrevBtn">Anterior</button>
+                    <button class="episode-btn" id="peacemakerNextBtn">Siguiente</button>
+                    <div class="episode-counter-wrap">
+                        <span id="peacemakerEpisodeCounter"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="episode-sidebar" id="peacemaker-sidebar">
+                <h2>Temporadas y Episodios</h2>
+                <select id="peacemaker-season-selector" class="season-dropdown"></select>
+                <div class="episode-list-container" id="peacemaker-episode-list-container"></div>
+                <div id="peacemaker-language-select" class="language-select-wrap">
+                    <h3>Idioma</h3>
+                    <button class="episode-btn" id="pm-lang-es">Español</button>
+                    <button class="episode-btn" id="pm-lang-en">Inglés</button>
                 </div>
             </div>
         </div>
-        <div class="episode-sidebar" id="dexter-sidebar">
-            <h2>Temporadas y Episodios</h2>
-            <select id="season-selector" class="season-dropdown"></select>
-            <div class="episode-list-container" id="episode-list-container"></div>
-        </div>
     </div>
-</div>
 
-<div id="cinemaPeacemaker">
-    <button class="close-btn" onclick="closePeacemakerCinema()">X</button>
-    <div class="player-layout-container">
-        <div class="player-container">
-            <img src="https://i.imgur.com/kSvrSb2.png" alt="Peacemaker Logo" style="width:300px; max-width:90%; margin-bottom: 10px; display:block;">
-            <div id="peacemakerCinemaTitle"></div>
-            <div class="screen">
-                <iframe id="video-frame-peacemaker" src="" allowfullscreen></iframe>
+    <button id="open-roulette-btn" title="">
+        <img src="https://images.vexels.com/media/users/3/151205/isolated/preview/8857efb275fbf2435db40a222d05b1e6-icono-de-rueda-de-ruleta.png" alt="Ruleta">
+    </button>
+
+    <div id="roulette-modal">
+        <div class="roulette-container">
+            <button class="close-btn" onclick="closeRoulette()">X</button>
+            
+            <div class="roulette-wheel-container">
+                <div class="roulette-pointer"></div>
+                <div class="roulette-wheel">
+                    </div>
             </div>
-            <div id="peacemaker-countdown-box" class="countdown-box"></div>
-            <div class="player-controls">
-                <button class="episode-btn" id="peacemakerPrevBtn">Anterior</button>
-                <button class="episode-btn" id="peacemakerNextBtn">Siguiente</button>
-                <div class="episode-counter-wrap">
-                    <span id="peacemakerEpisodeCounter"></span>
+    
+            <div id="roulette-result">
                 </div>
-            </div>
-        </div>
-        <div class="episode-sidebar" id="peacemaker-sidebar">
-            <h2>Temporadas y Episodios</h2>
-            <select id="peacemaker-season-selector" class="season-dropdown"></select>
-            <div class="episode-list-container" id="peacemaker-episode-list-container"></div>
-            <div id="peacemaker-language-select" class="language-select-wrap">
-                <h3>Idioma</h3>
-                <button class="episode-btn" id="pm-lang-es">Español</button>
-                <button class="episode-btn" id="pm-lang-en">Inglés</button>
+    
+            <div class="roulette-controls">
+                <button class="episode-btn" id="spin-btn">GIRAR</button>
+                <button class="episode-btn" id="reset-btn" style="display: none;">Reiniciar</button>
             </div>
         </div>
     </div>
-</div>
-
 
 <script>
     let countdownInterval;
@@ -773,7 +845,7 @@ html {
             episodeIndex: 0
         },
         peacemaker: {
-            season: 'Temporada 2',
+            season: 'Temporada 1',
             episodeIndex: 0
         }
     };
@@ -782,27 +854,27 @@ html {
     // DATABASE DE SERIES
     // ===========================================================
     const peacemakerData = {
-        'Temporada 1': [
-            { title: "Un Giro Completamente Nuevo", videoId_es: "1PinwiM4-Lc6XeOHgMREprwWfF6i8noSI", videoId_en: "1foDQzFqS6V_Nx9XObvAvtyfNpQwZlTcA", thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/6c2a04f5-52a4-40d2-958c-e37f9cfcc891/0f3a325238a8e8b5b2bb8b46edc241e38a07c7f8.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", description: "Tras una milagrosa recuperación, Peacemaker regresa a casa y descubre que su libertad tiene un precio." },
-            { title: "Mejores Amigos, Para Nunca", videoId_es: "1RygUiKmAU2IVjUMqSoQMKSSSqWvWub_B", videoId_en: "1D39ICqLEHuA5BLCtUVpcLU0nfXD4ZRWa", thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/1c9ed3b7-8b2c-41ca-9e7d-801b712fb1b6/4b9bed8f63a5fbc4661679f066746f79b8cac2e5.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", description: "Peligrosa huida de Peacemaker crea tensión y desconfianza dentro del equipo. Peacemaker lidia con su primera misión, recibe una visita inesperada." },
-            { title: "Más Vale un Goff Muerto", videoId_es: "1AxGzREYDRyZwDIH55H8WRaFgWmE1QM0j", videoId_en: "1JzH5yaeMsj0-jQS_J8KIIrrTuaD06rD5", thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/f0f9f1c3-1bc0-4fc6-8492-e4155c05d3ed/fc8fb8e00e229749f963dfdfbf502b7fde581e90.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", description: "En su primera misión oficial, Economos y Murn se unen y Peacemaker y Harcourt se ponen de acuerdo. Trabajo se perjudica con llegada de Judomaster." },
-            { title: "El Miembro Menos Transitado", videoId_es: "1Hd5Bq-LE4bB10yNlvfgQnda7Pb2SeOw2", videoId_en: "1n2-feGEDTOx_tVXrq5MybVAOjycIniS_", thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/6f25dbf9-2f60-4aee-9a45-bf1c4aa395e0/d212947b01e5ce9319b138e3b8610486509cb348.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", description: "Misión algo exitosa, Murn recluta a Vigilante. Tras enterarse que el equipo estuvo en encarcelamiento de su padre, Peacemaker se enfrenta a su pasado." },
-            { title: "Todo Está Bien", videoId_es: "1JYsPuiWeHa41ILpxoKnfr8u8O45Ncndt", videoId_en: "1qHvMtRBNo0Nchsez0txizv1US5CVTRKf", thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/ed38ad31-3f25-4795-ab99-31e8105d7a20/1311142f3785ca23af70d4e63f56d59a3ee8bb80.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", description: "Equipo explora un centro y termina sufriendo una invasión. El intento de Auggie de delatar a su hijo se ve perjudicado por un contacto de Murn." },
-            { title: "Lamento Después de Leer", videoId_es: "1l9U6g80OiMc5bfKc6gtNsmLDgFYkxrrW", videoId_en: "1MGqHI33yXCMt2777otOd9Tdd5ch4RtIT", thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/8088667e-2f12-450d-81d7-ca43f412a00b/cc33e78bacc41a5714a738d2fba13339301f2a6e.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", description: "Murn revela su secreto. Auggie es liberado, y la detención fallida de Peacemaker hace que el alienígena Goff encuentre un nuevo huésped inesperado." },
-            { title: "No Arrastres Mi Corazón, Dragón", videoId_es: "15stQ2tQLKQyV3VbkKnXWQj1xmz9pG4Ww", videoId_en: "1JEFO7Kipj4mUblTb3dV1A9ka_AHh8Xxt", thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/a8fc648e-507f-4664-89c5-5b1a4a4b3881/f56277e72fde37e9640a9cb35361b8484f558c2e.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", description: "Mientras Harcourt, Murn y Adebayo se encuentran rodeados por una fuerza alienígena, Peacemaker enfrenta a su padre con ayuda de Vigilante y Economos." },
-            { title: "Es Vaca O Nunca", videoId_es: "1W7iK71yLBFqgY1GvS4b9IG9C9V0pUgnS", videoId_en: "1vzTpuPjTIxFG5AkEcLQaYKmHch35k3tZ", thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/2eb2ecba-670f-4266-8dfe-4e28f91a05ea/5bbac81639002fec142c7e0027ec898b4ae216b6.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", description: "Con Peacemaker y Adebayo en desacuerdo, ¿podrá el equipo matar a la vaca o su oposición dará la oportunidad para completar su teletransporte?" }
-        ],
-        'Temporada 2': [
-            { title: "Los lazos que muelen", videoId_es: "1ozRKZ6iquAuLyxji-Kh4u9_rOaeCUZXv", videoId_en: "1OW3HwiwiFtJ4pTu3yvyxU74sB0SbYGIz", thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/bef3c15c-d62b-4acb-abb1-c8351ca668da/bb298b74-e97e-4b58-bd0a-8b8283495e06?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", description: "Mientras Peacemaker intenta unirse a la Pandilla de la Justicia, Harcourt tiene dificultades para encontrar trabajo y Economos asume un nuevo desafío." },
-            { title: "Un Hombre Vale Tanto Como Su Pájaro", videoId_es: "1fqIA1T5MIoXZfUwyeClO1UcONLecr34n", videoId_en: "1csehTnd5Xb2v7xPBv4xNvCQxtO41M1Tg", thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/f51f64fd-fbcc-48e5-8437-eef5cce08b6e/4dcb9d6f-5dd9-4f3d-bdd0-a3303e0fd82f?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", description: "Mientras Economos se enfrenta a su nuevo responsable, Peacemaker debe enfrentar las consecuencias de sus acciones en la dimensión alterna." },
-            { title: "Próximamente...", releaseDate: '2025-09-05', description: "El episodio 3 se estrena pronto." },
-            { title: "Próximamente...", releaseDate: '2025-09-12', description: "El episodio 4 se estrena pronto." },
-            { title: "Próximamente...", releaseDate: '2025-09-19', description: "El episodio 5 se estrena pronto." },
-            { title: "Próximamente...", releaseDate: '2025-09-26', description: "El episodio 6 se estrena pronto." },
-            { title: "Próximamente...", releaseDate: '2025-10-03', description: "El episodio 7 se estrena pronto." },
-            { title: "Próximamente...", releaseDate: '2025-10-10', description: "El episodio 8 se estrena pronto." }
-        ]
-    };
+    'Temporada 1': [
+        { title: "Un Giro Completamente Nuevo", videoId_es: "1PinwiM4-Lc6XeOHgMREprwWfF6i8noSI", videoId_en: "1foDQzFqS6V_Nx9XObvAvtyfNpQwZlTcA", thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/6c2a04f5-52a4-40d2-958c-e37f9cfcc891/0f3a325238a8e8b5b2bb8b46edc241e38a07c7f8.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", description: "Tras una milagrosa recuperación, Peacemaker regresa a casa y descubre que su libertad tiene un precio." },
+        { title: "Mejores Amigos, Para Nunca", videoId_es: "1RygUiKmAU2IVjUMqSoQMKSSSqWvWub_B", videoId_en: "1D39ICqLEHuA5BLCtUVpcLU0nfXD4ZRWa", thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/1c9ed3b7-8b2c-41ca-9e7d-801b712fb1b6/4b9bed8f63a5fbc4661679f066746f79b8cac2e5.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", description: "Peligrosa huida de Peacemaker crea tensión y desconfianza dentro del equipo. Peacemaker lidia con su primera misión, recibe una visita inesperada." },
+        { title: "Más Vale un Goff Muerto", videoId_es: "1AxGzREYDRyZwDIH55H8WRaFgWmE1QM0j", videoId_en: "1JzH5yaeMsj0-jQS_J8KIIrrTuaD06rD5", thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/f0f9f1c3-1bc0-4fc6-8492-e4155c05d3ed/fc8fb8e00e229749f963dfdfbf502b7fde581e90.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", description: "En su primera misión oficial, Economos y Murn se unen y Peacemaker y Harcourt se ponen de acuerdo. Trabajo se perjudica con llegada de Judomaster." },
+        { title: "El Miembro Menos Transitado", videoId_es: "1Hd5Bq-LE4bB10yNlvfgQnda7Pb2SeOw2", videoId_en: "1n2-feGEDTOx_tVXrq5MybVAOjycIniS_", thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/6f25dbf9-2f60-4aee-9a45-bf1c4aa395e0/d212947b01e5ce9319b138e3b8610486509cb348.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", description: "Misión algo exitosa, Murn recluta a Vigilante. Tras enterarse que el equipo estuvo en encarcelamiento de su padre, Peacemaker se enfrenta a su pasado." },
+        { title: "Todo Está Bien", videoId_es: "1JYsPuiWeHa41ILpxoKnfr8u8O45Ncndt", videoId_en: "1qHvMtRBNo0Nchsez0txizv1US5CVTRKf", thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/ed38ad31-3f25-4795-ab99-31e8105d7a20/1311142f3785ca23af70d4e63f56d59a3ee8bb80.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", description: "Equipo explora un centro y termina sufriendo una invasión. El intento de Auggie de delatar a su hijo se ve perjudicado por un contacto de Murn." },
+        { title: "Lamento Después de Leer", videoId_es: "1l9U6g80OiMc5bfKc6gtNsmLDgFYkxrrW", videoId_en: "1MGqHI33yXCMt2777otOd9Tdd5ch4RtIT", thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/8088667e-2f12-450d-81d7-ca43f412a00b/cc33e78bacc41a5714a738d2fba13339301f2a6e.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", description: "Murn revela su secreto. Auggie es liberado, y la detención fallida de Peacemaker hace que el alienígena Goff encuentre un nuevo huésped inesperado." },
+        { title: "No Amastres Mi Corazón, Dragón", videoId_es: "1ZJllXk6waNB7Xg54BA3tWTLJVWfMl_No", videoId_en: "1JEFO7Kipj4mUblTb3dV1A9ka_AHh8Xxt", thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/a8fc648e-507f-4664-89c5-5b1a4a4b3881/f56277e72fde37e9640a9cb35361b8484f558c2e.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", description: "Mientras Harcourt, Murn y Adebayo se encuentran rodeados por una fuerza alienígena, Peacemaker enfrenta a su padre con ayuda de Vigilante y Economos." },
+        { title: "Es Vaca O Nunca", videoId_es: "1_duEWaahmrbAtTqfPF6sssuLaCf1soG1", videoId_en: "1vzTpuPjTIxFG5AkEcLQaYKmHch35k3tZ", thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/2eb2ecba-670f-4266-8dfe-4e28f91a05ea/5bbac81639002fec142c7e0027ec898b4ae216b6.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", description: "Con Peacemaker y Adebayo en desacuerdo, ¿podrá el equipo matar a la vaca o su oposición dará la oportunidad para completar su teletransporte?" }
+    ],
+    'Temporada 2': [
+        { title: "Los lazos que muelen", videoId_es: "1ozRKZ6iquAuLyxji-Kh4u9_rOaeCUZXv", videoId_en: "1OW3HwiwiFtJ4pTu3yvyxU74sB0SbYGIz", thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/bef3c15c-d62b-4acb-abb1-c8351ca668da/bb298b74-e97e-4b58-bd0a-8b8283495e06?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", description: "Mientras Peacemaker intenta unirse a la Pandilla de la Justicia, Harcourt tiene dificultades para encontrar trabajo y Economos asume un nuevo desafío." },
+        { title: "Un Hombre Vale Tanto Como Su Pájaro", videoId_es: "1fqIA1T5MIoXZfUwyeClO1UcONLecr34n", videoId_en: "1csehTnd5Xb2v7xPBv4xNvCQxtO41M1Tg", thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/f51f64fd-fbcc-48e5-8437-eef5cce08b6e/4dcb9d6f-5dd9-4f3d-bdd0-a3303e0fd82f?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", description: "Mientras Economos se enfrenta a su nuevo responsable, Peacemaker debe enfrentar las consecuencias de sus acciones en la dimensión alterna." },
+        { title: "Próximamente...", releaseDate: '2025-09-05', description: "El episodio 3 se estrena pronto." },
+        { title: "Próximamente...", releaseDate: '2025-09-12', description: "El episodio 4 se estrena pronto." },
+        { title: "Próximamente...", releaseDate: '2025-09-19', description: "El episodio 5 se estrena pronto." },
+        { title: "Próximamente...", releaseDate: '2025-09-26', description: "El episodio 6 se estrena pronto." },
+        { title: "Próximamente...", releaseDate: '2025-10-03', description: "El episodio 7 se estrena pronto." },
+        { title: "Próximamente...", releaseDate: '2025-10-10', description: "El episodio 8 se estrena pronto." }
+    ]
+};
     const dexterData = {
     1: [
         { title: "Dexter", videoId: "1xfWPP4ZMSbM6R9nHqVEjg6UPNpemnhUC", thumbnail: "https://image.tmdb.org/t/p/w300/70rjTrItEJCyr6u8zmAVQrdmcrP.jpg", description: "Dexter Morgan, analista de salpicaduras de sangre del Departamento de Policía de Miami, lleva una doble vida como un asesino en serie justiciero que persigue a criminales que han eludido el sistema de justicia." }, 
@@ -1009,11 +1081,29 @@ html {
         closeLanguageModal();
     }
 
+    function toggleDescription(event, pId) {
+        event.stopPropagation();
+        const p = document.getElementById(pId);
+        const link = event.target;
+        p.classList.toggle('expanded');
+        link.textContent = p.classList.contains('expanded') ? 'Menos' : 'Más';
+    }
+
+    function formatDate(date, part) {
+        if (!date) return '';
+        if (part === 'day') {
+            return new Intl.DateTimeFormat('es-ES', { day: 'numeric' }).format(date);
+        }
+        if (part === 'month') {
+            return new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(date).toUpperCase();
+        }
+        return '';
+    }
+
     // ===========================================================
     // LÓGICA DE DEXTER
     // ===========================================================
     function openDexter() {
-        // Cargar progreso guardado
         try {
             const savedProgress = localStorage.getItem('dexterProgress');
             if (savedProgress) {
@@ -1021,9 +1111,8 @@ html {
                 playerState.dexter.season = progress.season;
                 playerState.dexter.episodeIndex = progress.episodeIndex;
             }
-        } catch (e) {
-            console.error("Error al cargar el progreso de Dexter:", e);
-        }
+        } catch (e) { console.error("Error al cargar el progreso de Dexter:", e); }
+        
         document.getElementById('cinemaDexter').classList.add('show');
         populateDexterSeasonDropdown();
         populateDexterEpisodeList(playerState.dexter.season);
@@ -1055,7 +1144,7 @@ html {
     }
 
     function populateDexterEpisodeList(seasonNum) {
-        const container = document.getElementById('episode-list-container');
+        const container = document.querySelector('#dexter-sidebar .episode-list-container');
         container.innerHTML = '';
         if (!dexterData[seasonNum]) return;
 
@@ -1077,6 +1166,13 @@ html {
     }
 
     function openDexterEpisode(season, episodeIndex) {
+        document.querySelectorAll('#dexter-sidebar .episode-card').forEach(c => c.classList.remove('active'));
+        const activeCard = document.getElementById(`dexter-episode-${season}-${episodeIndex}`);
+        if (activeCard) {
+            activeCard.classList.add('active');
+            activeCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        
         playerState.dexter.season = season;
         playerState.dexter.episodeIndex = episodeIndex;
 
@@ -1085,13 +1181,6 @@ html {
         
         document.getElementById('video-frame-dexter').src = `https://drive.google.com/file/d/${episode.videoId}/preview`;
         document.getElementById('dexterCinemaTitle').textContent = `T${season}E${episodeIndex + 1} - ${episode.title}`;
-
-        document.querySelectorAll('#dexter-sidebar .episode-card.active').forEach(c => c.classList.remove('active'));
-        const activeCard = document.getElementById(`dexter-episode-${season}-${episodeIndex}`);
-        if (activeCard) {
-            activeCard.classList.add('active');
-            activeCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
         
         updateDexterNavButtons();
         saveDexterProgress(season, episodeIndex);
@@ -1136,26 +1225,20 @@ html {
         try {
             const progress = { season: season, episodeIndex: episodeIndex };
             localStorage.setItem('dexterProgress', JSON.stringify(progress));
-        } catch (e) {
-            console.error("Error al guardar el progreso de Dexter:", e);
-        }
+        } catch (e) { console.error("Error al guardar el progreso de Dexter:", e); }
     }
 
     function savePeacemakerProgress(season, episodeIndex) {
         try {
             const progress = { season: season, episodeIndex: episodeIndex };
             localStorage.setItem('peacemakerProgress', JSON.stringify(progress));
-        } catch (e) {
-            console.error("Error al guardar el progreso de Peacemaker:", e);
-        }
+        } catch (e) { console.error("Error al guardar el progreso de Peacemaker:", e); }
     }
 
     // ===========================================================
     // LÓGICA DE PEACEMAKER
     // ===========================================================
-
     function openPeacemakerCinema() {
-        // Cargar progreso guardado
         try {
             const savedProgress = localStorage.getItem('peacemakerProgress');
             if (savedProgress) {
@@ -1163,9 +1246,8 @@ html {
                 playerState.peacemaker.season = progress.season;
                 playerState.peacemaker.episodeIndex = progress.episodeIndex;
             }
-        } catch (e) {
-            console.error("Error al cargar el progreso de Peacemaker:", e);
-        }
+        } catch (e) { console.error("Error al cargar el progreso de Peacemaker:", e); }
+        
         document.getElementById('cinemaPeacemaker').classList.add('show');
         populatePeacemakerSeasonDropdown();
         populatePeacemakerEpisodeList(playerState.peacemaker.season);
@@ -1199,7 +1281,7 @@ html {
     }
     
     function populatePeacemakerEpisodeList(seasonName) {
-        const container = document.getElementById('peacemaker-episode-list-container');
+        const container = document.querySelector('#peacemaker-sidebar .episode-list-container');
         container.innerHTML = '';
         if (!peacemakerData[seasonName]) return;
 
@@ -1212,18 +1294,19 @@ html {
             const isAvailable = !episodeDate || episodeDate <= hoy;
 
             card.className = 'episode-card';
+            if (!isAvailable) {
+                card.classList.add('unavailable');
+            }
             card.id = `peacemaker-episode-${index}`;
 
             if (isAvailable) {
                 card.onclick = () => openPeacemakerEpisode(seasonName, index);
             } else {
-                card.className += ' unavailable';
                 card.onclick = () => showPeacemakerCountdown(episode.releaseDate, `Episodio ${index + 1}`);
             }
 
             const thumbnailHTML = isAvailable ?
-                `<img src="${episode.thumbnail}" alt="${episode.title}" class="episode-card-thumb" loading="lazy">`
-                :
+                `<img src="${episode.thumbnail}" alt="${episode.title}" class="episode-card-thumb" loading="lazy">` :
                 `<div class="thumbnail-placeholder">
                     <span class="release-day">${formatDate(episodeDate, 'day')}</span>
                     <span class="release-month">${formatDate(episodeDate, 'month')}</span>
@@ -1236,28 +1319,8 @@ html {
                     <p id="desc-pm-${index}">${episode.description}</p>
                     <a class="toggle-desc" onclick="toggleDescription(event, 'desc-pm-${index}')">Más</a>
                 </div>`;
-                
             container.appendChild(card);
         });
-    }
-
-    function formatDate(date, part) {
-        if (!date) return '';
-        if (part === 'day') {
-            return new Intl.DateTimeFormat('es-ES', { day: 'numeric' }).format(date);
-        }
-        if (part === 'month') {
-            return new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(date).toUpperCase();
-        }
-        return '';
-    }
-    
-    function toggleDescription(event, pId) {
-        event.stopPropagation();
-        const p = document.getElementById(pId);
-        const link = event.target;
-        p.classList.toggle('expanded');
-        link.textContent = p.classList.contains('expanded') ? 'Menos' : 'Más';
     }
 
     function showPeacemakerCountdown(releaseDateString, episodeTitle) {
@@ -1291,8 +1354,7 @@ html {
 
             countdownBox.innerHTML = `
                 <span class="countdown-title">Estreno en:</span>
-                <div class="countdown-timer">${d}d ${h}h ${m}m ${s}s</div>
-            `;
+                <div class="countdown-timer">${d}d ${h}h ${m}m ${s}s</div>`;
         }
 
         updateCountdown();
@@ -1316,7 +1378,7 @@ html {
         
         loadPeacemakerVideo(episode.videoId_es, 'es');
 
-        document.querySelectorAll('#peacemaker-sidebar .episode-card.active').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('#peacemaker-sidebar .episode-card').forEach(c => c.classList.remove('active'));
         const activeCard = document.getElementById(`peacemaker-episode-${episodeIndex}`);
         if (activeCard) {
             activeCard.classList.add('active');
@@ -1388,7 +1450,6 @@ html {
         if (!screen.orientation || !screen.orientation.lock) {
             return;
         }
-
         try {
             if (document.fullscreenElement) {
                 await screen.orientation.lock('landscape');
@@ -1399,100 +1460,189 @@ html {
             console.error("No se pudo cambiar la orientación de la pantalla:", error);
         }
     }
+    
+    // ===========================================================
+    // LÓGICA DE PAGINACIÓN
+    // ===========================================================
+    const MOVIES_PER_PAGE = 10;
+    let currentPage = 1;
+    let allMovieCards = [];
+    let totalPages = 1;
+
+    function setupPagination() {
+        allMovieCards = Array.from(document.querySelectorAll('.grid .movie-card'));
+        if (allMovieCards.length === 0) return;
+        totalPages = Math.ceil(allMovieCards.length / MOVIES_PER_PAGE);
+        
+        const prevBtn = document.getElementById('prev-page-btn');
+        const nextBtn = document.getElementById('next-page-btn');
+
+        if(prevBtn && nextBtn) {
+            prevBtn.addEventListener('click', () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    renderPage(currentPage);
+                }
+            });
+
+            nextBtn.addEventListener('click', () => {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    renderPage(currentPage);
+                }
+            });
+        }
+        
+        renderPage(currentPage);
+    }
+
+    function renderPage(pageNumber) {
+        const grid = document.querySelector('.grid');
+        if (!grid) return;
+
+        grid.innerHTML = '';
+
+        const start = (pageNumber - 1) * MOVIES_PER_PAGE;
+        const end = start + MOVIES_PER_PAGE;
+        const pageCards = allMovieCards.slice(start, end);
+
+        pageCards.forEach(card => {
+            card.classList.add('hidden');
+            grid.appendChild(card);
+        });
+
+        setTimeout(() => {
+            const cardsInGrid = grid.querySelectorAll('.movie-card');
+            cardsInGrid.forEach((card, index) => {
+                const delay = (index % 5) * 100;
+                setTimeout(() => {
+                    card.classList.remove('hidden');
+                }, delay);
+            });
+        }, 10);
+
+        updatePaginationButtons();
+    }
+
+    function updatePaginationButtons() {
+        const prevBtn = document.getElementById('prev-page-btn');
+        const nextBtn = document.getElementById('next-page-btn');
+
+        if(!prevBtn || !nextBtn) return;
+
+        prevBtn.style.display = currentPage > 1 ? 'block' : 'none';
+        nextBtn.style.display = currentPage < totalPages ? 'block' : 'none';
+    }
 
     // ===========================================================
-// LÓGICA DE PAGINACIÓN
-// ===========================================================
-const MOVIES_PER_PAGE = 10; // 5x2
-let currentPage = 1;
-let allMovieCards = [];
-let totalPages = 1;
+    // LÓGICA DE LA RULETA
+    // ===========================================================
+    let rouletteMovies = [];
+    let isSpinning = false;
 
-function setupPagination() {
-    // 1. Guardamos todas las tarjetas de películas originales
-    allMovieCards = Array.from(document.querySelectorAll('.grid .movie-card'));
-    
-    if (allMovieCards.length === 0) return;
-
-    // 2. Calculamos el total de páginas
-    totalPages = Math.ceil(allMovieCards.length / MOVIES_PER_PAGE);
-
-    // 3. Renderizamos la primera página
-    renderPage(currentPage);
-
-    // 4. Asignamos eventos a los botones
-    document.getElementById('prev-page-btn').addEventListener('click', () => {
-        if (currentPage > 1) {
-            currentPage--;
-            renderPage(currentPage);
-        }
-    });
-
-    document.getElementById('next-page-btn').addEventListener('click', () => {
-        if (currentPage < totalPages) {
-            currentPage++;
-            renderPage(currentPage);
-        }
-    });
-}
-
-function renderPage(pageNumber) {
-    const grid = document.querySelector('.grid');
-    if (!grid) return;
-
-    // 1. Limpiamos el grid instantáneamente
-    grid.innerHTML = '';
-
-    // 2. Calculamos las películas de la página actual
-    const start = (pageNumber - 1) * MOVIES_PER_PAGE;
-    const end = start + MOVIES_PER_PAGE;
-    const pageCards = allMovieCards.slice(start, end);
-
-    // 3. Añadimos cada tarjeta, pero inicialmente oculta
-    pageCards.forEach(card => {
-        card.classList.add('hidden'); // Añadimos la clase para que esté invisible
-        grid.appendChild(card);
-    });
-
-    // 4. Las hacemos visibles en pares con un pequeño retraso
-    setTimeout(() => {
-        const cardsInGrid = grid.querySelectorAll('.movie-card');
-        cardsInGrid.forEach((card, index) => {
-            // Calculamos el retraso basado en la columna (de 0 a 4)
-            const delay = (index % 5) * 100; // 100ms de retraso por cada par de columnas
-            setTimeout(() => {
-                card.classList.remove('hidden');
-            }, delay);
+    function setupRoulette() {
+        allMovieCards.forEach(card => {
+            const onclickAttr = card.getAttribute('onclick');
+            if (onclickAttr && onclickAttr.includes('openCinema')) {
+                rouletteMovies.push(card.cloneNode(true));
+            }
         });
-    }, 10);
 
-    // 5. Actualizamos los botones
-    updatePaginationButtons();
-}
+        if (rouletteMovies.length < 5) {
+            const openBtn = document.getElementById('open-roulette-btn');
+            if(openBtn) openBtn.style.display = 'none';
+            return;
+        }
 
-function updatePaginationButtons() {
-    const prevBtn = document.getElementById('prev-page-btn');
-    const nextBtn = document.getElementById('next-page-btn');
-
-    // Mostramos u ocultamos el botón "Anterior"
-    if (currentPage > 1) {
-        prevBtn.style.display = 'block';
-    } else {
-        prevBtn.style.display = 'none';
+        document.getElementById('open-roulette-btn').addEventListener('click', openRoulette);
+        document.getElementById('spin-btn').addEventListener('click', spinRoulette);
+        document.getElementById('reset-btn').addEventListener('click', resetRoulette);
     }
 
-    // Mostramos u ocultamos el botón "Siguiente"
-    if (currentPage < totalPages) {
-        nextBtn.style.display = 'block';
-    } else {
-        nextBtn.style.display = 'none';
+    function openRoulette() {
+        populateRoulette();
+        document.getElementById('roulette-modal').classList.add('show');
     }
-}
 
-// Iniciar la paginación cuando el DOM esté listo
-setupPagination();
+    function closeRoulette() {
+        document.getElementById('roulette-modal').classList.remove('show');
+    }
 
-    document.addEventListener('fullscreenchange', gestionarOrientacionPantalla);
+    function populateRoulette() {
+        const wheel = document.querySelector('.roulette-wheel');
+        wheel.innerHTML = '';
+        wheel.style.transition = 'none';
+        wheel.style.transform = 'translateX(0)';
+
+        let wheelItems = [];
+        for(let i = 0; i < 10; i++) {
+            wheelItems.push(...rouletteMovies.sort(() => Math.random() - 0.5));
+        }
+
+        wheelItems.forEach(card => {
+            const item = document.createElement('div');
+            item.className = 'roulette-item';
+            item.appendChild(card.querySelector('img').cloneNode(true));
+            wheel.appendChild(item);
+        });
+    }
+
+    function spinRoulette() {
+        if (isSpinning) return;
+        isSpinning = true;
+
+        const wheel = document.querySelector('.roulette-wheel');
+        const resultContainer = document.getElementById('roulette-result');
+        const spinBtn = document.getElementById('spin-btn');
+        const resetBtn = document.getElementById('reset-btn');
+
+        spinBtn.disabled = true;
+        resetBtn.style.display = 'none';
+        resultContainer.innerHTML = '';
+
+        const winnerIndex = Math.floor(Math.random() * rouletteMovies.length);
+        const winnerCard = rouletteMovies[winnerIndex];
+
+        const itemsInWheel = wheel.querySelectorAll('.roulette-item');
+        let targetIndex = -1;
+        for (let i = Math.floor(itemsInWheel.length / 2); i < itemsInWheel.length; i++) {
+            const img = itemsInWheel[i].querySelector('img');
+            if (img && img.src === winnerCard.querySelector('img').src) {
+                targetIndex = i;
+                break;
+            }
+        }
+
+        if (targetIndex === -1) { targetIndex = Math.floor(itemsInWheel.length / 2); }
+
+        const itemWidth = 130;
+        const containerWidth = wheel.parentElement.offsetWidth;
+        const randomOffset = Math.random() * (itemWidth - 40) - ((itemWidth - 40) / 2);
+        const finalPosition = - (targetIndex * itemWidth) + (containerWidth / 2) - (itemWidth / 2) + randomOffset;
+        
+        wheel.style.transition = 'transform 7s cubic-bezier(0.25, 0.1, 0.25, 1)';
+        wheel.style.transform = `translateX(${finalPosition}px)`;
+
+        setTimeout(() => {
+            isSpinning = false;
+            spinBtn.style.display = 'none';
+            resetBtn.style.display = 'inline-block';
+            
+            const winnerCardClone = winnerCard.cloneNode(true);
+            winnerCardClone.classList.remove('hidden');
+            const originalOnclick = winnerCard.getAttribute('onclick');
+            winnerCardClone.setAttribute('onclick', `closeRoulette(); ${originalOnclick}`);
+            resultContainer.appendChild(winnerCardClone);
+        }, 7000);
+    }
+
+    function resetRoulette() {
+        populateRoulette();
+        document.getElementById('roulette-result').innerHTML = '';
+        document.getElementById('spin-btn').disabled = false;
+        document.getElementById('spin-btn').style.display = 'inline-block';
+        document.getElementById('reset-btn').style.display = 'none';
+    }
 
     // ===========================================================
     // INICIALIZACIÓN DE EVENTOS
@@ -1511,6 +1661,11 @@ setupPagination();
         document.getElementById('peacemakerPrevBtn').addEventListener('click', previousPeacemakerEpisode);
         document.getElementById('peacemakerNextBtn').addEventListener('click', nextPeacemakerEpisode);
 
+        setupPagination();
+        setupRoulette();
+        
+        document.addEventListener('fullscreenchange', gestionarOrientacionPantalla);
+
         // Evento para la tecla Escape
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
@@ -1520,6 +1675,7 @@ setupPagination();
                     case 'cinema': closeCinema(); break;
                     case 'cinemaDexter': closeCinemaDexter(); break;
                     case 'cinemaPeacemaker': closePeacemakerCinema(); break;
+                    case 'roulette-modal': closeRoulette(); break;
                     case 'languageModal': closeLanguageModal(); break;
                 }
             }
