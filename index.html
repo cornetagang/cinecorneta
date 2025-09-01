@@ -630,40 +630,30 @@ html { scrollbar-width: none; }
     100% { transform: scale(1); }
 }
 
-/* ===== REGLAS RESPONSIVAS (MEDIA QUERIES) ===== */
-@media (max-width: 1024px) {
-    .player-layout-container {
-        flex-direction: column;
-        justify-content: flex-start;
-        height: auto;
-        overflow-y: auto;
-        padding-top: 60px;
-    }
-    .player-container {
-        order: 1;
-        width: 100%;
-        max-width: 900px;
-    }
-    .episode-sidebar {
-        order: 2;
-        flex-basis: auto;
-        width: 100%;
-        max-width: 100%;
-        height: auto;
-        max-height: 50vh;
-        margin-top: 20px;
-    }
-     #cinemaDexter .screen, #cinemaPeacemaker .screen {
-        max-height: 50vh;
-     }
-}
-@media (max-width: 768px) {
-    .header-container button {
-        width: 35px;
-        height: 35px;
-        font-size: 18px;
+@media (max-width: 1200px) {
+    .grid {
+        /* 4 columnas para pantallas de laptops pequeñas */
+        grid-template-columns: repeat(4, 1fr);
+        gap: 2vw;
     }
 }
+
+@media (max-width: 900px) {
+    .grid {
+        /* 3 columnas para tablets */
+        grid-template-columns: repeat(3, 1fr);
+        gap: 3vw; 
+    }
+}
+
+@media (max-width: 600px) {
+    .grid {
+        /* 2 columnas para teléfonos */
+        grid-template-columns: repeat(2, 1fr);
+        gap: 4vw;
+    }
+}
+
 </style>
 </head>
 <body>
