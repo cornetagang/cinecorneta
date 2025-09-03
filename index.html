@@ -5,499 +5,342 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Cine Corneta</title>
 <link rel="icon" type="image/png" href="https://i.imgur.com/u71QEFc.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Bungee&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 <style>
 :root {
+    /* Paleta de colores Negro y Rojo */
     --primary-red: #E50914;
     --secondary-red: #b20710;
     --bg-dark: #141414;
-    --panel-dark: #181818;
+    --panel-dark: #222;
     --text-light: #e6e3db;
     --text-muted: #8a8a92;
 }
 
 /* ===== ESTILOS GLOBALES Y RESET ===== */
-*, *::before, *::after { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
-body {
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html, body {
+    height: 100%;
     margin: 0;
     padding: 0;
     background: var(--bg-dark);
     color: var(--text-light);
-    font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    letter-spacing: 0.2px;
     overflow-x: hidden;
 }
+
+/* Ocultar scrollbar principal */
 body::-webkit-scrollbar { display: none; }
 html { scrollbar-width: none; }
 
-main {
-    padding-top: 80px; /* Espacio para el header fijo */
-}
-
-.main-header {
+.wrap {
     width: 100%;
-    padding: 20px 4vw;
+    min-height: 100vh;
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
     align-items: center;
-    position: fixed;
-    top: 0;
-    left: 0;
-    z-index: 1000;
-    background-color: var(--bg-dark); /* Fondo oscuro permanente */
-    transition: background-color 0.3s ease;
+    justify-content: flex-start;
+    padding: 24px;
 }
 
-.main-header.scrolled {
-    background-color: var(--bg-dark);
-}
-
-.main-header.menu-open {
-    background-color: var(--bg-dark);
-}
-
-.header-left {
+/* ===== HEADER Y PAGINACIÓN ===== */
+.header-container {
     display: flex;
+    justify-content: center;
     align-items: center;
-    gap: 25px;
-}
-
-/* Contenedor del logo */
-.main-header .logo {
-    display: flex;
-    align-items: center;
-    height: 100%;
-    padding: 0;
-    margin: 0;
-    text-decoration: none;
-}
-
-/* Estilos de la imagen del logo */
-.header-logo {
-    height: 25px;
-    width: auto;
-    object-fit: contain;
-}
-
-.main-nav ul {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    gap: 10px;
-}
-
-.main-nav a {
-    color: var(--text-muted);
-    text-decoration: none;
-    font-weight: bold;
-    font-size: 1rem;
-    padding: 8px 15px;
-    border-radius: 6px;
-    transition: all 0.2s ease;
-}
-
-.main-nav a:hover, .main-nav a.active {
-    color: var(--text-light);
-    text-shadow: 0 0 5px rgba(229, 25, 20, 0.7);
-    background-color: rgba(255, 255, 255, 0.1);
-}
-
-/* ===== HERO BANNER ===== */
-.hero-section {
     width: 100%;
-    height: 80vh;
-    margin-top: -80px;
-    position: relative;
-    display: flex;
-    align-items: center;
-    padding: 0 4vw;
-    background-size: cover;
-    background-position: center 20%;
-}
-.hero-section::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(to right, rgba(20,20,20,1) 0%, rgba(20,20,20,0) 50%, rgba(20,20,20,1) 100%), linear-gradient(to top, rgba(20,20,20,1) 0%, rgba(20,20,20,0) 20%);
-}
-.hero-content {
-    z-index: 2;
-    max-width: 45%;
-    transition: opacity 0.5s ease-in-out;
-}
-.hero-content.hero-fading {
-    opacity: 0;
-}
-.hero-content h1 {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: clamp(2.5rem, 4vw, 3.5rem);
-    margin: 0 0 20px 0;
-    text-shadow: 0 4px 10px black;
-}
-.hero-content p {
-    font-size: 1.1rem;
-    line-height: 1.6;
-    max-width: 600px;
-    text-shadow: 0 2px 5px black;
-}
-.hero-buttons .btn {
-    padding: 12px 25px;
-    border-radius: 6px;
-    border: none;
-    font-size: 1.1rem;
-    font-weight: bold;
-    cursor: pointer;
-    margin-right: 15px;
-    transition: all 0.2s ease;
-}
-.btn-play { background-color: var(--primary-red); color: white; }
-.btn-play:hover { background-color: var(--secondary-red); }
-.btn-info { background-color: rgba(109, 109, 110, 0.7); color: white; }
-.btn-info:hover { background-color: rgba(109, 109, 110, 0.4); }
-
-/* ===== CARRUSELES Y GRID ===== */
-.content-wrapper {
-    width: 100%;
-    padding: 0 4vw;
-    z-index: 5;
-    position: relative;
-}
-#carousel-container.with-hero {
-    margin-top: -10vh;
-}
-.carousel {
+    max-width: 1400px;
     margin-bottom: 40px;
-    transition: display 0.3s ease-out;
-}
-.carousel.hidden {
-    display: none;
-}
-.carousel-title {
-    font-size: 1.5rem;
-    font-weight: bold;
-    margin-bottom: 15px;
-}
-.carousel-track-container {
     position: relative;
 }
-.carousel-track {
-    display: flex;
-    gap: 15px;
-    overflow-x: auto;
-    padding-bottom: 20px;
-    scrollbar-width: thin;
-    scrollbar-color: var(--primary-red) transparent;
-}
-.carousel-track::-webkit-scrollbar { height: 8px; }
-.carousel-track::-webkit-scrollbar-thumb { background-color: var(--primary-red); border-radius: 4px; }
-.carousel-card {
-    flex-shrink: 0;
-    width: 18%;
-    aspect-ratio: 2/3;
-    border-radius: 6px;
-    overflow: hidden;
-    cursor: pointer;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    position: relative;
-}
-.carousel-card img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-.carousel-card:hover {
-    transform: scale(1.05) translateY(-5px);
-    z-index: 10;
-    box-shadow: 0 10px 20px rgba(0,0,0,0.5);
-}
 
-#full-grid-container .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 20px;
-    padding-bottom: 50px;
-}
-
-#full-grid-container .movie-card {
-    background: var(--panel-dark);
+.title-panel {
+    background: #1C1C1C;
+    font-family: 'Bungee', cursive;
+    padding: 20px 30px;
     border-radius: 8px;
+    border: 4px solid var(--secondary-red);
+    text-align: center;
+    margin: 0;
+    position: relative;
     overflow: hidden;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8), 0 5px 15px rgba(0, 0, 0, 0.6);
+    width: 100%;
+    max-width: 600px;
+}
+
+.title-panel h1 {
+    margin: 0;
+    font-size: clamp(28px, 6vw, 50px);
+    font-weight: normal;
+    letter-spacing: 3px;
+    color: #F8F8F8;
+    text-shadow: 0 0 8px rgba(255,255,255,0.7), 0 0 20px var(--primary-red), 0 0 30px var(--secondary-red);
+    animation: flicker 2s infinite alternate;
+}
+
+@keyframes flicker {
+    0%, 18%, 22%, 25%, 53%, 57%, 100% { text-shadow: 0 0 8px rgba(255, 255, 255, 0.7), 0 0 20px var(--primary-red), 0 0 30px var(--secondary-red); }
+    20%, 24%, 55% { text-shadow: 0 0 5px rgba(229, 9, 20, 0.3); }
+}
+
+.header-container button {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: 2px solid var(--text-muted);
+    color: var(--text-muted);
+    border-radius: 50%;
+    width: 45px;
+    height: 45px;
+    font-size: 22px;
+    font-weight: bold;
     cursor: pointer;
+    display: none;
+    transition: all 0.2s ease;
+}
+
+#prev-page-btn { left: 0; }
+#next-page-btn { right: 0; }
+
+.header-container button:hover {
+    background-color: var(--primary-red);
+    border-color: var(--primary-red);
+    color: white;
+    transform: translateY(-50%) scale(1.1);
+}
+
+/* ===== GRID DE PELÍCULAS ===== */
+.grid-container {
+    position: relative;
+    width: 100%;
+    max-width: 1400px;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1.5vw;
+    transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+}
+
+.movie-card {
+    background: var(--panel-dark);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
+    display: flex;
+    flex-direction: column;
+    width: 100%;
     aspect-ratio: 2/3;
+    cursor: pointer;
+    transition: opacity 0.4s ease-out, transform 0.4s ease-out;
 }
 
-#full-grid-container .movie-card:hover {
-    transform: scale(1.05);
-    box-shadow: 0 10px 25px rgba(0,0,0,0.5), 0 0 10px var(--primary-red);
+.movie-card.hidden {
+    opacity: 0;
+    transform: translateY(20px);
 }
 
-#full-grid-container .movie-card img {
+.movie-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.55), 0 0 15px var(--primary-red);
+}
+
+.thumb {
     width: 100%;
     height: 100%;
     object-fit: cover;
 }
 
-/* ===== MODALES ===== */
-.modal {
+/* ===== MODALES GENERALES ===== */
+#cinema, #cinemaDexter, #cinemaPeacemaker, #languageModal, #roulette-modal {
     position: fixed;
     inset: 0;
     z-index: 2000;
     display: none;
     align-items: center;
     justify-content: center;
-    background: rgba(0,0,0,0.9);
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(5px);
     opacity: 0;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.4s ease;
+    overflow-y: auto;
 }
-.modal.show {
+
+#cinema.show, #cinemaDexter.show, #cinemaPeacemaker.show, #languageModal.show, #roulette-modal.show {
     display: flex;
     opacity: 1;
 }
+
+#cinema { flex-direction: column; }
+
+.modal-content {
+    background: var(--panel-dark);
+    padding: 20px 30px;
+    border-radius: 16px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
+    text-align: center;
+    max-width: 500px;
+    width: 95%;
+    position: relative;
+}
+
+.modal-content h2 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: var(--primary-red);
+}
+
+.screen {
+    background: #000;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.7);
+    width: 100%;
+    max-width: 1200px;
+    aspect-ratio: 16/9;
+}
+
+.screen iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
 .close-btn {
     position: absolute;
     top: 20px;
     right: 20px;
-    background: rgba(20,20,20,0.7);
+    background: var(--secondary-red);
     color: #fff;
-    border: 2px solid #fff;
+    border: none;
     width: 44px;
     height: 44px;
     border-radius: 50%;
     cursor: pointer;
     font-weight: bold;
-    font-size: 20px;
+    font-size: 18px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
     z-index: 1010;
+}
+
+.close-btn:hover {
+    transform: translateY(-2px) scale(1.1);
+    box-shadow: 0 0 8px var(--secondary-red), 0 4px 8px rgba(0, 0, 0, 0.5);
+}
+
+.episode-btn {
+    display: block;
+    margin: 10px auto;
+    padding: 12px 18px;
+    background-color: #222;
+    color: #fff;
+    border: 1px solid #444;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    width: 100%;
+    max-width: 250px;
     transition: all 0.2s ease;
 }
-.close-btn:hover {
-    background: white;
-    color: black;
-    transform: scale(1.1);
+
+.episode-btn:hover:not(:disabled) {
+    background-color: var(--primary-red);
+    color: #fff;
+    border-color: var(--primary-red);
+    transform: scale(1.03);
 }
 
-/* Panel de Detalles */
-.details-panel {
-    width: 90%;
-    max-width: 900px;
-    height: 80vh;
-    background-size: cover;
-    background-position: center;
-    position: relative;
-    border-radius: 8px;
-    overflow: hidden;
+/* ===== ESTILOS GENÉRICOS PARA REPRODUCTORES DE SERIES ===== */
+.player-layout-container {
     display: flex;
-    align-items: flex-end;
-}
-.details-panel::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(to top, rgba(24,24,24,1) 20%, rgba(24,24,24,0.5) 60%, rgba(24,24,24,0) 100%);
-}
-.details-content {
-    z-index: 2;
-    padding: 30px;
-    display: flex;
-    gap: 30px;
+    width: 100%;
+    height: 100%;
     align-items: center;
-    width: 100%;
-}
-
-.details-poster img {
-    width: clamp(180px, 25vw, 250px); /* Ajustado: Mayor tamaño mínimo, % de viewport y tamaño máximo */
-    height: auto; /* Mantiene la proporción automáticamente */
-    object-fit: cover;
-    border-radius: 6px;
-    margin-top: -10vh; /* Si el póster sigue demasiado abajo, puedes reducir este valor (ej. -5vh) */
-    z-index: 2;
-}
-
-.details-info h2 {
-    margin: 0 0 10px 0;
-    font-size: clamp(1.8rem, 4vw, 2.5rem);
-    line-height: 1.2;
-}
-.details-meta { display: flex; align-items: center; gap: 15px; color: var(--text-muted); margin-bottom: 15px; }
-.details-meta span { background: #333; padding: 3px 8px; border-radius: 4px; font-size: 0.9rem; }
-.details-info p {
-    font-size: clamp(0.9rem, 2vw, 1.1rem);
-    line-height: 1.6;
-    max-width: 600px;
-}
-
-.details-info .btn {
-    padding: clamp(10px, 2vw, 12px) clamp(20px, 4vw, 25px); /* Nuevo: Padding adaptable */
-    font-size: clamp(1rem, 2vw, 1.1rem); /* Nuevo: Fuente adaptable */
-    border-radius: 6px;
-    border: none;
-    font-weight: bold;
-    cursor: pointer;
-    margin-top: 20px;
-}
-
-/* Reproductores */
-#cinema.modal {
-    background: radial-gradient(ellipse at center,
-        rgba(40, 40, 40, 0.95) 0%,
-        rgba(20, 20, 20, 0.98) 100%
-    );
-}
-
-#cinema .screen {
-    width: 85vw;
-    max-width: 1600px;
-    aspect-ratio: 16 / 9;
-    background: #000;
-    border-radius: 8px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.7);
-    overflow: hidden;
-}
-
-#cinema .screen iframe {
-    width: 100%;
-    height: 100%;
-    border: none;
-}
-#series-player-modal .player-layout-container {
-    display: flex;
-    gap: 20px;
-    width: 95vw;
-    height: 95vh;
-    max-width: 1700px;
-    max-height: 950px;
-    background-color: #181818;
-    padding: clamp(15px, 2vw, 30px);
-    border-radius: 12px;
-    position: relative;
-    overflow: hidden;
-}
-#series-player-modal .player-layout-container::before {
-    content: attr(data-title);
-    position: absolute;
-    top: 50%;
-    left: 20px;
-    transform: translateY(-50%);
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: clamp(5rem, 15vw, 12rem);
-    color: rgba(255, 255, 255, 0.05);
-    z-index: 0;
-    pointer-events: none;
-}
-
-
-#series-player-modal .player-container {
-    flex: 3;
-    display: flex;
-    flex-direction: column;
-    z-index: 1;
-}
-
-#series-player-modal .player-title {
-    font-size: 1.5rem;
-    font-weight: bold;
-    margin-bottom: 15px;
-    flex-shrink: 0;
-}
-
-#series-player-modal .screen {
-    width: 100%;
-    flex-grow: 1;
-    background-color: #000;
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-#series-player-modal .screen iframe {
-    width: 100%;
-    height: 100%;
-    border: none;
-}
-
-#series-player-modal .pagination-controls {
-    display: flex;
     justify-content: center;
-    align-items: center;
-    gap: 20px;
-    padding-top: 20px;
-    flex-shrink: 0;
+    gap: 2vw;
 }
 
-#series-player-modal .page-indicator {
-    font-size: 1rem;
-    color: var(--text-muted);
-}
-
-#series-player-modal .episode-nav-btn {
-    background-color: #333;
-    color: var(--text-light);
-    border: none;
-    padding: 8px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-}
-#series-player-modal .episode-nav-btn:hover:not(:disabled) { background-color: #444; }
-#series-player-modal .episode-nav-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-#series-player-modal .episode-sidebar {
-    flex: 1.5;
-    min-width: 380px;
+.player-container {
+    flex: 1 1 auto;
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    background-color: #202020;
-    border-radius: 8px;
+    align-items: center;
+    justify-content: center;
+}
+
+.episode-sidebar {
+    flex: 0 0 420px;
+    background: rgba(10, 10, 12, 0.8);
+    border-radius: 12px;
     padding: 20px;
-    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    height: clamp(450px, 88vh, 800px);
 }
 
-#series-player-modal .episode-sidebar h2 {
-    margin: 0 0 10px 0;
-    font-size: 1.2rem;
+.episode-sidebar h2 {
+    margin: 0 0 15px 0;
+    color: var(--text-light);
+    font-size: clamp(18px, 2.5vw, 24px);
 }
 
-#series-player-modal .season-dropdown {
-    margin-bottom: 20px;
+.season-dropdown {
     width: 100%;
     padding: 10px;
-    background: #333;
+    background: var(--panel-dark);
     color: var(--text-light);
-    border: 1px solid #555;
-    border-radius: 6px;
-    font-size: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    margin-bottom: 15px;
+    font-size: 16px;
 }
 
-#series-player-modal .episode-list-container {
-    flex-grow: 1;
+.episode-list-container {
     overflow-y: auto;
-    padding-right: 10px;
+    flex-grow: 1;
     scrollbar-width: none;
     -ms-overflow-style: none;
 }
-#series-player-modal .episode-list-container::-webkit-scrollbar {
+
+.episode-list-container::-webkit-scrollbar {
     display: none;
 }
 
-#series-player-modal .episode-card {
+.episode-card {
     display: flex;
-    gap: 15px;
-    border: 2px solid transparent;
-    border-radius: 6px;
+    align-items: center;
+    background-color: transparent;
+    border-radius: 8px;
     margin-bottom: 15px;
-    padding: 10px;
-    cursor: pointer;
+    padding: 12px;
+    border: 2px solid transparent;
     transition: background-color 0.2s ease, border-color 0.2s ease;
+    cursor: pointer;
 }
 
-#series-player-modal .episode-card:hover { background-color: #303030; }
-#series-player-modal .episode-card.active { border-color: var(--primary-red); background-color: #282828; }
+.episode-card:hover {
+    background-color: #2a2a2a;
+    border-color: #444;
+}
 
-#series-player-modal .episode-card-thumb {
+.episode-card.unavailable {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.episode-card-thumb {
     width: 150px;
     height: 84px;
     flex-shrink: 0;
@@ -505,335 +348,126 @@ main {
     border-radius: 4px;
 }
 
-#series-player-modal .episode-card-info {
-    padding: 5px;
-    position: relative;
-    overflow: hidden;
-    transition: all 0.3s ease-out;
+.episode-card-info {
+    padding-left: 15px;
+    color: var(--text-muted);
 }
 
-#series-player-modal .episode-card-info h3 {
+.episode-card-info h3 {
     margin: 0 0 8px 0;
-    font-size: 1rem;
     color: var(--text-light);
-    line-height: 1.3;
+    font-size: 16px;
+    transition: color 0.3s ease;
 }
 
-#series-player-modal .episode-card-info .episode-description {
+.episode-card-info p {
     margin: 0;
-    font-size: 0.85rem;
-    color: var(--text-muted);
+    font-size: 14px;
     line-height: 1.5;
-    opacity: 1;
-    transform: translateY(0);
-    transition: opacity 0.3s ease-out, transform 0.3s ease-out, max-height 0.3s ease-out;
-    max-height: 4.5em; /* 3 lines */
+    max-height: 4.5em;
     overflow: hidden;
-    text-overflow: ellipsis;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
+    transition: max-height 0.4s ease-out;
 }
 
-#series-player-modal .episode-card-info.expanded .episode-description {
-    max-height: 200px;
-    overflow: visible;
-    text-overflow: clip;
-    -webkit-line-clamp: unset;
-    opacity: 1;
-    transform: translateY(0);
+.episode-card-info p.expanded {
+    max-height: 500px;
 }
 
-.roulette-modal-content {
-    background-color: var(--panel-dark);
-    border-radius: 10px;
-    padding: 30px;
-    width: 75%;
-    max-width: 650px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-.roulette-modal-content .modal-title {
-    font-family: 'Bebas Neue', sans-serif;
-    color: white;
-    font-size: clamp(1.5rem, 4vw, 2.5rem);
-    margin-bottom: 30px;
-    text-align: center;
-}
-.roulette-carousel-wrapper {
-    width: 100%;
-    overflow: hidden;
-    position: relative;
-    padding: 20px 0;
-    perspective: 1000px;
-}
-.roulette-carousel-track {
-    display: flex;
-    transition: transform 3s cubic-bezier(0.25, 0.1, 0.25, 1);
-    transform: translateX(0);
-}
-.roulette-carousel-track.spinning {
-    transition: transform 6s cubic-bezier(0.25, 0.1, 0.25, 1);
-}
-.roulette-carousel-wrapper .movie-card {
-    min-width: 150px;
-    height: 225px;
-    margin: 0 10px;
-    flex-shrink: 0;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-}
-.roulette-carousel-wrapper .movie-card img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-}
-.roulette-selector {
-    position: absolute;
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 0;
-    height: 0;
-    border-left: 15px solid transparent;
-    border-right: 15px solid transparent;
-    border-top: 20px solid var(--primary-red);
-    z-index: 10;
-}
-.btn-spin {
-    background-color: var(--primary-red);
-    color: white;
-    padding: 12px 25px;
-    border: none;
-    border-radius: 5px;
-    font-size: 1.1rem;
-    cursor: pointer;
-    margin-top: 30px;
-    transition: background-color 0.3s ease;
-}
-.btn-spin:hover { background-color: var(--secondary-red); }
-.btn-spin:disabled { background-color: #666; cursor: not-allowed; }
-
-.roulette-carousel-wrapper::before,
-.roulette-carousel-wrapper::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 15%;
-    z-index: 2;
-    pointer-events: none;
-}
-.roulette-carousel-wrapper::before {
-    left: 0;
-    background: linear-gradient(to right, var(--panel-dark) 20%, transparent);
-}
-.roulette-carousel-wrapper::after {
-    right: 0;
-    background: linear-gradient(to left, var(--panel-dark) 20%, transparent);
-}
-.hamburger-btn {
-    display: none;
-    background: none;
-    border: none;
-    color: white;
-    font-size: 1.5rem;
-    cursor: pointer;
-    z-index: 1011;
-}
-
-.details-meta { 
-    display: flex; 
-    align-items: center; 
-    gap: 15px; 
-    color: var(--text-muted); 
-    margin-bottom: 15px; 
-}
-
-/* Ocultar el contenedor móvil en pantallas grandes */
-.details-meta-mobile {
-    display: none;
-}
-
-@media (max-width: 768px) {
-    .hamburger-btn {
-        display: block;
-        z-index: 1011;
-    }
-
-    .main-nav {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        position: fixed;
-        top: 0;
-        right: 0;
-        height: 100vh;
-        width: 70%;
-        max-width: 320px; /* Ancho máximo para tablets */
-        z-index: 1010;
-        background-color: rgba(24, 24, 24, 0.85);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-        padding-top: 80px;
-        
-        /* Estado inicial: Oculto fuera de la pantalla y no interactivo */
-        transform: translateX(100%);
-        visibility: hidden;
-        
-        /* Transición suave para el deslizamiento y la visibilidad */
-        transition: transform 0.3s ease-in-out, visibility 0.3s ease-in-out;
-    }
-
-    .main-header.menu-open .main-nav {
-        /* Estado visible: En pantalla y completamente interactivo */
-        transform: translateX(0);
-        visibility: visible;
-    }
-
-    .main-header.menu-open .logo {
-        visibility: hidden;
-    }
-
-    .main-nav ul {
-        flex-direction: column;
-        width: 100%;
-        text-align: center;
-    }
-    
-    .main-nav li {
-        margin-bottom: 20px;
-    }
-
-    .hero-content { 
-        max-width: 80%; 
-    }
-
-    .carousel-card { 
-        width: 30%; 
-    }
-
-    .details-content {
-        flex-direction: column; /* Apila los elementos verticalmente */
-        text-align: center; /* Centra el texto */
-        align-items: center; /* Centra el contenido */
-    }
-
-    .hero-buttons .btn {
-        margin-bottom: 10px;
-        margin-right: 0;
-        width: 100%;
-        text-align: center;
-    }
-
-    #series-player-modal .player-layout-container {
-        flex-direction: column;
-        overflow-y: auto;
-    }
-
-    #series-player-modal .episode-sidebar {
-        min-width: 100%;
-        height: 400px;
-    }
-
-     #full-grid-container .grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    padding: 10px;
-    }
-
-    .details-meta {
-        display: none;
-    }
-
-    /* Mostrar y centrar el contenedor móvil */
-    .details-meta-mobile {
-        display: flex;
-        flex-direction: column; /* Apila los elementos verticalmente */
-        align-items: center; /* Centra horizontalmente */
-        gap: 8px; /* Reduce el espacio entre el año y los géneros */
-        color: var(--text-muted);
-        margin-bottom: 15px;
-    }
-
-    #details-year-mobile,
-    #details-genres-mobile {
-        text-shadow: 
-            -1px -1px 0 #000,  /* Arriba-izquierda */
-            1px -1px 0 #000,   /* Arriba-derecha */
-            -1px 1px 0 #000,   /* Abajo-izquierda */
-            1px 1px 0 #000;    /* Abajo-derecha */
-        color: #fff; /* Opcional: Cambia el color del texto a blanco para un mayor contraste */
-    }
-
-}
-
-.menu-overlay {
-  position: fixed;
-  inset: 0; /* cubre toda la pantalla */
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 9; /* debajo del menú */
-  opacity: 0;
-  pointer-events: none; /* 🔑 bloquea interacción cuando no está activo */
-  transition: opacity 0.3s ease;
-}
-
-.menu-overlay.active {
-  opacity: 1;
-  pointer-events: all; /* 🔑 solo permite clic cuando está activo */
-}
-
-
-.lang-controls {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 15px;
-}
-.lang-btn {
-    background-color: #333;
-    color: var(--text-muted);
-    border: 2px solid #333;
-    padding: 5px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    font-weight: bold;
-    transition: all 0.2s ease;
-}
-.lang-btn:hover {
-    background-color: #444;
-    color: var(--text-light);
-}
-.lang-btn.active {
-    border-color: var(--primary-red);
-    color: var(--text-light);
-    background-color: #282828;
-}
-#series-player-modal .episode-card.disabled {
-    cursor: default;
-    opacity: 0.6;
-}
-#series-player-modal .episode-card.disabled:hover {
-    background-color: transparent;
-    transform: none;
-}
-.episode-card-info .release-info {
-    font-size: 0.9rem;
+.toggle-desc {
+    display: inline-block;
+    margin-top: 8px;
     color: var(--primary-red);
     font-weight: bold;
-    margin-bottom: 5px;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.episode-card.active {
+    background-color: var(--panel-dark);
+    border-color: var(--primary-red);
+}
+
+.episode-card.active .episode-card-info h3 {
+    color: var(--primary-red);
+}
+
+.player-controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.player-controls .episode-btn {
+    margin: 0;
+    width: 160px;
+}
+
+.player-controls button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background: var(--panel-dark);
+    color: var(--text-muted);
+    border-color: #444;
+}
+
+.episode-counter-wrap {
+    width: 100%;
+    text-align: center;
+    margin-top: 10px;
+    font-weight: bold;
+    color: var(--text-muted);
+}
+
+#dexterCinemaTitle {
+    color: #FBD4D6;
+    font-weight: bold;
+    margin-bottom: 15px;
+    text-align: center;
+    font-size: clamp(16px, 2vw, 20px);
+    text-shadow: 0 0 5px #EC1C24, 0 0 10px #F4545C;
+}
+
+#peacemakerCinemaTitle {
+    color: #4dd5ff;
+    font-weight: bold;
+    margin-bottom: 15px;
+    text-align: center;
+    font-size: clamp(16px, 2vw, 22px);
+    text-shadow: 0 0 8px #ff4d4d, 0 0 15px #ff4d4d;
+}
+
+.language-select-wrap {
+    display: none;
+    padding-top: 15px;
+    margin-top: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.language-select-wrap.show {
+    display: block;
+}
+
+.language-select-wrap h3 {
+    margin: 0 0 10px 0;
+    color: var(--primary-red);
+    text-align: center;
+}
+
+.language-select-wrap .episode-btn.active {
+    background-color: var(--primary-red);
+    color: #fff;
+    box-shadow: 0 0 10px var(--primary-red);
+    transform: scale(1.05);
+    border-color: var(--primary-red);
 }
 
 .thumbnail-placeholder {
     width: 150px;
     height: 84px;
     flex-shrink: 0;
-    background-color: #1c1c1c; /* Un fondo un poco más oscuro */
+    background-color: #2a2a2a;
     border-radius: 4px;
     display: flex;
     flex-direction: column;
@@ -844,791 +478,431 @@ main {
 }
 
 .release-day {
-    font-size: 40px; /* Tamaño grande para el día */
+    font-size: 48px;
     line-height: 1;
     color: var(--text-light);
-    font-family: 'Bebas Neue', sans-serif;
 }
 
 .release-month {
-    font-size: 16px; /* Tamaño más pequeño para el mes */
+    font-size: 18px;
     letter-spacing: 2px;
     color: var(--primary-red);
-    margin-top: 4px;
-    font-family: 'Bebas Neue', sans-serif;
+}
+
+#release-box, .countdown-box {
+    display: none;
+    background: var(--panel-dark);
+    color: var(--text-light);
+    padding: 30px 40px;
+    border-radius: 12px;
+    box-shadow: 0 0 25px rgba(0,0,0,0.8);
+    font-weight: bold;
+    text-align: center;
+    border: 2px solid var(--primary-red);
+}
+
+.countdown-box {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    max-width: 1200px;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+#release-box .countdown-title, .countdown-box .countdown-title {
+    font-size: 1.2em;
+    color: var(--text-muted);
+    margin-bottom: 15px;
+}
+
+#release-box .countdown-timer, .countdown-box .countdown-timer {
+    font-size: 2em;
+    color: var(--primary-red);
+    letter-spacing: 2px;
+}
+
+/* ===== ESTILOS RULETA ===== */
+#open-roulette-btn {
+    position: fixed;
+    bottom: 25px;
+    right: 25px;
+    width: 70px;
+    height: 70px;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    z-index: 999;
+    transition: transform 0.2s ease;
+}
+#open-roulette-btn:hover {
+    transform: scale(1.15);
+}
+#open-roulette-btn img {
+    width: 100%;
+}
+.roulette-container {
+    background: var(--panel-dark);
+    padding: 30px;
+    border-radius: 16px;
+    text-align: center;
+    width: 80%;
+    max-width: 800px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.roulette-container h2 {
+    color: var(--text-light);
+    margin-top: 0;
+    margin-bottom: 20px;
+}
+.roulette-wheel-container {
+    position: relative;
+    width: 100%;
+    height: 200px;
+    border: 1px solid #444;
+    border-radius: 8px;
+    margin: 20px 0;
+    overflow: hidden; 
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.roulette-wheel-container::-webkit-scrollbar {
+    display: none;
+}
+.roulette-wheel {
+    display: flex;
+    height: 100%;
+    position: absolute;
+    left: 0;
+    top: 0;
+}
+.roulette-item {
+    width: 130px;
+    height: 100%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 5px;
+}
+.roulette-item img {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 2/3;
+    object-fit: cover;
+    border-radius: 6px;
+}
+.roulette-pointer {
+    position: absolute;
+    top: -2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: calc(100% + 4px);
+    background: var(--primary-red);
+    box-shadow: 0 0 10px var(--primary-red);
+    z-index: 10;
+}
+.roulette-controls {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+}
+#roulette-result {
+    margin-top: 20px;
+    min-height: 225px;
+}
+#roulette-result .movie-card {
+    margin: 0 auto;
+    width: 150px;
+    animation: bounce-in 0.5s ease;
+}
+@keyframes bounce-in {
+    0% { transform: scale(0.5); opacity: 0; }
+    70% { transform: scale(1.05); opacity: 1; }
+    100% { transform: scale(1); }
+}
+
+@media (max-width: 1200px) {
+    .grid {
+        /* 4 columnas para pantallas de laptops pequeñas */
+        grid-template-columns: repeat(4, 1fr);
+        gap: 2vw;
+    }
+}
+
+@media (max-width: 900px) {
+    .grid {
+        /* 3 columnas para tablets */
+        grid-template-columns: repeat(3, 1fr);
+        gap: 3vw; 
+    }
+}
+
+@media (max-width: 600px) {
+    .grid {
+        /* 2 columnas para teléfonos */
+        grid-template-columns: repeat(2, 1fr);
+        gap: 4vw;
+    }
+}
+
+.header-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    max-width: 1400px;
+    margin-bottom: 40px;
+    position: relative;
+    padding: 0 60px;
+}
+
+.header-container button {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: 2px solid var(--text-muted);
+    color: var(--text-muted);
+    border-radius: 50%;
+    width: 45px;
+    height: 45px;
+    font-size: 22px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+#prev-page-btn { left: 10px; }
+#next-page-btn { right: 10px; }
+
+.header-container button:hover {
+    background-color: var(--primary-red);
+    border-color: var(--primary-red);
+    color: white;
+    transform: translateY(-50%) scale(1.1);
+}
+
+@media (max-width: 768px) {
+    .header-container button {
+        width: 35px;
+        height: 35px;
+        font-size: 18px;
+    }
 }
 
 </style>
 </head>
 <body>
 
-<header class="main-header">
-    <div class="header-left">
-        <a class="logo" onclick="switchView('all'); return false;">
-            <img src="https://i.imgur.com/vgJjqSM.png" alt="Cine Corneta Logo" class="header-logo">
-        </a>
-        <nav class="main-nav">
-            <ul>
-                <li><a href="#" data-filter="all" class="active">Inicio</a></li>
-                <li><a href="#" data-filter="movie">Películas</a></li>
-                <li><a href="#" data-filter="series">Series</a></li>
-                <li><a href="#" data-filter="roulette">Ruleta</a></li>
-            </ul>
-        </nav>
+<div class="wrap">
+    <div class="header-container">
+    <button id="prev-page-btn">&lt;</button>
+    <div class="title-panel">
+        <h1>Cine Corneta</h1>
     </div>
-    <div class="header-right">
-        <button id="menu-toggle" class="hamburger-btn">
-            <i class="fas fa-bars"></i>
-        </button>
-    </div>
-</header>
-
-<main>
-    <section class="hero-section" id="hero-section"></section>
-
-    <div class="content-wrapper">
-        <div id="carousel-container"></div>
-        <div id="full-grid-container" style="display: none;">
-            <div class="grid"></div>
-        </div>
-    </div>
-
-    <div id="menu-overlay" class="menu-overlay"></div>
-</main>
-
-<div id="cinema" class="modal player-modal">
-    <button class="close-btn" onclick="closePlayerModal('video-frame')">X</button>
-    <div class="screen">
-        <iframe id="video-frame" src="" allow="autoplay" allowfullscreen></iframe>
-    </div>
+    <button id="next-page-btn">&gt;</button>
 </div>
 
-<div id="series-player-modal" class="modal"></div>
-
-<div id="details-modal" class="modal">
-    <div class="details-panel" id="details-panel-content">
-        <button class="close-btn" onclick="closeDetailsModal()">X</button>
-        <div class="details-content">
-            <div class="details-poster">
-                <img id="details-poster-img" src="" alt="Poster">
+<div class="grid-container">
+    <div class="grid">
+            <div class="movie-card" onclick="openCinema('1M2P0y3llzW-Yf_HVNQdRip-l-Q8CY40-')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/wPLysNDLffQLOVebZQCbXJEv6E6.jpg" alt="Superman" loading="lazy" />
             </div>
-            <div class="details-info">
-                <h2 id="details-title"></h2>
-                <div class="details-meta">
-                    <span id="details-year"></span>
-                    <span id="details-genres"></span>
-                </div>
-                <div class="details-meta-mobile">
-                    <span id="details-year-mobile"></span>
-                    <span id="details-genres-mobile"></span>
-                </div>
-                <p id="details-synopsis"></p>
-                <div id="details-buttons"></div>
+            <div class="movie-card" onclick="openCinema('1Y4iCS1QUzmbrP2hYPqy6Fvc2-HqEvyYk')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/seyWFgGInaLqW7nOZvu0ZC95rtx.jpg" alt="The Batman" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openPeacemakerCinema()">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/yb4F1Oocq8GfQt6iIuAgYEBokhG.jpg" alt="Peacemaker" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1dc06j5pPDeEr95hHvpH0Sf4lpXW1K0UN')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/9kBF4eu6Im5KsEMocMEnSrK2K6R.jpg" alt="Secreto en la Montaña" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('16abUo2Az6CChgacccUj4_mL2Aiej6bpq')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/hbGNJb88HjoQurnRYYWg45YBFtz.jpg" alt="Interestelar" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1f6b5zCtAre2pO3mQ87C-HP-iG3DVgFFo')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/o0hPp6XrJxUSViAEynFbPRfiyY9.jpg" alt="Aniquilación" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1aZ333XH9OGah78an6pTYs5S83A13c0iV')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/v5D7K4EHuQHFSjveq8LGxdSfrGS.jpg" alt="Ocean Eleven" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openDexter()">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/uQwpPjM3gScW914MYYOx7li8sN3.jpg" alt="Dexter" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1dOyG3Citdla0WL2TsZSksnFU7USozUKN')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/jSziioSwPVrOy9Yow3XhWIBDjq1.jpg" alt="El Club de la Pelea" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1Y24D827VR7W5KKmK7ToO4-c5OI4ADvf2')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/pIrjgBmZYnwKvx4WoTkhyhKSHTp.jpg" alt="El Reino de los Cielos" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1_F4emKvSz4hVWy1naoHoRFmB01_atPE9')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/w600_and_h900_bestv2/3dSivDtOuyxLDxPH4v2tcNG1fP7.jpg" alt="The Creator" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1uNUOd1FFt_AkSQmdT38CBDhAR93XQORd')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/2uSWRTtCG336nuBiG8jOTEUKSy8.jpg" alt="Alien: Romulus" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1dm0oxuOfYW_rYKqeQ29g6GH6UiQTZmkJ')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/ekstpH614fwDX8DUln1a2Opz0N8.jpg" alt="Taxi Driver" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1RAt2BAruevDFwVXHeZiqq45a0yjVOiZV')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/105stT9GkiENXiYqvWYKoAuHKQL.jpg" alt="Mad God" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1SQqvoCSlTAtQI5dJFVfK1qbVUHpaNUPl')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/d5NXSklXo0qyIYkgV94XAgMIckC.jpg" alt="Dune Parte 1" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1OgjIL6-1Vhk0eE4G00RzXBVb070SjznI')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg" alt="Dune Parte 2" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1_r57qlv_LODMPrgS6tFzX_0l5RQXyi92')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/bj1v6YKF8yHqA489VFfnQvOJpnc.jpg" alt="Sin lugar para los debiles" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1na2M_44Eh8n56ldsslQXVQukKdstOvRn')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/rxw9l9YNL14ODdmAavUwHLBjiDo.jpg" alt="La última puerta" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1bgCcQEGBuV8NojNHF_UL8ezfaGcaAzvo')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/rT70FZPn3DEFB5UdMHlkwaYQWNV.jpg" alt="El día después de mañana" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1GS6GVgwbIbJGeMCmCMwTM7-lipD6wg3v')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/vQWk5YBFWF4bZaofAbv0tShwBvQ.jpg" alt="Pulp Fiction" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1IXg2RAZRMEKorORYfvpXZJQZfMozSRul')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/g67jg52BoaT2ldKRQgZM0Xb8QLT.jpg" alt="Oldboy" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1San4TfDkYFqMS8NY1DiZwidZDZjQ4HQ8')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/7lLJgKnAicAcR5UEuo8xhSMj18w.jpg" alt="Naufrago" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1tc1hNwLfmWsgx9PDg9w2vWaDaQhzDcwP')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/iBVOz5z6kq3id0N34zM2bQScEfE.jpg" alt="Mirageman" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1thMQJQGREr0eIGNAFq-vZLESqWtmpTup')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/4CkZl1LK6a5rXBqJB2ZP77h3N5i.jpg" alt="Sinners" loading="lazy" />
+            </div>
+            <div class="movie-card" onclick="openCinema('1os__e6vI78_jh0uCSlBGCFenmIob9otV')">
+                <img class="thumb" src="https://image.tmdb.org/t/p/original/48uCNgdyYIoN4ayWjTpLaqSDcWI.jpg" alt="Funny Games (1997)" loading="lazy" />
             </div>
         </div>
     </div>
-</div>
-
-<div id="roulette-modal" class="modal">
-    <div class="roulette-modal-content">
-        <button class="close-btn" onclick="closeRouletteModal()">X</button>
-        <h2 class="modal-title">Película al azar</h2>
-        <div class="roulette-carousel-wrapper">
-            <div id="roulette-carousel-track" class="roulette-carousel-track"></div>
-            <div class="roulette-selector"></div>
+    <div id="languageModal">
+        <div class="modal-content">
+            <h2>Selecciona idioma</h2>
+            <button class="episode-btn" id="lang-es">Español</button>
+            <button class="episode-btn" id="lang-en">Inglés</button>
         </div>
-        <button id="spin-roulette-btn" class="btn btn-spin">GIRAR</button>
     </div>
-</div>
+    <div id="cinema">
+        <button class="close-btn" onclick="closeCinema()">X</button>
+        <div class="screen">
+            <iframe id="video-frame" src="" allow="autoplay" allowfullscreen></iframe>
+        </div>
+        <div id="release-box"></div>
+    </div>
+    <div id="cinemaDexter">
+        <button class="close-btn" onclick="closeCinemaDexter()">X</button>
+        <div class="player-layout-container">
+            <div class="player-container">
+                <img src="https://i.imgur.com/pntevFY.png" alt="Dexter Logo" style="width:200px; max-width:90%; margin-bottom: 10px; display:block;">
+                <div id="dexterCinemaTitle"></div>
+                <div class="screen">
+                    <iframe id="video-frame-dexter" src="" allowfullscreen></iframe>
+                </div>
+                <div class="player-controls" id="cinemaDexterControls">
+                    <button class="episode-btn" id="dexterPrevBtn">Anterior</button>
+                    <button class="episode-btn" id="dexterNextBtn">Siguiente</button>
+                    <div class="episode-counter-wrap">
+                        <span id="dexterEpisodeCounter"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="episode-sidebar" id="dexter-sidebar">
+                <h2>Temporadas y Episodios</h2>
+                <select id="season-selector" class="season-dropdown"></select>
+                <div class="episode-list-container" id="episode-list-container"></div>
+            </div>
+        </div>
+    </div>
+    <div id="cinemaPeacemaker">
+        <button class="close-btn" onclick="closePeacemakerCinema()">X</button>
+        <div class="player-layout-container">
+            <div class="player-container">
+                <img src="https://i.imgur.com/kSvrSb2.png" alt="Peacemaker Logo" style="width:300px; max-width:90%; margin-bottom: 10px; display:block;">
+                <div id="peacemakerCinemaTitle"></div>
+                <div class="screen">
+                    <iframe id="video-frame-peacemaker" src="" allowfullscreen></iframe>
+                </div>
+                <div id="peacemaker-countdown-box" class="countdown-box"></div>
+                <div class="player-controls">
+                    <button class="episode-btn" id="peacemakerPrevBtn">Anterior</button>
+                    <button class="episode-btn" id="peacemakerNextBtn">Siguiente</button>
+                    <div class="episode-counter-wrap">
+                        <span id="peacemakerEpisodeCounter"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="episode-sidebar" id="peacemaker-sidebar">
+                <h2>Temporadas y Episodios</h2>
+                <select id="peacemaker-season-selector" class="season-dropdown"></select>
+                <div class="episode-list-container" id="peacemaker-episode-list-container"></div>
+                <div id="peacemaker-language-select" class="language-select-wrap">
+                    <h3>Idioma</h3>
+                    <button class="episode-btn" id="pm-lang-es">Español</button>
+                    <button class="episode-btn" id="pm-lang-en">Inglés</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <button id="open-roulette-btn" title="Elegir película al azar">
+        <img src="https://images.vexels.com/media/users/3/151205/isolated/preview/8857efb275fbf2435db40a222d05b1e6-icono-de-rueda-de-ruleta.png" alt="Ruleta">
+    </button>
+
+    <div id="roulette-modal">
+        <div class="roulette-container">
+            <button class="close-btn" onclick="closeRoulette()">X</button>
+            <h2>Película al azar</h2>
+            
+            <div class="roulette-wheel-container">
+                <div class="roulette-pointer"></div>
+                <div class="roulette-wheel">
+                    </div>
+            </div>
+    
+            <div id="roulette-result">
+                </div>
+    
+            <div class="roulette-controls">
+                <button class="episode-btn" id="spin-btn">GIRAR</button>
+                <button class="episode-btn" id="reset-btn" style="display: none;">Reiniciar</button>
+            </div>
+        </div>
+    </div>
 
 <script>
+    let countdownInterval;
+    let playerState = {
+        dexter: {
+            season: 1,
+            episodeIndex: 0
+        },
+        peacemaker: {
+            season: 'Temporada 1',
+            episodeIndex: 0
+        }
+    };
 
-// ===========================================================
-// DATABASE
-// ===========================================================
-const movieDatabase = {
-    '1M2P0y3llzW-Yf_HVNQdRip-l-Q8CY40-': {
-        title: "Superman",
-        year: 2025,
-        genres: ["Ciencia Ficción", "Acción", "Aventura"],
-        synopsis: "Un huérfano de un planeta destruido es enviado a la Tierra, donde desarrolla superpoderes. Como adulto, asume la identidad de Superman para proteger a la humanidad.",
-        poster: "https://image.tmdb.org/t/p/original/wPLysNDLffQLOVebZQCbXJEv6E6.jpg",
-        banner: "https://image.tmdb.org/t/p/original/eGX66zonvc4bXg3rM08RUxdYSDx.jpg"
-    },
-    '1Y4iCS1QUzmbrP2hYPqy6Fvc2-HqEvyYk': {
-        title: "The Batman",
-        year: 2022,
-        genres: ["Crimen", "Misterio", "Thriller"],
-        synopsis: "En su segundo año luchando contra el crimen, Batman explora la corrupción de Gotham y el vínculo con su propia familia, mientras se enfrenta a un asesino en serie conocido como 'El Acertijo'.",
-        poster: "https://image.tmdb.org/t/p/original/seyWFgGInaLqW7nOZvu0ZC95rtx.jpg",
-        banner: "https://image.tmdb.org/t/p/original/eAJnHNKKLVLv3ARor9fxUWTyWrS.jpg"
-    },
-    '1dc06j5pPDeEr95hHvpH0Sf4lpXW1K0UN': {
-        title: "Secreto en la Montaña",
-        year: 2005,
-        genres: ["Drama", "Romance"],
-        synopsis: "La historia de una relación secreta y prohibida entre dos vaqueros, Ennis Del Mar y Jack Twist, a lo largo de dos décadas en el oeste americano.",
-        poster: "https://image.tmdb.org/t/p/original/9kBF4eu6Im5KsEMocMEnSrK2K6R.jpg",
-        banner: "https://image.tmdb.org/t/p/original/cJPyjwbTnCUeHipw94fTHgHSF2p.jpg"
-    },
-    '16abUo2Az6CChgacccUj4_mL2Aiej6bpq': {
-        title: "Interestelar",
-        year: 2014,
-        genres: ["Aventura", "Drama", "Ciencia Ficción"],
-        synopsis: "Un equipo de exploradores viaja a través de un agujero de gusano en el espacio en un intento por asegurar la supervivencia de la humanidad.",
-        poster: "https://image.tmdb.org/t/p/original/hbGNJb88HjoQurnRYYWg45YBFtz.jpg",
-        banner: "https://image.tmdb.org/t/p/original/8sNiAPPYU14PUepFNeSNGUTiHW.jpg"
-    },
-    '1f6b5zCtAre2pO3mQ87C-HP-iG3DVgFFo': {
-        title: "Aniquilación",
-        year: 2018,
-        genres: ["Ciencia Ficción", "Terror"],
-        synopsis: "Una bióloga se inscribe en una peligrosa y secreta expedición a una misteriosa zona donde las leyes de la naturaleza no se aplican.",
-        poster: "https://image.tmdb.org/t/p/original/o0hPp6XrJxUSViAEynFbPRfiyY9.jpg",
-        banner: "https://image.tmdb.org/t/p/original/9trZvBr44UGedUOiGo3jgSUw13e.jpg"
-    },
-    '1aZ333XH9OGah78an6pTYs5S83A13c0iV': {
-        title: "Ocean's Eleven",
-        year: 2001,
-        genres: ["Thriller", "Crimen"],
-        synopsis: "Danny Ocean y sus once cómplices planean realizar el mayor atraco de casinos de la historia en Las Vegas. Su objetivo: tres casinos, todos propiedad del magnate Terry Benedict.",
-        poster: "https://image.tmdb.org/t/p/original/v5D7K4EHuQHFSjveq8LGxdSfrGS.jpg",
-        banner: "https://image.tmdb.org/t/p/original/1RlbyjHnR3Brbp33VDQtQqjg7LN.jpg"
-    },
-    '1dOyG3Citdla0WL2TsZSksnFU7USozUKN': {
-        title: "El Club de la Pelea",
-        year: 1999,
-        genres: ["Drama"],
-        synopsis: "Un oficinista insomne y un carismático fabricante de jabones forman un club de lucha clandestino que se convierte en algo mucho más grande.",
-        poster: "https://image.tmdb.org/t/p/original/jSziioSwPVrOy9Yow3XhWIBDjq1.jpg",
-        banner: "https://image.tmdb.org/t/p/original/rr7E0NoGKxvbkb89eR1GwfoYjpA.jpg"
-    },
-    '1Y24D827VR7W5KKmK7ToO4-c5OI4ADvf2': {
-        title: "El Reino de los Cielos",
-        year: 2005,
-        genres: ["Drama", "Acción", "Historia"],
-        synopsis: "Balian de Ibelin viaja a Jerusalén durante las Cruzadas del siglo XII y allí se encuentra defendiendo la ciudad contra las fuerzas de Saladino.",
-        poster: "https://image.tmdb.org/t/p/original/pIrjgBmZYnwKvx4WoTkhyhKSHTp.jpg",
-        banner: "https://image.tmdb.org/t/p/original/8itHQecANtOevcCdr3AhVxFCYkw.jpg"
-    },
-    '1_F4emKvSz4hVWy1naoHoRFmB01_atPE9': {
-        title: "The Creator",
-        year: 2023,
-        genres: ["Ciencia Ficción", "Acción", "Thriller"],
-        synopsis: "En medio de una guerra futura entre la raza humana y las fuerzas de la inteligencia artificial, un ex agente de las fuerzas especiales es reclutado para cazar y matar al Creador.",
-        poster: "https://image.tmdb.org/t/p/w600_and_h900_bestv2/3dSivDtOuyxLDxPH4v2tcNG1fP7.jpg",
-        banner: "https://image.tmdb.org/t/p/original/iQcCAm8hKWZyUntqrvzyEGtXyJl.jpg"
-    },
-    '1uNUOd1FFt_AkSQmdT38CBDhAR93XQORd': {
-        title: "Alien: Romulus",
-        year: 2024,
-        genres: ["Ciencia Ficción", "Terror"],
-        synopsis: "Mientras exploran las profundidades de una estación espacial abandonada, un grupo de jóvenes colonizadores espaciales se encuentra cara a cara con la forma de vida más aterradora del universo.",
-        poster: "https://image.tmdb.org/t/p/original/2uSWRTtCG336nuBiG8jOTEUKSy8.jpg",
-        banner: "https://image.tmdb.org/t/p/original/eP4RZSHliWu6lPT5WQyHr5ZZKuC.jpg"
-    },
-    '1dm0oxuOfYW_rYKqeQ29g6GH6UiQTZmkJ': {
-        title: "Taxi Driver",
-        year: 1976,
-        genres: ["Crimen", "Drama"],
-        synopsis: "Un veterano de Vietnam mentalmente inestable trabaja como taxista nocturno en la ciudad de Nueva York, donde la decadencia y la sordidez percibidas alimentan su necesidad de acción violenta.",
-        poster: "https://image.tmdb.org/t/p/original/ekstpH614fwDX8DUln1a2Opz0N8.jpg",
-        banner: "https://image.tmdb.org/t/p/original/xmfi1ApXxJzeG6UKMyzQvyZlgQx.jpg"
-    },
-    '1RAt2BAruevDFwVXHeZiqq45a0yjVOiZV': {
-        title: "Mad God",
-        year: 2021,
-        genres: ["Animación", "Fantasía", "Terror"],
-        synopsis: "Un asesino desciende a un inframundo de pesadilla de criaturas torturadas y horrores grotescos en una misión que lo lleva a un viaje a través de un paisaje infernal.",
-        poster: "https://image.tmdb.org/t/p/original/105stT9GkiENXiYqvWYKoAuHKQL.jpg",
-        banner: "https://image.tmdb.org/t/p/original/vi24pZRCR4PV9pU9L9MfjnHhLdP.jpg"
-    },
-    '1SQqvoCSlTAtQI5dJFVfK1qbVUHpaNUPl': {
-        title: "Dune: Parte Uno",
-        year: 2021,
-        genres: ["Ciencia Ficción", "Aventura"],
-        synopsis: "El viaje de un héroe mítico y cargado de emociones, que narra la historia de Paul Atreides, un joven brillante y talentoso que debe viajar al planeta más peligroso del universo.",
-        poster: "https://image.tmdb.org/t/p/original/d5NXSklXo0qyIYkgV94XAgMIckC.jpg",
-        banner: "https://image.tmdb.org/t/p/original/wYMbnrdRCREjNLwFlG5SLWzBjui.jpg"
-    },
-    '1OgjIL6-1Vhk0eE4G00RzXBVb070SjznI': {
-        title: "Dune: Parte Dos",
-        year: 2024,
-        genres: ["Ciencia Ficción", "Aventura"],
-        synopsis: "Paul Atreides se une a los Fremen y comienza un viaje espiritual y marcial para convertirse en Muad'dib, mientras intenta evitar el horrible pero inevitable futuro que ha presenciado.",
-        poster: "https://image.tmdb.org/t/p/original/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg",
-        banner: "https://image.tmdb.org/t/p/original/o869RihWTdTyBcEZBjz0izvEsVf.jpg"
-    },
-    '1_r57qlv_LODMPrgS6tFzX_0l5RQXyi92': {
-        title: "Sin lugar para los débiles",
-        year: 2007,
-        genres: ["Crimen", "Drama", "Thriller"],
-        synopsis: "La violencia y el caos sobrevienen después de que un cazador se tropieza con un negocio de drogas que salió mal y más de dos millones de dólares en efectivo cerca del Río Grande.",
-        poster: "https://image.tmdb.org/t/p/original/bj1v6YKF8yHqA489VFfnQvOJpnc.jpg",
-        banner: "https://image.tmdb.org/t/p/original/n7LXYfhGS89ZRMj8YaB9vRtQTpu.jpg"
-    },
-    '1na2M_44Eh8n56ldsslQXVQukKdstOvRn': {
-        title: "La última puerta",
-        year: 1999,
-        genres: ["Misterio", "Thriller", "Terror"],
-        synopsis: "Un comerciante de libros raros, mientras busca los dos últimos libros de una colección de tres, se ve envuelto en una conspiración con un propósito sobrenatural.",
-        poster: "https://image.tmdb.org/t/p/original/rxw9l9YNL14ODdmAavUwHLBjiDo.jpg",
-        banner: "https://image.tmdb.org/t/p/original/qVyN9czTgRJ2SAA2BLXESzQEVgz.jpg"
-    },
-    '1bgCcQEGBuV8NojNHF_UL8ezfaGcaAzvo': {
-        title: "El día después de mañana",
-        year: 2004,
-        genres: ["Acción", "Ciencia Ficción", "Thriller"],
-        synopsis: "El climatólogo Jack Hall advierte que el calentamiento global podría desencadenar una abrupta era de hielo, pero sus advertencias llegan demasiado tarde.",
-        poster: "https://image.tmdb.org/t/p/original/rT70FZPn3DEFB5UdMHlkwaYQWNV.jpg",
-        banner: "https://image.tmdb.org/t/p/original/oB6wjly3gtQWvNcUWD8nfpmDTYX.jpg"
-    },
-    '1GS6GVgwbIbJGeMCmCMwTM7-lipD6wg3v': {
-        title: "Pulp Fiction",
-        year: 1994,
-        genres: ["Thriller", "Crimen"],
-        synopsis: "Las vidas de dos sicarios, un boxeador, la esposa de un gángster y un par de bandidos se entrelazan en cuatro historias de violencia y redención.",
-        poster: "https://image.tmdb.org/t/p/original/vQWk5YBFWF4bZaofAbv0tShwBvQ.jpg",
-        banner: "https://image.tmdb.org/t/p/original/suaEOtk1N1sgg2MTM7oZd2cfVp3.jpg"
-    },
-    '1IXg2RAZRMEKorORYfvpXZJQZfMozSRul': {
-        title: "Oldboy",
-        year: 2003,
-        genres: ["Drama", "Thriller", "Misterio"],
-        synopsis: "Después de ser secuestrado y encarcelado durante quince años sin saber el motivo, Oh Dae-Su es liberado y solo tiene cinco días para encontrar a su captor.",
-        poster: "https://image.tmdb.org/t/p/original/g67jg52BoaT2ldKRQgZM0Xb8QLT.jpg",
-        banner: "https://image.tmdb.org/t/p/original/meIVuSuljmDSrgP5vqoATpDxhvk.jpg"
-    },
-    '1San4TfDkYFqMS8NY1DiZwidZDZjQ4HQ8': {
-        title: "Náufrago",
-        year: 2000,
-        genres: ["Aventura", "Drama"],
-        synopsis: "Un ejecutivo de FedEx sufre un accidente de avión que lo deja varado en una isla deshabitada, donde debe adaptarse y sobrevivir antes de encontrar la forma de regresar a casa.",
-        poster: "https://image.tmdb.org/t/p/original/7lLJgKnAicAcR5UEuo8xhSMj18w.jpg",
-        banner: "https://image.tmdb.org/t/p/original/kCivTEAafgW7vzSd8h8YSp3VFDR.jpg"
-    },
-    '1tc1hNwLfmWsgx9PDg9w2vWaDaQhzDcwP': {
-        title: "Mirageman",
-        year: 2007,
-        genres: ["Acción", "Comedia", "Drama"],
-        synopsis: "Un hombre tímido que sufre una tragedia familiar decide convertirse en un superhéroe enmascarado para combatir el crimen en las calles de Santiago, Chile.",
-        poster: "https://image.tmdb.org/t/p/original/iBVOz5z6kq3id0N34zM2bQScEfE.jpg",
-        banner: "https://image.tmdb.org/t/p/original/1ZZj5v1yUaEmvAUSCsbds17f7rM.jpg"
-    },
-    '1thMQJQGREr0eIGNAFq-vZLESqWtmpTup': {
-        title: "Sinners",
-        year: 2024,
-        genres: ["Terror", "Misterio"],
-        synopsis: "Dos amigas que trabajan en una morgue descubren que uno de los cuerpos recién llegados está poseído por un demonio. En una noche de terror, deberán enfrentar al mal.",
-        poster: "https://image.tmdb.org/t/p/original/4CkZl1LK6a5rXBqJB2ZP77h3N5i.jpg",
-        banner: "https://image.tmdb.org/t/p/original/sqkSVOijtdqP1yPQ8vZidxXFauQ.jpg"
-    },
-    '1os__e6vI78_jh0uCSlBGCFenmIob9otV': {
-        title: "Funny Games",
-        year: 1997,
-        genres: ["Terror", "Drama", "Thriller"],
-        synopsis: "Dos jóvenes violentos toman como rehenes a una familia en su casa de vacaciones y los obligan a participar en sádicos 'juegos' entre ellos.",
-        poster: "https://image.tmdb.org/t/p/original/48uCNgdyYIoN4ayWjTpLaqSDcWI.jpg",
-        banner: "https://i.ytimg.com/vi/kSYnXwwzUps/maxresdefault.jpg"
-    }
-};
-const seriesDatabase = {
-    'dexter': { title: "Dexter", year: 2006, genres: ["Crimen", "Drama", "Misterio"], synopsis: "Un forense de Miami lleva una doble vida como un asesino en serie justiciero que caza a otros criminales.", poster: "https://image.tmdb.org/t/p/original/uQwpPjM3gScW914MYYOx7li8sN3.jpg", banner: "https://image.tmdb.org/t/p/original/aSGSxGMTP893DPMCvMl9AdnEICE.jpg" },
-    'peacemaker': { title: "Peacemaker", year: 2022, genres: ["Acción", "Aventura", "Comedia"], synopsis: "Recuperado de sus heridas, Peacemaker es forzado a unirse a un misterioso equipo de operaciones encubiertas para salvar al mundo.", poster: "https://image.tmdb.org/t/p/original/yb4F1Oocq8GfQt6iIuAgYEBokhG.jpg", banner: "https://image.tmdb.org/t/p/original/q7YHckbOAcGplmD3YIH7nMESQ2l.jpg" }
-};
-const dexterData = {
-    '1': [{
-        title: "Dexter",
-        videoId: "1xfWPP4ZMSbM6R9nHqVEjg6UPNpemnhUC",
-        thumbnail: "https://image.tmdb.org/t/p/w300/70rjTrItEJCyr6u8zmAVQrdmcrP.jpg",
-        description: "Dexter Morgan, analista de salpicaduras de sangre del Departamento de Policía de Miami, lleva una doble vida como un asesino en serie justiciero que persigue a criminales que han eludido el sistema de justicia."
-    }, {
-        title: "Crocodile",
-        videoId: "17CF2L5WE25SnYbQ1lta-QVBkx_eWldsT",
-        thumbnail: "https://image.tmdb.org/t/p/w300/vcx9a4vVzQfKO2IysTKC0wLLJQ0.jpg",
-        description: "Dexter investiga un asesinato en el que un oficial de policía es el principal sospechoso. Mientras tanto, un nuevo asesino en serie conocido como el 'Asesino del Camión de Hielo' comienza a dejar un rastro de cuerpos desmembrados."
-    }, {
-        title: "Popping Cherry",
-        videoId: "1shWSGANTDiyPsRqF_TeviwJNFcM9Hh1m",
-        thumbnail: "https://image.tmdb.org/t/p/w300/pVjoJyTwsUGP7rCLkd7S8V4GgGu.jpg",
-        description: "La investigación sobre el Asesino del Camión de Hielo se intensifica. Dexter se siente extrañamente atraído por el estilo metódico del asesino, mientras que su hermana Debra está ansiosa por ser transferida al departamento de homicidios."
-    }, {
-        title: "Let's Give the Boy a Hand",
-        videoId: "1LOBarwHKi_ZdhbxdFVmyBMJ-eYNM9-LZ",
-        thumbnail: "https://image.tmdb.org/t/p/w300/e6ZiRNeHCFuXRJdwoQJORA9q9nl.jpg",
-        description: "El Asesino del Camión de Hielo comienza a dejar pistas personales para Dexter, lo que sugiere una conexión con su propio pasado oscuro."
-    }, {
-        title: "Love American Style",
-        videoId: "1TPoklQPiwIeOeOjvTMd87o5JOl3kSURy",
-        thumbnail: "https://image.tmdb.org/t/p/w300/fpLBlBrhOSqUHXDEiiTRh9k7zPj.jpg",
-        description: "Se descubre una víctima del Asesino del Camión de Hielo que ha sobrevivido. Dexter ve la oportunidad de aprender más sobre el asesino, pero el caso toma un giro inesperado."
-    }, {
-        title: "Return to Sender",
-        videoId: "12J1-q4Cr73vikEkU2CFtRCCnAbVJeqyW",
-        thumbnail: "https://image.tmdb.org/t/p/w300/fg5uVRanMihJ184Za4UqwYjumBE.jpg",
-        description: "El Asesino del Camión de Hielo deja una escena del crimen que es una réplica de uno de los asesinatos de Dexter, llevando la investigación peligrosamente cerca de él."
-    }, {
-        title: "Circle of Friends",
-        videoId: "1kNUMR67Mx16kBnOwXmWaqfKBTY2WsG-h",
-        thumbnail: "https://image.tmdb.org/t/p/w300/gpqFeUvCSMNWFd4IJbtY2FH6noD.jpg",
-        description: "La policía de Miami cree haber identificado al Asesino del Camión de Hielo, pero Dexter tiene sus dudas y comienza su propia investigación para descubrir la verdadera identidad del asesino."
-    }, {
-        title: "Shrink Wrap",
-        videoId: "1uPzmYfaGxtMyqltepv-Y_7pVb9eY4SfX",
-        thumbnail: "https://image.tmdb.org/t/p/w300/lSPPQLhChQTyU8SoVeyBLcNxzhU.jpg",
-        description: "La investigación lleva a Dexter a un psiquiatra que puede tener información crucial sobre el Asesino del Camión de Hielo y, posiblemente, sobre el propio pasado de Dexter."
-    }, {
-        title: "Father Knows Best",
-        videoId: "1NOVrVbw_rbiGdRJb0AY-eX7C_39bi2VE",
-        thumbnail: "https://image.tmdb.org/t/p/w300/8IUBoErgGbboihLAuPDhN5IsO2s.jpg",
-        description: "Dexter descubre que su padre adoptivo, Harry, le ocultó secretos sobre su origen. La revelación de la existencia de su hermano biológico lo estremece."
-    }, {
-        title: "Seeing Red",
-        videoId: "1rfMjrPJMt5zKtt1zUL_0YuJsIddVu2QB",
-        thumbnail: "https://i.imgur.com/OZUbwOq.png",
-        description: "Una escena del crimen desencadena recuerdos reprimidos de la infancia traumática de Dexter, revelando el origen de su 'Pasajero Oscuro'."
-    }, {
-        title: "Truth Be Told",
-        videoId: "1VteS_LtubhgSuJqCBFTU8Yc2JoNRHpYx",
-        thumbnail: "https://image.tmdb.org/t/p/w300/igwp2lTwkn8LoLTLBzPG49hzqbB.jpg",
-        description: "El Asesino del Camión de Hielo secuestra a alguien cercano a Dexter, obligándolo a un enfrentamiento directo y a revivir su pasado."
-    }, {
-        title: "Born Free",
-        videoId: "1RQTf76eLx_q2qCoempbz9JKAMJx_IEgO",
-        thumbnail: "https://image.tmdb.org/t/p/w300/1ObZDLK3f7BucdgtmAlHZRYN3IB.jpg",
-        description: "En un final impactante, Dexter se enfrenta a su hermano, el Asesino del Camión de Hielo, y debe tomar una decisión que cambiará su vida para siempre."
-    }, ],
-    '2': [{
-        title: "It's Alive!",
-        videoId: "1rmvE_gI-01yK3dydBtmuzEb5sRueQV6Q",
-        thumbnail: "https://image.tmdb.org/t/p/w300/2jtzefZ7yIcaZoJxcOkuM4YEBHU.jpg",
-        description: "Atormentado por haber matado a su hermano, Dexter encuentra que su 'Pasajero Oscuro' está inactivo. Mientras tanto, el sargento Doakes lo vigila de cerca, y buzos descubren el cementerio submarino de las víctimas de Dexter."
-    }, {
-        title: "Waiting to Exhale",
-        videoId: "16OQNevX_ipURJkheCIcHbQibvVp2rCoP",
-        thumbnail: "https://image.tmdb.org/t/p/w300/ha7i2p27VVdWY9wN9bkpQvmPmFv.jpg",
-        description: "El FBI, liderado por el agente especial Frank Lundy, llega a Miami para investigar al nuevo asesino en serie apodado 'El Carnicero de la Bahía', que en realidad es Dexter."
-    }, {
-        title: "An Inconvenient Lie",
-        videoId: "1awY6KLsDfc6MhkK0u2n2MNP_4_WeMQQt",
-        thumbnail: "https://image.tmdb.org/t/p/w300/nhddI1zisRZtGUxJIZwKGFhDqoz.jpg",
-        description: "Rita, la novia de Dexter, sospecha que él tiene un problema de adicción y lo obliga a unirse a un programa de Narcóticos Anónimos, donde conoce a la enigmática Lila."
-    }, {
-        title: "See-Through",
-        videoId: "1n1b-XSJ2dZdolEOwW6RRz9pw5fyxv0o7",
-        thumbnail: "https://image.tmdb.org/t/p/w300/omBmf4Gxu8HPpnciDs6dUTYAiN3.jpg",
-        description: "Dexter intenta desviar la investigación de Lundy, que se acerca peligrosamente a la verdad. La presencia de Lila en su vida comienza a complicar las cosas con Rita."
-    }, {
-        title: "The Dark Defender",
-        videoId: "1_Rum2jeFB0_ytCdR7sHEU4byIgd-Lekb",
-        thumbnail: "https://image.tmdb.org/t/p/w300/nEWrXNNIhOCx5AGy7PZonRXjtCN.jpg",
-        description: "Dexter se enfoca en un nuevo objetivo, mientras que Lila se vuelve cada vez más manipuladora y se inserta en la vida de Dexter."
-    }, {
-        title: "Dex, Lies, and Videotape",
-        videoId: "1fAQ3IDWX1qKgfwuWoJxNhRfx4GzgQ_v7",
-        thumbnail: "https://image.tmdb.org/t/p/w300/tB4fuDRHzQTRlfszvMAoNxgoKz6.jpg",
-        description: "Se publica un manifiesto del supuesto 'Carnicero de la Bahía', creando un frenesí mediático. Dexter se da cuenta de que alguien podría estar intentando imitarlo o exponerlo."
-    }, {
-        title: "That Night, a Forest Grew",
-        videoId: "116BvKv2Xg8AezcpDLOiWpiqjfm9eHAz2",
-        thumbnail: "https://image.tmdb.org/t/p/w300/nwgxVpwiReDOtnBg0dMA9L4rcI8.jpg",
-        description: "Doakes se convence de que Dexter es el Carnicero de la Bahía y comienza a investigarlo por su cuenta, arriesgando su propia carrera."
-    }, {
-        title: "Morning Comes",
-        videoId: "1F5EOaIsAhx8HOV-OqQAoklwmTv1LiLTH",
-        thumbnail: "https://image.tmdb.org/t/p/w300/15WfX35RWngveAdYNCsruo12tpa.jpg",
-        description: "La investigación de Lundy se centra en Doakes como posible sospechoso. Dexter se ve atrapado entre la creciente presión del FBI y la obsesión de Doakes."
-    }, {
-        title: "Resistance Is Futile",
-        videoId: "15R7DT4FtJcEoc21sWIKixom5Ci3wl547",
-        thumbnail: "https://image.tmdb.org/t/p/w300/gL34Xku1eO413hIcqWrnb69yw0r.jpg",
-        description: "Doakes finalmente confronta a Dexter, descubriendo su oscuro secreto. Su enfrentamiento lleva a una situación de vida o muerte."
-    }, {
-        title: "There's Something About Harry",
-        videoId: "1-ZLN1mjeQ-SWDCtZlpGEm4PwgbEInCfB",
-        thumbnail: "https://image.tmdb.org/t/p/w300/8PMgRRi6NysXyXSypwdaJiomiCM.jpg",
-        description: "Dexter mantiene a Doakes cautivo y descubre la verdad sobre la muerte de su padre adoptivo, Harry. Lila sigue interfiriendo en su vida de maneras destructivas."
-    }, {
-        title: "Left Turn Ahead",
-        videoId: "1O7t47mTMgAzSoASZyZrTYPwf8oeH_5mD",
-        thumbnail: "https://image.tmdb.org/t/p/w300/echl9nui9uAPgjX8sqU0vfNYmvh.jpg",
-        description: "Con Doakes como su prisionero, Dexter contempla la posibilidad de entregarse para proteger a los que ama. Lila toma medidas extremas para mantener a Dexter a su lado."
-    }, {
-        title: "The British Invasion",
-        videoId: "17Z3BtSa6LiIhBWq5kKA9IuneOLyfmegd",
-        thumbnail: "https://image.tmdb.org/t/p/w300/4uOSnM1yV7azULevXV29lcCNXAt.jpg",
-        description: "En un final explosivo, Dexter debe lidiar con las consecuencias de las acciones de Lila y tomar una decisión final sobre el destino de Doakes."
-    }, ],
-    '3': [{
-        title: "Our Father",
-        videoId: "1gfKVgI2s6D1kK9XPDmn2Rj5RH5WiMQON",
-        thumbnail: "https://image.tmdb.org/t/p/w300/97VmyFgGYJECb76lxvbARLU17kk.jpg",
-        description: "Dexter accidentalmente mata al hermano de un poderoso fiscal de distrito, Miguel Prado. Mientras tanto, Rita descubre que está embarazada."
-    }, {
-        title: "Finding Freebo",
-        videoId: "1cJq1trMD_wvEpS6t_wFkxmQpX8RRq1Uu",
-        thumbnail: "https://image.tmdb.org/t/p/w300/gaKRlCQcuiSRjJwst4HPoUvrGWv.jpg",
-        description: "Tanto Dexter como Miguel Prado buscan al hombre que creen responsable de la muerte del hermano de Miguel, aunque por diferentes razones."
-    }, {
-        title: "The Lion Sleeps Tonight",
-        videoId: "1kxZLG_FYo5ZO5ufhNCzW5N3OIY1xh1LZ",
-        thumbnail: "https://image.tmdb.org/t/p/w300/a9rXiVNSe5y2hOvq5BtaVkFmgCb.jpg",
-        description: "La amistad entre Dexter y Miguel se fortalece, y Miguel comienza a sospechar del lado oscuro de Dexter. Dexter se enfrenta a la idea de convertirse en padre."
-    }, {
-        title: "All in the Family",
-        videoId: "1eL3iyjjPCcr-zkB7gYDPsjNchZyrYSiU",
-        thumbnail: "https://image.tmdb.org/t/p/w300/2WszcqVwyn9MU8uSAD9CWR9pXZy.jpg",
-        description: "Dexter y Rita anuncian su embarazo. Miguel le pide a Dexter que lo ayude a 'encargarse' de un criminal que el sistema legal no pudo detener."
-    }, {
-        title: "Turning Biminese",
-        videoId: "1LRpIIx9xk5KOfW7nqRK0JcrKBysWWzxK",
-        thumbnail: "https://image.tmdb.org/t/p/w300/xzg0wTQNR1IjlqeCLPC8teyJwQ3.jpg",
-        description: "Miguel le presenta a Dexter un nuevo objetivo, y su retorcida amistad da un paso más allá, con Miguel convirtiéndose en una especie de 'aprendiz'."
-    }, {
-        title: "Sí Se Puede",
-        videoId: "1zgL6YsaUG6f0iOTGIV6xjJUc7NXnB910",
-        thumbnail: "https://image.tmdb.org/t/p/w300/nRxCveqjRzd1L7tMnmlaKKUmxXO.jpg",
-        description: "Dexter intenta enseñarle a Miguel su 'código', pero pronto se da cuenta de que Miguel podría no tener el mismo autocontrol."
-    }, {
-        title: "Easy as Pie",
-        videoId: "1gztFug-LSO8Jl1ZrkfyUqHc5Zps2DKOj",
-        thumbnail: "https://image.tmdb.org/t/p/w300/bb4eTOgQoiukJWMQ92yoykjqtc6.jpg",
-        description: "La relación entre Dexter y Miguel se vuelve más tensa a medida que Miguel se vuelve más imprudente y hambriento de poder."
-    }, {
-        title: "The Damage a Man Can Do",
-        videoId: "1-9DshR2awLhM3Yxs_Rq_XuQ6YcuzfWDx",
-        thumbnail: "https://image.tmdb.org/t/p/w300/quhTwhj7QFCHV7FsHVZM4Q9aXRp.jpg",
-        description: "Un nuevo asesino en serie, 'El Despellejador', aterroriza a Miami. Dexter se da cuenta de que la amistad con Miguel se ha vuelto peligrosa y fuera de control."
-    }, {
-        title: "About Last Night",
-        videoId: "1jJ1M4KNG3CUfUd9LlXVm0PMVvbhCVj9j",
-        thumbnail: "https://image.tmdb.org/t/p/w300/sK9IKd3lxhasGG2kurO89wzDNkr.jpg",
-        description: "Miguel traiciona la confianza de Dexter, lo que lleva a una ruptura inevitable y peligrosa en su amistad."
-    }, {
-        title: "Go Your Own Way",
-        videoId: "1bS2Qw_s-o2BUuE8S7cfUe5n3AWd7dHq2",
-        thumbnail: "https://image.tmdb.org/t/p/w300/jeEK4lpw0KtnqReqfihnctu5TvD.jpg",
-        description: "Dexter se da cuenta de que debe detener a Miguel, quien se ha convertido en una amenaza para todos los que lo rodean."
-    }, {
-        title: "I Had a Dream",
-        videoId: "1reXd3aleq6qsjQ4hmmVf110nlCJEFJUM",
-        thumbnail: "https://image.tmdb.org/t/p/w300/AscduWJM3dUtWg3TTPt0nQDA3Om.jpg",
-        description: "La investigación sobre 'El Despellejador' se acerca a Dexter. El enfrentamiento final con Miguel es inminente."
-    }, {
-        title: "Do You Take Dexter Morgan?",
-        videoId: "1Ygp5PyXnsuZw4xJKlG0GnRNqY3It4b32",
-        thumbnail: "https://image.tmdb.org/t/p/w300/eA7iCZXyED1D7GSiJHwzc2iTj4l.jpg",
-        description: "En el día de su boda con Rita, Dexter debe enfrentarse tanto a Miguel como al Despellejador en un clímax lleno de suspenso."
-    }, ],
-    '4': [{
-        title: "Living the Dream",
-        videoId: "1FwU7o687AkxSNZfltANU_eH3CjuVRkgU",
-        thumbnail: "https://image.tmdb.org/t/p/w300/4dJnt4To4wrM9QX0cMA7EQ0ZSM3.jpg",
-        description: "Dexter lucha por equilibrar su nueva vida como esposo y padre con su necesidad de matar. Un nuevo y prolífico asesino en serie, conocido como 'Trinity Killer', emerge."
-    }, {
-        title: "Remains to Be Seen",
-        videoId: "1SNkH5EzawGvesUFbPtOD-D-c8TAMZKzp",
-        thumbnail: "https://image.tmdb.org/t/p/w300/wLVHnCNEcAc4c7OTwxBX4Or567k.jpg",
-        description: "El legendario agente retirado del FBI, Frank Lundy, regresa a Miami para cazar al Trinity Killer, a quien ha perseguido durante décadas."
-    }, {
-        title: "Blinded by the Light",
-        videoId: "1ii2q5UYK-Uw8qokfCIjhGdgUF0dGGNWI",
-        thumbnail: "https://image.tmdb.org/t/p/w300/fyUv2iXYpKSpWqq8psrV8dT7p5y.jpg",
-        description: "Dexter comienza a acechar al Trinity Killer, cuyo verdadero nombre es Arthur Mitchell, un hombre aparentemente normal de familia."
-    }, {
-        title: "Dex Takes a Holiday",
-        videoId: "1JAfBfP-Pyzghn5dmJQ-2PWAtZzJj4Bj9",
-        thumbnail: "https://image.tmdb.org/t/p/w300/1pBP6NIWBlbbSppmePj08aAkepS.jpg",
-        description: "Dexter intenta aprender cómo Arthur Mitchell equilibra su vida familiar con sus asesinatos, con la esperanza de encontrar una manera de hacer lo mismo."
-    }, {
-        title: "Dirty Harry",
-        videoId: "1PrcbqV3grJmHa2PRjwGSFYa4daYGrsvp",
-        thumbnail: "https://image.tmdb.org/t/p/w300/kmkkP8AtKIN9Knsdq4Ct9j1nTxo.jpg",
-        description: "La investigación de Dexter sobre Trinity revela un ciclo de asesinatos rituales que se ha repetido durante 30 años en todo el país."
-    }, {
-        title: "If I Had a Hammer",
-        videoId: "1s7Dp1FEVCbsA8ualr5uN_Iq9Zd3LZS6Z",
-        thumbnail: "https://image.tmdb.org/t/p/w300/o7QS9elByQgYGRAimw2TI8vdKP3.jpg",
-        description: "Dexter se infiltra en la vida de Arthur Mitchell bajo un alias, descubriendo la fachada de un hombre de familia devoto que oculta a un monstruo."
-    }, {
-        title: "Slack Tide",
-        videoId: "1kFxu9HIn53GMsKG7WAsLVJ4jfjehimhj",
-        thumbnail: "https://image.tmdb.org/t/p/w300/cCUipEG71f7dVwCb6vnpPrx8fge.jpg",
-        description: "La relación de Dexter con Arthur se vuelve más complicada, y Dexter comienza a cuestionar si puede aprender algo del monstruo al que persigue."
-    }, {
-        title: "Road Kill",
-        videoId: "1cN5hK2PJZG7RDQOBQzezVzhQZJ1_iyNx",
-        thumbnail: "https://image.tmdb.org/t/p/w300/9B2ykyALH7ZaUMGQQlYbvYc8pw9.jpg",
-        description: "Dexter acompaña a Arthur en un viaje fuera de la ciudad, obteniendo una visión más profunda y perturbadora de su psique."
-    }, {
-        title: "Hungry Man",
-        videoId: "1XbitLqulBj7kjrj7iASariFF9b_dxXQW",
-        thumbnail: "https://image.tmdb.org/t/p/w300/c0MAgpJXH5TkNxShkPjDHz5WXf9.jpg",
-        description: "Dexter comparte el Día de Acción de Gracias con la familia de Arthur y es testigo de primera mano del abuso y el terror que les inflige."
-    }, {
-        title: "Lost Boys",
-        videoId: "1dfhhhI7vMFvLrq2af0R-qVFlo9SfhPQh",
-        thumbnail: "https://image.tmdb.org/t/p/w300/8zYOWNOB76BeTgsZYEhyjDCDLFS.jpg",
-        description: "Dexter descubre la verdad detrás del ciclo de asesinatos de Trinity y se da cuenta de que es mucho más oscuro de lo que imaginaba."
-    }, {
-        title: "Hello, Dexter Morgan",
-        videoId: "16r3D85u_w3cIVh6EKtsSN8g9DY5HACy1",
-        thumbnail: "https://image.tmdb.org/t/p/w300/wDLYbem5WVkncXCOmmzTMPa1o8A.jpg",
-        description: "La policía de Miami se acerca a Arthur Mitchell, lo que obliga a Dexter a acelerar su propio plan para eliminarlo."
-    }, {
-        title: "The Getaway",
-        videoId: "1fx5luCJ9UmcKtqqNP4CEGTd7bLKoshHv",
-        thumbnail: "https://image.tmdb.org/t/p/w300/4ikoyXM8YIwLJFkiZdmwsx7yGc5.jpg",
-        description: "Dexter finalmente se enfrenta a Arthur en un enfrentamiento final, pero regresa a casa para descubrir que Trinity ha dejado una última y devastadora sorpresa."
-    }, ],
-    '5': [{
-        title: "My Bad",
-        videoId: "1jhVj93li4cx0FAis0hdj2qltLTOXlVhF",
-        thumbnail: "https://image.tmdb.org/t/p/w300/lNMSOuA1LTp71hSFsb25G6w9Gxq.jpg",
-        description: "Lidiando con las secuelas de la muerte de Rita, Dexter se siente responsable y lucha con su dolor y su culpa, mientras intenta ser un padre soltero para sus tres hijos."
-    }, {
-        title: "Hello, Bandit",
-        videoId: "1r6OveGoDEYzOlRbRgEtFqAEt0SYMd08Y",
-        thumbnail: "https://image.tmdb.org/t/p/w300/yqTBpVchb5WndUMXkbRlYKpSg1A.jpg",
-        description: "Dexter intenta volver a su rutina, pero el trauma lo ha afectado profundamente. Mientras tanto, Quinn comienza a sospechar de Dexter en relación con la muerte de Rita."
-    }, {
-        title: "Practically Perfect",
-        videoId: "1hR6Dwo6jtVLEdebdgssrgMtYRcp6NHuA",
-        thumbnail: "https://image.tmdb.org/t/p/w300/p1lle5gWz29k8YF9Prj96C2UFDP.jpg",
-        description: "Dexter contrata a una niñera para Harrison. Impulsivamente, comete un asesinato y es presenciado por una misteriosa mujer llamada Lumen."
-    }, {
-        title: "Beauty and the Beast",
-        videoId: "19nuqojXIkgh1jl3cjHPjiMoR_4Sn23bd",
-        thumbnail: "https://image.tmdb.org/t/p/w300/82SPJjIJP7xvViWD0xOgDLezdOs.jpg",
-        description: "Dexter mantiene a Lumen cautiva mientras decide qué hacer con ella. Ella le revela que fue víctima de una red de abuso y tortura."
-    }, {
-        title: "First Blood",
-        videoId: "194zx9D1cE8RZUQdaM1dej3yDtYdD5aCd",
-        thumbnail: "https://image.tmdb.org/t/p/w300/eR3jzZ6WKD09ocsxq5fRGHuGqMX.jpg",
-        description: "Dexter decide ayudar a Lumen a vengarse de los hombres que la lastimaron, encontrando en ella una compañera inesperada."
-    }, {
-        title: "Everything Is Illumenated",
-        videoId: "1_V6djuinywABYG9sCjTpncIY4lDc3WgC",
-        thumbnail: "https://image.tmdb.org/t/p/w300/kpa3E6ynZdFORmEJzvjzMnEukOM.jpg",
-        description: "Dexter y Lumen comienzan a cazar a los miembros del grupo que la torturó. Su vínculo se profundiza a medida que comparten su oscuridad."
-    }, {
-        title: "Circle Us",
-        videoId: "1mrN_T70sBDbRO7JvC6o547tfeBo5XFMR",
-        thumbnail: "https://image.tmdb.org/t/p/w300/yWmgJkvzS1zx7YhqCfgVf1r1Ovq.jpg",
-        description: "A medida que se acercan a su objetivo principal, el carismático líder del grupo, Jordan Chase, la investigación de la policía también se intensifica."
-    }, {
-        title: "Take It!",
-        videoId: "1w4WlLfFixrR0WesXuu87j3hDeiXoixB-",
-        thumbnail: "https://image.tmdb.org/t/p/w300/sxQcDzAseVJkiUXqIXfWaTiRYYw.jpg",
-        description: "La relación entre Dexter y Lumen se vuelve más íntima. Quinn se acerca a la verdad sobre el pasado de Dexter."
-    }, {
-        title: "Teenage Wasteland",
-        videoId: "1DbaTuFlVKRSbc1qq_d8gMXzfwrlX216X",
-        thumbnail: "https://image.tmdb.org/t/p/w300/eoxBiNdnAxI1mTcIdHXcn6jSoN0.jpg",
-        description: "Debra se acerca a resolver el caso de las 'chicas del barril', sin saber que está directamente relacionado con la misión de venganza de Dexter y Lumen."
-    }, {
-        title: "In the Beginning",
-        videoId: "1JMBl8v0cYTTkbgJPgUzUrH4TS4ZC2bB1",
-        thumbnail: "https://image.tmdb.org/t/p/w300/s9xVM0xayQbGaGD6ttARrSVsySm.jpg",
-        description: "Dexter y Lumen se dan cuenta de que Jordan Chase sabe que lo están cazando, lo que lleva a un peligroso juego del gato y el ratón."
-    }, {
-        title: "Hop a Freighter",
-        videoId: "153QmwcdbdUssKN7U9n5A3owiDuJqKAal",
-        thumbnail: "https://image.tmdb.org/t/p/w300/xJw2WiS3uHpMaFmwv90oY7Mq6qC.jpg",
-        description: "Lumen es secuestrada por Jordan Chase, y Dexter debe correr para salvarla antes de que sea demasiado tarde."
-    }, {
-        title: "The Big One",
-        videoId: "1VguTWr4Tb2XXGnq6_DKPcCcsVgRnmiOM",
-        thumbnail: "https://image.tmdb.org/t/p/w300/fbAGakIEtwPpqi573MsseIDXE9s.jpg",
-        description: "Dexter se enfrenta a Jordan Chase en un enfrentamiento final. Después de su venganza, Lumen se da cuenta de que su oscuridad ha desaparecido y debe seguir adelante, dejando a Dexter solo una vez más."
-    }, ],
-    '6': [{
-        title: "Those Kinds of Things",
-        videoId: "1cq96JT3j9DOOBO-RRZVQRzYUZCPytGpp",
-        thumbnail: "https://image.tmdb.org/t/p/w300/3J0Swm0EUVur5vL8NddP2iYlZRS.jpg",
-        description: "Un año después, Dexter se ha adaptado a su vida como padre soltero. Se enfrenta a un nuevo tipo de asesino, 'El Asesino del Juicio Final', que comete crímenes basados en profecías bíblicas."
-    }, {
-        title: "Once Upon a Time...",
-        videoId: "1GWN7xda2SwjwYSxWRo7M_UtdJFeOW3PG",
-        thumbnail: "https://image.tmdb.org/t/p/w300/5jm0bu5yAOEDpUuwGYmyvEeaO0.jpg",
-        description: "La investigación lleva a la policía de Miami al Profesor Gellar, un experto en estudios religiosos que ha desaparecido. Dexter se cuestiona la fe y la religión."
-    }, {
-        title: "Smokey and the Bandit",
-        videoId: "1g36uOxKs9MooOfmD74Hj1wMoYgY8f2Dp",
-        thumbnail: "https://image.tmdb.org/t/p/w300/zEYmKykAr8cjTuzvNJS7O8Qzb1u.jpg",
-        description: "Dexter intenta encontrar un equilibrio entre su vida personal y la caza del Asesino del Juicio Final. Debra es ascendida a teniente, para su sorpresa y la de LaGuerta."
-    }, {
-        title: "A Horse of a Different Color",
-        videoId: "1PhfbSvGAFVg31cX5LybhU_nzdyEGqXQR",
-        thumbnail: "https://image.tmdb.org/t/p/w300/s4RtEYi17L5Q1ltZo2GJVhtniKZ.jpg",
-        description: "Dexter investiga a Travis Marshall, el antiguo protegido del Profesor Gellar, creyendo que es la clave para encontrar al asesino."
-    }, {
-        title: "The Angel of Death",
-        videoId: "1AUjok9WdxuoJzlmDoDCO-1bX2iCC4TO9",
-        thumbnail: "https://image.tmdb.org/t/p/w300/nqEs9ZNXzwDpTJyGqQ4DLEERuUT.jpg",
-        description: "Dexter se acerca a Travis, quien parece estar luchando con la influencia de Gellar."
-    }, {
-        title: "Just Let Go",
-        videoId: "1BDtyLzg7Y2zPWAeNp0U1s7Bdwxr1B7r7",
-        thumbnail: "https://image.tmdb.org/t/p/w300/xkagSIG0cWXfzwI1QO1B4d8YrLy.jpg",
-        description: "Dexter intenta convencer a Travis de que se aleje de Gellar, mientras que los asesinatos del Juicio Final se vuelven más elaborados y públicos."
-    }, {
-        title: "Nebraska",
-        videoId: "1I9eAlU17igqSfcLfe7n1G2Oz9FupdOAk",
-        thumbnail: "https://image.tmdb.org/t/p/w300/1QSX0cANrmBaSh33vW5BElbfuE2.jpg",
-        description: "Dexter se entera de que el Trinity Killer podría tener un hijo que ha seguido sus pasos, lo que lo lleva a un viaje por carretera a Nebraska."
-    }, {
-        title: "Sin of Omission",
-        videoId: "1dS76tL0e_I0GHjprNasKMyDiCkapuhdn",
-        thumbnail: "https://image.tmdb.org/t/p/w300/bqNoJcR57Of84oXnrUO9ljzjnpJ.jpg",
-        description: "Debra comienza a ir a terapia y se da cuenta de que puede tener sentimientos románticos por Dexter."
-    }, {
-        title: "Get Gellar",
-        videoId: "1UQ5jyKveI748hyeKmFO1zNP6F7K4o_Pc",
-        thumbnail: "https://image.tmdb.org/t/p/w300/6PwAsx7Lkn8qngruabjK0zl9Wlr.jpg",
-        description: "Dexter descubre la impactante verdad sobre el Profesor Gellar y Travis Marshall."
-    }, {
-        title: "Ricochet Rabbit",
-        videoId: "1FrSfILnOmiTPJxpy0n5rN5GjNcaQ_cIM",
-        thumbnail: "https://image.tmdb.org/t/p/w300/vMNxVlrjnNDvdangm2w3ZS8o8NM.jpg",
-        description: "Ahora que conoce la verdad, Dexter intenta anticipar el próximo movimiento de Travis, que se vuelve cada vez más peligroso y delirante."
-    }, {
-        title: "Talk to the Hand",
-        videoId: "1Fv1X5yM4jqI5ysLvsOhW5Pnq0XVP2m5Z",
-        thumbnail: "https://image.tmdb.org/t/p/w300/cTvPiVOaxZ6IQFOUZr0elDHqpW8.jpg",
-        description: "Travis secuestra al hijo de Dexter, Harrison, como parte de su plan final."
-    }, {
-        title: "This is the Way the World Ends",
-        videoId: "1E5Jo0DRZz4mSXK_pJ2wWtVroBLD7eQyC",
-        thumbnail: "https://image.tmdb.org/t/p/w300/j2L0qniodfmIV3KcT0Wnll5yMII.jpg",
-        description: "Dexter rescata a Harrison y se enfrenta a Travis en una iglesia abandonada. En el momento culminante, Debra entra y es testigo de Dexter matando a Travis."
-    }, ],
-    '7': [{
-        title: "Are You...?",
-        videoId: "1sEOsMpH4FPGB5tfoDFTJM1QYzs3SCYXv",
-        thumbnail: "https://image.tmdb.org/t/p/w300/6I9tGOb5dLVBOBPEv39ipwtYwNs.jpg",
-        description: "Debra se enfrenta a la impactante revelación de que su hermano es un asesino en serie. Lucha por reconciliar al hombre que ama con el monstruo que ha descubierto."
-    }, {
-        title: "Sunshine and Frosty Swirl",
-        videoId: "16-eP1MdRNc7VGXEUHTOVr4qi27C-exgS",
-        thumbnail: "https://image.tmdb.org/t/p/w300/jduaZpGaX9px1truLCy7FJrHdob.jpg",
-        description: "Debra decide ayudar a Dexter a encubrir el asesinato de Travis Marshall. LaGuerta reabre el caso del Carnicero de la Bahía, convencida de que Doakes era inocente."
-    }, {
-        title: "Buck the System",
-        videoId: "12WD7VYbIHPee_uIEW7IOeVzKKDbbz274",
-        thumbnail: "https://i.imgur.com/NHdGnOx.jpeg",
-        description: "Dexter se encuentra con Hannah McKay, una mujer con un pasado oscuro que podría ser tan peligrosa como él. La mafia ucraniana llega a Miami buscando venganza por la muerte de uno de los suyos a manos de Dexter."
-    }, {
-        title: "Run",
-        videoId: "1Yk775Lkm-4fAOvfA2wgcgJ7lWA-zjN5l",
-        thumbnail: "https://image.tmdb.org/t/p/w300/zB3LE61qzBC1e7WhZ5E0MJcDZxY.jpg",
-        description: "La relación entre Dexter y Debra se vuelve cada vez más tensa a medida que ella intenta 'curarlo' de su necesidad de matar."
-    }, {
-        title: "Swim Deep",
-        videoId: "1t5oUKx3OhO7VcVkaPiRfRd5HUnNQI4Sc",
-        thumbnail: "https://image.tmdb.org/t/p/w300/bInn82KQiRP8toc30EQyexzuKm0.jpg",
-        description: "Dexter comienza una relación romántica con Hannah, a pesar de saber que es una asesina."
-    }, {
-        title: "Do the Wrong Thing",
-        videoId: "1Zuh1jjNd2cSeklXGVCl6FIimlbtLQ7-P",
-        thumbnail: "https://image.tmdb.org/t/p/w300/rzPaHebEgx3tRIRdB2ZnhuAfivR.jpg",
-        description: "Debra le pide a Dexter que mate a Hannah, poniendo a prueba su lealtad. LaGuerta encuentra pruebas que la acercan a la verdad sobre Dexter."
-    }, {
-        title: "Chemistry",
-        videoId: "1Pt3ORFHanussZIO-Mhr3c1wyArisHA9U",
-        thumbnail: "https://i.imgur.com/HEbYZoK.jpeg",
-        description: "La relación de Dexter con Hannah se intensifica, lo que complica aún más su ya tensa relación con Debra."
-    }, {
-        title: "Argentina",
-        videoId: "1NkHIrwHKnpgg7269HUHXdVFXzipPg4rD",
-        thumbnail: "https://image.tmdb.org/t/p/w300/94fPHDTzIa6nNZ3ZMfFVad4TZKS.jpg",
-        description: "Debra intenta exponer a Hannah como una asesina. La investigación de LaGuerta sobre el Carnicero de la Bahía la lleva a sospechar de Dexter."
-    }, {
-        title: "Helter Skelter",
-        videoId: "19NzqKTQLrui2A9OxqcL0FLSI7rh7oKXj",
-        thumbnail: "https://image.tmdb.org/t/p/w300/y79hTt1bhkYFQcjkXXiQmbPSioN.jpg",
-        description: "El líder de la mafia ucraniana, Isaak Sirko, secuestra a Hannah para obligar a Dexter a ayudarlo."
-    }, {
-        title: "The Dark... Whatever",
-        videoId: "1DxX6jaYqJWsX1dD4nH9ZXZJ9nVnX9h-6",
-        thumbnail: "https://image.tmdb.org/t/p/w300/xKol1I04dpSJRn5CajDGES2GpSl.jpg",
-        description: "Dexter y Debra se ven obligados a trabajar juntos para salvar a Hannah. LaGuerta está a punto de exponer a Dexter."
-    }, {
-        title: "Do You See What I See?",
-        videoId: "1eyYEPCML-RrJ9yzY-4BSVYmjgmLL6vtg",
-        thumbnail: "https://image.tmdb.org/t/p/w300/qKxIRwbaKsxNyGSOmTecBWXdKVt.jpg",
-        description: "Hannah es arrestada gracias a Debra. LaGuerta arresta a Dexter por los asesinatos del Carnicero de la Bahía."
-    }, {
-        title: "Surprise, Motherfucker!",
-        videoId: "17Zc3marIk2Te8K0-C5l4cBOnbiaf_BR8",
-        thumbnail: "https://image.tmdb.org/t/p/w300/Arx36RnxTeUZT1lRhdHviLXOhll.jpg",
-        description: "Dexter es liberado, pero LaGuerta no se rinde. En un enfrentamiento final, Debra se ve obligada a tomar una decisión imposible entre su hermano y la ley."
-    }, ],
-    '8': [{
-        title: "A Beautiful Day",
-        videoId: "18cy9n11wtfnXezg3lYo5NaRU4LDBRaIu",
-        thumbnail: "https://image.tmdb.org/t/p/w300/sMIbqOhRemiQnAZS03uZEAsMKwE.jpg",
-        description: "Seis meses después de la muerte de LaGuerta, Debra ha dejado la policía y se ha distanciado de Dexter, consumida por la culpa. Dexter conoce a la Dra. Evelyn Vogel, una neuropsiquiatra que parece saberlo todo sobre él."
-    }, {
-        title: "Every Silver Lining...",
-        videoId: "10teY_5WzfkM02K-vRFDpzzZ0-A_MMYps",
-        thumbnail: "https://image.tmdb.org/t/p/w300/zlwGYHQLOtyrcuQNFA826uHDsjb.jpg",
-        description: "La Dra. Vogel revela que ayudó a Harry a crear el 'Código' de Dexter. Un nuevo asesino en serie, 'El Neurocirujano', está aterrorizando a Miami."
-    }, {
-        title: "What's Eating Dexter Morgan?",
-        videoId: "1BG1IPmcG7OLBjAdKI4IcyXZF2jlkLXsN",
-        thumbnail: "https://image.tmdb.org/t/p/w300/tDR2GuKsD51sCG4NsRugIxF40IG.jpg",
-        description: "Dexter y Debra intentan reconectarse, pero el abismo entre ellos es profundo. La Dra. Vogel le pide a Dexter que la ayude a atrapar al Neurocirujano."
-    }, {
-        title: "Scar Tissue",
-        videoId: "1V_SKvFELlC7uVBQwy7oDvOhDVLvw1NQN",
-        thumbnail: "https://image.tmdb.org/t/p/w300/vUhpyOERYLVC49P450zmDeGWMtx.jpg",
-        description: "Dexter comienza a enseñarle el Código a un joven psicópata llamado Zach Hamilton, con la esperanza de poder guiarlo como Harry lo guió a él."
-    }, {
-        title: "This Little Piggy",
-        videoId: "1OBXwOEFh-WHJlv6dPOAQyHH1jdTqi77W",
-        thumbnail: "https://image.tmdb.org/t/p/w300/1R1HZZRbw5giGm9YCJhnYngheQ2.jpg",
-        description: "La relación entre Dexter y Debra sigue siendo inestable. La investigación sobre el Neurocirujano continúa."
-    }, {
-        title: "A Little Reflection",
-        videoId: "1vofdaY_HmcAwZlE8JjmuT7YZ88bJNL_l",
-        thumbnail: "https://image.tmdb.org/t/p/w300/enjTk2EdDnLfbN23qL74WDIQ9Fs.jpg",
-        description: "Dexter intenta equilibrar su vida personal con la caza del Neurocirujano y la tutoría de Zach."
-    }, {
-        title: "Dress Code",
-        videoId: "1wfarGIVQcwUsEdyeY-pS923VCrC2todW",
-        thumbnail: "https://image.tmdb.org/t/p/w300/5q68Iy9MB0l1osSi404MePZ1xEx.jpg",
-        description: "Hannah McKay regresa a Miami, poniendo en peligro la ya frágil estabilidad de Dexter."
-    }, {
-        title: "Are We There Yet?",
-        videoId: "1svgfmqlDr1-8buoGkFTKKg9kFpBoK2sd",
-        thumbnail: "https://image.tmdb.org/t/p/w300/zzJy8KWJqQPhjMA3uG2h8SbjO81.jpg",
-        description: "Dexter y Hannah reavivan su relación y planean huir a Argentina con Harrison."
-    }, {
-        title: "Make Your Own Kind of Music",
-        videoId: "1WcfW1HeXFU4jruAiwABr2Rfnyjdb2eBO",
-        thumbnail: "https://image.tmdb.org/t/p/w300/9yRjrK62A8nyzJCNICt19k4LKXL.jpg",
-        description: "El Neurocirujano es revelado como uno de los antiguos pacientes de la Dra. Vogel."
-    }, {
-        title: "Goodbye Miami",
-        videoId: "18vqme-WK09MWIybS1-qY_7iR06HV5OvG",
-        thumbnail: "https://image.tmdb.org/t/p/w300/7rtNUEydPUGyoUu4AM2hpJW3S5W.jpg",
-        description: "Dexter intenta atar todos los cabos sueltos antes de irse de Miami, pero se ve arrastrado de nuevo a la investigación del Neurocirujano."
-    }, {
-        title: "Monkey in a Box",
-        videoId: "1PVECGe_ejzAYWeQrUsunn2bdybaE1_PE",
-        thumbnail: "https://image.tmdb.org/t/p/w300/3MefgmO0eYWlXUFSic7Dn45UUur.jpg",
-        description: "El Neurocirujano, también conocido como Oliver Saxon, ataca a Debra, dejándola en estado crítico."
-    }, {
-        title: "Remember the Monsters?",
-        videoId: "1m1xipz58jpIDDnx5NJZqCw7KNhjZx38O",
-        thumbnail: "https://image.tmdb.org/t/p/w300/eej5sOpA2A73O6SudZxFsw2oB5n.jpg",
-        description: "Con un huracán acercándose a Miami, Dexter se enfrenta a Saxon en un enfrentamiento final. Toma una decisión devastadora que lo obliga a exiliarse y abandonar a su hijo, enfrentando una tormenta tanto literal como figurativa."
-    }, ],
-};
-const peacemakerData = {
+    // ===========================================================
+    // DATABASE DE SERIES
+    // ===========================================================
+    const peacemakerData = {
     'Temporada 1': [
-        { title: "Un Giro Completamente Nuevo", videoId_es: "1PinwiM4-Lc6XeOHgMREprwWfF6i8noSI", videoId_en: "1foDQzFqS6V_NxXObvAvtyfNpQwZlTcA", thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/6c2a04f5-52a4-40d2-958c-e37f9cfcc891/0f3a325238a8e8b5b2bb8b46edc241e38a07c7f8.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", description: "Tras una milagrosa recuperación, Peacemaker regresa a casa y descubre que su libertad tiene un precio." },
+        { title: "Un Giro Completamente Nuevo", videoId_es: "1PinwiM4-Lc6XeOHgMREprwWfF6i8noSI", videoId_en: "1foDQzFqS6V_Nx9XObvAvtyfNpQwZlTcA", thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/6c2a04f5-52a4-40d2-958c-e37f9cfcc891/0f3a325238a8e8b5b2bb8b46edc241e38a07c7f8.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", description: "Tras una milagrosa recuperación, Peacemaker regresa a casa y descubre que su libertad tiene un precio." },
         { title: "Mejores Amigos, Para Nunca", videoId_es: "1RygUiKmAU2IVjUMqSoQMKSSSqWvWub_B", videoId_en: "1D39ICqLEHuA5BLCtUVpcLU0nfXD4ZRWa", thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/1c9ed3b7-8b2c-41ca-9e7d-801b712fb1b6/4b9bed8f63a5fbc4661679f066746f79b8cac2e5.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", description: "Peligrosa huida de Peacemaker crea tensión y desconfianza dentro del equipo. Peacemaker lidia con su primera misión, recibe una visita inesperada." },
         { title: "Más Vale un Goff Muerto", videoId_es: "1AxGzREYDRyZwDIH55H8WRaFgWmE1QM0j", videoId_en: "1JzH5yaeMsj0-jQS_J8KIIrrTuaD06rD5", thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/f0f9f1c3-1bc0-4fc6-8492-e4155c05d3ed/fc8fb8e00e229749f963dfdfbf502b7fde581e90.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", description: "En su primera misión oficial, Economos y Murn se unen y Peacemaker y Harcourt se ponen de acuerdo. Trabajo se perjudica con llegada de Judomaster." },
         { title: "El Miembro Menos Transitado", videoId_es: "1Hd5Bq-LE4bB10yNlvfgQnda7Pb2SeOw2", videoId_en: "1n2-feGEDTOx_tVXrq5MybVAOjycIniS_", thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/6f25dbf9-2f60-4aee-9a45-bf1c4aa395e0/d212947b01e5ce9319b138e3b8610486509cb348.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", description: "Misión algo exitosa, Murn recluta a Vigilante. Tras enterarse que el equipo estuvo en encarcelamiento de su padre, Peacemaker se enfrenta a su pasado." },
@@ -1640,583 +914,821 @@ const peacemakerData = {
     'Temporada 2': [
         { title: "Los lazos que muelen", videoId_es: "1ozRKZ6iquAuLyxji-Kh4u9_rOaeCUZXv", videoId_en: "1OW3HwiwiFtJ4pTu3yvyxU74sB0SbYGIz", thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/bef3c15c-d62b-4acb-abb1-c8351ca668da/bb298b74-e97e-4b58-bd0a-8b8283495e06?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", description: "Mientras Peacemaker intenta unirse a la Pandilla de la Justicia, Harcourt tiene dificultades para encontrar trabajo y Economos asume un nuevo desafío." },
         { title: "Un Hombre Vale Tanto Como Su Pájaro", videoId_es: "1fqIA1T5MIoXZfUwyeClO1UcONLecr34n", videoId_en: "1csehTnd5Xb2v7xPBv4xNvCQxtO41M1Tg", thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/f51f64fd-fbcc-48e5-8437-eef5cce08b6e/4dcb9d6f-5dd9-4f3d-bdd0-a3303e0fd82f?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", description: "Mientras Economos se enfrenta a su nuevo responsable, Peacemaker debe enfrentar las consecuencias de sus acciones en la dimensión alterna." },
-        { title: "Próximamente...", releaseDate: '2025-09-06', description: "El episodio 3 se estrena pronto." },
-        { title: "Próximamente...", releaseDate: '2025-09-13', description: "El episodio 4 se estrena pronto." },
-        { title: "Próximamente...", releaseDate: '2025-09-20', description: "El episodio 5 se estrena pronto." },
-        { title: "Próximamente...", releaseDate: '2025-09-27', description: "El episodio 6 se estrena pronto." },
-        { title: "Próximamente...", releaseDate: '2025-10-04', description: "El episodio 7 se estrena pronto." },
-        { title: "Próximamente...", releaseDate: '2025-10-11', description: "El episodio 8 se estrena pronto." }
+        { title: "Próximamente...", releaseDate: '2025-09-05', description: "El episodio 3 se estrena pronto." },
+        { title: "Próximamente...", releaseDate: '2025-09-12', description: "El episodio 4 se estrena pronto." },
+        { title: "Próximamente...", releaseDate: '2025-09-19', description: "El episodio 5 se estrena pronto." },
+        { title: "Próximamente...", releaseDate: '2025-09-26', description: "El episodio 6 se estrena pronto." },
+        { title: "Próximamente...", releaseDate: '2025-10-03', description: "El episodio 7 se estrena pronto." },
+        { title: "Próximamente...", releaseDate: '2025-10-10', description: "El episodio 8 se estrena pronto." }
     ]
 };
-// ===========================================================
-// INICIO DE LA APLICACIÓN
-// ===========================================================
-let heroInterval;
-let currentHeroIndex = 0;
-let featuredIds = [];
-let playerState = {
-    dexter: { season: 1, episodeIndex: 0 },
-    peacemaker: { season: 'Temporada 1', episodeIndex: 0, lang: 'es' },
+    const dexterData = {
+    1: [
+        { title: "Dexter", videoId: "1xfWPP4ZMSbM6R9nHqVEjg6UPNpemnhUC", thumbnail: "https://image.tmdb.org/t/p/w300/70rjTrItEJCyr6u8zmAVQrdmcrP.jpg", description: "Dexter Morgan, analista de salpicaduras de sangre del Departamento de Policía de Miami, lleva una doble vida como un asesino en serie justiciero que persigue a criminales que han eludido el sistema de justicia." }, 
+        { title: "Crocodile", videoId: "17CF2L5WE25SnYbQ1lta-QVBkx_eWldsT", thumbnail: "https://image.tmdb.org/t/p/w300/vcx9a4vVzQfKO2IysTKC0wLLJQ0.jpg", description: "Dexter investiga un asesinato en el que un oficial de policía es el principal sospechoso. Mientras tanto, un nuevo asesino en serie conocido como el 'Asesino del Camión de Hielo' comienza a dejar un rastro de cuerpos desmembrados." }, 
+        { title: "Popping Cherry", videoId: "1shWSGANTDiyPsRqF_TeviwJNFcM9Hh1m", thumbnail: "https://image.tmdb.org/t/p/w300/pVjoJyTwsUGP7rCLkd7S8V4GgGu.jpg", description: "La investigación sobre el Asesino del Camión de Hielo se intensifica. Dexter se siente extrañamente atraído por el estilo metódico del asesino, mientras que su hermana Debra está ansiosa por ser transferida al departamento de homicidios." }, 
+        { title: "Let's Give the Boy a Hand", videoId: "1LOBarwHKi_ZdhbxdFVmyBMJ-eYNM9-LZ", thumbnail: "https://image.tmdb.org/t/p/w300/e6ZiRNeHCFuXRJdwoQJORA9q9nl.jpg", description: "El Asesino del Camión de Hielo comienza a dejar pistas personales para Dexter, lo que sugiere una conexión con su propio pasado oscuro." }, 
+        { title: "Love American Style", videoId: "1TPoklQPiwIeOeOjvTMd87o5JOl3kSURy", thumbnail: "https://image.tmdb.org/t/p/w300/fpLBlBrhOSqUHXDEiiTRh9k7zPj.jpg", description: "Se descubre una víctima del Asesino del Camión de Hielo que ha sobrevivido. Dexter ve la oportunidad de aprender más sobre el asesino, pero el caso toma un giro inesperado." }, 
+        { title: "Return to Sender", videoId: "12J1-q4Cr73vikEkU2CFtRCCnAbVJeqyW", thumbnail: "https://image.tmdb.org/t/p/w300/fg5uVRanMihJ184Za4UqwYjumBE.jpg", description: "El Asesino del Camión de Hielo deja una escena del crimen que es una réplica de uno de los asesinatos de Dexter, llevando la investigación peligrosamente cerca de él." }, 
+        { title: "Circle of Friends", videoId: "1kNUMR67Mx16kBnOwXmWaqfKBTY2WsG-h", thumbnail: "https://image.tmdb.org/t/p/w300/gpqFeUvCSMNWFd4IJbtY2FH6noD.jpg", description: "La policía de Miami cree haber identificado al Asesino del Camión de Hielo, pero Dexter tiene sus dudas y comienza su propia investigación para descubrir la verdadera identidad del asesino." }, 
+        { title: "Shrink Wrap", videoId: "1uPzmYfaGxtMyqltepv-Y_7pVb9eY4SfX", thumbnail: "https://image.tmdb.org/t/p/w300/lSPPQLhChQTyU8SoVeyBLcNxzhU.jpg", description: "La investigación lleva a Dexter a un psiquiatra que puede tener información crucial sobre el Asesino del Camión de Hielo y, posiblemente, sobre el propio pasado de Dexter." }, 
+        { title: "Father Knows Best", videoId: "1NOVrVbw_rbiGdRJb0AY-eX7C_39bi2VE", thumbnail: "https://image.tmdb.org/t/p/w300/8IUBoErgGbboihLAuPDhN5IsO2s.jpg", description: "Dexter descubre que su padre adoptivo, Harry, le ocultó secretos sobre su origen. La revelación de la existencia de su hermano biológico lo estremece." }, 
+        { title: "Seeing Red", videoId: "1rfMjrPJMt5zKtt1zUL_0YuJsIddVu2QB", thumbnail: "https://i.imgur.com/OZUbwOq.png", description: "Una escena del crimen desencadena recuerdos reprimidos de la infancia traumática de Dexter, revelando el origen de su 'Pasajero Oscuro'." }, 
+        { title: "Truth Be Told", videoId: "1VteS_LtubhgSuJqCBFTU8Yc2JoNRHpYx", thumbnail: "https://image.tmdb.org/t/p/w300/igwp2lTwkn8LoLTLBzPG49hzqbB.jpg", description: "El Asesino del Camión de Hielo secuestra a alguien cercano a Dexter, obligándolo a un enfrentamiento directo y a revivir su pasado." }, 
+        { title: "Born Free", videoId: "1RQTf76eLx_q2qCoempbz9JKAMJx_IEgO", thumbnail: "https://image.tmdb.org/t/p/w300/1ObZDLK3f7BucdgtmAlHZRYN3IB.jpg", description: "En un final impactante, Dexter se enfrenta a su hermano, el Asesino del Camión de Hielo, y debe tomar una decisión que cambiará su vida para siempre." }
+    ],
+    2: [
+        { title: "It's Alive!", videoId: "1rmvE_gI-01yK3dydBtmuzEb5sRueQV6Q", thumbnail: "https://image.tmdb.org/t/p/w300/2jtzefZ7yIcaZoJxcOkuM4YEBHU.jpg", description: "Atormentado por haber matado a su hermano, Dexter encuentra que su 'Pasajero Oscuro' está inactivo. Mientras tanto, el sargento Doakes lo vigila de cerca, y buzos descubren el cementerio submarino de las víctimas de Dexter." },
+        { title: "Waiting to Exhale", videoId: "16OQNevX_ipURJkheCIcHbQibvVp2rCoP", thumbnail: "https://image.tmdb.org/t/p/w300/ha7i2p27VVdWY9wN9bkpQvmPmFv.jpg", description: "El FBI, liderado por el agente especial Frank Lundy, llega a Miami para investigar al nuevo asesino en serie apodado 'El Carnicero de la Bahía', que en realidad es Dexter." },
+        { title: "An Inconvenient Lie", videoId: "1awY6KLsDfc6MhkK0u2n2MNP_4_WeMQQt", thumbnail: "https://image.tmdb.org/t/p/w300/nhddI1zisRZtGUxJIZwKGFhDqoz.jpg", description: "Rita, la novia de Dexter, sospecha que él tiene un problema de adicción y lo obliga a unirse a un programa de Narcóticos Anónimos, donde conoce a la enigmática Lila." },
+        { title: "See-Through", videoId: "1n1b-XSJ2dZdolEOwW6RRz9pw5fyxv0o7", thumbnail: "https://image.tmdb.org/t/p/w300/omBmf4Gxu8HPpnciDs6dUTYAiN3.jpg", description: "Dexter intenta desviar la investigación de Lundy, que se acerca peligrosamente a la verdad. La presencia de Lila en su vida comienza a complicar las cosas con Rita." },
+        { title: "The Dark Defender", videoId: "1_Rum2jeFB0_ytCdR7sHEU4byIgd-Lekb", thumbnail: "https://image.tmdb.org/t/p/w300/nEWrXNNIhOCx5AGy7PZonRXjtCN.jpg", description: "Dexter se enfoca en un nuevo objetivo, mientras que Lila se vuelve cada vez más manipuladora y se inserta en la vida de Dexter." },
+        { title: "Dex, Lies, and Videotape", videoId: "1fAQ3IDWX1qKgfwuWoJxNhRfx4GzgQ_v7", thumbnail: "https://image.tmdb.org/t/p/w300/tB4fuDRHzQTRlfszvMAoNxgoKz6.jpg", description: "Se publica un manifiesto del supuesto 'Carnicero de la Bahía', creando un frenesí mediático. Dexter se da cuenta de que alguien podría estar intentando imitarlo o exponerlo." },
+        { title: "That Night, a Forest Grew", videoId: "116BvKv2Xg8AezcpDLOiWpiqjfm9eHAz2", thumbnail: "https://image.tmdb.org/t/p/w300/nwgxVpwiReDOtnBg0dMA9L4rcI8.jpg", description: "Doakes se convence de que Dexter es el Carnicero de la Bahía y comienza a investigarlo por su cuenta, arriesgando su propia carrera." },
+        { title: "Morning Comes", videoId: "1F5EOaIsAhx8HOV-OqQAoklwmTv1LiLTH", thumbnail: "https://image.tmdb.org/t/p/w300/15WfX35RWngveAdYNCsruo12tpa.jpg", description: "La investigación de Lundy se centra en Doakes como posible sospechoso. Dexter se ve atrapado entre la creciente presión del FBI y la obsesión de Doakes." },
+        { title: "Resistance Is Futile", videoId: "15R7DT4FtJcEoc21sWIKixom5Ci3wl547", thumbnail: "https://image.tmdb.org/t/p/w300/gL34Xku1eO413hIcqWrnb69yw0r.jpg", description: "Doakes finalmente confronta a Dexter, descubriendo su oscuro secreto. Su enfrentamiento lleva a una situación de vida o muerte." },
+        { title: "There's Something About Harry", videoId: "1-ZLN1mjeQ-SWDCtZlpGEm4PwgbEInCfB", thumbnail: "https://image.tmdb.org/t/p/w300/8PMgRRi6NysXyXSypwdaJiomiCM.jpg", description: "Dexter mantiene a Doakes cautivo y descubre la verdad sobre la muerte de su padre adoptivo, Harry. Lila sigue interfiriendo en su vida de maneras destructivas." },
+        { title: "Left Turn Ahead", videoId: "1O7t47mTMgAzSoASZyZrTYPwf8oeH_5mD", thumbnail: "https://image.tmdb.org/t/p/w300/echl9nui9uAPgjX8sqU0vfNYmvh.jpg", description: "Con Doakes como su prisionero, Dexter contempla la posibilidad de entregarse para proteger a los que ama. Lila toma medidas extremas para mantener a Dexter a su lado." },
+        { title: "The British Invasion", videoId: "17Z3BtSa6LiIhBWq5kKA9IuneOLyfmegd", thumbnail: "https://image.tmdb.org/t/p/w300/4uOSnM1yV7azULevXV29lcCNXAt.jpg", description: "En un final explosivo, Dexter debe lidiar con las consecuencias de las acciones de Lila y tomar una decisión final sobre el destino de Doakes." }
+    ],
+    3: [
+        { title: "Our Father", videoId: "1gfKVgI2s6D1kK9XPDmn2Rj5RH5WiMQON", thumbnail: "https://image.tmdb.org/t/p/w300/97VmyFgGYJECb76lxvbARLU17kk.jpg", description: "Dexter accidentalmente mata al hermano de un poderoso fiscal de distrito, Miguel Prado. Mientras tanto, Rita descubre que está embarazada." },
+        { title: "Finding Freebo", videoId: "1cJq1trMD_wvEpS6t_wFkxmQpX8RRq1Uu", thumbnail: "https://image.tmdb.org/t/p/w300/gaKRlCQcuiSRjJwst4HPoUvrGWv.jpg", description: "Tanto Dexter como Miguel Prado buscan al hombre que creen responsable de la muerte del hermano de Miguel, aunque por diferentes razones." },
+        { title: "The Lion Sleeps Tonight", videoId: "1kxZLG_FYo5ZO5ufhNCzW5N3OIY1xh1LZ", thumbnail: "https://image.tmdb.org/t/p/w300/a9rXiVNSe5y2hOvq5BtaVkFmgCb.jpg", description: "La amistad entre Dexter y Miguel se fortalece, y Miguel comienza a sospechar del lado oscuro de Dexter. Dexter se enfrenta a la idea de convertirse en padre." },
+        { title: "All in the Family", videoId: "1eL3iyjjPCcr-zkB7gYDPsjNchZyrYSiU", thumbnail: "https://image.tmdb.org/t/p/w300/2WszcqVwyn9MU8uSAD9CWR9pXZy.jpg", description: "Dexter y Rita anuncian su embarazo. Miguel le pide a Dexter que lo ayude a 'encargarse' de un criminal que el sistema legal no pudo detener." },
+        { title: "Turning Biminese", videoId: "1LRpIIx9xk5KOfW7nqRK0JcrKBysWWzxK", thumbnail: "https://image.tmdb.org/t/p/w300/xzg0wTQNR1IjlqeCLPC8teyJwQ3.jpg", description: "Miguel le presenta a Dexter un nuevo objetivo, y su retorcida amistad da un paso más allá, con Miguel convirtiéndose en una especie de 'aprendiz'." },
+        { title: "Sí Se Puede", videoId: "1zgL6YsaUG6f0iOTGIV6xjJUc7NXnB910", thumbnail: "https://image.tmdb.org/t/p/w300/nRxCveqjRzd1L7tMnmlaKKUmxXO.jpg", description: "Dexter intenta enseñarle a Miguel su 'código', pero pronto se da cuenta de que Miguel podría no tener el mismo autocontrol." },
+        { title: "Easy as Pie", videoId: "1gztFug-LSO8Jl1ZrkfyUqHc5Zps2DKOj", thumbnail: "https://image.tmdb.org/t/p/w300/bb4eTOgQoiukJWMQ92yoykjqtc6.jpg", description: "La relación entre Dexter y Miguel se vuelve más tensa a medida que Miguel se vuelve más imprudente y hambriento de poder." },
+        { title: "The Damage a Man Can Do", videoId: "1-9DshR2awLhM3Yxs_Rq_XuQ6YcuzfWDx", thumbnail: "https://image.tmdb.org/t/p/w300/quhTwhj7QFCHV7FsHVZM4Q9aXRp.jpg", description: "Un nuevo asesino en serie, 'El Despellejador', aterroriza a Miami. Dexter se da cuenta de que la amistad con Miguel se ha vuelto peligrosa y fuera de control." },
+        { title: "About Last Night", videoId: "1jJ1M4KNG3CUfUd9LlXVm0PMVvbhCVj9j", thumbnail: "https://image.tmdb.org/t/p/w300/sK9IKd3lxhasGG2kurO89wzDNkr.jpg", description: "Miguel traiciona la confianza de Dexter, lo que lleva a una ruptura inevitable y peligrosa en su amistad." },
+        { title: "Go Your Own Way", videoId: "1bS2Qw_s-o2BUuE8S7cfUe5n3AWd7dHq2", thumbnail: "https://image.tmdb.org/t/p/w300/jeEK4lpw0KtnqReqfihnctu5TvD.jpg", description: "Dexter se da cuenta de que debe detener a Miguel, quien se ha convertido en una amenaza para todos los que lo rodean." },
+        { title: "I Had a Dream", videoId: "1reXd3aleq6qsjQ4hmmVf110nlCJEFJUM", thumbnail: "https://image.tmdb.org/t/p/w300/AscduWJM3dUtWg3TTPt0nQDA3Om.jpg", description: "La investigación sobre 'El Despellejador' se acerca a Dexter. El enfrentamiento final con Miguel es inminente." },
+        { title: "Do You Take Dexter Morgan?", videoId: "1Ygp5PyXnsuZw4xJKlG0GnRNqY3It4b32", thumbnail: "https://image.tmdb.org/t/p/w300/eA7iCZXyED1D7GSiJHwzc2iTj4l.jpg", description: "En el día de su boda con Rita, Dexter debe enfrentarse tanto a Miguel como al Despellejador en un clímax lleno de suspenso." }
+    ],
+    4: [
+        { title: "Living the Dream", videoId: "1FwU7o687AkxSNZfltANU_eH3CjuVRkgU", thumbnail: "https://image.tmdb.org/t/p/w300/4dJnt4To4wrM9QX0cMA7EQ0ZSM3.jpg", description: "Dexter lucha por equilibrar su nueva vida como esposo y padre con su necesidad de matar. Un nuevo y prolífico asesino en serie, conocido como 'Trinity Killer', emerge." },
+        { title: "Remains to Be Seen", videoId: "1SNkH5EzawGvesUFbPtOD-D-c8TAMZKzp", thumbnail: "https://image.tmdb.org/t/p/w300/wLVHnCNEcAc4c7OTwxBX4Or567k.jpg", description: "El legendario agente retirado del FBI, Frank Lundy, regresa a Miami para cazar al Trinity Killer, a quien ha perseguido durante décadas." },
+        { title: "Blinded by the Light", videoId: "1ii2q5UYK-Uw8qokfCIjhGdgUF0dGGNWI", thumbnail: "https://image.tmdb.org/t/p/w300/fyUv2iXYpKSpWqq8psrV8dT7p5y.jpg", description: "Dexter comienza a acechar al Trinity Killer, cuyo verdadero nombre es Arthur Mitchell, un hombre aparentemente normal de familia." },
+        { title: "Dex Takes a Holiday", videoId: "1JAfBfP-Pyzghn5dmJQ-2PWAtZzJj4Bj9", thumbnail: "https://image.tmdb.org/t/p/w300/1pBP6NIWBlbbSppmePj08aAkepS.jpg", description: "Dexter intenta aprender cómo Arthur Mitchell equilibra su vida familiar con sus asesinatos, con la esperanza de encontrar una manera de hacer lo mismo." },
+        { title: "Dirty Harry", videoId: "1PrcbqV3grJmHa2PRjwGSFYa4daYGrsvp", thumbnail: "https://image.tmdb.org/t/p/w300/kmkkP8AtKIN9Knsdq4Ct9j1nTxo.jpg", description: "La investigación de Dexter sobre Trinity revela un ciclo de asesinatos rituales que se ha repetido durante 30 años en todo el país." },
+        { title: "If I Had a Hammer", videoId: "1s7Dp1FEVCbsA8ualr5uN_Iq9Zd3LZS6Z", thumbnail: "https://image.tmdb.org/t/p/w300/o7QS9elByQgYGRAimw2TI8vdKP3.jpg", description: "Dexter se infiltra en la vida de Arthur Mitchell bajo un alias, descubriendo la fachada de un hombre de familia devoto que oculta a un monstruo." },
+        { title: "Slack Tide", videoId: "1kFxu9HIn53GMsKG7WAsLVJ4jfjehimhj", thumbnail: "https://image.tmdb.org/t/p/w300/cCUipEG71f7dVwCb6vnpPrx8fge.jpg", description: "La relación de Dexter con Arthur se vuelve más complicada, y Dexter comienza a cuestionar si puede aprender algo del monstruo al que persigue." },
+        { title: "Road Kill", videoId: "1cN5hK2PJZG7RDQOBQzezVzhQZJ1_iyNx", thumbnail: "https://image.tmdb.org/t/p/w300/9B2ykyALH7ZaUMGQQlYbvYc8pw9.jpg", description: "Dexter acompaña a Arthur en un viaje fuera de la ciudad, obteniendo una visión más profunda y perturbadora de su psique." },
+        { title: "Hungry Man", videoId: "1XbitLqulBj7kjrj7iASariFF9b_dxXQW", thumbnail: "https://image.tmdb.org/t/p/w300/c0MAgpJXH5TkNxShkPjDHz5WXf9.jpg", description: "Dexter comparte el Día de Acción de Gracias con la familia de Arthur y es testigo de primera mano del abuso y el terror que les inflige." },
+        { title: "Lost Boys", videoId: "1dfhhhI7vMFvLrq2af0R-qVFlo9SfhPQh", thumbnail: "https://image.tmdb.org/t/p/w300/8zYOWNOB76BeTgsZYEhyjDCDLFS.jpg", description: "Dexter descubre la verdad detrás del ciclo de asesinatos de Trinity y se da cuenta de que es mucho más oscuro de lo que imaginaba." },
+        { title: "Hello, Dexter Morgan", videoId: "16r3D85u_w3cIVh6EKtsSN8g9DY5HACy1", thumbnail: "https://image.tmdb.org/t/p/w300/wDLYbem5WVkncXCOmmzTMPa1o8A.jpg", description: "La policía de Miami se acerca a Arthur Mitchell, lo que obliga a Dexter a acelerar su propio plan para eliminarlo." },
+        { title: "The Getaway", videoId: "1fx5luCJ9UmcKtqqNP4CEGTd7bLKoshHv", thumbnail: "https://image.tmdb.org/t/p/w300/4ikoyXM8YIwLJFkiZdmwsx7yGc5.jpg", description: "Dexter finalmente se enfrenta a Arthur en un enfrentamiento final, pero regresa a casa para descubrir que Trinity ha dejado una última y devastadora sorpresa." }
+    ],
+    5: [
+        { title: "My Bad", videoId: "1jhVj93li4cx0FAis0hdj2qltLTOXlVhF", thumbnail: "https://image.tmdb.org/t/p/w300/lNMSOuA1LTp71hSFsb25G6w9Gxq.jpg", description: "Lidiando con las secuelas de la muerte de Rita, Dexter se siente responsable y lucha con su dolor y su culpa, mientras intenta ser un padre soltero para sus tres hijos." },
+        { title: "Hello, Bandit", videoId: "1r6OveGoDEYzOlRbRgEtFqAEt0SYMd08Y", thumbnail: "https://image.tmdb.org/t/p/w300/yqTBpVchb5WndUMXkbRlYKpSg1A.jpg", description: "Dexter intenta volver a su rutina, pero el trauma lo ha afectado profundamente. Mientras tanto, Quinn comienza a sospechar de Dexter en relación con la muerte de Rita." },
+        { title: "Practically Perfect", videoId: "1hR6Dwo6jtVLEdebdgssrgMtYRcp6NHuA", thumbnail: "https://image.tmdb.org/t/p/w300/p1lle5gWz29k8YF9Prj96C2UFDP.jpg", description: "Dexter contrata a una niñera para Harrison. Impulsivamente, comete un asesinato y es presenciado por una misteriosa mujer llamada Lumen." },
+        { title: "Beauty and the Beast", videoId: "19nuqojXIkgh1jl3cjHPjiMoR_4Sn23bd", thumbnail: "https://image.tmdb.org/t/p/w300/82SPJjIJP7xvViWD0xOgDLezdOs.jpg", description: "Dexter mantiene a Lumen cautiva mientras decide qué hacer con ella. Ella le revela que fue víctima de una red de abuso y tortura." },
+        { title: "First Blood", videoId: "194zx9D1cE8RZUQdaM1dej3yDtYdD5aCd", thumbnail: "https://image.tmdb.org/t/p/w300/eR3jzZ6WKD09ocsxq5fRGHuGqMX.jpg", description: "Dexter decide ayudar a Lumen a vengarse de los hombres que la lastimaron, encontrando en ella una compañera inesperada." },
+        { title: "Everything Is Illumenated", videoId: "1_V6djuinywABYG9sCjTpncIY4lDc3WgC", thumbnail: "https://image.tmdb.org/t/p/w300/kpa3E6ynZdFORmEJzvjzMnEukOM.jpg", description: "Dexter y Lumen comienzan a cazar a los miembros del grupo que la torturó. Su vínculo se profundiza a medida que comparten su oscuridad." },
+        { title: "Circle Us", videoId: "1mrN_T70sBDbRO7JvC6o547tfeBo5XFMR", thumbnail: "https://image.tmdb.org/t/p/w300/yWmgJkvzS1zx7YhqCfgVf1r1Ovq.jpg", description: "A medida que se acercan a su objetivo principal, el carismático líder del grupo, Jordan Chase, la investigación de la policía también se intensifica." },
+        { title: "Take It!", videoId: "1w4WlLfFixrR0WesXuu87j3hDeiXoixB-", thumbnail: "https://image.tmdb.org/t/p/w300/sxQcDzAseVJkiUXqIXfWaTiRYYw.jpg", description: "La relación entre Dexter y Lumen se vuelve más íntima. Quinn se acerca a la verdad sobre el pasado de Dexter." },
+        { title: "Teenage Wasteland", videoId: "1DbaTuFlVKRSbc1qq_d8gMXzfwrlX216X", thumbnail: "https://image.tmdb.org/t/p/w300/eoxBiNdnAxI1mTcIdHXcn6jSoN0.jpg", description: "Debra se acerca a resolver el caso de las 'chicas del barril', sin saber que está directamente relacionado con la misión de venganza de Dexter y Lumen." },
+        { title: "In the Beginning", videoId: "1JMBl8v0cYTTkbgJPgUzUrH4TS4ZC2bB1", thumbnail: "https://image.tmdb.org/t/p/w300/s9xVM0xayQbGaGD6ttARrSVsySm.jpg", description: "Dexter y Lumen se dan cuenta de que Jordan Chase sabe que lo están cazando, lo que lleva a un peligroso juego del gato y el ratón." },
+        { title: "Hop a Freighter", videoId: "153QmwcdbdUssKN7U9n5A3owiDuJqKAal", thumbnail: "https://image.tmdb.org/t/p/w300/xJw2WiS3uHpMaFmwv90oY7Mq6qC.jpg", description: "Lumen es secuestrada por Jordan Chase, y Dexter debe correr para salvarla antes de que sea demasiado tarde." },
+        { title: "The Big One", videoId: "1VguTWr4Tb2XXGnq6_DKPcCcsVgRnmiOM", thumbnail: "https://image.tmdb.org/t/p/w300/fbAGakIEtwPpqi573MsseIDXE9s.jpg", description: "Dexter se enfrenta a Jordan Chase en un enfrentamiento final. Después de su venganza, Lumen se da cuenta de que su oscuridad ha desaparecido y debe seguir adelante, dejando a Dexter solo una vez más." }
+    ],
+    6: [
+        { title: "Those Kinds of Things", videoId: "1cq96JT3j9DOOBO-RRZVQRzYUZCPytGpp", thumbnail: "https://image.tmdb.org/t/p/w300/3J0Swm0EUVur5vL8NddP2iYlZRS.jpg", description: "Un año después, Dexter se ha adaptado a su vida como padre soltero. Se enfrenta a un nuevo tipo de asesino, 'El Asesino del Juicio Final', que comete crímenes basados en profecías bíblicas." },
+        { title: "Once Upon a Time...", videoId: "1GWN7xda2SwjwYSxWRo7M_UtdJFeOW3PG", thumbnail: "https://image.tmdb.org/t/p/w300/5jm0bu5yAOEDpUuwGYmyvEeaO0.jpg", description: "La investigación lleva a la policía de Miami al Profesor Gellar, un experto en estudios religiosos que ha desaparecido. Dexter se cuestiona la fe y la religión." },
+        { title: "Smokey and the Bandit", videoId: "1g36uOxKs9MooOfmD74Hj1wMoYgY8f2Dp", thumbnail: "https://image.tmdb.org/t/p/w300/zEYmKykAr8cjTuzvNJS7O8Qzb1u.jpg", description: "Dexter intenta encontrar un equilibrio entre su vida personal y la caza del Asesino del Juicio Final. Debra es ascendida a teniente, para su sorpresa y la de LaGuerta." },
+        { title: "A Horse of a Different Color", videoId: "1PhfbSvGAFVg31cX5LybhU_nzdyEGqXQR", thumbnail: "https://image.tmdb.org/t/p/w300/s4RtEYi17L5Q1ltZo2GJVhtniKZ.jpg", description: "Dexter investiga a Travis Marshall, el antiguo protegido del Profesor Gellar, creyendo que es la clave para encontrar al asesino." },
+        { title: "The Angel of Death", videoId: "1AUjok9WdxuoJzlmDoDCO-1bX2iCC4TO9", thumbnail: "https://image.tmdb.org/t/p/w300/nqEs9ZNXzwDpTJyGqQ4DLEERuUT.jpg", description: "Dexter se acerca a Travis, quien parece estar luchando con la influencia de Gellar." },
+        { title: "Just Let Go", videoId: "1BDtyLzg7Y2zPWAeNp0U1s7Bdwxr1B7r7", thumbnail: "https://image.tmdb.org/t/p/w300/xkagSIG0cWXfzwI1QO1B4d8YrLy.jpg", description: "Dexter intenta convencer a Travis de que se aleje de Gellar, mientras que los asesinatos del Juicio Final se vuelven más elaborados y públicos." },
+        { title: "Nebraska", videoId: "1I9eAlU17igqSfcLfe7n1G2Oz9FupdOAk", thumbnail: "https://image.tmdb.org/t/p/w300/1QSX0cANrmBaSh33vW5BElbfuE2.jpg", description: "Dexter se entera de que el Trinity Killer podría tener un hijo que ha seguido sus pasos, lo que lo lleva a un viaje por carretera a Nebraska." },
+        { title: "Sin of Omission", videoId: "1dS76tL0e_I0GHjprNasKMyDiCkapuhdn", thumbnail: "https://image.tmdb.org/t/p/w300/bqNoJcR57Of84oXnrUO9ljzjnpJ.jpg", description: "Debra comienza a ir a terapia y se da cuenta de que puede tener sentimientos románticos por Dexter." },
+        { title: "Get Gellar", videoId: "1UQ5jyKveI748hyeKmFO1zNP6F7K4o_Pc", thumbnail: "https://image.tmdb.org/t/p/w300/6PwAsx7Lkn8qngruabjK0zl9Wlr.jpg", description: "Dexter descubre la impactante verdad sobre el Profesor Gellar y Travis Marshall." },
+        { title: "Ricochet Rabbit", videoId: "1FrSfILnOmiTPJxpy0n5rN5GjNcaQ_cIM", thumbnail: "https://image.tmdb.org/t/p/w300/vMNxVlrjnNDvdangm2w3ZS8o8NM.jpg", description: "Ahora que conoce la verdad, Dexter intenta anticipar el próximo movimiento de Travis, que se vuelve cada vez más peligroso y delirante." },
+        { title: "Talk to the Hand", videoId: "1Fv1X5yM4jqI5ysLvsOhW5Pnq0XVP2m5Z", thumbnail: "https://image.tmdb.org/t/p/w300/cTvPiVOaxZ6IQFOUZr0elDHqpW8.jpg", description: "Travis secuestra al hijo de Dexter, Harrison, como parte de su plan final." },
+        { title: "This is the Way the World Ends", videoId: "1E5Jo0DRZz4mSXK_pJ2wWtVroBLD7eQyC", thumbnail: "https://image.tmdb.org/t/p/w300/j2L0qniodfmIV3KcT0Wnll5yMII.jpg", description: "Dexter rescata a Harrison y se enfrenta a Travis en una iglesia abandonada. En el momento culminante, Debra entra y es testigo de Dexter matando a Travis." }
+    ],
+    7: [
+        { title: "Are You...?", videoId: "1sEOsMpH4FPGB5tfoDFTJM1QYzs3SCYXv", thumbnail: "https://image.tmdb.org/t/p/w300/6I9tGOb5dLVBOBPEv39ipwtYwNs.jpg", description: "Debra se enfrenta a la impactante revelación de que su hermano es un asesino en serie. Lucha por reconciliar al hombre que ama con el monstruo que ha descubierto." },
+        { title: "Sunshine and Frosty Swirl", videoId: "16-eP1MdRNc7VGXEUHTOVr4qi27C-exgS", thumbnail: "https://image.tmdb.org/t/p/w300/jduaZpGaX9px1truLCy7FJrHdob.jpg", description: "Debra decide ayudar a Dexter a encubrir el asesinato de Travis Marshall. LaGuerta reabre el caso del Carnicero de la Bahía, convencida de que Doakes era inocente." },
+        { title: "Buck the System", videoId: "12WD7VYbIHPee_uIEW7IOeVzKKDbbz274", thumbnail: "https://i.imgur.com/NHdGnOx.jpeg", description: "Dexter se encuentra con Hannah McKay, una mujer con un pasado oscuro que podría ser tan peligrosa como él. La mafia ucraniana llega a Miami buscando venganza por la muerte de uno de los suyos a manos de Dexter." },
+        { title: "Run", videoId: "1Yk775Lkm-4fAOvfA2wgcgJ7lWA-zjN5l", thumbnail: "https://image.tmdb.org/t/p/w300/zB3LE61qzBC1e7WhZ5E0MJcDZxY.jpg", description: "La relación entre Dexter y Debra se vuelve cada vez más tensa a medida que ella intenta 'curarlo' de su necesidad de matar." },
+        { title: "Swim Deep", videoId: "1t5oUKx3OhO7VcVkaPiRfRd5HUnNQI4Sc", thumbnail: "https://image.tmdb.org/t/p/w300/bInn82KQiRP8toc30EQyexzuKm0.jpg", description: "Dexter comienza una relación romántica con Hannah, a pesar de saber que es una asesina." },
+        { title: "Do the Wrong Thing", videoId: "1Zuh1jjNd2cSeklXGVCl6FIimlbtLQ7-P", thumbnail: "https://image.tmdb.org/t/p/w300/rzPaHebEgx3tRIRdB2ZnhuAfivR.jpg", description: "Debra le pide a Dexter que mate a Hannah, poniendo a prueba su lealtad. LaGuerta encuentra pruebas que la acercan a la verdad sobre Dexter." },
+        { title: "Chemistry", videoId: "1Pt3ORFHanussZIO-Mhr3c1wyArisHA9U", thumbnail: "https://i.imgur.com/HEbYZoK.jpeg", description: "La relación de Dexter con Hannah se intensifica, lo que complica aún más su ya tensa relación con Debra." },
+        { title: "Argentina", videoId: "1NkHIrwHKnpgg7269HUHXdVFXzipPg4rD", thumbnail: "https://image.tmdb.org/t/p/w300/94fPHDTzIa6nNZ3ZMfFVad4TZKS.jpg", description: "Debra intenta exponer a Hannah como una asesina. La investigación de LaGuerta sobre el Carnicero de la Bahía la lleva a sospechar de Dexter." },
+        { title: "Helter Skelter", videoId: "19NzqKTQLrui2A9OxqcL0FLSI7rh7oKXj", thumbnail: "https://image.tmdb.org/t/p/w300/y79hTt1bhkYFQcjkXXiQmbPSioN.jpg", description: "El líder de la mafia ucraniana, Isaak Sirko, secuestra a Hannah para obligar a Dexter a ayudarlo." },
+        { title: "The Dark... Whatever", videoId: "1DxX6jaYqJWsX1dD4nH9ZXZJ9nVnX9h-6", thumbnail: "https://image.tmdb.org/t/p/w300/xKol1I04dpSJRn5CajDGES2GpSl.jpg", description: "Dexter y Debra se ven obligados a trabajar juntos para salvar a Hannah. LaGuerta está a punto de exponer a Dexter." },
+        { title: "Do You See What I See?", videoId: "1eyYEPCML-RrJ9yzY-4BSVYmjgmLL6vtg", thumbnail: "https://image.tmdb.org/t/p/w300/qKxIRwbaKsxNyGSOmTecBWXdKVt.jpg", description: "Hannah es arrestada gracias a Debra. LaGuerta arresta a Dexter por los asesinatos del Carnicero de la Bahía." },
+        { title: "Surprise, Motherfucker!", videoId: "17Zc3marIk2Te8K0-C5l4cBOnbiaf_BR8", thumbnail: "https://image.tmdb.org/t/p/w300/Arx36RnxTeUZT1lRhdHviLXOhll.jpg", description: "Dexter es liberado, pero LaGuerta no se rinde. En un enfrentamiento final, Debra se ve obligada a tomar una decisión imposible entre su hermano y la ley." }
+    ],
+    8: [
+        { title: "A Beautiful Day", videoId: "18cy9n11wtfnXezg3lYo5NaRU4LDBRaIu", thumbnail: "https://image.tmdb.org/t/p/w300/sMIbqOhRemiQnAZS03uZEAsMKwE.jpg", description: "Seis meses después de la muerte de LaGuerta, Debra ha dejado la policía y se ha distanciado de Dexter, consumida por la culpa. Dexter conoce a la Dra. Evelyn Vogel, una neuropsiquiatra que parece saberlo todo sobre él." },
+        { title: "Every Silver Lining...", videoId: "10teY_5WzfkM02K-vRFDpzzZ0-A_MMYps", thumbnail: "https://image.tmdb.org/t/p/w300/zlwGYHQLOtyrcuQNFA826uHDsjb.jpg", description: "La Dra. Vogel revela que ayudó a Harry a crear el 'Código' de Dexter. Un nuevo asesino en serie, 'El Neurocirujano', está aterrorizando a Miami." },
+        { title: "What's Eating Dexter Morgan?", videoId: "1BG1IPmcG7OLBjAdKI4IcyXZF2jlkLXsN", thumbnail: "https://image.tmdb.org/t/p/w300/tDR2GuKsD51sCG4NsRugIxF40IG.jpg", description: "Dexter y Debra intentan reconectarse, pero el abismo entre ellos es profundo. La Dra. Vogel le pide a Dexter que la ayude a atrapar al Neurocirujano." },
+        { title: "Scar Tissue", videoId: "1V_SKvFELlC7uVBQwy7oDvOhDVLvw1NQN", thumbnail: "https://image.tmdb.org/t/p/w300/vUhpyOERYLVC49P450zmDeGWMtx.jpg", description: "Dexter comienza a enseñarle el Código a un joven psicópata llamado Zach Hamilton, con la esperanza de poder guiarlo como Harry lo guió a él." },
+        { title: "This Little Piggy", videoId: "1OBXwOEFh-WHJlv6dPOAQyHH1jdTqi77W", thumbnail: "https://image.tmdb.org/t/p/w300/1R1HZZRbw5giGm9YCJhnYngheQ2.jpg", description: "La relación entre Dexter y Debra sigue siendo inestable. La investigación sobre el Neurocirujano continúa." },
+        { title: "A Little Reflection", videoId: "1vofdaY_HmcAwZlE8JjmuT7YZ88bJNL_l", thumbnail: "https://image.tmdb.org/t/p/w300/enjTk2EdDnLfbN23qL74WDIQ9Fs.jpg", description: "Dexter intenta equilibrar su vida personal con la caza del Neurocirujano y la tutoría de Zach." },
+        { title: "Dress Code", videoId: "1wfarGIVQcwUsEdyeY-pS923VCrC2todW", thumbnail: "https://image.tmdb.org/t/p/w300/5q68Iy9MB0l1osSi404MePZ1xEx.jpg", description: "Hannah McKay regresa a Miami, poniendo en peligro la ya frágil estabilidad de Dexter." },
+        { title: "Are We There Yet?", videoId: "1svgfmqlDr1-8buoGkFTKKg9kFpBoK2sd", thumbnail: "https://image.tmdb.org/t/p/w300/zzJy8KWJqQPhjMA3uG2h8SbjO81.jpg", description: "Dexter y Hannah reavivan su relación y planean huir a Argentina con Harrison." },
+        { title: "Make Your Own Kind of Music", videoId: "1WcfW1HeXFU4jruAiwABr2Rfnyjdb2eBO", thumbnail: "https://image.tmdb.org/t/p/w300/9yRjrK62A8nyzJCNICt19k4LKXL.jpg", description: "El Neurocirujano es revelado como uno de los antiguos pacientes de la Dra. Vogel." },
+        { title: "Goodbye Miami", videoId: "18vqme-WK09MWIybS1-qY_7iR06HV5OvG", thumbnail: "https://image.tmdb.org/t/p/w300/7rtNUEydPUGyoUu4AM2hpJW3S5W.jpg", description: "Dexter intenta atar todos los cabos sueltos antes de irse de Miami, pero se ve arrastrado de nuevo a la investigación del Neurocirujano." },
+        { title: "Monkey in a Box", videoId: "1PVECGe_ejzAYWeQrUsunn2bdybaE1_PE", thumbnail: "https://image.tmdb.org/t/p/w300/3MefgmO0eYWlXUFSic7Dn45UUur.jpg", description: "El Neurocirujano, también conocido como Oliver Saxon, ataca a Debra, dejándola en estado crítico." },
+        { title: "Remember the Monsters?", videoId: "1m1xipz58jpIDDnx5NJZqCw7KNhjZx38O", thumbnail: "https://image.tmdb.org/t/p/w300/eej5sOpA2A73O6SudZxFsw2oB5n.jpg", description: "Con un huracán acercándose a Miami, Dexter se enfrenta a Saxon en un enfrentamiento final. Toma una decisión devastadora que lo obliga a exiliarse y abandonar a su hijo, enfrentando una tormenta tanto literal como figurativa." }
+    ]
 };
 
-document.addEventListener('DOMContentLoaded', () => {
-    setupHero();
-    generateCarousels();
-    setupNavigation();
-    setupKeydownListener();
-    setupRouletteLogic();
-    switchView('all');
-});
+    // ===========================================================
+    // FUNCIONES GENERALES Y MODALES
+    // ===========================================================
 
-// ===========================================================
-// CONFIGURACIÓN INICIAL Y NAVEGACIÓN
-// ===========================================================
-function setupHero() {
-    const heroSection = document.getElementById('hero-section');
-    const heroContent = document.createElement('div');
-    heroContent.className = 'hero-content';
-    heroContent.innerHTML = `
-        <h1 id="hero-title"></h1>
-        <p id="hero-synopsis"></p>
-        <div class="hero-buttons"></div>
-    `;
-    heroSection.appendChild(heroContent);
-
-    featuredIds = Object.keys(movieDatabase);
-    if (featuredIds.length === 0) {
-        heroSection.style.display = 'none';
-        return;
-    }
-    shuffleArray(featuredIds);
-    changeHeroMovie(currentHeroIndex);
-    clearInterval(heroInterval);
-    heroInterval = setInterval(() => {
-        currentHeroIndex = (currentHeroIndex + 1) % featuredIds.length;
-        changeHeroMovie(currentHeroIndex);
-    }, 7000);
-}
-
-function generateCarousels() {
-    const container = document.getElementById('carousel-container');
-    container.innerHTML = '';
-    const reversedMovieIds = Object.keys(movieDatabase).reverse();
-    const recentMovieIds = reversedMovieIds.slice(0, 5);
-    let moviesHTML = `<div class="carousel" data-type="movie"><h3 class="carousel-title">Agregados Recientemente</h3><div class="carousel-track-container"><div class="carousel-track">`;
-    recentMovieIds.forEach(id => {
-        moviesHTML += createCarouselCard(id, movieDatabase[id], 'movie');
-    });
-    moviesHTML += `</div></div></div>`;
-    container.innerHTML += moviesHTML;
-    let seriesHTML = `<div class="carousel" data-type="series"><h3 class="carousel-title">Series</h3><div class="carousel-track-container"><div class="carousel-track">`;
-    for (const id in seriesDatabase) {
-        seriesHTML += createCarouselCard(id, seriesDatabase[id], 'series');
-    }
-    seriesHTML += `</div></div></div>`;
-    container.innerHTML += seriesHTML;
-}
-
-function setupNavigation() {
-    const menuToggle = document.getElementById('menu-toggle');
-    const mainHeader = document.querySelector('.main-header');
-    const menuOverlay = document.getElementById('menu-overlay');
-    const navMenuContainer = document.querySelector('.main-nav ul');
-
-    function closeMenu() {
-        mainHeader.classList.remove('menu-open');
-        if (menuOverlay) {
-            menuOverlay.classList.remove('active');
-        }
+    function openCinema(fileId) {
+        const cinema = document.getElementById('cinema');
+        document.getElementById('video-frame').src = `https://drive.google.com/file/d/${fileId}/preview`;
+        cinema.classList.add('show');
     }
 
-    if (menuToggle) {
-        menuToggle.addEventListener('click', () => {
-            mainHeader.classList.toggle('menu-open');
-            if (menuOverlay) {
-                menuOverlay.classList.toggle('active');
-            }
-        });
-    }
-
-    if (menuOverlay) {
-        menuOverlay.addEventListener('click', closeMenu);
-    }
-
-    if (navMenuContainer) {
-        navMenuContainer.addEventListener('click', (event) => {
-            if (event.target.tagName === 'A') {
-                const linkClickeado = event.target;
-                const filter = linkClickeado.dataset.filter;
-
-                // Solo prevenimos la acción si es un "filtro"
-                if (filter) {
-    event.preventDefault();
-
-    if (filter === 'roulette') {
-        // 🔥 Ruleta siempre abre modal, nunca queda bloqueada
-        openRouletteModal();
-    } else {
-        // ✅ Para los demás sí se maneja el "active"
-        const allLinks = navMenuContainer.querySelectorAll('a');
-        allLinks.forEach(link => link.classList.remove('active'));
-        linkClickeado.classList.add('active');
-
-        switchView(filter);
-    }
-
-    closeMenu();
-}
-
-            }
-        });
-    }
-}
-
-
-function setupKeydownListener() {
-    document.addEventListener('keydown', (event) => {
-        if (event.key !== 'Escape') return;
-        const openModal = document.querySelector('.modal.show');
-        if (!openModal) return;
-        switch (openModal.id) {
-            case 'cinema': closePlayerModal('video-frame'); break;
-            case 'series-player-modal':
-                const seriesIframe = openModal.querySelector('iframe');
-                if (seriesIframe) closePlayerModal(seriesIframe.id);
-                break;
-            case 'details-modal': closeDetailsModal(); break;
-            case 'roulette-modal': closeRouletteModal(); break;
-        }
-    });
-}
-
-function switchView(filter) {
-    const carouselContainer = document.getElementById('carousel-container');
-    const fullGridContainer = document.getElementById('full-grid-container');
-    const heroSection = document.getElementById('hero-section');
-    heroSection.style.display = 'none';
-    carouselContainer.style.display = 'none';
-    fullGridContainer.style.display = 'none';
-    carouselContainer.classList.remove('with-hero');
-    document.querySelectorAll('.carousel-title').forEach(title => title.style.display = 'block');
-
-    if (filter === 'all') {
-        heroSection.style.display = 'flex';
-        carouselContainer.style.display = 'block';
-        carouselContainer.classList.add('with-hero');
-        document.querySelectorAll('#carousel-container .carousel').forEach(c => {
-            c.style.display = c.dataset.type === 'series' ? 'none' : 'block';
-        });
-    } else if (filter === 'movie') {
-        fullGridContainer.style.display = 'block';
-        populateFullMovieGrid();
-    } else if (filter === 'series') {
-        carouselContainer.style.display = 'block';
-        document.querySelectorAll('#carousel-container .carousel').forEach(c => {
-            if (c.dataset.type === 'series') {
-                c.style.display = 'block';
-                const title = c.querySelector('.carousel-title');
-                if (title) title.style.display = 'none';
-            } else {
-                c.style.display = 'none';
-            }
-        });
-    }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function populateFullMovieGrid() {
-    const gridContainer = document.querySelector('#full-grid-container .grid');
-    gridContainer.innerHTML = '';
-    for (const id in movieDatabase) {
-        gridContainer.innerHTML += createCarouselCard(id, movieDatabase[id], 'movie-grid');
-    }
-}
-
-function changeHeroMovie(index) {
-    const heroSection = document.getElementById('hero-section');
-    const heroContent = heroSection.querySelector('.hero-content');
-    if (!heroContent) return;
-    const movieId = featuredIds[index];
-    const movieData = movieDatabase[movieId];
-    heroContent.classList.add('hero-fading');
-    setTimeout(() => {
-        heroSection.style.backgroundImage = `url(${movieData.banner})`;
-        document.getElementById('hero-title').textContent = movieData.title;
-        document.getElementById('hero-synopsis').textContent = movieData.synopsis;
-        heroContent.querySelector('.hero-buttons').innerHTML = `<button class="btn btn-play" onclick="openPlayerModal('${movieId}')"><i class="fas fa-play"></i> Ver Ahora</button> <button class="btn btn-info" onclick="openDetailsModal('${movieId}', 'movie')">Más Información</button>`;
-        heroContent.classList.remove('hero-fading');
-    }, 500);
-}
-
-// ===========================================================
-// MODALES
-// ===========================================================
-function openDetailsModal(id, type) {
-    const data = type.startsWith('movie') ? movieDatabase[id] : seriesDatabase[id];
-    if (!data) return;
-    const modal = document.getElementById('details-modal');
-    modal.querySelector('#details-panel-content').style.backgroundImage = `url(${data.banner})`;
-    modal.querySelector('#details-poster-img').src = data.poster;
-    modal.querySelector('#details-title').textContent = data.title;
-    modal.querySelector('#details-year').textContent = data.year;
-    modal.querySelector('#details-genres').textContent = data.genres.join(' • ');
-    modal.querySelector('#details-synopsis').textContent = data.synopsis;
-    modal.querySelector('#details-year-mobile').textContent = data.year;
-    modal.querySelector('#details-genres-mobile').textContent = data.genres.join(' • ');
-    const buttonsContainer = modal.querySelector('#details-buttons');
-    if (type.startsWith('movie')) {
-        buttonsContainer.innerHTML = `<button class="btn btn-play" onclick="openPlayerModal('${id}')"><i class="fas fa-play"></i> Ver Ahora</button>`;
-    } else {
-        const seriesFunction = (id === 'dexter') ? `openSeriesPlayer('dexter')` : `openSeriesPlayer('peacemaker')`;
-        buttonsContainer.innerHTML = `<button class="btn btn-play" onclick="${seriesFunction}"><i class="fas fa-bars"></i> Ver Episodios</button>`;
-    }
-    modal.classList.add('show');
-}
-function closeDetailsModal() { document.getElementById('details-modal').classList.remove('show'); }
-function openPlayerModal(movieId) {
-    closeDetailsModal();
-    const cinemaModal = document.getElementById('cinema');
-    const iframe = document.getElementById('video-frame');
-    iframe.src = `https://drive.google.com/file/d/${movieId}/preview`;
-    cinemaModal.classList.add('show');
-
-    if (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement) {
-        if (document.exitFullscreen) {
-            document.exitFullscreen();
-        } else if (document.mozCancelFullScreen) {
-            document.mozCancelFullScreen();
-        } else if (document.webkitExitFullscreen) {
-            document.webkitExitFullscreen();
-        } else if (document.msExitFullscreen) {
-            document.msExitFullscreen();
-        }
-    }
-
-    // Desbloquear la orientación de la pantalla
-    if (screen.orientation.unlock) {
-        screen.orientation.unlock();
-    }
-}
-function closePlayerModal(iframeId) {
-    const iframe = document.getElementById(iframeId);
-    if (iframe) {
-        iframe.src = '';
-        const modal = iframe.closest('.modal');
-        if (modal) modal.classList.remove('show');
-    }
-}
-function setupRouletteLogic() {
-    const rouletteModal = document.getElementById('roulette-modal');
-    const rouletteTrack = document.getElementById('roulette-carousel-track');
-    const spinButton = document.getElementById('spin-roulette-btn');
-    const cardWidth = 170;
-    let finalPickIndex = -1;
-    let selectedMovie = null;
-
-    window.openRouletteModal = function() {
-        rouletteModal.classList.add('show');
-        loadRouletteMovies();
-    }
-    window.closeRouletteModal = function() {
-        rouletteModal.classList.remove('show');
-    }
-
-    function loadRouletteMovies() {
-        spinButton.disabled = false;
-        rouletteTrack.style.transition = 'none';
-        rouletteTrack.innerHTML = '';
-        const allMovieIds = Object.keys(movieDatabase);
-        if (allMovieIds.length < 5) {
-            rouletteTrack.innerHTML = `<p style="color:white; width:100%; text-align:center;">Se necesitan más películas.</p>`;
-            spinButton.disabled = true;
-            return;
-        }
-        const moviesForRoulette = [];
-        for (let i = 0; i < 50; i++) {
-            const randomIndex = Math.floor(Math.random() * allMovieIds.length);
-            const movieId = allMovieIds[randomIndex];
-            moviesForRoulette.push({ id: movieId, data: movieDatabase[movieId] });
-        }
-        finalPickIndex = Math.floor(Math.random() * 5) + 40;
-        selectedMovie = moviesForRoulette[finalPickIndex];
-        rouletteTrack.innerHTML = moviesForRoulette.map(movie => createCarouselCard(movie.id, movie.data, 'roulette')).join('');
-        const wrapperWidth = rouletteTrack.parentElement.offsetWidth;
-        const startCardIndex = 5;
-        const initialOffset = (wrapperWidth / 2) - (cardWidth / 2) - (startCardIndex * cardWidth);
-        setTimeout(() => {
-            rouletteTrack.style.transform = `translateX(${initialOffset}px)`;
-        }, 0);
-    }
-    spinButton.addEventListener('click', () => {
-        spinButton.disabled = true;
-        const wrapperWidth = rouletteTrack.parentElement.offsetWidth;
-        const targetPosition = (wrapperWidth / 2) - (cardWidth / 2) - (finalPickIndex * cardWidth);
-        const randomJitter = Math.floor(Math.random() * (cardWidth - 40)) - ((cardWidth - 40) / 2);
-        const finalPosition = targetPosition + randomJitter;
-        rouletteTrack.style.transition = 'transform 6s cubic-bezier(0.25, 0.1, 0.25, 1)';
-        rouletteTrack.style.transform = `translateX(${finalPosition}px)`;
-        rouletteTrack.addEventListener('transitionend', () => {
-            setTimeout(() => {
-                closeRouletteModal();
-                openDetailsModal(selectedMovie.id, 'movie');
-            }, 500);
-        }, { once: true });
-    });
-}
-
-// ===========================================================
-// LÓGICA DEL REPRODUCTOR DE SERIES
-// ===========================================================
-function openSeriesPlayer(seriesId) {
-    closeDetailsModal();
-    try {
-        const savedProgress = localStorage.getItem(`${seriesId}Progress`);
-        if (savedProgress) {
-            playerState[seriesId] = { ...playerState[seriesId], ...JSON.parse(savedProgress) };
-        }
-    } catch (e) { console.error(`Error al cargar progreso de ${seriesId}:`, e); }
-
-    const seriesInfo = seriesDatabase[seriesId];
-    const modal = document.getElementById('series-player-modal');
-    let langControlsHTML = (seriesId === 'peacemaker') ? `
-        <div id="peacemaker-lang-controls" class="lang-controls">
-            <button class="lang-btn" data-lang="es" onclick="changeLanguage('peacemaker', 'es')">Español</button>
-            <button class="lang-btn" data-lang="en" onclick="changeLanguage('peacemaker', 'en')">Inglés</button>
-        </div>` : '';
-
-    modal.innerHTML = `
-        <button class="close-btn" onclick="closePlayerModal('video-frame-${seriesId}')">X</button>
-        <div class="player-layout-container" data-title="${seriesInfo.title.toUpperCase()}">
-            <div class="player-container">
-                <h2 id="${seriesId}-cinema-title" class="player-title"></h2>
-                ${langControlsHTML}
-                <div class="screen"><iframe id="video-frame-${seriesId}" src="" allowfullscreen></iframe></div>
-                <div class="pagination-controls">
-                    <button class="episode-nav-btn" id="${seriesId}-prev-btn" onclick="navigateEpisode('${seriesId}', -1)"><i class="fas fa-chevron-left"></i> Anterior</button>
-                    <span id="${seriesId}-page-indicator" class="page-indicator"></span>
-                    <button class="episode-nav-btn" id="${seriesId}-next-btn" onclick="navigateEpisode('${seriesId}', 1)">Siguiente <i class="fas fa-chevron-right"></i></button>
-                </div>
-            </div>
-            <div class="episode-sidebar">
-                <h2>Temporadas y Episodios</h2>
-                <select id="${seriesId}-season-selector" class="season-dropdown"></select>
-                <div id="${seriesId}-episode-list" class="episode-list-container"></div>
-            </div>
-        </div>`;
-    modal.classList.add('show');
-
-    const dataSet = seriesId === 'dexter' ? dexterData : peacemakerData;
-    const initialSeason = playerState[seriesId]?.season || Object.keys(dataSet)[0];
-    const initialEpisode = playerState[seriesId]?.episodeIndex || 0;
-
-    populateSeasonDropdown(seriesId, initialSeason);
-    populateEpisodeList(seriesId, initialSeason);
-    openEpisode(seriesId, initialSeason, initialEpisode);
-
-    document.getElementById(`${seriesId}-season-selector`).addEventListener('change', (event) => {
-        const newSeason = event.target.value;
-        playerState[seriesId].season = newSeason;
-        playerState[seriesId].episodeIndex = 0;
-        populateEpisodeList(seriesId, newSeason);
-        openEpisode(seriesId, newSeason, 0);
-    });
-}
-
-function changeLanguage(seriesId, lang) {
-    if (playerState[seriesId]) {
-        playerState[seriesId].lang = lang;
-        const { season, episodeIndex } = playerState[seriesId];
-        openEpisode(seriesId, season, episodeIndex);
-    }
-}
-
-function populateSeasonDropdown(seriesId, selectedSeason) {
-    const selector = document.getElementById(`${seriesId}-season-selector`);
-    const data = seriesId === 'dexter' ? dexterData : peacemakerData;
-    selector.innerHTML = Object.keys(data).map(seasonNum =>
-        `<option value="${seasonNum}" ${seasonNum == selectedSeason ? 'selected' : ''}>${isNaN(seasonNum) ? seasonNum : `Temporada ${seasonNum}`}</option>`
-    ).join('');
-}
-
-function populateEpisodeList(seriesId, seasonNum) {
-    const container = document.getElementById(`${seriesId}-episode-list`);
-    const data = seriesId === 'dexter' ? dexterData : peacemakerData;
-    container.innerHTML = '';
-    if (!data[seasonNum]) return;
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Normalizamos para comparar solo la fecha
-
-    data[seasonNum].forEach((episode, index) => {
-        const releaseDate = episode.releaseDate ? new Date(episode.releaseDate) : null;
-        const isAvailable = !releaseDate || releaseDate <= today;
-        let thumbnailHTML = '';
+    function closeCinema() {
+        clearInterval(countdownInterval);
+        const cinema = document.getElementById('cinema');
+        document.getElementById('video-frame').src = '';
+        cinema.classList.remove('show');
         
-        // **NUEVO:** Se define el evento onclick solo si está disponible
-        const clickEvent = isAvailable ? `onclick="openEpisode('${seriesId}', '${seasonNum}', ${index})"` : '';
+        // Restaurar vista del reproductor vs contador
+        const releaseBox = document.getElementById('release-box');
+        const screen = cinema.querySelector('.screen');
+        if(releaseBox) releaseBox.style.display = 'none';
+        if(screen) screen.style.display = 'block';
+    }
+    
+    function showCountdown(releaseDateString, episodeTitle) {
+        const cinemaModal = document.getElementById('cinema');
+        const releaseBox = document.getElementById('release-box');
+        const screen = cinemaModal.querySelector('.screen');
+    
+        screen.style.display = 'none';
+        releaseBox.style.display = 'block';
+        cinemaModal.classList.add('show');
 
-        if (isAvailable) {
-            thumbnailHTML = `<img src="${episode.thumbnail}" alt="${episode.title}" class="episode-card-thumb" loading="lazy">`;
-        } else {
-            thumbnailHTML = `
-                <div class="thumbnail-placeholder">
-                    <span class="release-day">${formatDate(releaseDate, 'day')}</span>
-                    <span class="release-month">${formatDate(releaseDate, 'month')}</span>
-                </div>`;
+        const targetDate = new Date(`${releaseDateString}T21:00:00-04:00`);
+
+        clearInterval(countdownInterval);
+
+        function updateCountdown() {
+            const now = new Date();
+            const diff = targetDate - now;
+
+            if (diff <= 0) {
+                clearInterval(countdownInterval);
+                releaseBox.innerHTML = `<span class="countdown-title">¡YA DISPONIBLE!</span>`;
+                return;
+            }
+
+            const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const s = Math.floor((diff % (1000 * 60)) / 1000);
+
+            releaseBox.innerHTML = `
+                <span class="countdown-title">Estreno del ${episodeTitle} en:</span>
+                <div class="countdown-timer">
+                    ${d}d ${h}h ${m}m ${s}s
+                </div>
+            `;
         }
 
-        const cardHTML = `
-            <div class="episode-card ${!isAvailable ? 'disabled' : ''}" 
-                 id="${seriesId}-episode-${seasonNum.toString().replace(' ','')}-${index}" 
-                 data-season-key="${seasonNum}" 
-                 onmouseenter="startExpandTimer(this)" 
-                 onmouseleave="cancelExpandTimer(this)"
-                 ${clickEvent}>
-                
+        updateCountdown();
+        countdownInterval = setInterval(updateCountdown, 1000);
+    }
+
+    function chooseLanguageModal(esId, enId, targetIframeId) {
+        const modal = document.getElementById('languageModal');
+        modal.selectedFile = { 
+            es: esId, 
+            en: enId || esId, 
+            target: targetIframeId 
+        };
+        modal.classList.add('show');
+    }
+
+    function closeLanguageModal() {
+        document.getElementById('languageModal').classList.remove('show');
+    }
+
+    function loadSelectedVideo(lang) {
+        const modal = document.getElementById('languageModal');
+        if (!modal.selectedFile) return;
+
+        const { es, en, target } = modal.selectedFile;
+        const videoId = (lang === 'es') ? es : en;
+        const iframe = document.getElementById(target);
+        
+        if (iframe) {
+            iframe.src = `https://drive.google.com/file/d/${videoId}/preview`;
+        }
+        closeLanguageModal();
+    }
+
+    function toggleDescription(event, pId) {
+        event.stopPropagation();
+        const p = document.getElementById(pId);
+        const link = event.target;
+        p.classList.toggle('expanded');
+        link.textContent = p.classList.contains('expanded') ? 'Menos' : 'Más';
+    }
+
+    function formatDate(date, part) {
+        if (!date) return '';
+        if (part === 'day') {
+            return new Intl.DateTimeFormat('es-ES', { day: 'numeric' }).format(date);
+        }
+        if (part === 'month') {
+            return new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(date).toUpperCase();
+        }
+        return '';
+    }
+
+    // ===========================================================
+    // LÓGICA DE DEXTER
+    // ===========================================================
+    function openDexter() {
+        try {
+            const savedProgress = localStorage.getItem('dexterProgress');
+            if (savedProgress) {
+                const progress = JSON.parse(savedProgress);
+                playerState.dexter.season = progress.season;
+                playerState.dexter.episodeIndex = progress.episodeIndex;
+            }
+        } catch (e) { console.error("Error al cargar el progreso de Dexter:", e); }
+        
+        document.getElementById('cinemaDexter').classList.add('show');
+        populateDexterSeasonDropdown();
+        populateDexterEpisodeList(playerState.dexter.season);
+        openDexterEpisode(playerState.dexter.season, playerState.dexter.episodeIndex);
+    }
+
+    function closeCinemaDexter() {
+        document.getElementById('video-frame-dexter').src = '';
+        document.getElementById('cinemaDexter').classList.remove('show');
+    }
+
+    function populateDexterSeasonDropdown() {
+        const selector = document.getElementById('season-selector');
+        selector.innerHTML = '';
+        Object.keys(dexterData).forEach(seasonNum => {
+            const option = document.createElement('option');
+            option.value = seasonNum;
+            option.textContent = `Temporada ${seasonNum}`;
+            selector.appendChild(option);
+        });
+        selector.value = playerState.dexter.season;
+        selector.onchange = (event) => {
+            const newSeason = parseInt(event.target.value);
+            playerState.dexter.season = newSeason;
+            playerState.dexter.episodeIndex = 0;
+            populateDexterEpisodeList(newSeason);
+            openDexterEpisode(newSeason, 0);
+        };
+    }
+
+    function populateDexterEpisodeList(seasonNum) {
+        const container = document.querySelector('#dexter-sidebar .episode-list-container');
+        container.innerHTML = '';
+        if (!dexterData[seasonNum]) return;
+
+        dexterData[seasonNum].forEach((episode, index) => {
+            const card = document.createElement('div');
+            card.className = 'episode-card';
+            card.id = `dexter-episode-${seasonNum}-${index}`;
+            card.onclick = () => openDexterEpisode(seasonNum, index);
+            
+            card.innerHTML = `
+                <img src="${episode.thumbnail}" alt="${episode.title}" class="episode-card-thumb" loading="lazy">
+                <div class="episode-card-info">
+                    <h3>${index + 1}. ${episode.title}</h3>
+                    <p id="desc-dx-${seasonNum}-${index}">${episode.description}</p>
+                    <a class="toggle-desc" onclick="toggleDescription(event, 'desc-dx-${seasonNum}-${index}')">Más</a>
+                </div>`;
+            container.appendChild(card);
+        });
+    }
+
+    function openDexterEpisode(season, episodeIndex) {
+        document.querySelectorAll('#dexter-sidebar .episode-card').forEach(c => c.classList.remove('active'));
+        const activeCard = document.getElementById(`dexter-episode-${season}-${episodeIndex}`);
+        if (activeCard) {
+            activeCard.classList.add('active');
+            activeCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        
+        playerState.dexter.season = season;
+        playerState.dexter.episodeIndex = episodeIndex;
+
+        const episode = dexterData[season]?.[episodeIndex];
+        if (!episode) return;
+        
+        document.getElementById('video-frame-dexter').src = `https://drive.google.com/file/d/${episode.videoId}/preview`;
+        document.getElementById('dexterCinemaTitle').textContent = `T${season}E${episodeIndex + 1} - ${episode.title}`;
+        
+        updateDexterNavButtons();
+        saveDexterProgress(season, episodeIndex);
+    }
+
+    function updateDexterNavButtons() {
+        const { season, episodeIndex } = playerState.dexter;
+        const totalEpisodes = dexterData[season].length;
+        document.getElementById('dexterPrevBtn').disabled = (season === 1 && episodeIndex === 0);
+        document.getElementById('dexterNextBtn').disabled = (Object.keys(dexterData).length === season && episodeIndex === totalEpisodes - 1);
+        document.getElementById('dexterEpisodeCounter').textContent = `${episodeIndex + 1} / ${totalEpisodes}`;
+    }
+
+    function previousDexterEpisode() {
+        let { season, episodeIndex } = playerState.dexter;
+        if (episodeIndex > 0) {
+            episodeIndex--;
+        } else if (season > 1) {
+            season--;
+            episodeIndex = dexterData[season].length - 1;
+            populateDexterEpisodeList(season);
+            document.getElementById('season-selector').value = season;
+        }
+        openDexterEpisode(season, episodeIndex);
+    }
+
+    function nextDexterEpisode() {
+        let { season, episodeIndex } = playerState.dexter;
+        const totalEpisodes = dexterData[season].length;
+        if (episodeIndex < totalEpisodes - 1) {
+            episodeIndex++;
+        } else if (season < Object.keys(dexterData).length) {
+            season++;
+            episodeIndex = 0;
+            populateDexterEpisodeList(season);
+            document.getElementById('season-selector').value = season;
+        }
+        openDexterEpisode(season, episodeIndex);
+    }
+
+    function saveDexterProgress(season, episodeIndex) {
+        try {
+            const progress = { season: season, episodeIndex: episodeIndex };
+            localStorage.setItem('dexterProgress', JSON.stringify(progress));
+        } catch (e) { console.error("Error al guardar el progreso de Dexter:", e); }
+    }
+
+    function savePeacemakerProgress(season, episodeIndex) {
+        try {
+            const progress = { season: season, episodeIndex: episodeIndex };
+            localStorage.setItem('peacemakerProgress', JSON.stringify(progress));
+        } catch (e) { console.error("Error al guardar el progreso de Peacemaker:", e); }
+    }
+
+    // ===========================================================
+    // LÓGICA DE PEACEMAKER
+    // ===========================================================
+    function openPeacemakerCinema() {
+        try {
+            const savedProgress = localStorage.getItem('peacemakerProgress');
+            if (savedProgress) {
+                const progress = JSON.parse(savedProgress);
+                playerState.peacemaker.season = progress.season;
+                playerState.peacemaker.episodeIndex = progress.episodeIndex;
+            }
+        } catch (e) { console.error("Error al cargar el progreso de Peacemaker:", e); }
+        
+        document.getElementById('cinemaPeacemaker').classList.add('show');
+        populatePeacemakerSeasonDropdown();
+        populatePeacemakerEpisodeList(playerState.peacemaker.season);
+        openPeacemakerEpisode(playerState.peacemaker.season, playerState.peacemaker.episodeIndex);
+    }
+
+    function closePeacemakerCinema() {
+        clearInterval(countdownInterval);
+        document.getElementById('video-frame-peacemaker').src = '';
+        document.getElementById('cinemaPeacemaker').classList.remove('show');
+        document.getElementById('peacemaker-language-select').classList.remove('show');
+    }
+
+    function populatePeacemakerSeasonDropdown() {
+        const selector = document.getElementById('peacemaker-season-selector');
+        selector.innerHTML = '';
+        Object.keys(peacemakerData).forEach(seasonName => {
+            const option = document.createElement('option');
+            option.value = seasonName;
+            option.textContent = seasonName;
+            selector.appendChild(option);
+        });
+        selector.value = playerState.peacemaker.season;
+        selector.onchange = (event) => {
+            const newSeason = event.target.value;
+            playerState.peacemaker.season = newSeason;
+            playerState.peacemaker.episodeIndex = 0;
+            populatePeacemakerEpisodeList(newSeason);
+            openPeacemakerEpisode(newSeason, 0);
+        };
+    }
+    
+    function populatePeacemakerEpisodeList(seasonName) {
+        const container = document.querySelector('#peacemaker-sidebar .episode-list-container');
+        container.innerHTML = '';
+        if (!peacemakerData[seasonName]) return;
+
+        const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+
+        peacemakerData[seasonName].forEach((episode, index) => {
+            const card = document.createElement('div');
+            const episodeDate = episode.releaseDate ? new Date(episode.releaseDate + 'T00:00:00') : null;
+            const isAvailable = !episodeDate || episodeDate <= hoy;
+
+            card.className = 'episode-card';
+            if (!isAvailable) {
+                card.classList.add('unavailable');
+            }
+            card.id = `peacemaker-episode-${index}`;
+
+            if (isAvailable) {
+                card.onclick = () => openPeacemakerEpisode(seasonName, index);
+            } else {
+                card.onclick = () => showPeacemakerCountdown(episode.releaseDate, `Episodio ${index + 1}`);
+            }
+
+            const thumbnailHTML = isAvailable ?
+                `<img src="${episode.thumbnail}" alt="${episode.title}" class="episode-card-thumb" loading="lazy">` :
+                `<div class="thumbnail-placeholder">
+                    <span class="release-day">${formatDate(episodeDate, 'day')}</span>
+                    <span class="release-month">${formatDate(episodeDate, 'month')}</span>
+                </div>`;
+
+            card.innerHTML = `
                 ${thumbnailHTML}
                 <div class="episode-card-info">
                     <h3>${index + 1}. ${episode.title}</h3>
-                    <p class="episode-description">${episode.description}</p>
-                </div>
-            </div>`;
-        
-        container.innerHTML += cardHTML;
-    });
-}
-
-function startExpandTimer(cardElement) {
-    cardElement.dataset.timerId = setTimeout(() => expandDescription(cardElement, true), 1500);
-}
-function cancelExpandTimer(cardElement) {
-    if (cardElement.dataset.timerId) clearTimeout(cardElement.dataset.timerId);
-    expandDescription(cardElement, false);
-}
-function expandDescription(cardElement, shouldExpand) {
-    const infoContainer = cardElement.querySelector('.episode-card-info');
-    const descriptionP = infoContainer?.querySelector('.episode-description');
-    if (!infoContainer || !descriptionP) return;
-
-    if (infoContainer.dataset.collapseTimer) clearTimeout(infoContainer.dataset.collapseTimer);
-
-    const seriesId = cardElement.id.split('-')[0];
-    const seasonKey = cardElement.dataset.seasonKey;
-    const episodeIndex = parseInt(cardElement.id.split('-').pop());
-    const data = seriesId === 'dexter' ? dexterData : peacemakerData;
-    const fullDescription = data[seasonKey][episodeIndex].description || '';
-
-    if (shouldExpand) {
-        descriptionP.textContent = fullDescription;
-        infoContainer.classList.add('expanded');
-    } else {
-        infoContainer.classList.remove('expanded');
-        infoContainer.dataset.collapseTimer = setTimeout(() => {
-            descriptionP.textContent = fullDescription.length > 100 ? fullDescription.substring(0, 100) + '...' : fullDescription;
-        }, 300);
-    }
-}
-
-function openEpisode(seriesId, season, episodeIndex) {
-    document.querySelectorAll(`#${seriesId}-episode-list .episode-card.active`).forEach(c => c.classList.remove('active'));
-    const activeCard = document.getElementById(`${seriesId}-episode-${season.toString().replace(' ','')}-${episodeIndex}`);
-    if (activeCard) {
-        activeCard.classList.add('active');
-        activeCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-
-    playerState[seriesId].season = season;
-    playerState[seriesId].episodeIndex = episodeIndex;
-    saveProgress(seriesId);
-
-    const data = seriesId === 'dexter' ? dexterData : peacemakerData;
-    const episode = data[season]?.[episodeIndex];
-    if (!episode) return;
-
-    let videoId;
-    if (seriesId === 'peacemaker') {
-        const lang = playerState.peacemaker.lang || 'es';
-        videoId = lang === 'es' ? episode.videoId_es : episode.videoId_en;
-        document.querySelectorAll('#peacemaker-lang-controls .lang-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.lang === lang);
+                    <p id="desc-pm-${index}">${episode.description}</p>
+                    <a class="toggle-desc" onclick="toggleDescription(event, 'desc-pm-${index}')">Más</a>
+                </div>`;
+            container.appendChild(card);
         });
-    } else {
-        videoId = episode.videoId;
     }
 
-    const iframe = document.getElementById(`video-frame-${seriesId}`);
-    if (videoId) {
+    function showPeacemakerCountdown(releaseDateString, episodeTitle) {
+        const countdownBox = document.getElementById('peacemaker-countdown-box');
+        const screen = document.querySelector('#cinemaPeacemaker .screen');
+        
+        screen.style.display = 'none';
+        document.getElementById('video-frame-peacemaker').src = '';
+        
+        countdownBox.style.display = 'flex';
+        
+        document.getElementById('peacemakerCinemaTitle').textContent = `Próximo Estreno: ${episodeTitle}`;
+
+        const targetDate = new Date(`${releaseDateString}T21:00:00-04:00`);
+        clearInterval(countdownInterval);
+
+        function updateCountdown() {
+            const now = new Date();
+            const diff = targetDate - now;
+
+            if (diff <= 0) {
+                clearInterval(countdownInterval);
+                countdownBox.innerHTML = `<div class="countdown-title">¡YA DISPONIBLE!</div>`;
+                return;
+            }
+
+            const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const s = Math.floor((diff % (1000 * 60)) / 1000);
+
+            countdownBox.innerHTML = `
+                <span class="countdown-title">Estreno en:</span>
+                <div class="countdown-timer">${d}d ${h}h ${m}m ${s}s</div>`;
+        }
+
+        updateCountdown();
+        countdownInterval = setInterval(updateCountdown, 1000);
+    }
+
+    function openPeacemakerEpisode(seasonName, episodeIndex) {
+        document.getElementById('peacemaker-countdown-box').style.display = 'none';
+        document.querySelector('#cinemaPeacemaker .screen').style.display = 'block';
+        
+        clearInterval(countdownInterval);
+
+        playerState.peacemaker.season = seasonName;
+        playerState.peacemaker.episodeIndex = episodeIndex;
+
+        const episode = peacemakerData[seasonName]?.[episodeIndex];
+        if (!episode) return;
+        
+        document.getElementById('peacemakerCinemaTitle').textContent = `T${seasonName.replace('Temporada ', '')}E${episodeIndex + 1} - ${episode.title}`;
+        setupPeacemakerLanguageButtons(episode);
+        
+        loadPeacemakerVideo(episode.videoId_es, 'es');
+
+        document.querySelectorAll('#peacemaker-sidebar .episode-card').forEach(c => c.classList.remove('active'));
+        const activeCard = document.getElementById(`peacemaker-episode-${episodeIndex}`);
+        if (activeCard) {
+            activeCard.classList.add('active');
+            activeCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        
+        updatePeacemakerNavButtons();
+        savePeacemakerProgress(seasonName, episodeIndex);
+    }
+
+    function setupPeacemakerLanguageButtons(episode) {
+        const langSelect = document.getElementById('peacemaker-language-select');
+        langSelect.classList.add('show');
+        
+        const btnEs = document.getElementById('pm-lang-es');
+        const btnEn = document.getElementById('pm-lang-en');
+
+        btnEs.onclick = () => loadPeacemakerVideo(episode.videoId_es, 'es');
+        btnEn.onclick = () => loadPeacemakerVideo(episode.videoId_en, 'en');
+    }
+
+    function loadPeacemakerVideo(videoId, lang) {
+        const iframe = document.getElementById('video-frame-peacemaker');
         iframe.src = `https://drive.google.com/file/d/${videoId}/preview`;
-    } else {
-        iframe.src = '';
+        updateActiveLangButton(lang);
     }
 
-    const seasonNumberMatch = season.toString().match(/\d+/);
-    const seasonNumber = seasonNumberMatch ? seasonNumberMatch[0] : '1';
-    document.getElementById(`${seriesId}-cinema-title`).textContent = `T${seasonNumber}E${episodeIndex + 1} - ${episode.title}`;
-    const totalEpisodes = data[season].length;
-    document.getElementById(`${seriesId}-page-indicator`).textContent = `${episodeIndex + 1} / ${totalEpisodes}`;
-    updateNavButtons(seriesId);
-}
+    function updateActiveLangButton(lang) {
+        const btnEs = document.getElementById('pm-lang-es');
+        const btnEn = document.getElementById('pm-lang-en');
+        
+        btnEs.classList.remove('active');
+        btnEn.classList.remove('active');
 
-function navigateEpisode(seriesId, direction) {
-    const { season, episodeIndex } = playerState[seriesId];
-    const data = seriesId === 'dexter' ? dexterData : peacemakerData;
-    const seasonEpisodes = data[season];
-    let newIndex = episodeIndex + direction;
-    if (newIndex >= 0 && newIndex < seasonEpisodes.length) {
-        openEpisode(seriesId, season, newIndex);
+        if (lang === 'es') {
+            btnEs.classList.add('active');
+        } else if (lang === 'en') {
+            btnEn.classList.add('active');
+        }
     }
-}
 
-function updateNavButtons(seriesId) {
-    const { season, episodeIndex } = playerState[seriesId];
-    const data = seriesId === 'dexter' ? dexterData : peacemakerData;
-    const totalEpisodes = data[season].length;
-    document.getElementById(`${seriesId}-prev-btn`).disabled = (episodeIndex === 0);
-    document.getElementById(`${seriesId}-next-btn`).disabled = (episodeIndex === totalEpisodes - 1);
-}
-
-function saveProgress(seriesId) {
-    try {
-        localStorage.setItem(`${seriesId}Progress`, JSON.stringify(playerState[seriesId]));
-    } catch (e) { console.error(`Error al guardar el progreso de ${seriesId}:`, e); }
-}
-
-function formatDate(date, part) {
-    if (!date) return '';
-    if (part === 'day') {
-        return new Intl.DateTimeFormat('es-ES', { day: 'numeric' }).format(date);
+    function updatePeacemakerNavButtons() {
+        const { season, episodeIndex } = playerState.peacemaker;
+        const totalEpisodes = peacemakerData[season].length;
+        document.getElementById('peacemakerPrevBtn').disabled = (episodeIndex === 0);
+        document.getElementById('peacemakerNextBtn').disabled = (episodeIndex === totalEpisodes - 1);
+        document.getElementById('peacemakerEpisodeCounter').textContent = `${episodeIndex + 1} / ${totalEpisodes}`;
     }
-    if (part === 'month') {
-        // Formato: Primeras 3 letras en mayúsculas (ej: SEP)
-        return new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(date).substring(0, 3).toUpperCase();
-    }
-    return '';
-}
 
-// ===========================================================
-// FUNCIONES DE UTILIDAD
-// ===========================================================
-function shuffleArray(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
+    function previousPeacemakerEpisode() {
+        let { season, episodeIndex } = playerState.peacemaker;
+        if (episodeIndex > 0) {
+            episodeIndex--;
+            openPeacemakerEpisode(season, episodeIndex);
+        }
     }
-}
 
-function createCarouselCard(id, data, type) {
-    let cardClass = 'carousel-card';
-    let clickFunction = `openDetailsModal('${id}', '${type}')`;
-    if (type === 'roulette') {
-        cardClass = 'movie-card';
-        clickFunction = '';
-    } else if (type === 'movie-grid') {
-        cardClass = 'movie-card';
-        clickFunction = `openDetailsModal('${id}', 'movie')`;
-    } else if (type === 'series') {
-        clickFunction = `openDetailsModal('${id}', 'series')`;
+    function nextPeacemakerEpisode() {
+        let { season, episodeIndex } = playerState.peacemaker;
+        const totalEpisodes = peacemakerData[season].length;
+        if (episodeIndex < totalEpisodes - 1) {
+            episodeIndex++;
+            openPeacemakerEpisode(season, episodeIndex);
+        }
     }
-    return `<div class="${cardClass}" onclick="${clickFunction}"><img src="${data.poster}" alt="${data.title}" loading="lazy"></div>`;
-}
+
+    // --- LÓGICA PARA FORZAR PANTALLA HORIZONTAL EN MÓVILES ---
+    async function gestionarOrientacionPantalla() {
+        document.addEventListener('fullscreenchange', gestionarOrientacionPantalla);
+        if (!screen.orientation || !screen.orientation.lock) {
+            return;
+        }
+        try {
+            if (document.fullscreenElement) {
+                await screen.orientation.lock('landscape');
+            } else {
+                screen.orientation.unlock();
+            }
+        } catch (error) {
+            console.error("No se pudo cambiar la orientación de la pantalla:", error);
+        }
+    }
+    
+    // ===========================================================
+    // LÓGICA DE PAGINACIÓN
+    // ===========================================================
+    const MOVIES_PER_PAGE = 10;
+    let currentPage = 1;
+    let allMovieCards = [];
+    let totalPages = 1;
+
+    function setupPagination() {
+        allMovieCards = Array.from(document.querySelectorAll('.grid .movie-card'));
+        if (allMovieCards.length === 0) return;
+        totalPages = Math.ceil(allMovieCards.length / MOVIES_PER_PAGE);
+        
+        const prevBtn = document.getElementById('prev-page-btn');
+        const nextBtn = document.getElementById('next-page-btn');
+
+        if(prevBtn && nextBtn) {
+            prevBtn.addEventListener('click', () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    renderPage(currentPage);
+                }
+            });
+
+            nextBtn.addEventListener('click', () => {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    renderPage(currentPage);
+                }
+            });
+        }
+        
+        renderPage(currentPage);
+    }
+
+    function renderPage(pageNumber) {
+        const grid = document.querySelector('.grid');
+        if (!grid) return;
+
+        grid.innerHTML = '';
+
+        const start = (pageNumber - 1) * MOVIES_PER_PAGE;
+        const end = start + MOVIES_PER_PAGE;
+        const pageCards = allMovieCards.slice(start, end);
+
+        pageCards.forEach(card => {
+            card.classList.add('hidden');
+            grid.appendChild(card);
+        });
+
+        setTimeout(() => {
+            const cardsInGrid = grid.querySelectorAll('.movie-card');
+            cardsInGrid.forEach((card, index) => {
+                const delay = (index % 5) * 100;
+                setTimeout(() => {
+                    card.classList.remove('hidden');
+                }, delay);
+            });
+        }, 10);
+
+        updatePaginationButtons();
+    }
+
+    function updatePaginationButtons() {
+        const prevBtn = document.getElementById('prev-page-btn');
+        const nextBtn = document.getElementById('next-page-btn');
+
+        if(!prevBtn || !nextBtn) return;
+
+        prevBtn.style.display = currentPage > 1 ? 'block' : 'none';
+        nextBtn.style.display = currentPage < totalPages ? 'block' : 'none';
+    }
+
+    // ===========================================================
+    // LÓGICA DE LA RULETA
+    // ===========================================================
+    let rouletteMovies = [];
+    let isSpinning = false;
+
+    function setupRoulette() {
+        allMovieCards.forEach(card => {
+            const onclickAttr = card.getAttribute('onclick');
+            if (onclickAttr && onclickAttr.includes('openCinema')) {
+                rouletteMovies.push(card.cloneNode(true));
+            }
+        });
+
+        if (rouletteMovies.length < 5) {
+            const openBtn = document.getElementById('open-roulette-btn');
+            if(openBtn) openBtn.style.display = 'none';
+            return;
+        }
+
+        document.getElementById('open-roulette-btn').addEventListener('click', openRoulette);
+        document.getElementById('spin-btn').addEventListener('click', spinRoulette);
+        document.getElementById('reset-btn').addEventListener('click', resetRoulette);
+    }
+
+    function openRoulette() {
+        populateRoulette();
+        document.getElementById('roulette-modal').classList.add('show');
+    }
+
+    function closeRoulette() {
+        document.getElementById('roulette-modal').classList.remove('show');
+    }
+
+    function populateRoulette() {
+        const wheel = document.querySelector('.roulette-wheel');
+        wheel.innerHTML = '';
+        wheel.style.transition = 'none';
+        wheel.style.transform = 'translateX(0)';
+
+        let wheelItems = [];
+        for(let i = 0; i < 10; i++) {
+            wheelItems.push(...rouletteMovies.sort(() => Math.random() - 0.5));
+        }
+
+        wheelItems.forEach(card => {
+            const item = document.createElement('div');
+            item.className = 'roulette-item';
+            item.appendChild(card.querySelector('img').cloneNode(true));
+            wheel.appendChild(item);
+        });
+    }
+
+    function spinRoulette() {
+        if (isSpinning) return;
+        isSpinning = true;
+
+        const wheel = document.querySelector('.roulette-wheel');
+        const resultContainer = document.getElementById('roulette-result');
+        const spinBtn = document.getElementById('spin-btn');
+        const resetBtn = document.getElementById('reset-btn');
+
+        spinBtn.disabled = true;
+        resetBtn.style.display = 'none';
+        resultContainer.innerHTML = '';
+
+        const winnerIndex = Math.floor(Math.random() * rouletteMovies.length);
+        const winnerCard = rouletteMovies[winnerIndex];
+
+        const itemsInWheel = wheel.querySelectorAll('.roulette-item');
+        let targetIndex = -1;
+        for (let i = Math.floor(itemsInWheel.length / 2); i < itemsInWheel.length; i++) {
+            const img = itemsInWheel[i].querySelector('img');
+            if (img && img.src === winnerCard.querySelector('img').src) {
+                targetIndex = i;
+                break;
+            }
+        }
+
+        if (targetIndex === -1) { targetIndex = Math.floor(itemsInWheel.length / 2); }
+
+        const itemWidth = 130;
+        const containerWidth = wheel.parentElement.offsetWidth;
+        const randomOffset = Math.random() * (itemWidth - 40) - ((itemWidth - 40) / 2);
+        const finalPosition = - (targetIndex * itemWidth) + (containerWidth / 2) - (itemWidth / 2) + randomOffset;
+        
+        wheel.style.transition = 'transform 7s cubic-bezier(0.25, 0.1, 0.25, 1)';
+        wheel.style.transform = `translateX(${finalPosition}px)`;
+
+        setTimeout(() => {
+            isSpinning = false;
+            spinBtn.style.display = 'none';
+            resetBtn.style.display = 'inline-block';
+            
+            const winnerCardClone = winnerCard.cloneNode(true);
+            winnerCardClone.classList.remove('hidden');
+            const originalOnclick = winnerCard.getAttribute('onclick');
+            winnerCardClone.setAttribute('onclick', `closeRoulette(); ${originalOnclick}`);
+            resultContainer.appendChild(winnerCardClone);
+        }, 7000);
+    }
+
+    function resetRoulette() {
+        populateRoulette();
+        document.getElementById('roulette-result').innerHTML = '';
+        document.getElementById('spin-btn').disabled = false;
+        document.getElementById('spin-btn').style.display = 'inline-block';
+        document.getElementById('reset-btn').style.display = 'none';
+    }
+
+    // ===========================================================
+    // INICIALIZACIÓN DE EVENTOS
+    // ===========================================================
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // Eventos del Modal de Idioma (para películas simples)
+        document.getElementById('lang-es').addEventListener('click', () => loadSelectedVideo('es'));
+        document.getElementById('lang-en').addEventListener('click', () => loadSelectedVideo('en'));
+
+        // Eventos de Dexter
+        document.getElementById('dexterPrevBtn').addEventListener('click', previousDexterEpisode);
+        document.getElementById('dexterNextBtn').addEventListener('click', nextDexterEpisode);
+
+        // Eventos de Peacemaker
+        document.getElementById('peacemakerPrevBtn').addEventListener('click', previousPeacemakerEpisode);
+        document.getElementById('peacemakerNextBtn').addEventListener('click', nextPeacemakerEpisode);
+
+        setupPagination();
+        setupRoulette();
+        
+        document.addEventListener('fullscreenchange', gestionarOrientacionPantalla);
+
+        // Evento para la tecla Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const openModal = document.querySelector('.show');
+                if (!openModal) return;
+                switch (openModal.id) {
+                    case 'cinema': closeCinema(); break;
+                    case 'cinemaDexter': closeCinemaDexter(); break;
+                    case 'cinemaPeacemaker': closePeacemakerCinema(); break;
+                    case 'roulette-modal': closeRoulette(); break;
+                    case 'languageModal': closeLanguageModal(); break;
+                }
+            }
+        });
+    });
 </script>
 </body>
 </html>
