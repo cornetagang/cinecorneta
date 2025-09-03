@@ -1666,6 +1666,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setupKeydownListener();
     setupRouletteLogic();
     switchView('all');
+
+    document.addEventListener('fullscreenchange', gestionarOrientacionPantalla);
 });
 
 // ===========================================================
@@ -2199,10 +2201,8 @@ async function gestionarOrientacionPantalla() {
     }
     try {
         if (document.fullscreenElement) {
-            // Entró en pantalla completa, forzamos la orientación horizontal
             await screen.orientation.lock('landscape');
         } else {
-            // Salió de pantalla completa, desbloqueamos la orientación
             screen.orientation.unlock();
         }
     } catch (error) {
