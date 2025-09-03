@@ -308,17 +308,38 @@ main {
     align-items: center;
     width: 100%;
 }
+
 .details-poster img {
-    width: 200px;
-    height: 300px;
+    width: clamp(180px, 25vw, 250px); /* Ajustado: Mayor tamaño mínimo, % de viewport y tamaño máximo */
+    height: auto; /* Mantiene la proporción automáticamente */
     object-fit: cover;
     border-radius: 6px;
+    margin-top: -10vh; /* Si el póster sigue demasiado abajo, puedes reducir este valor (ej. -5vh) */
+    z-index: 2;
 }
-.details-info h2 { margin: 0 0 10px 0; font-size: 2.5rem; }
+
+.details-info h2 {
+    margin: 0 0 10px 0;
+    font-size: clamp(1.8rem, 4vw, 2.5rem);
+    line-height: 1.2;
+}
 .details-meta { display: flex; align-items: center; gap: 15px; color: var(--text-muted); margin-bottom: 15px; }
 .details-meta span { background: #333; padding: 3px 8px; border-radius: 4px; font-size: 0.9rem; }
-.details-info p { line-height: 1.6; max-width: 600px; }
-.details-info .btn { padding: 12px 25px; border-radius: 6px; border: none; font-size: 1.1rem; font-weight: bold; cursor: pointer; margin-top: 20px; }
+.details-info p {
+    font-size: clamp(0.9rem, 2vw, 1.1rem);
+    line-height: 1.6;
+    max-width: 600px;
+}
+
+.details-info .btn {
+    padding: clamp(10px, 2vw, 12px) clamp(20px, 4vw, 25px); /* Nuevo: Padding adaptable */
+    font-size: clamp(1rem, 2vw, 1.1rem); /* Nuevo: Fuente adaptable */
+    border-radius: 6px;
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 20px;
+}
 
 /* Reproductores */
 #cinema.modal {
@@ -625,10 +646,27 @@ main {
     z-index: 1011;
 }
 
+.details-meta { 
+    display: flex; 
+    align-items: center; 
+    gap: 15px; 
+    color: var(--text-muted); 
+    margin-bottom: 15px; 
+}
+
+/* Ocultar el contenedor móvil en pantallas grandes */
+.details-meta-mobile {
+    display: none;
+}
+
 @media (max-width: 768px) {
-    .hamburger-btn { display: block; }
+    .hamburger-btn {
+        display: block;
+        z-index: 1011;
+    }
+
     .main-nav {
-        display: none;
+        display: flex;
         flex-direction: column;
         align-items: flex-start;
         position: fixed;
@@ -636,38 +674,120 @@ main {
         right: 0;
         height: 100vh;
         width: 70%;
+        max-width: 320px; /* Ancho máximo para tablets */
         z-index: 1010;
         background-color: rgba(24, 24, 24, 0.85);
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
         padding-top: 80px;
+        
+        /* Estado inicial: Oculto fuera de la pantalla y no interactivo */
         transform: translateX(100%);
-        transition: transform 0.3s ease-in-out;
+        visibility: hidden;
+        
+        /* Transición suave para el deslizamiento y la visibilidad */
+        transition: transform 0.3s ease-in-out, visibility 0.3s ease-in-out;
     }
+
     .main-header.menu-open .main-nav {
-        display: flex;
+        /* Estado visible: En pantalla y completamente interactivo */
         transform: translateX(0);
+        visibility: visible;
     }
-    .main-header.menu-open .logo { visibility: hidden; }
-    .main-nav ul { flex-direction: column; width: 100%; text-align: center; }
-    .main-nav li { margin-bottom: 20px; }
-    .hero-content { max-width: 80%; }
-    .carousel-card { width: 30%; }
-    .details-content { flex-direction: column; text-align: center; }
-    .hero-buttons .btn { margin-bottom: 10px; margin-right: 0; width: 100%; text-align: center; }
-    #series-player-modal .player-layout-container { flex-direction: column; overflow-y: auto; }
-    #series-player-modal .episode-sidebar { min-width: 100%; height: 400px; }
+
+    .main-header.menu-open .logo {
+        visibility: hidden;
+    }
+
+    .main-nav ul {
+        flex-direction: column;
+        width: 100%;
+        text-align: center;
+    }
+    
+    .main-nav li {
+        margin-bottom: 20px;
+    }
+
+    .hero-content { 
+        max-width: 80%; 
+    }
+
+    .carousel-card { 
+        width: 30%; 
+    }
+
+    .details-content {
+        flex-direction: column; /* Apila los elementos verticalmente */
+        text-align: center; /* Centra el texto */
+        align-items: center; /* Centra el contenido */
+    }
+
+    .hero-buttons .btn {
+        margin-bottom: 10px;
+        margin-right: 0;
+        width: 100%;
+        text-align: center;
+    }
+
+    #series-player-modal .player-layout-container {
+        flex-direction: column;
+        overflow-y: auto;
+    }
+
+    #series-player-modal .episode-sidebar {
+        min-width: 100%;
+        height: 400px;
+    }
+
+     #full-grid-container .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    padding: 10px;
+    }
+
+    .details-meta {
+        display: none;
+    }
+
+    /* Mostrar y centrar el contenedor móvil */
+    .details-meta-mobile {
+        display: flex;
+        flex-direction: column; /* Apila los elementos verticalmente */
+        align-items: center; /* Centra horizontalmente */
+        gap: 8px; /* Reduce el espacio entre el año y los géneros */
+        color: var(--text-muted);
+        margin-bottom: 15px;
+    }
+
+    #details-year-mobile,
+    #details-genres-mobile {
+        text-shadow: 
+            -1px -1px 0 #000,  /* Arriba-izquierda */
+            1px -1px 0 #000,   /* Arriba-derecha */
+            -1px 1px 0 #000,   /* Abajo-izquierda */
+            1px 1px 0 #000;    /* Abajo-derecha */
+        color: #fff; /* Opcional: Cambia el color del texto a blanco para un mayor contraste */
+    }
+
 }
 
 .menu-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background-color: rgba(0, 0, 0, 0.5);
-    z-index: 1005;
-    transition: opacity 0.3s ease-in-out;
+  position: fixed;
+  inset: 0; /* cubre toda la pantalla */
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 9; /* debajo del menú */
+  opacity: 0;
+  pointer-events: none; /* 🔑 bloquea interacción cuando no está activo */
+  transition: opacity 0.3s ease;
 }
-.menu-overlay.active { display: block; }
+
+.menu-overlay.active {
+  opacity: 1;
+  pointer-events: all; /* 🔑 solo permite clic cuando está activo */
+}
+
 
 .lang-controls {
     display: flex;
@@ -744,7 +864,7 @@ main {
 
 <header class="main-header">
     <div class="header-left">
-        <a href="#" class="logo" onclick="switchView('all'); return false;">
+        <a class="logo" onclick="switchView('all'); return false;">
             <img src="https://i.imgur.com/vgJjqSM.png" alt="Cine Corneta Logo" class="header-logo">
         </a>
         <nav class="main-nav">
@@ -797,6 +917,10 @@ main {
                 <div class="details-meta">
                     <span id="details-year"></span>
                     <span id="details-genres"></span>
+                </div>
+                <div class="details-meta-mobile">
+                    <span id="details-year-mobile"></span>
+                    <span id="details-genres-mobile"></span>
                 </div>
                 <p id="details-synopsis"></p>
                 <div id="details-buttons"></div>
@@ -1595,17 +1719,21 @@ function setupNavigation() {
     const menuToggle = document.getElementById('menu-toggle');
     const mainHeader = document.querySelector('.main-header');
     const menuOverlay = document.getElementById('menu-overlay');
-    const navLinks = document.querySelectorAll('.main-nav a');
+    const navMenuContainer = document.querySelector('.main-nav ul');
 
     function closeMenu() {
         mainHeader.classList.remove('menu-open');
-        if (menuOverlay) menuOverlay.classList.remove('active');
+        if (menuOverlay) {
+            menuOverlay.classList.remove('active');
+        }
     }
 
     if (menuToggle) {
         menuToggle.addEventListener('click', () => {
             mainHeader.classList.toggle('menu-open');
-            if (menuOverlay) menuOverlay.classList.toggle('active');
+            if (menuOverlay) {
+                menuOverlay.classList.toggle('active');
+            }
         });
     }
 
@@ -1613,23 +1741,36 @@ function setupNavigation() {
         menuOverlay.addEventListener('click', closeMenu);
     }
 
-    navLinks.forEach(link => {
-        link.addEventListener('click', (event) => {
-            event.preventDefault();
-            const filter = link.dataset.filter;
-            closeMenu();
-            if (filter === 'roulette') {
-                setTimeout(openRouletteModal, 300);
-                return;
-            }
-            navLinks.forEach(navLink => navLink.classList.remove('active'));
-            link.classList.add('active');
-            setTimeout(() => {
-                switchView(filter);
-            }, 300);
-        });
-    });
+    if (navMenuContainer) {
+        navMenuContainer.addEventListener('click', (event) => {
+            if (event.target.tagName === 'A') {
+                const linkClickeado = event.target;
+                const filter = linkClickeado.dataset.filter;
+
+                // Solo prevenimos la acción si es un "filtro"
+                if (filter) {
+    event.preventDefault();
+
+    if (filter === 'roulette') {
+        // 🔥 Ruleta siempre abre modal, nunca queda bloqueada
+        openRouletteModal();
+    } else {
+        // ✅ Para los demás sí se maneja el "active"
+        const allLinks = navMenuContainer.querySelectorAll('a');
+        allLinks.forEach(link => link.classList.remove('active'));
+        linkClickeado.classList.add('active');
+
+        switchView(filter);
+    }
+
+    closeMenu();
 }
+
+            }
+        });
+    }
+}
+
 
 function setupKeydownListener() {
     document.addEventListener('keydown', (event) => {
@@ -1720,6 +1861,8 @@ function openDetailsModal(id, type) {
     modal.querySelector('#details-year').textContent = data.year;
     modal.querySelector('#details-genres').textContent = data.genres.join(' • ');
     modal.querySelector('#details-synopsis').textContent = data.synopsis;
+    modal.querySelector('#details-year-mobile').textContent = data.year;
+    modal.querySelector('#details-genres-mobile').textContent = data.genres.join(' • ');
     const buttonsContainer = modal.querySelector('#details-buttons');
     if (type.startsWith('movie')) {
         buttonsContainer.innerHTML = `<button class="btn btn-play" onclick="openPlayerModal('${id}')"><i class="fas fa-play"></i> Ver Ahora</button>`;
