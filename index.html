@@ -1880,24 +1880,21 @@ function openPlayerModal(movieId) {
     iframe.src = `https://drive.google.com/file/d/${movieId}/preview`;
     cinemaModal.classList.add('show');
 
-    // **NUEVO CÓDIGO AÑADIDO**
-    // Solo si estamos en un dispositivo móvil
-    if (window.innerWidth < 768) {
-        // Entrar en pantalla completa
-        if (document.documentElement.requestFullscreen) {
-            document.documentElement.requestFullscreen();
-        } else if (document.documentElement.mozRequestFullScreen) { // Firefox
-            document.documentElement.mozRequestFullScreen();
-        } else if (document.documentElement.webkitRequestFullscreen) { // Chrome, Safari, Edge
-            document.documentElement.webkitRequestFullscreen();
-        } else if (document.documentElement.msRequestFullscreen) { // IE11
-            document.documentElement.msRequestFullscreen();
+    if (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement) {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        } else if (document.mozCancelFullScreen) {
+            document.mozCancelFullScreen();
+        } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) {
+            document.msExitFullscreen();
         }
+    }
 
-        // Forzar la orientación horizontal (landscape)
-        if (screen.orientation.lock) {
-            screen.orientation.lock('landscape').catch(e => console.error("Error al forzar la orientación: ", e));
-        }
+    // Desbloquear la orientación de la pantalla
+    if (screen.orientation.unlock) {
+        screen.orientation.unlock();
     }
 }
 function closePlayerModal(iframeId) {
