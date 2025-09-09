@@ -864,7 +864,7 @@ main {
 
 <header class="main-header">
     <div class="header-left">
-        <a class="logo" onclick="switchView('all'); return false;">
+        <a class="logo">
             <img src="https://i.imgur.com/vgJjqSM.png" alt="Cine Corneta Logo" class="header-logo">
         </a>
         <nav class="main-nav">
@@ -1149,8 +1149,33 @@ const movieDatabase = {
     },
 };
 const seriesDatabase = {
-    'dexter': { title: "Dexter", year: 2006, genres: ["Crimen", "Drama", "Misterio"], synopsis: "Un forense de Miami lleva una doble vida como un asesino en serie justiciero que caza a otros criminales.", poster: "https://image.tmdb.org/t/p/original/uQwpPjM3gScW914MYYOx7li8sN3.jpg", banner: "https://image.tmdb.org/t/p/original/aSGSxGMTP893DPMCvMl9AdnEICE.jpg" },
-    'peacemaker': { title: "Peacemaker", year: 2022, genres: ["Acción", "Aventura", "Comedia"], synopsis: "Recuperado de sus heridas, Peacemaker es forzado a unirse a un misterioso equipo de operaciones encubiertas para salvar al mundo.", poster: "https://image.tmdb.org/t/p/original/yb4F1Oocq8GfQt6iIuAgYEBokhG.jpg", banner: "https://image.tmdb.org/t/p/original/q7YHckbOAcGplmD3YIH7nMESQ2l.jpg" }
+    'dexter': 
+    { 
+        title: "Dexter", 
+        year: 2006, 
+        genres: ["Crimen", "Drama", "Misterio"], 
+        synopsis: "Un forense de Miami lleva una doble vida como un asesino en serie justiciero que caza a otros criminales.", 
+        poster: "https://image.tmdb.org/t/p/original/uQwpPjM3gScW914MYYOx7li8sN3.jpg", 
+        banner: "https://image.tmdb.org/t/p/original/aSGSxGMTP893DPMCvMl9AdnEICE.jpg" 
+    },
+    'peacemaker': 
+    { 
+        title: "Peacemaker", 
+        year: 2022, 
+        genres: ["Acción", "Aventura", "Comedia"], 
+        synopsis: "Recuperado de sus heridas, Peacemaker es forzado a unirse a un misterioso equipo de operaciones encubiertas para salvar al mundo.", 
+        poster: "https://image.tmdb.org/t/p/original/yb4F1Oocq8GfQt6iIuAgYEBokhG.jpg", 
+        banner: "https://image.tmdb.org/t/p/original/q7YHckbOAcGplmD3YIH7nMESQ2l.jpg" 
+    },
+    'chernobyl': 
+    { 
+        title: "Chernobyl", 
+        year: 2019, 
+        genres: ["Drama", "Drama Biográfico"], 
+        synopsis: "En abril de 1986, una explosión en la central nuclear de Chernobyl, en la Unión Soviética, se convirtió en una de las mayores catástrofes creadas por la humanidad de la historia.", 
+        poster: "https://image.tmdb.org/t/p/original/hlLXt2tOPT6RRnjiUmoxyG1LTFi.jpg", 
+        banner: "https://image.tmdb.org/t/p/original/uL6Ad12W09L1sfuOE2pcTeak7bt.jpg" 
+    },
 };
 const dexterData = {
     '1': [{
@@ -1683,6 +1708,47 @@ const peacemakerData = {
         { title: "Próximamente...", releaseDate: '2025-10-11', description: "El episodio 8 se estrena pronto." }
     ]
 };
+
+const chernobylData = {
+    'Temporada 1': [
+        { 
+            title: "1:23:45", 
+            videoId: "1eQX4OfcjwvrXWKCDZ3mnSF5k4jriCUf8", 
+            thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/21acd328-6298-4928-bb08-e926d776f63d/a53d81424437914d76ce305e1f1c3634b5736dc9.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", 
+            description: "El 26 de abril de 1986, la Central Nuclear de Chernóbil sufre una explosión masiva que libera material radiactivo en Ucrania, Bielorrusia, Rusia, Escandinavia y Europa del Este." 
+        },
+        { 
+            title: "Please Remain Calm", 
+            videoId: "1yb9sp8A3Yi6FYQwyMhwdmhTx54OXjvbr", 
+            thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/7c3b4584-c2b1-482f-bc8c-18c91bf1acf1/87eced8d07e3275e259e8e4325e43abac7cc350d.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", 
+            description: "Ulana Khomyuk, una física nuclear de Minsk, intenta llegar a Chernóbil para averiguar la causa del accidente. Lyudmilla Ignatenko busca a su marido bombero." 
+        },
+        { 
+            title: "Open Wide, O Earth", 
+            videoId: "1TqWDO8zvgHXa3alDG84WprwbDeqDJBfC", 
+            thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/e8d738e3-7bd3-40e5-be1a-d6b2c270064c/f9c7ffb5a19c43ade5b4495cc9ac8613a0831315.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", 
+            description: "Legasov traza un plan de descontaminación con riesgos humanos. Lyudmilla ignora las advertencias sobre la contaminación de su marido bombero." 
+        },
+        { 
+            title: "The Happiness of All Mankind", 
+            videoId: "1AWSrnSETCBlG9yX4EoXtT8HdXagaIMA9", 
+            thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/7cc1a700-bd77-456c-9d61-aa95cff7d73b/072b882e161aafb797c01c92f2e3a19b66882e1d.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", 
+            description: "Legasov y Shcherbina usan exploradores lunares para retirar los escombros radiactivos. Khomyuk se enfrenta a los obstáculos del gobierno en Moscú." 
+        },
+        { 
+            title: "Vichnaya Pamyat", 
+            videoId: "1LiLmLFhdB63pnjdBeWO8PfUx9736qQWe", 
+            thumbnail: "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/8d42e46a-0b6d-4acd-85f8-d980ec41769c/0df0fdbb626c582ac918d64a5fb0234a890448dd.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320", 
+            description: "Legasov, Shcherbina y Khomyuk arriesgan sus vidas y reputaciones para exponer la verdad sobre Chernóbil en el juicio de Dyatlov, Fomin y Bryukhanov." 
+        }
+    ]
+};
+
+const seriesEpisodesData = {
+    dexter: dexterData,
+    peacemaker: peacemakerData,
+    chernobyl: chernobylData
+};
 // ===========================================================
 // INICIO DE LA APLICACIÓN
 // ===========================================================
@@ -1781,28 +1847,21 @@ function setupNavigation() {
     if (navMenuContainer) {
         navMenuContainer.addEventListener('click', (event) => {
             if (event.target.tagName === 'A') {
+                event.preventDefault();
                 const linkClickeado = event.target;
                 const filter = linkClickeado.dataset.filter;
 
-                // Solo prevenimos la acción si es un "filtro"
-                if (filter) {
-    event.preventDefault();
+                const allLinks = navMenuContainer.querySelectorAll('a');
+                allLinks.forEach(link => link.classList.remove('active'));
+                linkClickeado.classList.add('active');
 
-    if (filter === 'roulette') {
-        // 🔥 Ruleta siempre abre modal, nunca queda bloqueada
-        openRouletteModal();
-    } else {
-        // ✅ Para los demás sí se maneja el "active"
-        const allLinks = navMenuContainer.querySelectorAll('a');
-        allLinks.forEach(link => link.classList.remove('active'));
-        linkClickeado.classList.add('active');
+                closeMenu();
 
-        switchView(filter);
-    }
-
-    closeMenu();
-}
-
+                if (filter === 'roulette') {
+                    openRouletteModal();
+                } else {
+                    switchView(filter);
+                }
             }
         });
     }
@@ -1898,13 +1957,11 @@ function openDetailsModal(id, type) {
     modal.querySelector('#details-year').textContent = data.year;
     modal.querySelector('#details-genres').textContent = data.genres.join(' • ');
     modal.querySelector('#details-synopsis').textContent = data.synopsis;
-    modal.querySelector('#details-year-mobile').textContent = data.year;
-    modal.querySelector('#details-genres-mobile').textContent = data.genres.join(' • ');
     const buttonsContainer = modal.querySelector('#details-buttons');
     if (type.startsWith('movie')) {
         buttonsContainer.innerHTML = `<button class="btn btn-play" onclick="openPlayerModal('${id}')"><i class="fas fa-play"></i> Ver Ahora</button>`;
     } else {
-        const seriesFunction = (id === 'dexter') ? `openSeriesPlayer('dexter')` : `openSeriesPlayer('peacemaker')`;
+        const seriesFunction = `openSeriesPlayer('${id}')`;
         buttonsContainer.innerHTML = `<button class="btn btn-play" onclick="${seriesFunction}"><i class="fas fa-bars"></i> Ver Episodios</button>`;
     }
     modal.classList.add('show');
@@ -1916,23 +1973,6 @@ function openPlayerModal(movieId) {
     const iframe = document.getElementById('video-frame');
     iframe.src = `https://drive.google.com/file/d/${movieId}/preview`;
     cinemaModal.classList.add('show');
-
-    if (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement) {
-        if (document.exitFullscreen) {
-            document.exitFullscreen();
-        } else if (document.mozCancelFullScreen) {
-            document.mozCancelFullScreen();
-        } else if (document.webkitExitFullscreen) {
-            document.webkitExitFullscreen();
-        } else if (document.msExitFullscreen) {
-            document.msExitFullscreen();
-        }
-    }
-
-    // Desbloquear la orientación de la pantalla
-    if (screen.orientation.unlock) {
-        screen.orientation.unlock();
-    }
 }
 function closePlayerModal(iframeId) {
     const iframe = document.getElementById(iframeId);
@@ -2002,7 +2042,7 @@ function setupRouletteLogic() {
 }
 
 // ===========================================================
-// LÓGICA DEL REPRODUCTOR DE SERIES
+// LÓGICA DEL REPRODUCTOR DE SERIES (AHORA DINÁMICA)
 // ===========================================================
 function openSeriesPlayer(seriesId) {
     closeDetailsModal();
@@ -2042,7 +2082,11 @@ function openSeriesPlayer(seriesId) {
         </div>`;
     modal.classList.add('show');
 
-    const dataSet = seriesId === 'dexter' ? dexterData : peacemakerData;
+    const dataSet = seriesEpisodesData[seriesId];
+    if (!dataSet) {
+        console.error(`No se encontraron datos de episodios para la serie: ${seriesId}`);
+        return;
+    }
     const initialSeason = playerState[seriesId]?.season || Object.keys(dataSet)[0];
     const initialEpisode = playerState[seriesId]?.episodeIndex || 0;
 
@@ -2069,7 +2113,7 @@ function changeLanguage(seriesId, lang) {
 
 function populateSeasonDropdown(seriesId, selectedSeason) {
     const selector = document.getElementById(`${seriesId}-season-selector`);
-    const data = seriesId === 'dexter' ? dexterData : peacemakerData;
+    const data = seriesEpisodesData[seriesId];
     selector.innerHTML = Object.keys(data).map(seasonNum =>
         `<option value="${seasonNum}" ${seasonNum == selectedSeason ? 'selected' : ''}>${isNaN(seasonNum) ? seasonNum : `Temporada ${seasonNum}`}</option>`
     ).join('');
@@ -2077,19 +2121,17 @@ function populateSeasonDropdown(seriesId, selectedSeason) {
 
 function populateEpisodeList(seriesId, seasonNum) {
     const container = document.getElementById(`${seriesId}-episode-list`);
-    const data = seriesId === 'dexter' ? dexterData : peacemakerData;
+    const data = seriesEpisodesData[seriesId];
     container.innerHTML = '';
     if (!data[seasonNum]) return;
 
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Normalizamos para comparar solo la fecha
+    today.setHours(0, 0, 0, 0);
 
     data[seasonNum].forEach((episode, index) => {
         const releaseDate = episode.releaseDate ? new Date(episode.releaseDate) : null;
         const isAvailable = !releaseDate || releaseDate <= today;
         let thumbnailHTML = '';
-        
-        // **NUEVO:** Se define el evento onclick solo si está disponible
         const clickEvent = isAvailable ? `onclick="openEpisode('${seriesId}', '${seasonNum}', ${index})"` : '';
 
         if (isAvailable) {
@@ -2101,7 +2143,6 @@ function populateEpisodeList(seriesId, seasonNum) {
                     <span class="release-month">${formatDate(releaseDate, 'month')}</span>
                 </div>`;
         }
-
         const cardHTML = `
             <div class="episode-card ${!isAvailable ? 'disabled' : ''}" 
                  id="${seriesId}-episode-${seasonNum.toString().replace(' ','')}-${index}" 
@@ -2109,14 +2150,12 @@ function populateEpisodeList(seriesId, seasonNum) {
                  onmouseenter="startExpandTimer(this)" 
                  onmouseleave="cancelExpandTimer(this)"
                  ${clickEvent}>
-                
                 ${thumbnailHTML}
                 <div class="episode-card-info">
                     <h3>${index + 1}. ${episode.title}</h3>
-                    <p class="episode-description">${episode.description}</p>
+                    <p class="episode-description">${episode.description || ''}</p>
                 </div>
             </div>`;
-        
         container.innerHTML += cardHTML;
     });
 }
@@ -2124,10 +2163,12 @@ function populateEpisodeList(seriesId, seasonNum) {
 function startExpandTimer(cardElement) {
     cardElement.dataset.timerId = setTimeout(() => expandDescription(cardElement, true), 1500);
 }
+
 function cancelExpandTimer(cardElement) {
     if (cardElement.dataset.timerId) clearTimeout(cardElement.dataset.timerId);
     expandDescription(cardElement, false);
 }
+
 function expandDescription(cardElement, shouldExpand) {
     const infoContainer = cardElement.querySelector('.episode-card-info');
     const descriptionP = infoContainer?.querySelector('.episode-description');
@@ -2138,7 +2179,7 @@ function expandDescription(cardElement, shouldExpand) {
     const seriesId = cardElement.id.split('-')[0];
     const seasonKey = cardElement.dataset.seasonKey;
     const episodeIndex = parseInt(cardElement.id.split('-').pop());
-    const data = seriesId === 'dexter' ? dexterData : peacemakerData;
+    const data = seriesEpisodesData[seriesId];
     const fullDescription = data[seasonKey][episodeIndex].description || '';
 
     if (shouldExpand) {
@@ -2147,7 +2188,8 @@ function expandDescription(cardElement, shouldExpand) {
     } else {
         infoContainer.classList.remove('expanded');
         infoContainer.dataset.collapseTimer = setTimeout(() => {
-            descriptionP.textContent = fullDescription.length > 100 ? fullDescription.substring(0, 100) + '...' : fullDescription;
+            const shortDescription = fullDescription.length > 100 ? fullDescription.substring(0, 100) + '...' : fullDescription;
+            descriptionP.textContent = shortDescription;
         }, 300);
     }
 }
@@ -2164,7 +2206,7 @@ function openEpisode(seriesId, season, episodeIndex) {
     playerState[seriesId].episodeIndex = episodeIndex;
     saveProgress(seriesId);
 
-    const data = seriesId === 'dexter' ? dexterData : peacemakerData;
+    const data = seriesEpisodesData[seriesId];
     const episode = data[season]?.[episodeIndex];
     if (!episode) return;
 
@@ -2196,7 +2238,7 @@ function openEpisode(seriesId, season, episodeIndex) {
 
 function navigateEpisode(seriesId, direction) {
     const { season, episodeIndex } = playerState[seriesId];
-    const data = seriesId === 'dexter' ? dexterData : peacemakerData;
+    const data = seriesEpisodesData[seriesId];
     const seasonEpisodes = data[season];
     let newIndex = episodeIndex + direction;
     if (newIndex >= 0 && newIndex < seasonEpisodes.length) {
@@ -2206,7 +2248,7 @@ function navigateEpisode(seriesId, direction) {
 
 function updateNavButtons(seriesId) {
     const { season, episodeIndex } = playerState[seriesId];
-    const data = seriesId === 'dexter' ? dexterData : peacemakerData;
+    const data = seriesEpisodesData[seriesId];
     const totalEpisodes = data[season].length;
     document.getElementById(`${seriesId}-prev-btn`).disabled = (episodeIndex === 0);
     document.getElementById(`${seriesId}-next-btn`).disabled = (episodeIndex === totalEpisodes - 1);
@@ -2224,25 +2266,9 @@ function formatDate(date, part) {
         return new Intl.DateTimeFormat('es-ES', { day: 'numeric' }).format(date);
     }
     if (part === 'month') {
-        // Formato: Primeras 3 letras en mayúsculas (ej: SEP)
         return new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(date).substring(0, 3).toUpperCase();
     }
     return '';
-}
-
-async function gestionarOrientacionPantalla() {
-    if (!screen.orientation || !screen.orientation.lock) {
-        return;
-    }
-    try {
-        if (document.fullscreenElement) {
-            await screen.orientation.lock('landscape');
-        } else {
-            screen.orientation.unlock();
-        }
-    } catch (error) {
-        console.error("No se pudo cambiar la orientación de la pantalla:", error);
-    }
 }
 
 // ===========================================================
