@@ -1710,7 +1710,7 @@ const peacemakerData = {
 };
 
 const chernobylData = {
-    'Temporada 1': [
+    'Miniserie': [
         { 
             title: "1:23:45", 
             videoId: "1eQX4OfcjwvrXWKCDZ3mnSF5k4jriCUf8", 
@@ -1755,9 +1755,11 @@ const seriesEpisodesData = {
 let heroInterval;
 let currentHeroIndex = 0;
 let featuredIds = [];
+
 let playerState = {
     dexter: { season: 1, episodeIndex: 0 },
     peacemaker: { season: 'Temporada 1', episodeIndex: 0, lang: 'es' },
+    chernobyl: { season: 'Miniserie', episodeIndex: 0 },
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -1767,8 +1769,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setupKeydownListener();
     setupRouletteLogic();
     switchView('all');
-
-    document.addEventListener('fullscreenchange', gestionarOrientacionPantalla);
 });
 
 // ===========================================================
@@ -1778,13 +1778,8 @@ function setupHero() {
     const heroSection = document.getElementById('hero-section');
     const heroContent = document.createElement('div');
     heroContent.className = 'hero-content';
-    heroContent.innerHTML = `
-        <h1 id="hero-title"></h1>
-        <p id="hero-synopsis"></p>
-        <div class="hero-buttons"></div>
-    `;
+    heroContent.innerHTML = `<h1 id="hero-title"></h1><p id="hero-synopsis"></p><div class="hero-buttons"></div>`;
     heroSection.appendChild(heroContent);
-
     featuredIds = Object.keys(movieDatabase);
     if (featuredIds.length === 0) {
         heroSection.style.display = 'none';
@@ -1823,40 +1818,29 @@ function setupNavigation() {
     const mainHeader = document.querySelector('.main-header');
     const menuOverlay = document.getElementById('menu-overlay');
     const navMenuContainer = document.querySelector('.main-nav ul');
-
     function closeMenu() {
         mainHeader.classList.remove('menu-open');
-        if (menuOverlay) {
-            menuOverlay.classList.remove('active');
-        }
+        if (menuOverlay) menuOverlay.classList.remove('active');
     }
-
     if (menuToggle) {
         menuToggle.addEventListener('click', () => {
             mainHeader.classList.toggle('menu-open');
-            if (menuOverlay) {
-                menuOverlay.classList.toggle('active');
-            }
+            if (menuOverlay) menuOverlay.classList.toggle('active');
         });
     }
-
     if (menuOverlay) {
         menuOverlay.addEventListener('click', closeMenu);
     }
-
     if (navMenuContainer) {
         navMenuContainer.addEventListener('click', (event) => {
             if (event.target.tagName === 'A') {
                 event.preventDefault();
                 const linkClickeado = event.target;
                 const filter = linkClickeado.dataset.filter;
-
                 const allLinks = navMenuContainer.querySelectorAll('a');
                 allLinks.forEach(link => link.classList.remove('active'));
                 linkClickeado.classList.add('active');
-
                 closeMenu();
-
                 if (filter === 'roulette') {
                     openRouletteModal();
                 } else {
@@ -1866,7 +1850,6 @@ function setupNavigation() {
         });
     }
 }
-
 
 function setupKeydownListener() {
     document.addEventListener('keydown', (event) => {
@@ -1894,7 +1877,6 @@ function switchView(filter) {
     fullGridContainer.style.display = 'none';
     carouselContainer.classList.remove('with-hero');
     document.querySelectorAll('.carousel-title').forEach(title => title.style.display = 'block');
-
     if (filter === 'all') {
         heroSection.style.display = 'flex';
         carouselContainer.style.display = 'block';
@@ -1989,7 +1971,6 @@ function setupRouletteLogic() {
     const cardWidth = 170;
     let finalPickIndex = -1;
     let selectedMovie = null;
-
     window.openRouletteModal = function() {
         rouletteModal.classList.add('show');
         loadRouletteMovies();
@@ -1997,7 +1978,6 @@ function setupRouletteLogic() {
     window.closeRouletteModal = function() {
         rouletteModal.classList.remove('show');
     }
-
     function loadRouletteMovies() {
         spinButton.disabled = false;
         rouletteTrack.style.transition = 'none';
@@ -2042,7 +2022,7 @@ function setupRouletteLogic() {
 }
 
 // ===========================================================
-// LÓGICA DEL REPRODUCTOR DE SERIES (AHORA DINÁMICA)
+// LÓGICA DEL REPRODUCTOR DE SERIES (DINÁMICA)
 // ===========================================================
 function openSeriesPlayer(seriesId) {
     closeDetailsModal();
