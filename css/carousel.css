@@ -1,0 +1,136 @@
+/* ===== HERO BANNER ===== */
+.hero-section {
+    width: 100%;
+    height: 80vh;
+    margin-top: -80px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 0 4vw;
+    background-size: cover;
+    background-position: center 20%;
+}
+.hero-section::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, rgba(20,20,20,1) 0%, rgba(20,20,20,0) 50%, rgba(20,20,20,1) 100%), linear-gradient(to top, rgba(20,20,20,1) 0%, rgba(20,20,20,0) 20%);
+}
+.hero-content {
+    z-index: 2;
+    max-width: 45%;
+    transition: opacity 0.5s ease-in-out;
+}
+.hero-content.hero-fading {
+    opacity: 0;
+}
+.hero-content h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(2.5rem, 4vw, 3.5rem);
+    margin: 0 0 20px 0;
+    text-shadow: 0 4px 10px black;
+}
+.hero-content p {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    max-width: 600px;
+    text-shadow: 0 2px 5px black;
+}
+.hero-buttons .btn {
+    padding: 12px 25px;
+    border-radius: 6px;
+    border: none;
+    font-size: 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+    margin-right: 15px;
+    transition: all 0.2s ease;
+}
+.btn-play { background-color: var(--primary-red); color: white; }
+.btn-play:hover { background-color: var(--secondary-red); }
+.btn-info { background-color: rgba(109, 109, 110, 0.7); color: white; }
+.btn-info:hover { background-color: rgba(109, 109, 110, 0.4); }
+
+/* ===== CARRUSELES Y GRID ===== */
+.content-wrapper {
+    width: 100%;
+    padding: 0 4vw;
+    z-index: 5;
+    position: relative;
+}
+#carousel-container.with-hero {
+    margin-top: -10vh;
+}
+.carousel {
+    margin-bottom: 40px;
+    transition: display 0.3s ease-out;
+}
+.carousel.hidden {
+    display: none;
+}
+.carousel-title {
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-bottom: 15px;
+}
+.carousel-track-container {
+    position: relative;
+}
+.carousel-track {
+    display: flex;
+    gap: 15px;
+    overflow-x: auto;
+    padding-bottom: 20px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary-red) transparent;
+}
+.carousel-track::-webkit-scrollbar { height: 8px; }
+.carousel-track::-webkit-scrollbar-thumb { background-color: var(--primary-red); border-radius: 4px; }
+.carousel-card {
+    flex-shrink: 0;
+    width: 18%;
+    aspect-ratio: 2/3;
+    border-radius: 6px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    position: relative;
+}
+.carousel-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.carousel-card:hover {
+    transform: scale(1.05) translateY(-5px);
+    z-index: 10;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+}
+
+#full-grid-container .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    padding-bottom: 50px;
+}
+
+#full-grid-container .movie-card {
+    background: var(--panel-dark);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    cursor: pointer;
+    aspect-ratio: 2/3;
+}
+
+#full-grid-container .movie-card:hover {
+    transform: scale(1.05);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5), 0 0 10px var(--primary-red);
+}
+
+#full-grid-container .movie-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
