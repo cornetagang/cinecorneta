@@ -1,16 +1,14 @@
 // ===========================================================
-// VARIABLES GLOBALES DE DATOS (Se llenarán desde Google Sheets)
+// VARIABLES GLOBALES DE DATOS (Se llenarán desde la API)
 // ===========================================================
 let movieDatabase = {};
 let seriesDatabase = {};
 let seriesEpisodesData = {};
 
 // ===========================================================
-// ENLACES A TUS HOJAS DE CÁLCULO
+// ENLACE A TU API DE GOOGLE SHEETS
 // ===========================================================
-const MOVIES_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRqIdD74zBDdD0VCVj6TDa2ooajoCQA_eToJ6Bv0hNbHp5o3N8NmGERsufM7yF47exLcAUfhHt1OflE/pub?gid=0&single=true&output=csv';
-const SERIES_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRqIdD74zBDdD0VCVj6TDa2ooajoCQA_eToJ6Bv0hNbHp5o3N8NmGERsufM7yF47exLcAUfhHt1OflE/pub?gid=1424954432&single=true&output=csv';
-const EPISODES_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRqIdD74zBDdD0VCVj6TDa2ooajoCQA_eToJ6Bv0hNbHp5o3N8NmGERsufM7yF47exLcAUfhHt1OflE/pub?gid=1865775313&single=true&output=csv';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxKyrwRxsIKW5xUgQFBg4zfOwnmwW12zR_4PDR1FljRm7oDE0ej7KrH1jMbhLdP3xgr/exec';
 
 // ===========================================================
 // VARIABLES GLOBALES DE ESTADO
@@ -29,92 +27,30 @@ let playerState = {
 // INICIO DE LA APLICACIÓN
 // ===========================================================
 document.addEventListener('DOMContentLoaded', () => {
+    // Llama a la API para obtener todos los datos en paralelo
     Promise.all([
-        fetch(MOVIES_CSV_URL).then(res => res.text()),
-        fetch(SERIES_CSV_URL).then(res => res.text()),
-        fetch(EPISODES_CSV_URL).then(res => res.text())
+        fetch(`${API_URL}?data=movies`).then(res => res.json()),
+        fetch(`${API_URL}?data=series`).then(res => res.json()),
+        fetch(`${API_URL}?data=episodes`).then(res => res.json())
     ])
-    .then(([moviesCSV, seriesCSV, episodesCSV]) => {
-        movieDatabase = convertirCsvAObjeto(moviesCSV);
-        seriesDatabase = convertirCsvAObjeto(seriesCSV);
-        seriesEpisodesData = convertirEpisodiosCsvAObjeto(episodesCSV);
+    .then(([movies, series, episodes]) => {
+        // Asigna los datos recibidos a las variables globales
+        movieDatabase = movies;
+        seriesDatabase = series;
+        seriesEpisodesData = episodes;
         
+        // Ejecuta las funciones que construyen la página
         setupHero();
         generateCarousels();
         setupRouletteLogic();
         switchView('all');
     })
-    .catch(error => console.error("Error al cargar los datos desde Google Sheets:", error));
+    .catch(error => console.error("Error al cargar los datos desde la API de Google Sheets:", error));
 
+    // Estas funciones no dependen de los datos, se pueden ejecutar de inmediato
     setupNavigation();
     setupKeydownListener();
 });
-
-// ===========================================================
-// FUNCIONES PARA PROCESAR DATOS CSV
-// ===========================================================
-function convertirCsvAObjeto(csvText) {
-    const lines = csvText.trim().split('\n');
-    const headers = lines[0].split(',').map(h => h.trim());
-    const dataObject = {};
-
-    for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',').map(v => v.trim());
-        let id = '';
-        const entry = {};
-
-        headers.forEach((header, index) => {
-            const value = values[index] || "";
-            if (header === 'id') {
-                id = value;
-            } else if (header === 'genres') {
-                entry[header] = value.split(';').map(g => g.trim());
-            } else {
-                entry[header] = value;
-            }
-        });
-
-        if (id) {
-            dataObject[id] = entry;
-        }
-    }
-    return dataObject;
-}
-
-function convertirEpisodiosCsvAObjeto(csvText) {
-    const lines = csvText.trim().split('\n');
-    const headers = lines[0].split(',').map(h => h.trim());
-    const dataObject = {};
-
-    for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',').map(v => v.trim());
-        const episode = {};
-        let seriesId = '';
-        let season = '';
-
-        headers.forEach((header, index) => {
-            const value = values[index] || "";
-            if (header === 'seriesId') {
-                seriesId = value;
-            } else if (header === 'season') {
-                season = value;
-            } else {
-                episode[header] = value;
-            }
-        });
-
-        if (seriesId && season) {
-            if (!dataObject[seriesId]) {
-                dataObject[seriesId] = {};
-            }
-            if (!dataObject[seriesId][season]) {
-                dataObject[seriesId][season] = [];
-            }
-            dataObject[seriesId][season].push(episode);
-        }
-    }
-    return dataObject;
-}
 
 
 // ===========================================================
@@ -597,6 +533,8 @@ function saveProgress(seriesId) {
 function formatDate(date, part) {
     if (!date) return '';
     const d = new Date(date);
+    if (isNaN(d.getTime())) return ''; // Maneja fechas inválidas
+    
     if (part === 'day') {
         return new Intl.DateTimeFormat('es-ES', { day: 'numeric' }).format(d);
     }
