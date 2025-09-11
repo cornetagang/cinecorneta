@@ -1,9 +1,16 @@
 // ===========================================================
-// VARIABLES GLOBALES DE DATOS (Se llenarán desde los JSON)
+// VARIABLES GLOBALES DE DATOS (Se llenarán desde Google Sheets)
 // ===========================================================
 let movieDatabase = {};
 let seriesDatabase = {};
 let seriesEpisodesData = {};
+
+// ===========================================================
+// ENLACES A TUS HOJAS DE CÁLCULO
+// ===========================================================
+const MOVIES_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRqIdD74zBDdD0VCVj6TDa2ooajoCQA_eToJ6Bv0hNbHp5o3N8NmGERsufM7yF47exLcAUfhHt1OflE/pub?gid=0&single=true&output=csv';
+const SERIES_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRqIdD74zBDdD0VCVj6TDa2ooajoCQA_eToJ6Bv0hNbHp5o3N8NmGERsufM7yF47exLcAUfhHt1OflE/pub?gid=1424954432&single=true&output=csv';
+const EPISODES_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRqIdD74zBDdD0VCVj6TDa2ooajoCQA_eToJ6Bv0hNbHp5o3N8NmGERsufM7yF47exLcAUfhHt1OflE/pub?gid=1865775313&single=true&output=csv';
 
 // ===========================================================
 // VARIABLES GLOBALES DE ESTADO
@@ -22,30 +29,92 @@ let playerState = {
 // INICIO DE LA APLICACIÓN
 // ===========================================================
 document.addEventListener('DOMContentLoaded', () => {
-    // Carga todos los datos necesarios en paralelo
     Promise.all([
-        fetch('data/movies.json').then(res => res.json()),
-        fetch('data/series.json').then(res => res.json()),
-        fetch('data/episodes.json').then(res => res.json())
+        fetch(MOVIES_CSV_URL).then(res => res.text()),
+        fetch(SERIES_CSV_URL).then(res => res.text()),
+        fetch(EPISODES_CSV_URL).then(res => res.text())
     ])
-    .then(([movies, series, episodes]) => {
-        // Una vez que todos los datos han llegado, los asignamos
-        movieDatabase = movies;
-        seriesDatabase = series;
-        seriesEpisodesData = episodes;
-
-        // Ahora ejecutamos las funciones que dependen de estos datos
+    .then(([moviesCSV, seriesCSV, episodesCSV]) => {
+        movieDatabase = convertirCsvAObjeto(moviesCSV);
+        seriesDatabase = convertirCsvAObjeto(seriesCSV);
+        seriesEpisodesData = convertirEpisodiosCsvAObjeto(episodesCSV);
+        
         setupHero();
         generateCarousels();
         setupRouletteLogic();
         switchView('all');
     })
-    .catch(error => console.error("Error al cargar los datos iniciales:", error));
+    .catch(error => console.error("Error al cargar los datos desde Google Sheets:", error));
 
-    // Estas funciones no dependen de los datos, pueden ejecutarse de inmediato
     setupNavigation();
     setupKeydownListener();
 });
+
+// ===========================================================
+// FUNCIONES PARA PROCESAR DATOS CSV
+// ===========================================================
+function convertirCsvAObjeto(csvText) {
+    const lines = csvText.trim().split('\n');
+    const headers = lines[0].split(',').map(h => h.trim());
+    const dataObject = {};
+
+    for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map(v => v.trim());
+        let id = '';
+        const entry = {};
+
+        headers.forEach((header, index) => {
+            const value = values[index] || "";
+            if (header === 'id') {
+                id = value;
+            } else if (header === 'genres') {
+                entry[header] = value.split(';').map(g => g.trim());
+            } else {
+                entry[header] = value;
+            }
+        });
+
+        if (id) {
+            dataObject[id] = entry;
+        }
+    }
+    return dataObject;
+}
+
+function convertirEpisodiosCsvAObjeto(csvText) {
+    const lines = csvText.trim().split('\n');
+    const headers = lines[0].split(',').map(h => h.trim());
+    const dataObject = {};
+
+    for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map(v => v.trim());
+        const episode = {};
+        let seriesId = '';
+        let season = '';
+
+        headers.forEach((header, index) => {
+            const value = values[index] || "";
+            if (header === 'seriesId') {
+                seriesId = value;
+            } else if (header === 'season') {
+                season = value;
+            } else {
+                episode[header] = value;
+            }
+        });
+
+        if (seriesId && season) {
+            if (!dataObject[seriesId]) {
+                dataObject[seriesId] = {};
+            }
+            if (!dataObject[seriesId][season]) {
+                dataObject[seriesId][season] = [];
+            }
+            dataObject[seriesId][season].push(episode);
+        }
+    }
+    return dataObject;
+}
 
 
 // ===========================================================
@@ -193,6 +262,10 @@ function changeHeroMovie(index) {
     if (!heroContent) return;
     const movieId = featuredIds[index];
     const movieData = movieDatabase[movieId];
+    if (!movieData) {
+        console.error("No se encontraron datos para la película con ID:", movieId);
+        return;
+    }
     heroContent.classList.add('hero-fading');
     setTimeout(() => {
         heroSection.style.backgroundImage = `url(${movieData.banner})`;
@@ -311,6 +384,10 @@ function openSeriesPlayer(seriesId) {
     } catch (e) { console.error(`Error al cargar progreso de ${seriesId}:`, e); }
 
     const seriesInfo = seriesDatabase[seriesId];
+    if (!seriesInfo) {
+        console.error("No se encontraron datos para la serie:", seriesId);
+        return;
+    }
     const modal = document.getElementById('series-player-modal');
     let langControlsHTML = (seriesId === 'peacemaker') ? `
         <div id="peacemaker-lang-controls" class="lang-controls">
@@ -391,9 +468,9 @@ function populateEpisodeList(seriesId, seasonNum) {
         let thumbnailHTML = '';
         const clickEvent = isAvailable ? `onclick="openEpisode('${seriesId}', '${seasonNum}', ${index})"` : '';
 
-        if (isAvailable) {
+        if (isAvailable && episode.thumbnail) {
             thumbnailHTML = `<img src="${episode.thumbnail}" alt="${episode.title}" class="episode-card-thumb" loading="lazy">`;
-        } else {
+        } else if (releaseDate) {
             thumbnailHTML = `
                 <div class="thumbnail-placeholder">
                     <span class="release-day">${formatDate(releaseDate, 'day')}</span>
@@ -519,11 +596,12 @@ function saveProgress(seriesId) {
 
 function formatDate(date, part) {
     if (!date) return '';
+    const d = new Date(date);
     if (part === 'day') {
-        return new Intl.DateTimeFormat('es-ES', { day: 'numeric' }).format(date);
+        return new Intl.DateTimeFormat('es-ES', { day: 'numeric' }).format(d);
     }
     if (part === 'month') {
-        return new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(date).substring(0, 3).toUpperCase();
+        return new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(d).substring(0, 3).toUpperCase();
     }
     return '';
 }
