@@ -1,0 +1,610 @@
+{
+    "dexter": {
+        "1": [{
+            "title": "Dexter",
+            "videoId": "1xfWPP4ZMSbM6R9nHqVEjg6UPNpemnhUC",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/70rjTrItEJCyr6u8zmAVQrdmcrP.jpg",
+            "description": "Dexter Morgan, analista de salpicaduras de sangre del Departamento de Policía de Miami, lleva una doble vida como un asesino en serie justiciero que persigue a criminales que han eludido el sistema de justicia."
+        }, {
+            "title": "Crocodile",
+            "videoId": "17CF2L5WE25SnYbQ1lta-QVBkx_eWldsT",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/vcx9a4vVzQfKO2IysTKC0wLLJQ0.jpg",
+            "description": "Dexter investiga un asesinato en el que un oficial de policía es el principal sospechoso. Mientras tanto, un nuevo asesino en serie conocido como el 'Asesino del Camión de Hielo' comienza a dejar un rastro de cuerpos desmembrados."
+        }, {
+            "title": "Popping Cherry",
+            "videoId": "1shWSGANTDiyPsRqF_TeviwJNFcM9Hh1m",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/pVjoJyTwsUGP7rCLkd7S8V4GgGu.jpg",
+            "description": "La investigación sobre el Asesino del Camión de Hielo se intensifica. Dexter se siente extrañamente atraído por el estilo metódico del asesino, mientras que su hermana Debra está ansiosa por ser transferida al departamento de homicidios."
+        }, {
+            "title": "Let's Give the Boy a Hand",
+            "videoId": "1LOBarwHKi_ZdhbxdFVmyBMJ-eYNM9-LZ",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/e6ZiRNeHCFuXRJdwoQJORA9q9nl.jpg",
+            "description": "El Asesino del Camión de Hielo comienza a dejar pistas personales para Dexter, lo que sugiere una conexión con su propio pasado oscuro."
+        }, {
+            "title": "Love American Style",
+            "videoId": "1TPoklQPiwIeOeOjvTMd87o5JOl3kSURy",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/fpLBlBrhOSqUHXDEiiTRh9k7zPj.jpg",
+            "description": "Se descubre una víctima del Asesino del Camión de Hielo que ha sobrevivido. Dexter ve la oportunidad de aprender más sobre el asesino, pero el caso toma un giro inesperado."
+        }, {
+            "title": "Return to Sender",
+            "videoId": "12J1-q4Cr73vikEkU2CFtRCCnAbVJeqyW",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/fg5uVRanMihJ184Za4UqwYjumBE.jpg",
+            "description": "El Asesino del Camión de Hielo deja una escena del crimen que es una réplica de uno de los asesinatos de Dexter, llevando la investigación peligrosamente cerca de él."
+        }, {
+            "title": "Circle of Friends",
+            "videoId": "1kNUMR67Mx16kBnOwXmWaqfKBTY2WsG-h",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/gpqFeUvCSMNWFd4IJbtY2FH6noD.jpg",
+            "description": "La policía de Miami cree haber identificado al Asesino del Camión de Hielo, pero Dexter tiene sus dudas y comienza su propia investigación para descubrir la verdadera identidad del asesino."
+        }, {
+            "title": "Shrink Wrap",
+            "videoId": "1uPzmYfaGxtMyqltepv-Y_7pVb9eY4SfX",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/lSPPQLhChQTyU8SoVeyBLcNxzhU.jpg",
+            "description": "La investigación lleva a Dexter a un psiquiatra que puede tener información crucial sobre el Asesino del Camión de Hielo y, posiblemente, sobre el propio pasado de Dexter."
+        }, {
+            "title": "Father Knows Best",
+            "videoId": "1NOVrVbw_rbiGdRJb0AY-eX7C_39bi2VE",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/8IUBoErgGbboihLAuPDhN5IsO2s.jpg",
+            "description": "Dexter descubre que su padre adoptivo, Harry, le ocultó secretos sobre su origen. La revelación de la existencia de su hermano biológico lo estremece."
+        }, {
+            "title": "Seeing Red",
+            "videoId": "1rfMjrPJMt5zKtt1zUL_0YuJsIddVu2QB",
+            "thumbnail": "https://i.imgur.com/OZUbwOq.png",
+            "description": "Una escena del crimen desencadena recuerdos reprimidos de la infancia traumática de Dexter, revelando el origen de su 'Pasajero Oscuro'."
+        }, {
+            "title": "Truth Be Told",
+            "videoId": "1VteS_LtubhgSuJqCBFTU8Yc2JoNRHpYx",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/igwp2lTwkn8LoLTLBzPG49hzqbB.jpg",
+            "description": "El Asesino del Camión de Hielo secuestra a alguien cercano a Dexter, obligándolo a un enfrentamiento directo y a revivir su pasado."
+        }, {
+            "title": "Born Free",
+            "videoId": "1RQTf76eLx_q2qCoempbz9JKAMJx_IEgO",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/1ObZDLK3f7BucdgtmAlHZRYN3IB.jpg",
+            "description": "En un final impactante, Dexter se enfrenta a su hermano, el Asesino del Camión de Hielo, y debe tomar una decisión que cambiará su vida para siempre."
+        }],
+        "2": [{
+            "title": "It's Alive!",
+            "videoId": "1rmvE_gI-01yK3dydBtmuzEb5sRueQV6Q",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/2jtzefZ7yIcaZoJxcOkuM4YEBHU.jpg",
+            "description": "Atormentado por haber matado a su hermano, Dexter encuentra que su 'Pasajero Oscuro' está inactivo. Mientras tanto, el sargento Doakes lo vigila de cerca, y buzos descubren el cementerio submarino de las víctimas de Dexter."
+        }, {
+            "title": "Waiting to Exhale",
+            "videoId": "16OQNevX_ipURJkheCIcHbQibvVp2rCoP",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/ha7i2p27VVdWY9wN9bkpQvmPmFv.jpg",
+            "description": "El FBI, liderado por el agente especial Frank Lundy, llega a Miami para investigar al nuevo asesino en serie apodado 'El Carnicero de la Bahía', que en realidad es Dexter."
+        }, {
+            "title": "An Inconvenient Lie",
+            "videoId": "1awY6KLsDfc6MhkK0u2n2MNP_4_WeMQQt",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/nhddI1zisRZtGUxJIZwKGFhDqoz.jpg",
+            "description": "Rita, la novia de Dexter, sospecha que él tiene un problema de adicción y lo obliga a unirse a un programa de Narcóticos Anónimos, donde conoce a la enigmática Lila."
+        }, {
+            "title": "See-Through",
+            "videoId": "1n1b-XSJ2dZdolEOwW6RRz9pw5fyxv0o7",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/omBmf4Gxu8HPpnciDs6dUTYAiN3.jpg",
+            "description": "Dexter intenta desviar la investigación de Lundy, que se acerca peligrosamente a la verdad. La presencia de Lila en su vida comienza a complicar las cosas con Rita."
+        }, {
+            "title": "The Dark Defender",
+            "videoId": "1_Rum2jeFB0_ytCdR7sHEU4byIgd-Lekb",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/nEWrXNNIhOCx5AGy7PZonRXjtCN.jpg",
+            "description": "Dexter se enfoca en un nuevo objetivo, mientras que Lila se vuelve cada vez más manipuladora y se inserta en la vida de Dexter."
+        }, {
+            "title": "Dex, Lies, and Videotape",
+            "videoId": "1fAQ3IDWX1qKgfwuWoJxNhRfx4GzgQ_v7",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/tB4fuDRHzQTRlfszvMAoNxgoKz6.jpg",
+            "description": "Se publica un manifiesto del supuesto 'Carnicero de la Bahía', creando un frenesí mediático. Dexter se da cuenta de que alguien podría estar intentando imitarlo o exponerlo."
+        }, {
+            "title": "That Night, a Forest Grew",
+            "videoId": "116BvKv2Xg8AezcpDLOiWpiqjfm9eHAz2",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/nwgxVpwiReDOtnBg0dMA9L4rcI8.jpg",
+            "description": "Doakes se convence de que Dexter es el Carnicero de la Bahía y comienza a investigarlo por su cuenta, arriescando su propia carrera."
+        }, {
+            "title": "Morning Comes",
+            "videoId": "1F5EOaIsAhx8HOV-OqQAoklwmTv1LiLTH",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/15WfX35RWngveAdYNCsruo12tpa.jpg",
+            "description": "La investigación de Lundy se centra en Doakes como posible sospechoso. Dexter se ve atrapado entre la creciente presión del FBI y la obsesión de Doakes."
+        }, {
+            "title": "Resistance Is Futile",
+            "videoId": "15R7DT4FtJcEoc21sWIKixom5Ci3wl547",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/gL34Xku1eO413hIcqWrnb69yw0r.jpg",
+            "description": "Doakes finalmente confronta a Dexter, descubriendo su oscuro secreto. Su enfrentamiento lleva a una situación de vida o muerte."
+        }, {
+            "title": "There's Something About Harry",
+            "videoId": "1-ZLN1mjeQ-SWDCtZlpGEm4PwgbEInCfB",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/8PMgRRi6NysXyXSypwdaJiomiCM.jpg",
+            "description": "Dexter mantiene a Doakes cautivo y descubre la verdad sobre la muerte de su padre adoptivo, Harry. Lila sigue interfiriendo en su vida de maneras destructivas."
+        }, {
+            "title": "Left Turn Ahead",
+            "videoId": "1O7t47mTMgAzSoASZyZrTYPwf8oeH_5mD",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/echl9nui9uAPgjX8sqU0vfNYmvh.jpg",
+            "description": "Con Doakes como su prisionero, Dexter contempla la posibilidad de entregarse para proteger a los que ama. Lila toma medidas extremas para mantener a Dexter a su lado."
+        }, {
+            "title": "The British Invasion",
+            "videoId": "17Z3BtSa6LiIhBWq5kKA9IuneOLyfmegd",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/4uOSnM1yV7azULevXV29lcCNXAt.jpg",
+            "description": "En un final explosivo, Dexter debe lidiar con las consecuencias de las acciones de Lila y tomar una decisión final sobre el destino de Doakes."
+        }],
+        "3": [{
+            "title": "Our Father",
+            "videoId": "1gfKVgI2s6D1kK9XPDmn2Rj5RH5WiMQON",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/97VmyFgGYJECb76lxvbARLU17kk.jpg",
+            "description": "Dexter accidentalmente mata al hermano de un poderoso fiscal de distrito, Miguel Prado. Mientras tanto, Rita descubre que está embarazada."
+        }, {
+            "title": "Finding Freebo",
+            "videoId": "1cJq1trMD_wvEpS6t_wFkxmQpX8RRq1Uu",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/gaKRlCQcuiSRjJwst4HPoUvrGWv.jpg",
+            "description": "Tanto Dexter como Miguel Prado buscan al hombre que creen responsable de la muerte del hermano de Miguel, aunque por diferentes razones."
+        }, {
+            "title": "The Lion Sleeps Tonight",
+            "videoId": "1kxZLG_FYo5ZO5ufhNCzW5N3OIY1xh1LZ",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/a9rXiVNSe5y2hOvq5BtaVkFmgCb.jpg",
+            "description": "La amistad entre Dexter y Miguel se fortalece, y Miguel comienza a sospechar del lado oscuro de Dexter. Dexter se enfrenta a la idea de convertirse en padre."
+        }, {
+            "title": "All in the Family",
+            "videoId": "1eL3iyjjPCcr-zkB7gYDPsjNchZyrYSiU",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/2WszcqVwyn9MU8uSAD9CWR9pXZy.jpg",
+            "description": "Dexter y Rita anuncian su embarazo. Miguel le pide a Dexter que lo ayude a 'encargarse' de un criminal que el sistema legal no pudo detener."
+        }, {
+            "title": "Turning Biminese",
+            "videoId": "1LRpIIx9xk5KOfW7nqRK0JcrKBysWWzxK",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/xzg0wTQNR1IjlqeCLPC8teyJwQ3.jpg",
+            "description": "Miguel le presenta a Dexter un nuevo objetivo, y su retorcida amistad da un paso más allá, con Miguel convirtiéndose en una especie de 'aprendiz'."
+        }, {
+            "title": "Sí Se Puede",
+            "videoId": "1zgL6YsaUG6f0iOTGIV6xjJUc7NXnB910",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/nRxCveqjRzd1L7tMnmlaKKUmxXO.jpg",
+            "description": "Dexter intenta enseñarle a Miguel su 'código', pero pronto se da cuenta de que Miguel podría no tener el mismo autocontrol."
+        }, {
+            "title": "Easy as Pie",
+            "videoId": "1gztFug-LSO8Jl1ZrkfyUqHc5Zps2DKOj",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/bb4eTOgQoiukJWMQ92yoykjqtc6.jpg",
+            "description": "La relación entre Dexter y Miguel se vuelve más tensa a medida que Miguel se vuelve más imprudente y hambriento de poder."
+        }, {
+            "title": "The Damage a Man Can Do",
+            "videoId": "1-9DshR2awLhM3Yxs_Rq_XuQ6YcuzfWDx",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/quhTwhj7QFCHV7FsHVZM4Q9aXRp.jpg",
+            "description": "Un nuevo asesino en serie, 'El Despellejador', aterroriza a Miami. Dexter se da cuenta de que la amistad con Miguel se ha vuelto peligrosa y fuera de control."
+        }, {
+            "title": "About Last Night",
+            "videoId": "1jJ1M4KNG3CUfUd9LlXVm0PMVvbhCVj9j",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/sK9IKd3lxhasGG2kurO89wzDNkr.jpg",
+            "description": "Miguel traiciona la confianza de Dexter, lo que lleva a una ruptura inevitable y peligrosa en su amistad."
+        }, {
+            "title": "Go Your Own Way",
+            "videoId": "1bS2Qw_s-o2BUuE8S7cfUe5n3AWd7dHq2",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/jeEK4lpw0KtnqReqfihnctu5TvD.jpg",
+            "description": "Dexter se da cuenta de que debe detener a Miguel, quien se ha convertido en una amenaza para todos los que lo rodean."
+        }, {
+            "title": "I Had a Dream",
+            "videoId": "1reXd3aleq6qsjQ4hmmVf110nlCJEFJUM",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/AscduWJM3dUtWg3TTPt0nQDA3Om.jpg",
+            "description": "La investigación sobre 'El Despellejador' se acerca a Dexter. El enfrentamiento final con Miguel es inminente."
+        }, {
+            "title": "Do You Take Dexter Morgan?",
+            "videoId": "1Ygp5PyXnsuZw4xJKlG0GnRNqY3It4b32",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/eA7iCZXyED1D7GSiJHwzc2iTj4l.jpg",
+            "description": "En el día de su boda con Rita, Dexter debe enfrentarse tanto a Miguel como al Despellejador en un clímax lleno de suspenso."
+        }],
+        "4": [{
+            "title": "Living the Dream",
+            "videoId": "1FwU7o687AkxSNZfltANU_eH3CjuVRkgU",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/4dJnt4To4wrM9QX0cMA7EQ0ZSM3.jpg",
+            "description": "Dexter lucha por equilibrar su nueva vida como esposo y padre con su necesidad de matar. Un nuevo y prolífico asesino en serie, conocido como 'Trinity Killer', emerge."
+        }, {
+            "title": "Remains to Be Seen",
+            "videoId": "1SNkH5EzawGvesUFbPtOD-D-c8TAMZKzp",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/wLVHnCNEcAc4c7OTwxBX4Or567k.jpg",
+            "description": "El legendario agente retirado del FBI, Frank Lundy, regresa a Miami para cazar al Trinity Killer, a quien ha perseguido durante décadas."
+        }, {
+            "title": "Blinded by the Light",
+            "videoId": "1ii2q5UYK-Uw8qokfCIjhGdgUF0dGGNWI",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/fyUv2iXYpKSpWqq8psrV8dT7p5y.jpg",
+            "description": "Dexter comienza a acechar al Trinity Killer, cuyo verdadero nombre es Arthur Mitchell, un hombre aparentemente normal de familia."
+        }, {
+            "title": "Dex Takes a Holiday",
+            "videoId": "1JAfBfP-Pyzghn5dmJQ-2PWAtZzJj4Bj9",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/1pBP6NIWBlbbSppmePj08aAkepS.jpg",
+            "description": "Dexter intenta aprender cómo Arthur Mitchell equilibra su vida familiar con sus asesinatos, con la esperanza de encontrar una manera de hacer lo mismo."
+        }, {
+            "title": "Dirty Harry",
+            "videoId": "1PrcbqV3grJmHa2PRjwGSFYa4daYGrsvp",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/kmkkP8AtKIN9Knsdq4Ct9j1nTxo.jpg",
+            "description": "La investigación de Dexter sobre Trinity revela un ciclo de asesinatos rituales que se ha repetido durante 30 años en todo el país."
+        }, {
+            "title": "If I Had a Hammer",
+            "videoId": "1s7Dp1FEVCbsA8ualr5uN_Iq9Zd3LZS6Z",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/o7QS9elByQgYGRAimw2TI8vdKP3.jpg",
+            "description": "Dexter se infiltra en la vida de Arthur Mitchell bajo un alias, descubriendo la fachada de un hombre de familia devoto que oculta a un monstruo."
+        }, {
+            "title": "Slack Tide",
+            "videoId": "1kFxu9HIn53GMsKG7WAsLVJ4jfjehimhj",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/cCUipEG71f7dVwCb6vnpPrx8fge.jpg",
+            "description": "La relación de Dexter con Arthur se vuelve más complicada, y Dexter comienza a cuestionar si puede aprender algo del monstruo al que persigue."
+        }, {
+            "title": "Road Kill",
+            "videoId": "1cN5hK2PJZG7RDQOBQzezVzhQZJ1_iyNx",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/9B2ykyALH7ZaUMGQQlYbvYc8pw9.jpg",
+            "description": "Dexter acompaña a Arthur en un viaje fuera de la ciudad, obteniendo una visión más profunda y perturbadora de su psique."
+        }, {
+            "title": "Hungry Man",
+            "videoId": "1XbitLqulBj7kjrj7iASariFF9b_dxXQW",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/c0MAgpJXH5TkNxShkPjDHz5WXf9.jpg",
+            "description": "Dexter comparte el Día de Acción de Gracias con la familia de Arthur y es testigo de primera mano del abuso y el terror que les inflige."
+        }, {
+            "title": "Lost Boys",
+            "videoId": "1dfhhhI7vMFvLrq2af0R-qVFlo9SfhPQh",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/8zYOWNOB76BeTgsZYEhyjDCDLFS.jpg",
+            "description": "Dexter descubre la verdad detrás del ciclo de asesinatos de Trinity y se da cuenta de que es mucho más oscuro de lo que imaginaba."
+        }, {
+            "title": "Hello, Dexter Morgan",
+            "videoId": "16r3D85u_w3cIVh6EKtsSN8g9DY5HACy1",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/wDLYbem5WVkncXCOmmzTMPa1o8A.jpg",
+            "description": "La policía de Miami se acerca a Arthur Mitchell, lo que obliga a Dexter a acelerar su propio plan para eliminarlo."
+        }, {
+            "title": "The Getaway",
+            "videoId": "1fx5luCJ9UmcKtqqNP4CEGTd7bLKoshHv",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/4ikoyXM8YIwLJFkiZdmwsx7yGc5.jpg",
+            "description": "Dexter finalmente se enfrenta a Arthur en un enfrentamiento final, pero regresa a casa para descubrir que Trinity ha dejado una última y devastadora sorpresa."
+        }],
+        "5": [{
+            "title": "My Bad",
+            "videoId": "1jhVj93li4cx0FAis0hdj2qltLTOXlVhF",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/lNMSOuA1LTp71hSFsb25G6w9Gxq.jpg",
+            "description": "Lidiando con las secuelas de la muerte de Rita, Dexter se siente responsable y lucha con su dolor y su culpa, mientras intenta ser un padre soltero para sus tres hijos."
+        }, {
+            "title": "Hello, Bandit",
+            "videoId": "1r6OveGoDEYzOlRbRgEtFqAEt0SYMd08Y",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/yqTBpVchb5WndUMXkbRlYKpSg1A.jpg",
+            "description": "Dexter intenta volver a su rutina, pero el trauma lo ha afectado profundamente. Mientras tanto, Quinn comienza a sospechar de Dexter en relación con la muerte de Rita."
+        }, {
+            "title": "Practically Perfect",
+            "videoId": "1hR6Dwo6jtVLEdebdgssrgMtYRcp6NHuA",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/p1lle5gWz29k8YF9Prj96C2UFDP.jpg",
+            "description": "Dexter contrata a una niñera para Harrison. Impulsivamente, comete un asesinato y es presenciado por una misteriosa mujer llamada Lumen."
+        }, {
+            "title": "Beauty and the Beast",
+            "videoId": "19nuqojXIkgh1jl3cjHPjiMoR_4Sn23bd",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/82SPJjIJP7xvViWD0xOgDLezdOs.jpg",
+            "description": "Dexter mantiene a Lumen cautiva mientras decide qué hacer con ella. Ella le revela que fue víctima de una red de abuso y tortura."
+        }, {
+            "title": "First Blood",
+            "videoId": "194zx9D1cE8RZUQdaM1dej3yDtYdD5aCd",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/eR3jzZ6WKD09ocsxq5fRGHuGqMX.jpg",
+            "description": "Dexter decide ayudar a Lumen a vengarse de los hombres que la lastimaron, encontrando en ella una compañera inesperada."
+        }, {
+            "title": "Everything Is Illumenated",
+            "videoId": "1_V6djuinywABYG9sCjTpncIY4lDc3WgC",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/kpa3E6ynZdFORmEJzvjzMnEukOM.jpg",
+            "description": "Dexter y Lumen comienzan a cazar a los miembros del grupo que la torturó. Su vínculo se profundiza a medida que comparten su oscuridad."
+        }, {
+            "title": "Circle Us",
+            "videoId": "1mrN_T70sBDbRO7JvC6o547tfeBo5XFMR",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/yWmgJkvzS1zx7YhqCfgVf1r1Ovq.jpg",
+            "description": "A medida que se acercan a su objetivo principal, el carismático líder del grupo, Jordan Chase, la investigación de la policía también se intensifica."
+        }, {
+            "title": "Take It!",
+            "videoId": "1w4WlLfFixrR0WesXuu87j3hDeiXoixB-",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/sxQcDzAseVJkiUXqIXfWaTiRYYw.jpg",
+            "description": "La relación entre Dexter y Lumen se vuelve más íntima. Quinn se acerca a la verdad sobre el pasado de Dexter."
+        }, {
+            "title": "Teenage Wasteland",
+            "videoId": "1DbaTuFlVKRSbc1qq_d8gMXzfwrlX216X",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/eoxBiNdnAxI1mTcIdHXcn6jSoN0.jpg",
+            "description": "Debra se acerca a resolver el caso de las 'chicas del barril', sin saber que está directamente relacionado con la misión de venganza de Dexter y Lumen."
+        }, {
+            "title": "In the Beginning",
+            "videoId": "1JMBl8v0cYTTkbgJPgUzUrH4TS4ZC2bB1",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/s9xVM0xayQbGaGD6ttARrSVsySm.jpg",
+            "description": "Dexter y Lumen se dan cuenta de que Jordan Chase sabe que lo están cazando, lo que lleva a un peligroso juego del gato y el ratón."
+        }, {
+            "title": "Hop a Freighter",
+            "videoId": "153QmwcdbdUssKN7U9n5A3owiDuJqKAal",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/xJw2WiS3uHpMaFmwv90oY7Mq6qC.jpg",
+            "description": "Lumen es secuestrada por Jordan Chase, y Dexter debe correr para salvarla antes de que sea demasiado tarde."
+        }, {
+            "title": "The Big One",
+            "videoId": "1VguTWr4Tb2XXGnq6_DKPcCcsVgRnmiOM",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/fbAGakIEtwPpqi573MsseIDXE9s.jpg",
+            "description": "Dexter se enfrenta a Jordan Chase en un enfrentamiento final. Después de su venganza, Lumen se da cuenta de que su oscuridad ha desaparecido y debe seguir adelante, dejando a Dexter solo una vez más."
+        }],
+        "6": [{
+            "title": "Those Kinds of Things",
+            "videoId": "1cq96JT3j9DOOBO-RRZVQRzYUZCPytGpp",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/3J0Swm0EUVur5vL8NddP2iYlZRS.jpg",
+            "description": "Un año después, Dexter se ha adaptado a su vida como padre soltero. Se enfrenta a un nuevo tipo de asesino, 'El Asesino del Juicio Final', que comete crímenes basados en profecías bíblicas."
+        }, {
+            "title": "Once Upon a Time...",
+            "videoId": "1GWN7xda2SwjwYSxWRo7M_UtdJFeOW3PG",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/5jm0bu5yAOEDpUuwGYmyvEeaO0.jpg",
+            "description": "La investigación lleva a la policía de Miami al Profesor Gellar, un experto en estudios religiosos que ha desaparecido. Dexter se cuestiona la fe y la religión."
+        }, {
+            "title": "Smokey and the Bandit",
+            "videoId": "1g36uOxKs9MooOfmD74Hj1wMoYgY8f2Dp",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/zEYmKykAr8cjTuzvNJS7O8Qzb1u.jpg",
+            "description": "Dexter intenta encontrar un equilibrio entre su vida personal y la caza del Asesino del Juicio Final. Debra es ascendida a teniente, para su sorpresa y la de LaGuerta."
+        }, {
+            "title": "A Horse of a Different Color",
+            "videoId": "1PhfbSvGAFVg31cX5LybhU_nzdyEGqXQR",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/s4RtEYi17L5Q1ltZo2GJVhtniKZ.jpg",
+            "description": "Dexter investiga a Travis Marshall, el antiguo protegido del Profesor Gellar, creyendo que es la clave para encontrar al asesino."
+        }, {
+            "title": "The Angel of Death",
+            "videoId": "1AUjok9WdxuoJzlmDoDCO-1bX2iCC4TO9",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/nqEs9ZNXzwDpTJyGqQ4DLEERuUT.jpg",
+            "description": "Dexter se acerca a Travis, quien parece estar luchando con la influencia de Gellar."
+        }, {
+            "title": "Just Let Go",
+            "videoId": "1BDtyLzg7Y2zPWAeNp0U1s7Bdwxr1B7r7",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/xkagSIG0cWXfzwI1QO1B4d8YrLy.jpg",
+            "description": "Dexter intenta convencer a Travis de que se aleje de Gellar, mientras que los asesinatos del Juicio Final se vuelven más elaborados y públicos."
+        }, {
+            "title": "Nebraska",
+            "videoId": "1I9eAlU17igqSfcLfe7n1G2Oz9FupdOAk",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/1QSX0cANrmBaSh33vW5BElbfuE2.jpg",
+            "description": "Dexter se entera de que el Trinity Killer podría tener un hijo que ha seguido sus pasos, lo que lo lleva a un viaje por carretera a Nebraska."
+        }, {
+            "title": "Sin of Omission",
+            "videoId": "1dS76tL0e_I0GHjprNasKMyDiCkapuhdn",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/bqNoJcR57Of84oXnrUO9ljzjnpJ.jpg",
+            "description": "Debra comienza a ir a terapia y se da cuenta de que puede tener sentimientos románticos por Dexter."
+        }, {
+            "title": "Get Gellar",
+            "videoId": "1UQ5jyKveI748hyeKmFO1zNP6F7K4o_Pc",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/6PwAsx7Lkn8qngruabjK0zl9Wlr.jpg",
+            "description": "Dexter descubre la impactante verdad sobre el Profesor Gellar y Travis Marshall."
+        }, {
+            "title": "Ricochet Rabbit",
+            "videoId": "1FrSfILnOmiTPJxpy0n5rN5GjNcaQ_cIM",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/vMNxVlrjnNDvdangm2w3ZS8o8NM.jpg",
+            "description": "Ahora que conoce la verdad, Dexter intenta anticipar el próximo movimiento de Travis, que se vuelve cada vez más peligroso y delirante."
+        }, {
+            "title": "Talk to the Hand",
+            "videoId": "1Fv1X5yM4jqI5ysLvsOhW5Pnq0XVP2m5Z",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/cTvPiVOaxZ6IQFOUZr0elDHqpW8.jpg",
+            "description": "Travis secuestra al hijo de Dexter, Harrison, como parte de su plan final."
+        }, {
+            "title": "This is the Way the World Ends",
+            "videoId": "1E5Jo0DRZz4mSXK_pJ2wWtVroBLD7eQyC",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/j2L0qniodfmIV3KcT0Wnll5yMII.jpg",
+            "description": "Dexter rescata a Harrison y se enfrenta a Travis en una iglesia abandonada. En el momento culminante, Debra entra y es testigo de Dexter matando a Travis."
+        }],
+        "7": [{
+            "title": "Are You...?",
+            "videoId": "1sEOsMpH4FPGB5tfoDFTJM1QYzs3SCYXv",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/6I9tGOb5dLVBOBPEv39ipwtYwNs.jpg",
+            "description": "Debra se enfrenta a la impactante revelación de que su hermano es un asesino en serie. Lucha por reconciliar al hombre que ama con el monstruo que ha descubierto."
+        }, {
+            "title": "Sunshine and Frosty Swirl",
+            "videoId": "16-eP1MdRNc7VGXEUHTOVr4qi27C-exgS",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/jduaZpGaX9px1truLCy7FJrHdob.jpg",
+            "description": "Debra decide ayudar a Dexter a encubrir el asesinato de Travis Marshall. LaGuerta reabre el caso del Carnicero de la Bahía, convencida de que Doakes era inocente."
+        }, {
+            "title": "Buck the System",
+            "videoId": "12WD7VYbIHPee_uIEW7IOeVzKKDbbz274",
+            "thumbnail": "https://i.imgur.com/NHdGnOx.jpeg",
+            "description": "Dexter se encuentra con Hannah McKay, una mujer con un pasado oscuro que podría ser tan peligrosa como él. La mafia ucraniana llega a Miami buscando venganza por la muerte de uno de los suyos a manos de Dexter."
+        }, {
+            "title": "Run",
+            "videoId": "1Yk775Lkm-4fAOvfA2wgcgJ7lWA-zjN5l",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/zB3LE61qzBC1e7WhZ5E0MJcDZxY.jpg",
+            "description": "La relación entre Dexter y Debra se vuelve cada vez más tensa a medida que ella intenta 'curarlo' de su necesidad de matar."
+        }, {
+            "title": "Swim Deep",
+            "videoId": "1t5oUKx3OhO7VcVkaPiRfRd5HUnNQI4Sc",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/bInn82KQiRP8toc30EQyexzuKm0.jpg",
+            "description": "Dexter comienza una relación romántica con Hannah, a pesar de saber que es una asesina."
+        }, {
+            "title": "Do the Wrong Thing",
+            "videoId": "1Zuh1jjNd2cSeklXGVCl6FIimlbtLQ7-P",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/rzPaHebEgx3tRIRdB2ZnhuAfivR.jpg",
+            "description": "Debra le pide a Dexter que mate a Hannah, poniendo a prueba su lealtad. LaGuerta encuentra pruebas que la acercan a la verdad sobre Dexter."
+        }, {
+            "title": "Chemistry",
+            "videoId": "1Pt3ORFHanussZIO-Mhr3c1wyArisHA9U",
+            "thumbnail": "https://i.imgur.com/HEbYZoK.jpeg",
+            "description": "La relación de Dexter con Hannah se intensifica, lo que complica aún más su ya tensa relación con Debra."
+        }, {
+            "title": "Argentina",
+            "videoId": "1NkHIrwHKnpgg7269HUHXdVFXzipPg4rD",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/94fPHDTzIa6nNZ3ZMfFVad4TZKS.jpg",
+            "description": "Debra intenta exponer a Hannah como una asesina. La investigación de LaGuerta sobre el Carnicero de la Bahía la lleva a sospechar de Dexter."
+        }, {
+            "title": "Helter Skelter",
+            "videoId": "19NzqKTQLrui2A9OxqcL0FLSI7rh7oKXj",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/y79hTt1bhkYFQcjkXXiQmbPSioN.jpg",
+            "description": "El líder de la mafia ucraniana, Isaak Sirko, secuestra a Hannah para obligar a Dexter a ayudarlo."
+        }, {
+            "title": "The Dark... Whatever",
+            "videoId": "1DxX6jaYqJWsX1dD4nH9ZXZJ9nVnX9h-6",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/xKol1I04dpSJRn5CajDGES2GpSl.jpg",
+            "description": "Dexter y Debra se ven obligados a trabajar juntos para salvar a Hannah. LaGuerta está a punto de exponer a Dexter."
+        }, {
+            "title": "Do You See What I See?",
+            "videoId": "1eyYEPCML-RrJ9yzY-4BSVYmjgmLL6vtg",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/qKxIRwbaKsxNyGSOmTecBWXdKVt.jpg",
+            "description": "Hannah es arrestada gracias a Debra. LaGuerta arresta a Dexter por los asesinatos del Carnicero de la Bahía."
+        }, {
+            "title": "Surprise, Motherfucker!",
+            "videoId": "17Zc3marIk2Te8K0-C5l4cBOnbiaf_BR8",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/Arx36RnxTeUZT1lRhdHviLXOhll.jpg",
+            "description": "Dexter es liberado, pero LaGuerta no se rinde. En un enfrentamiento final, Debra se ve obligada a tomar una decisión imposible entre su hermano y la ley."
+        }],
+        "8": [{
+            "title": "A Beautiful Day",
+            "videoId": "18cy9n11wtfnXezg3lYo5NaRU4LDBRaIu",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/sMIbqOhRemiQnAZS03uZEAsMKwE.jpg",
+            "description": "Seis meses después de la muerte de LaGuerta, Debra ha dejado la policía y se ha distanciado de Dexter, consumida por la culpa. Dexter conoce a la Dra. Evelyn Vogel, una neuropsiquiatra que parece saberlo todo sobre él."
+        }, {
+            "title": "Every Silver Lining...",
+            "videoId": "10teY_5WzfkM02K-vRFDpzzZ0-A_MMYps",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/zlwGYHQLOtyrcuQNFA826uHDsjb.jpg",
+            "description": "La Dra. Vogel revela que ayudó a Harry a crear el 'Código' de Dexter. Un nuevo asesino en serie, 'El Neurocirujano', está aterrorizando a Miami."
+        }, {
+            "title": "What's Eating Dexter Morgan?",
+            "videoId": "1BG1IPmcG7OLBjAdKI4IcyXZF2jlkLXsN",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/tDR2GuKsD51sCG4NsRugIxF40IG.jpg",
+            "description": "Dexter y Debra intentan reconectarse, pero el abismo entre ellos es profundo. La Dra. Vogel le pide a Dexter que la ayude a atrapar al Neurocirujano."
+        }, {
+            "title": "Scar Tissue",
+            "videoId": "1V_SKvFELlC7uVBQwy7oDvOhDVLvw1NQN",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/vUhpyOERYLVC49P450zmDeGWMtx.jpg",
+            "description": "Dexter comienza a enseñarle el Código a un joven psicópata llamado Zach Hamilton, con la esperanza de poder guiarlo como Harry lo guió a él."
+        }, {
+            "title": "This Little Piggy",
+            "videoId": "1OBXwOEFh-WHJlv6dPOAQyHH1jdTqi77W",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/1R1HZZRbw5giGm9YCJhnYngheQ2.jpg",
+            "description": "La relación entre Dexter y Debra sigue siendo inestable. La investigación sobre el Neurocirujano continúa."
+        }, {
+            "title": "A Little Reflection",
+            "videoId": "1vofdaY_HmcAwZlE8JjmuT7YZ88bJNL_l",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/enjTk2EdDnLfbN23qL74WDIQ9Fs.jpg",
+            "description": "Dexter intenta equilibrar su vida personal con la caza del Neurocirujano y la tutoría de Zach."
+        }, {
+            "title": "Dress Code",
+            "videoId": "1wfarGIVQcwUsEdyeY-pS923VCrC2todW",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/5q68Iy9MB0l1osSi404MePZ1xEx.jpg",
+            "description": "Hannah McKay regresa a Miami, poniendo en peligro la ya frágil estabilidad de Dexter."
+        }, {
+            "title": "Are We There Yet?",
+            "videoId": "1svgfmqlDr1-8buoGkFTKKg9kFpBoK2sd",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/zzJy8KWJqQPhjMA3uG2h8SbjO81.jpg",
+            "description": "Dexter y Hannah reavivan su relación y planean huir a Argentina con Harrison."
+        }, {
+            "title": "Make Your Own Kind of Music",
+            "videoId": "1WcfW1HeXFU4jruAiwABr2Rfnyjdb2eBO",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/9yRjrK62A8nyzJCNICt19k4LKXL.jpg",
+            "description": "El Neurocirujano es revelado como uno de los antiguos pacientes de la Dra. Vogel."
+        }, {
+            "title": "Goodbye Miami",
+            "videoId": "18vqme-WK09MWIybS1-qY_7iR06HV5OvG",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/7rtNUEydPUGyoUu4AM2hpJW3S5W.jpg",
+            "description": "Dexter intenta atar todos los cabos sueltos antes de irse de Miami, pero se ve arrastrado de nuevo a la investigación del Neurocirujano."
+        }, {
+            "title": "Monkey in a Box",
+            "videoId": "1PVECGe_ejzAYWeQrUsunn2bdybaE1_PE",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/3MefgmO0eYWlXUFSic7Dn45UUur.jpg",
+            "description": "El Neurocirujano, también conocido como Oliver Saxon, ataca a Debra, dejándola en estado crítico."
+        }, {
+            "title": "Remember the Monsters?",
+            "videoId": "1m1xipz58jpIDDnx5NJZqCw7KNhjZx38O",
+            "thumbnail": "https://image.tmdb.org/t/p/w300/eej5sOpA2A73O6SudZxFsw2oB5n.jpg",
+            "description": "Con un huracán acercándose a Miami, Dexter se enfrenta a Saxon en un enfrentamiento final. Toma una decisión devastadora que lo obliga a exiliarse y abandonar a su hijo, enfrentando una tormenta tanto literal como figurativa."
+        }]
+    },
+    "peacemaker": {
+        "Temporada 1": [{
+            "title": "Un Giro Completamente Nuevo",
+            "videoId_es": "1PinwiM4-Lc6XeOHgMREprwWfF6i8noSI",
+            "videoId_en": "1foDQzFqS6V_NxXObvAvtyfNpQwZlTcA",
+            "thumbnail": "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/6c2a04f5-52a4-40d2-958c-e37f9cfcc891/0f3a325238a8e8b5b2bb8b46edc241e38a07c7f8.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320",
+            "description": "Tras una milagrosa recuperación, Peacemaker regresa a casa y descubre que su libertad tiene un precio."
+        }, {
+            "title": "Mejores Amigos, Para Nunca",
+            "videoId_es": "1RygUiKmAU2IVjUMqSoQMKSSSqWvWub_B",
+            "videoId_en": "1D39ICqLEHuA5BLCtUVpcLU0nfXD4ZRWa",
+            "thumbnail": "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/1c9ed3b7-8b2c-41ca-9e7d-801b712fb1b6/4b9bed8f63a5fbc4661679f066746f79b8cac2e5.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320",
+            "description": "Peligrosa huida de Peacemaker crea tensión y desconfianza dentro del equipo. Peacemaker lidia con su primera misión, recibe una visita inesperada."
+        }, {
+            "title": "Más Vale un Goff Muerto",
+            "videoId_es": "1AxGzREYDRyZwDIH55H8WRaFgWmE1QM0j",
+            "videoId_en": "1JzH5yaeMsj0-jQS_J8KIIrrTuaD06rD5",
+            "thumbnail": "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/f0f9f1c3-1bc0-4fc6-8492-e4155c05d3ed/fc8fb8e00e229749f963dfdfbf502b7fde581e90.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320",
+            "description": "En su primera misión oficial, Economos y Murn se unen y Peacemaker y Harcourt se ponen de acuerdo. Trabajo se perjudica con llegada de Judomaster."
+        }, {
+            "title": "El Miembro Menos Transitado",
+            "videoId_es": "1Hd5Bq-LE4bB10yNlvfgQnda7Pb2SeOw2",
+            "videoId_en": "1n2-feGEDTOx_tVXrq5MybVAOjycIniS_",
+            "thumbnail": "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/6f25dbf9-2f60-4aee-9a45-bf1c4aa395e0/d212947b01e5ce9319b138e3b8610486509cb348.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320",
+            "description": "Misión algo exitosa, Murn recluta a Vigilante. Tras enterarse que el equipo estuvo en encarcelamiento de su padre, Peacemaker se enfrenta a su pasado."
+        }, {
+            "title": "Todo Está Bien",
+            "videoId_es": "1JYsPuiWeHa41ILpxoKnfr8u8O45Ncndt",
+            "videoId_en": "1qHvMtRBNo0Nchsez0txizv1US5CVTRKf",
+            "thumbnail": "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/ed38ad31-3f25-4795-ab99-31e8105d7a20/1311142f3785ca23af70d4e63f56d59a3ee8bb80.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320",
+            "description": "Equipo explora un centro y termina sufriendo una invasión. El intento de Auggie de delatar a su hijo se ve perjudicado por un contacto de Murn."
+        }, {
+            "title": "Lamento Después de Leer",
+            "videoId_es": "1l9U6g80OiMc5bfKc6gtNsmLDgFYkxrrW",
+            "videoId_en": "1MGqHI33yXCMt2777otOd9Tdd5ch4RtIT",
+            "thumbnail": "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/8088667e-2f12-450d-81d7-ca43f412a00b/cc33e78bacc41a5714a738d2fba13339301f2a6e.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320",
+            "description": "Murn revela su secreto. Auggie es liberado, y la detención fallida de Peacemaker hace que el alienígena Goff encuentre un nuevo huésped inesperado."
+        }, {
+            "title": "No Amastres Mi Corazón, Dragón",
+            "videoId_es": "1ZJllXk6waNB7Xg54BA3tWTLJVWfMl_No",
+            "videoId_en": "1JEFO7Kipj4mUblTb3dV1A9ka_AHh8Xxt",
+            "thumbnail": "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/a8fc648e-507f-4664-89c5-5b1a4a4b3881/f56277e72fde37e9640a9cb35361b8484f558c2e.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320",
+            "description": "Mientras Harcourt, Murn y Adebayo se encuentran rodeados por una fuerza alienígena, Peacemaker enfrenta a su padre con ayuda de Vigilante y Economos."
+        }, {
+            "title": "Es Vaca O Nunca",
+            "videoId_es": "1_duEWaahmrbAtTqfPF6sssuLaCf1soG1",
+            "videoId_en": "1vzTpuPjTIxFG5AkEcLQaYKmHch35k3tZ",
+            "thumbnail": "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/2eb2ecba-670f-4266-8dfe-4e28f91a05ea/5bbac81639002fec142c7e0027ec898b4ae216b6.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320",
+            "description": "Con Peacemaker y Adebayo en desacuerdo, ¿podrá el equipo matar a la vaca o su oposición dará la oportunidad para completar su teletransporte?"
+        }],
+        "Temporada 2": [{
+            "title": "Los lazos que muelen",
+            "videoId_es": "1ozRKZ6iquAuLyxji-Kh4u9_rOaeCUZXv",
+            "videoId_en": "1OW3HwiwiFtJ4pTu3yvyxU74sB0SbYGIz",
+            "thumbnail": "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/bef3c15c-d62b-4acb-abb1-c8351ca668da/bb298b74-e97e-4b58-bd0a-8b8283495e06?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320",
+            "description": "Mientras Peacemaker intenta unirse a la Pandilla de la Justicia, Harcourt tiene dificultades para encontrar trabajo y Economos asume un nuevo desafío."
+        }, {
+            "title": "Un Hombre Vale Tanto Como Su Pájaro",
+            "videoId_es": "1fqIA1T5MIoXZfUwyeClO1UcONLecr34n",
+            "videoId_en": "1csehTnd5Xb2v7xPBv4xNvCQxtO41M1Tg",
+            "thumbnail": "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/f51f64fd-fbcc-48e5-8437-eef5cce08b6e/4dcb9d6f-5dd9-4f3d-bdd0-a3303e0fd82f?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320",
+            "description": "Mientras Economos se enfrenta a su nuevo responsable, Peacemaker debe enfrentar las consecuencias de sus acciones en la dimensión alterna."
+        }, {
+            "title": "Otro Rick Bajo la Manga",
+            "videoId_es": "1xIS2GX-sUnocUgVqIs9X_1HbQGZCEoRK",
+            "videoId_en": "10y5cLWhe2q2ederWC5B6LArdI0yItILM",
+            "thumbnail": "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/65b1d40d-48cb-47c9-8445-ea682f2cca7f/5d2c7556-9cdb-49e4-a3ce-b078c5e0d786?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320",
+            "description": "Economos paga por la misión fallida del equipo, mientras Peacemaker explora a fondo su vínculo con Harcourt en la otra dimensión."
+        }, {
+            "title": "Próximamente...",
+            "releaseDate": "2025-09-13",
+            "description": "El episodio 4 se estrena pronto."
+        }, {
+            "title": "Próximamente...",
+            "releaseDate": "2025-09-20",
+            "description": "El episodio 5 se estrena pronto."
+        }, {
+            "title": "Próximamente...",
+            "releaseDate": "2025-09-27",
+            "description": "El episodio 6 se estrena pronto."
+        }, {
+            "title": "Próximamente...",
+            "releaseDate": "2025-10-04",
+            "description": "El episodio 7 se estrena pronto."
+        }, {
+            "title": "Próximamente...",
+            "releaseDate": "2025-10-11",
+            "description": "El episodio 8 se estrena pronto."
+        }]
+    },
+    "chernobyl": {
+        "Miniserie": [{
+            "title": "1:23:45",
+            "videoId": "1j-zVufcNtdXfQ0vwGpzJ1UVGY1WubbZl",
+            "thumbnail": "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/21acd328-6298-4928-bb08-e926d776f63d/a53d81424437914d76ce305e1f1c3634b5736dc9.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320",
+            "description": "El 26 de abril de 1986, la Central Nuclear de Chernóbil sufre una explosión masiva que libera material radiactivo en Ucrania, Bielorrusia, Rusia, Escandinavia y Europa del Este."
+        }, {
+            "title": "Please Remain Calm",
+            "videoId": "1VtZhBpSDN-26qWEh57vxV0xgbZkiEfIT",
+            "thumbnail": "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/7c3b4584-c2b1-482f-bc8c-18c91bf1acf1/87eced8d07e3275e259e8e4325e43abac7cc350d.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320",
+            "description": "Ulana Khomyuk, una física nuclear de Minsk, intenta llegar a Chernóbil para averiguar la causa del accidente. Lyudmilla Ignatenko busca a su marido bombero."
+        }, {
+            "title": "Open Wide, O Earth",
+            "videoId": "11lekrkVS9ytKO2aL_5XEB2Xp8uZPKQ6A",
+            "thumbnail": "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/e8d738e3-7bd3-40e5-be1a-d6b2c270064c/f9c7ffb5a19c43ade5b4495cc9ac8613a0831315.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320",
+            "description": "Legasov traza un plan de descontaminación con riesgos humanos. Lyudmilla ignora las advertencias sobre la contaminación de su marido bombero."
+        }, {
+            "title": "The Happiness of All Mankind",
+            "videoId": "1RQGyd2Ifd6oO26ihKMdAEWhdL3MxS18v",
+            "thumbnail": "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/7cc1a700-bd77-456c-9d61-aa95cff7d73b/072b882e161aafb797c01c92f2e3a19b66882e1d.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320",
+            "description": "Legasov y Shcherbina usan exploradores lunares para retirar los escombros radiactivos. Khomyuk se enfrenta a los obstáculos del gobierno en Moscú."
+        }, {
+            "title": "Vichnaya Pamyat",
+            "videoId": "1w3ggm_J7q_Sb7pa767J4y0JsdPs6ufd3",
+            "thumbnail": "https://beam-images.warnermediacdn.com/BEAM_LWM_DELIVERABLES/8d42e46a-0b6d-4acd-85f8-d980ec41769c/0df0fdbb626c582ac918d64a5fb0234a890448dd.jpg?host=wbd-images.prod-vod.h264.io&partner=beamcom&w=320",
+            "description": "Legasov, Shcherbina y Khomyuk arriesgan sus vidas y reputaciones para exponer la verdad sobre Chernóbil en el juicio de Dyatlov, Fomin y Bryukhanov."
+        }]
+    }
+}

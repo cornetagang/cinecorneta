@@ -1,0 +1,26 @@
+{
+    "dexter": {
+        "title": "Dexter",
+        "year": 2006,
+        "genres": ["Crimen", "Drama", "Misterio"],
+        "synopsis": "Un forense de Miami lleva una doble vida como un asesino en serie justiciero que caza a otros criminales.",
+        "poster": "https://image.tmdb.org/t/p/original/uQwpPjM3gScW914MYYOx7li8sN3.jpg",
+        "banner": "https://image.tmdb.org/t/p/original/aSGSxGMTP893DPMCvMl9AdnEICE.jpg"
+    },
+    "peacemaker": {
+        "title": "Peacemaker",
+        "year": 2022,
+        "genres": ["Acción", "Aventura", "Comedia"],
+        "synopsis": "Recuperado de sus heridas, Peacemaker es forzado a unirse a un misterioso equipo de operaciones encubiertas para salvar al mundo.",
+        "poster": "https://image.tmdb.org/t/p/original/yb4F1Oocq8GfQt6iIuAgYEBokhG.jpg",
+        "banner": "https://image.tmdb.org/t/p/original/q7YHckbOAcGplmD3YIH7nMESQ2l.jpg"
+    },
+    "chernobyl": {
+        "title": "Chernobyl",
+        "year": 2019,
+        "genres": ["Drama", "Drama Biográfico"],
+        "synopsis": "En abril de 1986, una explosión en la central nuclear de Chernobyl, en la Unión Soviética, se convirtió en una de las mayores catástrofes creadas por la humanidad de la historia.",
+        "poster": "https://image.tmdb.org/t/p/original/hlLXt2tOPT6RRnjiUmoxyG1LTFi.jpg",
+        "banner": "https://image.tmdb.org/t/p/original/uL6Ad12W09L1sfuOE2pcTeak7bt.jpg"
+    }
+}
