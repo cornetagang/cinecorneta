@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cine Corneta</title>
+
+    <link rel="icon" type="image/png" href="https://i.imgur.com/u71QEFc.png">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <header class="main-header">
+        <div class="header-left">
+            <a class="logo">
+                <img src="https://i.imgur.com/vgJjqSM.png" alt="Cine Corneta Logo" class="header-logo">
+            </a>
+            <nav class="main-nav">
+                <ul>
+                    <li><a href="#" data-filter="all" class="active">Inicio</a></li>
+                    <li><a href="#" data-filter="movie">Películas</a></li>
+                    <li><a href="#" data-filter="series">Series</a></li>
+                    <li><a href="#" data-filter="roulette">Ruleta</a></li>
+                </ul>
+            </nav>
+        </div>
+        <div class="header-right">
+            <button id="menu-toggle" class="hamburger-btn" aria-label="Abrir menú">
+                <i class="fas fa-bars" aria-hidden="true"></i>
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero-section" id="hero-section"></section>
+
+        <div class="content-wrapper">
+            <div id="carousel-container"></div>
+            <div id="full-grid-container" style="display: none;">
+                <div class="grid"></div>
+            </div>
+        </div>
+
+        <div id="menu-overlay" class="menu-overlay"></div>
+    </main>
+
+    <div id="cinema" class="modal player-modal">
+        <button class="close-btn" onclick="closePlayerModal('video-frame')" aria-label="Cerrar reproductor">X</button>
+        <div class="screen">
+            <iframe id="video-frame" src="" allow="autoplay" allowfullscreen></iframe>
+        </div>
+    </div>
+
+    <div id="series-player-modal" class="modal"></div>
+
+    <div id="details-modal" class="modal">
+        <div class="details-panel" id="details-panel-content">
+            <button class="close-btn" onclick="closeDetailsModal()" aria-label="Cerrar detalles">X</button>
+            <div class="details-content">
+                <div class="details-poster">
+                    <img id="details-poster-img" src="" alt="Poster">
+                </div>
+                <div class="details-info">
+                    <h2 id="details-title"></h2>
+                    <div class="details-meta">
+                        <span id="details-year"></span>
+                        <span id="details-genres"></span>
+                    </div>
+                    <div class="details-meta-mobile">
+                        <span id="details-year-mobile"></span>
+                        <span id="details-genres-mobile"></span>
+                    </div>
+                    <p id="details-synopsis"></p>
+                    <div id="details-buttons"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="roulette-modal" class="modal">
+        <div class="roulette-modal-content">
+            <button class="close-btn" onclick="closeRouletteModal()" aria-label="Cerrar ruleta">X</button>
+            <h2 class="modal-title">Película al azar</h2>
+            <div class="roulette-carousel-wrapper">
+                <div id="roulette-carousel-track" class="roulette-carousel-track"></div>
+                <div class="roulette-selector"></div>
+            </div>
+            <button id="spin-roulette-btn" class="btn btn-spin">GIRAR</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+
+</body>
+</html>
