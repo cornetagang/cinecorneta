@@ -4,6 +4,7 @@
 let movieDatabase = {};
 let seriesDatabase = {};
 let seriesEpisodesData = {};
+let allMoviesFull = null;
 
 // ===========================================================
 // ENLACE A TU API DE GOOGLE SHEETS
@@ -24,50 +25,159 @@ let playerState = {
 };
 
 // ===========================================================
-// INICIO DE LA APLICACIÓN
+// INICIO DE LA APLICACIÓN (CORREGIDO)
 // ===========================================================
 document.addEventListener('DOMContentLoaded', () => {
-    // Llama a la API para obtener todos los datos en paralelo
+    showSkeletons();
+    
+    const startTime = Date.now(); 
+
     Promise.all([
-        fetch(`${API_URL}?data=movies`).then(res => res.json()),
+        fetch(`${API_URL}?data=home`).then(res => res.json()),
         fetch(`${API_URL}?data=series`).then(res => res.json()),
         fetch(`${API_URL}?data=episodes`).then(res => res.json())
     ])
     .then(([movies, series, episodes]) => {
-        // Asigna los datos recibidos a las variables globales
-        movieDatabase = movies;
-        seriesDatabase = series;
-        seriesEpisodesData = episodes;
-        
-        // Ejecuta las funciones que construyen la página
-        setupHero();
-        generateCarousels();
-        setupRouletteLogic();
-        switchView('all');
+        const elapsedTime = Date.now() - startTime;
+        const minLoadingTime = 2000;
+        setTimeout(() => {
+            movieDatabase = movies;
+            seriesDatabase = series;
+            seriesEpisodesData = episodes;
+            
+            hideSkeletons();
+            setupHero();
+            generateCarousels();
+            setupRouletteLogic();
+            switchView('all');
+        }, elapsedTime < minLoadingTime ? minLoadingTime - elapsedTime : 0);
     })
-    .catch(error => console.error("Error al cargar los datos desde la API de Google Sheets:", error));
+    .catch(error => {
+        const elapsedTime = Date.now() - startTime;
+        const minLoadingTime = 2000;
+        setTimeout(() => {
+            console.error("Error al cargar los datos:", error);
+            document.body.innerHTML = `<div style="text-align: center; margin-top: 50px; color: var(--text-light);">
+                <h1>¡Ups! No pudimos cargar los datos.</h1>
+                <p>Por favor, revisa tu conexión a internet o inténtalo de nuevo más tarde.</p>
+            </div>`;
+        }, elapsedTime < minLoadingTime ? minLoadingTime - elapsedTime : 0);
+    });
 
-    // Estas funciones no dependen de los datos, se pueden ejecutar de inmediato
     setupNavigation();
     setupKeydownListener();
+    setupSearch();
 });
+
+
+// ===========================================================
+// LÓGICA DEL BUSCADOR
+// ===========================================================
+function setupSearch() {
+    const searchInput = document.getElementById('search-input');
+    
+    searchInput.addEventListener('input', () => {
+        const searchTerm = searchInput.value.toLowerCase().trim();
+
+        if (searchTerm === '') {
+            const activeNav = document.querySelector('.main-nav a.active');
+            if(activeNav && activeNav.dataset.filter !== 'all') {
+                switchView(activeNav.dataset.filter);
+            } else {
+                switchView('all');
+            }
+            return;
+        }
+
+        const searchMovies = allMoviesFull || movieDatabase;
+        const movieResults = Object.entries(searchMovies).filter(([id, movie]) => 
+            movie.title.toLowerCase().includes(searchTerm)
+        );
+        const seriesResults = Object.entries(seriesDatabase).filter(([id, series]) => 
+            series.title.toLowerCase().includes(searchTerm)
+        );
+
+        const allResults = [...movieResults, ...seriesResults];
+        displaySearchResults(allResults);
+    });
+}
+
+function displaySearchResults(results) {
+    const carouselContainer = document.getElementById('carousel-container');
+    const fullGridContainer = document.getElementById('full-grid-container');
+    const heroSection = document.getElementById('hero-section');
+    const grid = fullGridContainer.querySelector('.grid');
+
+    heroSection.style.display = 'none';
+    carouselContainer.style.display = 'none';
+    fullGridContainer.style.display = 'block';
+    grid.innerHTML = '';
+
+    if (results.length === 0) {
+        grid.innerHTML = `<p style="color: var(--text-muted); font-size: 1.2rem; text-align: center; grid-column: 1 / -1;">No se encontraron resultados.</p>`;
+    } else {
+        results.forEach(([id, item]) => {
+            const type = (allMoviesFull && allMoviesFull[id]) ? 'movie-grid' : 'series';
+            grid.appendChild(createMovieCardElement(id, item, type));
+        });
+    }
+}
 
 
 // ===========================================================
 // CONFIGURACIÓN INICIAL Y NAVEGACIÓN
 // ===========================================================
+function showSkeletons() {
+    const heroSection = document.getElementById('hero-section');
+    heroSection.innerHTML = `<div class="hero-skeleton"></div>`;
+    heroSection.style.display = 'flex';
+
+    const container = document.getElementById('carousel-container');
+    container.innerHTML = `
+        <div class="carousel" data-type="movie">
+            <h3 class="carousel-title">Cargando...</h3>
+            <div class="carousel-track-container">
+                <div class="carousel-track">
+                    <div class="carousel-card skeleton-card"></div>
+                    <div class="carousel-card skeleton-card"></div>
+                    <div class="carousel-card skeleton-card"></div>
+                    <div class="carousel-card skeleton-card"></div>
+                    <div class="carousel-card skeleton-card"></div>
+                    <div class="carousel-card skeleton-card"></div>
+                </div>
+            </div>
+        </div>
+    `;
+    container.style.display = 'block';
+}
+
+function hideSkeletons() {
+    const heroSection = document.getElementById('hero-section');
+    const carouselContainer = document.getElementById('carousel-container');
+    heroSection.innerHTML = ''; 
+    carouselContainer.innerHTML = '';
+}
+
+
+// CAMBIO AQUÍ: Simplificamos la lógica para evitar el bucle infinito
 function setupHero() {
     const heroSection = document.getElementById('hero-section');
+    if (!heroSection) return;
+    
+    // Creamos la estructura del héroe una sola vez
     const heroContent = document.createElement('div');
     heroContent.className = 'hero-content';
     heroContent.innerHTML = `<h1 id="hero-title"></h1><p id="hero-synopsis"></p><div class="hero-buttons"></div>`;
     heroSection.appendChild(heroContent);
+
     featuredIds = Object.keys(movieDatabase);
     if (featuredIds.length === 0) {
         heroSection.style.display = 'none';
         return;
     }
     shuffleArray(featuredIds);
+    
+    // Inicializamos el héroe y el intervalo
     changeHeroMovie(currentHeroIndex);
     clearInterval(heroInterval);
     heroInterval = setInterval(() => {
@@ -76,23 +186,45 @@ function setupHero() {
     }, 7000);
 }
 
+// CAMBIO AQUÍ: La función solo cambia los datos, no la estructura
+function changeHeroMovie(index) {
+    const heroSection = document.getElementById('hero-section');
+    const heroContent = heroSection.querySelector('.hero-content');
+    if (!heroContent) return;
+
+    const movieId = featuredIds[index];
+    const movieData = movieDatabase[movieId];
+    if (!movieData) {
+        console.error("No se encontraron datos para la película con ID:", movieId);
+        return;
+    }
+    
+    heroContent.classList.add('hero-fading');
+    setTimeout(() => {
+        heroSection.style.backgroundImage = `url(${movieData.banner})`;
+        document.getElementById('hero-title').textContent = movieData.title;
+        document.getElementById('hero-synopsis').textContent = movieData.synopsis;
+        heroContent.querySelector('.hero-buttons').innerHTML = `<button class="btn btn-play" onclick="openPlayerModal('${movieId}')"><i class="fas fa-play"></i> Ver Ahora</button> <button class="btn btn-info" onclick="openDetailsModal('${movieId}', 'movie')">Más Información</button>`;
+        heroContent.classList.remove('hero-fading');
+    }, 500);
+}
+
 function generateCarousels() {
     const container = document.getElementById('carousel-container');
-    container.innerHTML = '';
-    const reversedMovieIds = Object.keys(movieDatabase).reverse();
-    const recentMovieIds = reversedMovieIds.slice(0, 5);
-    let moviesHTML = `<div class="carousel" data-type="movie"><h3 class="carousel-title">Agregados Recientemente</h3><div class="carousel-track-container"><div class="carousel-track">`;
-    recentMovieIds.forEach(id => {
-        moviesHTML += createCarouselCard(id, movieDatabase[id], 'movie');
-    });
-    moviesHTML += `</div></div></div>`;
+    const recentMovieIds = Object.keys(movieDatabase);
+    const moviesHTML = `<div class="carousel" data-type="movie"><h3 class="carousel-title">Agregadas Recientemente</h3><div class="carousel-track-container"><div class="carousel-track"></div></div></div>`;
     container.innerHTML += moviesHTML;
-    let seriesHTML = `<div class="carousel" data-type="series"><h3 class="carousel-title">Series</h3><div class="carousel-track-container"><div class="carousel-track">`;
-    for (const id in seriesDatabase) {
-        seriesHTML += createCarouselCard(id, seriesDatabase[id], 'series');
-    }
-    seriesHTML += `</div></div></div>`;
+    const movieTrack = container.querySelector('.carousel[data-type="movie"] .carousel-track');
+    recentMovieIds.forEach(id => {
+        movieTrack.appendChild(createMovieCardElement(id, movieDatabase[id], 'movie'));
+    });
+    
+    const seriesHTML = `<div class="carousel" data-type="series" style="display: none;"><h3 class="carousel-title">Series</h3><div class="carousel-track-container"><div class="carousel-track"></div></div></div>`;
     container.innerHTML += seriesHTML;
+    const seriesTrack = container.querySelector('.carousel[data-type="series"] .carousel-track');
+    for (const id in seriesDatabase) {
+        seriesTrack.appendChild(createMovieCardElement(id, seriesDatabase[id], 'series'));
+    }
 }
 
 function setupNavigation() {
@@ -100,10 +232,12 @@ function setupNavigation() {
     const mainHeader = document.querySelector('.main-header');
     const menuOverlay = document.getElementById('menu-overlay');
     const navMenuContainer = document.querySelector('.main-nav ul');
+    
     function closeMenu() {
         mainHeader.classList.remove('menu-open');
         if (menuOverlay) menuOverlay.classList.remove('active');
     }
+
     if (menuToggle) {
         menuToggle.addEventListener('click', () => {
             mainHeader.classList.toggle('menu-open');
@@ -119,13 +253,16 @@ function setupNavigation() {
                 event.preventDefault();
                 const linkClickeado = event.target;
                 const filter = linkClickeado.dataset.filter;
-                const allLinks = navMenuContainer.querySelectorAll('a');
-                allLinks.forEach(link => link.classList.remove('active'));
-                linkClickeado.classList.add('active');
+                
                 closeMenu();
+                document.getElementById('search-input').value = '';
+
                 if (filter === 'roulette') {
                     openRouletteModal();
                 } else {
+                    const allLinks = navMenuContainer.querySelectorAll('a');
+                    allLinks.forEach(link => link.classList.remove('active'));
+                    linkClickeado.classList.add('active');
                     switchView(filter);
                 }
             }
@@ -154,41 +291,61 @@ function switchView(filter) {
     const carouselContainer = document.getElementById('carousel-container');
     const fullGridContainer = document.getElementById('full-grid-container');
     const heroSection = document.getElementById('hero-section');
+    const moviesCarousel = carouselContainer.querySelector('.carousel[data-type="movie"]');
+    const seriesCarousel = carouselContainer.querySelector('.carousel[data-type="series"]');
+
     heroSection.style.display = 'none';
     carouselContainer.style.display = 'none';
     fullGridContainer.style.display = 'none';
-    carouselContainer.classList.remove('with-hero');
-    document.querySelectorAll('.carousel-title').forEach(title => title.style.display = 'block');
+    
     if (filter === 'all') {
         heroSection.style.display = 'flex';
         carouselContainer.style.display = 'block';
-        carouselContainer.classList.add('with-hero');
-        document.querySelectorAll('#carousel-container .carousel').forEach(c => {
-            c.style.display = c.dataset.type === 'series' ? 'none' : 'block';
-        });
+        if (moviesCarousel) moviesCarousel.style.display = 'block';
+        if (moviesCarousel) moviesCarousel.querySelector('.carousel-title').style.display = 'block';
+        if (seriesCarousel) seriesCarousel.style.display = 'none';
     } else if (filter === 'movie') {
-        fullGridContainer.style.display = 'block';
-        populateFullMovieGrid();
+        // CAMBIO AQUÍ: Esto SIEMPRE se debe ejecutar
+        fullGridContainer.style.display = 'block'; 
+
+        if (!allMoviesFull) {
+            const gridContainer = fullGridContainer.querySelector('.grid');
+            gridContainer.innerHTML = '';
+            for (let i = 0; i < 15; i++) {
+                const skeleton = document.createElement('div');
+                skeleton.className = 'movie-card skeleton-card';
+                gridContainer.appendChild(skeleton);
+            }
+            
+            fetch(`${API_URL}?data=allMovies`)
+                .then(res => res.json())
+                .then(data => {
+                    allMoviesFull = data;
+                    populateFullMovieGrid();
+                })
+                .catch(error => {
+                    console.error('Error al cargar la lista completa de películas:', error);
+                    gridContainer.innerHTML = `<p style="color: var(--text-muted); text-align: center; grid-column: 1 / -1;">No se pudieron cargar las películas.</p>`;
+                });
+        } else {
+            // Esto solo se ejecuta si ya tenemos la lista completa
+            populateFullMovieGrid();
+        }
     } else if (filter === 'series') {
         carouselContainer.style.display = 'block';
-        document.querySelectorAll('#carousel-container .carousel').forEach(c => {
-            if (c.dataset.type === 'series') {
-                c.style.display = 'block';
-                const title = c.querySelector('.carousel-title');
-                if (title) title.style.display = 'none';
-            } else {
-                c.style.display = 'none';
-            }
-        });
+        if (moviesCarousel) moviesCarousel.style.display = 'none';
+        if (seriesCarousel) seriesCarousel.style.display = 'block';
+        if (seriesCarousel) seriesCarousel.querySelector('.carousel-title').style.display = 'none';
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+
 function populateFullMovieGrid() {
     const gridContainer = document.querySelector('#full-grid-container .grid');
     gridContainer.innerHTML = '';
-    for (const id in movieDatabase) {
-        gridContainer.innerHTML += createCarouselCard(id, movieDatabase[id], 'movie-grid');
+    for (const id in allMoviesFull) {
+        gridContainer.appendChild(createMovieCardElement(id, allMoviesFull[id], 'movie-grid'));
     }
 }
 
@@ -196,12 +353,14 @@ function changeHeroMovie(index) {
     const heroSection = document.getElementById('hero-section');
     const heroContent = heroSection.querySelector('.hero-content');
     if (!heroContent) return;
+
     const movieId = featuredIds[index];
     const movieData = movieDatabase[movieId];
     if (!movieData) {
         console.error("No se encontraron datos para la película con ID:", movieId);
         return;
     }
+    
     heroContent.classList.add('hero-fading');
     setTimeout(() => {
         heroSection.style.backgroundImage = `url(${movieData.banner})`;
@@ -213,10 +372,10 @@ function changeHeroMovie(index) {
 }
 
 // ===========================================================
-// MODALES
+// MODALES (Se adaptan a la nueva lógica)
 // ===========================================================
 function openDetailsModal(id, type) {
-    const data = type.startsWith('movie') ? movieDatabase[id] : seriesDatabase[id];
+    const data = type.startsWith('movie') ? (allMoviesFull && allMoviesFull[id] ? allMoviesFull[id] : movieDatabase[id]) : seriesDatabase[id];
     if (!data) return;
     const modal = document.getElementById('details-modal');
     modal.querySelector('#details-panel-content').style.backgroundImage = `url(${data.banner})`;
@@ -268,7 +427,7 @@ function setupRouletteLogic() {
         spinButton.disabled = false;
         rouletteTrack.style.transition = 'none';
         rouletteTrack.innerHTML = '';
-        const allMovieIds = Object.keys(movieDatabase);
+        const allMovieIds = Object.keys(allMoviesFull || movieDatabase);
         if (allMovieIds.length < 5) {
             rouletteTrack.innerHTML = `<p style="color:white; width:100%; text-align:center;">Se necesitan más películas.</p>`;
             spinButton.disabled = true;
@@ -278,11 +437,13 @@ function setupRouletteLogic() {
         for (let i = 0; i < 50; i++) {
             const randomIndex = Math.floor(Math.random() * allMovieIds.length);
             const movieId = allMovieIds[randomIndex];
-            moviesForRoulette.push({ id: movieId, data: movieDatabase[movieId] });
+            moviesForRoulette.push({ id: movieId, data: (allMoviesFull && allMoviesFull[movieId] ? allMoviesFull[movieId] : movieDatabase[movieId]) });
         }
         finalPickIndex = Math.floor(Math.random() * 5) + 40;
         selectedMovie = moviesForRoulette[finalPickIndex];
-        rouletteTrack.innerHTML = moviesForRoulette.map(movie => createCarouselCard(movie.id, movie.data, 'roulette')).join('');
+        moviesForRoulette.forEach(movie => {
+            rouletteTrack.appendChild(createMovieCardElement(movie.id, movie.data, 'roulette'));
+        });
         const wrapperWidth = rouletteTrack.parentElement.offsetWidth;
         const startCardIndex = 5;
         const initialOffset = (wrapperWidth / 2) - (cardWidth / 2) - (startCardIndex * cardWidth);
@@ -308,7 +469,7 @@ function setupRouletteLogic() {
 }
 
 // ===========================================================
-// LÓGICA DEL REPRODUCTOR DE SERIES (DINÁMICA)
+// LÓGICA DEL REPRODUCTOR DE SERIES
 // ===========================================================
 function openSeriesPlayer(seriesId) {
     closeDetailsModal();
@@ -332,7 +493,7 @@ function openSeriesPlayer(seriesId) {
         </div>` : '';
 
     modal.innerHTML = `
-        <button class="close-btn" onclick="closePlayerModal('video-frame-${seriesId}')">X</button>
+        <button class="close-btn" onclick="closePlayerModal('video-frame-${seriesId}')" aria-label="Cerrar reproductor de series">X</button>
         <div class="player-layout-container" data-title="${seriesInfo.title.toUpperCase()}">
             <div class="player-container">
                 <h2 id="${seriesId}-cinema-title" class="player-title"></h2>
@@ -393,7 +554,7 @@ function populateEpisodeList(seriesId, seasonNum) {
     const container = document.getElementById(`${seriesId}-episode-list`);
     const data = seriesEpisodesData[seriesId];
     container.innerHTML = '';
-    if (!data[seasonNum]) return;
+    if (!data || !data[seasonNum]) return;
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -406,7 +567,7 @@ function populateEpisodeList(seriesId, seasonNum) {
 
         if (isAvailable && episode.thumbnail) {
             thumbnailHTML = `<img src="${episode.thumbnail}" alt="${episode.title}" class="episode-card-thumb" loading="lazy">`;
-        } else if (releaseDate) {
+        } else if (releaseDate && !isAvailable) {
             thumbnailHTML = `
                 <div class="thumbnail-placeholder">
                     <span class="release-day">${formatDate(releaseDate, 'day')}</span>
@@ -415,11 +576,11 @@ function populateEpisodeList(seriesId, seasonNum) {
         }
         const cardHTML = `
             <div class="episode-card ${!isAvailable ? 'disabled' : ''}" 
-                 id="${seriesId}-episode-${seasonNum.toString().replace(' ','')}-${index}" 
-                 data-season-key="${seasonNum}" 
-                 onmouseenter="startExpandTimer(this)" 
-                 onmouseleave="cancelExpandTimer(this)"
-                 ${clickEvent}>
+                id="${seriesId}-episode-${String(seasonNum).replace(' ','')}-${index}" 
+                data-season-key="${seasonNum}" 
+                onmouseenter="startExpandTimer(this)" 
+                onmouseleave="cancelExpandTimer(this)"
+                ${clickEvent}>
                 ${thumbnailHTML}
                 <div class="episode-card-info">
                     <h3>${index + 1}. ${episode.title}</h3>
@@ -466,7 +627,7 @@ function expandDescription(cardElement, shouldExpand) {
 
 function openEpisode(seriesId, season, episodeIndex) {
     document.querySelectorAll(`#${seriesId}-episode-list .episode-card.active`).forEach(c => c.classList.remove('active'));
-    const activeCard = document.getElementById(`${seriesId}-episode-${season.toString().replace(' ','')}-${episodeIndex}`);
+    const activeCard = document.getElementById(`${seriesId}-episode-${String(season).replace(' ','')}-${episodeIndex}`);
     if (activeCard) {
         activeCard.classList.add('active');
         activeCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -498,7 +659,7 @@ function openEpisode(seriesId, season, episodeIndex) {
         iframe.src = '';
     }
 
-    const seasonNumberMatch = season.toString().match(/\d+/);
+    const seasonNumberMatch = String(season).match(/\d+/);
     const seasonNumber = seasonNumberMatch ? seasonNumberMatch[0] : '1';
     document.getElementById(`${seriesId}-cinema-title`).textContent = `T${seasonNumber}E${episodeIndex + 1} - ${episode.title}`;
     const totalEpisodes = data[season].length;
@@ -533,8 +694,8 @@ function saveProgress(seriesId) {
 function formatDate(date, part) {
     if (!date) return '';
     const d = new Date(date);
-    if (isNaN(d.getTime())) return ''; // Maneja fechas inválidas
-    
+    if (isNaN(d.getTime())) return '';
+     
     if (part === 'day') {
         return new Intl.DateTimeFormat('es-ES', { day: 'numeric' }).format(d);
     }
@@ -545,7 +706,7 @@ function formatDate(date, part) {
 }
 
 // ===========================================================
-// FUNCIONES DE UTILIDAD
+// FUNCIONES DE UTILIDAD Y CREACIÓN DE ELEMENTOS
 // ===========================================================
 function shuffleArray(array) {
     for (let i = array.length - 1; i > 0; i--) {
@@ -554,17 +715,23 @@ function shuffleArray(array) {
     }
 }
 
-function createCarouselCard(id, data, type) {
+function createMovieCardElement(id, data, type) {
+    const card = document.createElement('div');
     let cardClass = 'carousel-card';
-    let clickFunction = `openDetailsModal('${id}', '${type}')`;
-    if (type === 'roulette') {
+    if (type === 'movie-grid' || type === 'roulette') {
         cardClass = 'movie-card';
-        clickFunction = '';
-    } else if (type === 'movie-grid') {
-        cardClass = 'movie-card';
-        clickFunction = `openDetailsModal('${id}', 'movie')`;
-    } else if (type === 'series') {
-        clickFunction = `openDetailsModal('${id}', 'series')`;
     }
-    return `<div class="${cardClass}" onclick="${clickFunction}"><img src="${data.poster}" alt="${data.title}" loading="lazy"></div>`;
+    card.className = cardClass;
+    
+    if (type !== 'roulette') {
+        card.onclick = () => openDetailsModal(id, type);
+    }
+    
+    const img = document.createElement('img');
+    img.src = data.poster;
+    img.alt = data.title;
+    img.loading = 'lazy';
+    
+    card.appendChild(img);
+    return card;
 }
