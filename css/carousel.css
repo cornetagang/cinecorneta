@@ -1,7 +1,11 @@
+/* ============================================= */
+/* CSS PARA EL CONTENIDO PRINCIPAL (HERO, CARRUSELES, GRID) */
+/* ============================================= */
+
 /* ===== HERO BANNER ===== */
 .hero-section {
     width: 100%;
-    height: 80vh;
+    height: 65vh;
     margin-top: -80px;
     position: relative;
     display: flex;
@@ -76,61 +80,116 @@
 .carousel-track-container {
     position: relative;
 }
+
+/* ESTA ES LA REGLA QUE FALTABA */
 .carousel-track {
     display: flex;
     gap: 15px;
     overflow-x: auto;
+    overflow-y: hidden;
     padding-bottom: 20px;
     scrollbar-width: thin;
     scrollbar-color: var(--primary-red) transparent;
 }
 .carousel-track::-webkit-scrollbar { height: 8px; }
 .carousel-track::-webkit-scrollbar-thumb { background-color: var(--primary-red); border-radius: 4px; }
-.carousel-card {
-    flex-shrink: 0;
-    width: 18%;
-    aspect-ratio: 2/3;
-    border-radius: 6px;
+
+
+/* ============================================= */
+/* ESTILOS UNIFICADOS PARA TODAS LAS TARJETAS */
+/* ============================================= */
+
+.carousel-card,
+.movie-card {
+    border-radius: 8px;
     overflow: hidden;
     cursor: pointer;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
     position: relative;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-radius 0.3s ease;
+    background-color: var(--panel-dark);
 }
-.carousel-card img {
+
+.carousel-card img,
+.movie-card img {
     width: 100%;
     height: 100%;
+    display: block;
     object-fit: cover;
 }
+
+.carousel-card {
+    width: 180px;
+    height: 270px;
+    flex-shrink: 0;
+}
+
+.movie-card {
+    width: 100%;
+    height: 300px;
+}
+
 .carousel-card:hover {
     transform: scale(1.05) translateY(-5px);
     z-index: 10;
-    box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
+    border-radius: 15px;
+}
+
+.movie-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6), 0 0 15px var(--primary-red);
+    border-radius: 15px;
 }
 
 #full-grid-container .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
     gap: 20px;
-    padding-bottom: 50px;
+    padding: 20px 0;
 }
 
-#full-grid-container .movie-card {
-    background: var(--panel-dark);
+/* ============================================= */
+/* CSS PARA LOS ESQUELETOS (PLACEHOLDERS) */
+/* ============================================= */
+.skeleton-card {
+    background-color: #242424;
     border-radius: 8px;
+    position: relative;
     overflow: hidden;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    cursor: pointer;
-    aspect-ratio: 2/3;
 }
 
-#full-grid-container .movie-card:hover {
-    transform: scale(1.05);
-    box-shadow: 0 10px 25px rgba(0,0,0,0.5), 0 0 10px var(--primary-red);
+.skeleton-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.05) 20%,
+        rgba(255, 255, 255, 0.2) 60%,
+        rgba(255, 255, 255, 0) 100%
+    );
+    animation: shimmer 1.5s infinite;
 }
 
-#full-grid-container .movie-card img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+.hero-skeleton {
+    background-color: #242424;
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+}
+
+.hero-skeleton::after {
+    animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+    100% {
+        transform: translateX(100%);
+    }
 }

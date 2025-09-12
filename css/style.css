@@ -1,6 +1,7 @@
+/* Archivo principal de estilos */
+
 @import url('base.css');
 @import url('header.css');
 @import url('carousel.css');
 @import url('modals.css');
-
 @import url('responsive.css');

@@ -1,4 +1,8 @@
-/* ===== MODALES ===== */
+/* ============================================= */
+/* CSS PARA TODAS LAS VENTANAS EMERGENTES (MODALES) */
+/* ============================================= */
+
+/* Estilo base para todos los modales */
 .modal {
     position: fixed;
     inset: 0;
@@ -36,7 +40,7 @@
     transform: scale(1.1);
 }
 
-/* Panel de Detalles */
+/* --- MODAL DE DETALLES --- */
 .details-panel {
     width: 90%;
     max-width: 900px;
@@ -92,16 +96,12 @@
     cursor: pointer;
     margin-top: 20px;
 }
-.details-meta-mobile {
-    display: none;
-}
+.details-meta-mobile { display: none; }
 
-/* Reproductores */
+
+/* --- MODAL REPRODUCTOR DE PELÍCULAS --- */
 #cinema.modal {
-    background: radial-gradient(ellipse at center,
-        rgba(40, 40, 40, 0.95) 0%,
-        rgba(20, 20, 20, 0.98) 100%
-    );
+    background: radial-gradient(ellipse at center, rgba(40, 40, 40, 0.95) 0%, rgba(20, 20, 20, 0.98) 100%);
 }
 #cinema .screen {
     width: 85vw;
@@ -117,8 +117,11 @@
     height: 100%;
     border: none;
 }
+
+
+/* --- ESTILOS COMPLETOS PARA EL REPRODUCTOR DE SERIES --- */
 #series-player-modal .player-layout-container {
-    display: flex;
+    display: flex; /* <-- ESTO ES CLAVE para las 2 columnas */
     gap: 20px;
     width: 95vw;
     height: 95vh;
@@ -143,9 +146,19 @@
     pointer-events: none;
 }
 #series-player-modal .player-container {
-    flex: 3;
+    flex: 3; /* Ocupa la mayor parte del espacio */
     display: flex;
     flex-direction: column;
+    z-index: 1;
+}
+#series-player-modal .episode-sidebar {
+    flex: 1.5; /* Ocupa el espacio restante */
+    min-width: 380px;
+    display: flex;
+    flex-direction: column;
+    background-color: #202020;
+    border-radius: 8px;
+    padding: 20px;
     z-index: 1;
 }
 #series-player-modal .player-title {
@@ -189,16 +202,6 @@
 }
 #series-player-modal .episode-nav-btn:hover:not(:disabled) { background-color: #444; }
 #series-player-modal .episode-nav-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-#series-player-modal .episode-sidebar {
-    flex: 1.5;
-    min-width: 380px;
-    display: flex;
-    flex-direction: column;
-    background-color: #202020;
-    border-radius: 8px;
-    padding: 20px;
-    z-index: 1;
-}
 #series-player-modal .episode-sidebar h2 {
     margin: 0 0 10px 0;
     font-size: 1.2rem;
@@ -218,13 +221,10 @@
     overflow-y: auto;
     padding-right: 10px;
     scrollbar-width: none;
-    -ms-overflow-style: none;
 }
-#series-player-modal .episode-list-container::-webkit-scrollbar {
-    display: none;
-}
+#series-player-modal .episode-list-container::-webkit-scrollbar { display: none; }
 #series-player-modal .episode-card {
-    display: flex;
+    display: flex; /* <-- ESTO ES CLAVE para la tarjeta del episodio */
     gap: 15px;
     border: 2px solid transparent;
     border-radius: 6px;
@@ -244,9 +244,7 @@
 }
 #series-player-modal .episode-card-info {
     padding: 5px;
-    position: relative;
     overflow: hidden;
-    transition: all 0.3s ease-out;
 }
 #series-player-modal .episode-card-info h3 {
     margin: 0 0 8px 0;
@@ -259,9 +257,6 @@
     font-size: 0.85rem;
     color: var(--text-muted);
     line-height: 1.5;
-    opacity: 1;
-    transform: translateY(0);
-    transition: opacity 0.3s ease-out, transform 0.3s ease-out, max-height 0.3s ease-out;
     max-height: 4.5em;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -269,61 +264,32 @@
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
 }
-#series-player-modal .episode-card-info.expanded .episode-description {
-    max-height: 200px;
-    overflow: visible;
-    text-overflow: clip;
-    -webkit-line-clamp: unset;
-    opacity: 1;
-    transform: translateY(0);
-}
-#series-player-modal .episode-card.disabled {
-    cursor: default;
-    opacity: 0.6;
-}
-#series-player-modal .episode-card.disabled:hover {
-    background-color: transparent;
-    transform: none;
-}
-.episode-card-info .release-info {
-    font-size: 0.9rem;
-    color: var(--primary-red);
-    font-weight: bold;
-    margin-bottom: 5px;
-}
-.thumbnail-placeholder {
-    width: 150px;
-    height: 84px;
-    flex-shrink: 0;
-    background-color: #1c1c1c;
-    border-radius: 4px;
+.lang-controls {
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+.lang-btn {
+    background-color: #333;
+    color: var(--text-muted);
+    border: 2px solid #333;
+    padding: 5px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
     font-weight: bold;
-    border: 1px dashed #444;
+    transition: all 0.2s ease;
 }
-.release-day {
-    font-size: 40px;
-    line-height: 1;
-    color: var(--text-light);
-    font-family: 'Bebas Neue', sans-serif;
-}
-.release-month {
-    font-size: 16px;
-    letter-spacing: 2px;
-    color: var(--primary-red);
-    margin-top: 4px;
-    font-family: 'Bebas Neue', sans-serif;
-}
+.lang-btn:hover { background-color: #444; color: var(--text-light); }
+.lang-btn.active { border-color: var(--primary-red); color: var(--text-light); background-color: #282828; }
 
-/* Modal Ruleta */
+
+/* --- MODAL DE LA RULETA (CORREGIDO) --- */
 .roulette-modal-content {
     background-color: var(--panel-dark);
     border-radius: 10px;
     padding: 30px;
-    width: 75%;
+    width: 90%;
     max-width: 650px;
     box-shadow: 0 5px 15px rgba(0,0,0,0.5);
     display: flex;
@@ -342,30 +308,16 @@
     overflow: hidden;
     position: relative;
     padding: 20px 0;
-    perspective: 1000px;
 }
 .roulette-carousel-track {
     display: flex;
-    transition: transform 3s cubic-bezier(0.25, 0.1, 0.25, 1);
-    transform: translateX(0);
-}
-.roulette-carousel-track.spinning {
     transition: transform 6s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
-.roulette-carousel-wrapper .movie-card {
-    min-width: 150px;
-    height: 225px;
-    margin: 0 10px;
+.roulette-modal-content .movie-card {
+    width: 150px !important;
+    height: 225px !important;
     flex-shrink: 0;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-}
-.roulette-carousel-wrapper .movie-card img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
+    margin: 0 10px;
 }
 .roulette-selector {
     position: absolute;
@@ -409,31 +361,4 @@
 .roulette-carousel-wrapper::after {
     right: 0;
     background: linear-gradient(to left, var(--panel-dark) 20%, transparent);
-}
-
-/* Controles de Idioma */
-.lang-controls {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 15px;
-}
-.lang-btn {
-    background-color: #333;
-    color: var(--text-muted);
-    border: 2px solid #333;
-    padding: 5px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    font-weight: bold;
-    transition: all 0.2s ease;
-}
-.lang-btn:hover {
-    background-color: #444;
-    color: var(--text-light);
-}
-.lang-btn.active {
-    border-color: var(--primary-red);
-    color: var(--text-light);
-    background-color: #282828;
 }
