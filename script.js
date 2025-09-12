@@ -19,9 +19,9 @@ let currentHeroIndex = 0;
 let featuredIds = [];
 
 let playerState = {
-    dexter: { season: 1, episodeIndex: 0 },
-    peacemaker: { season: 'Temporada 1', episodeIndex: 0, lang: 'es' },
-    chernobyl: { season: 'Miniserie', episodeIndex: 0 },
+    dexter: { season: 1, episodeIndex: 0 },
+    peacemaker: { season: 'Temporada 1', episodeIndex: 0, lang: 'es' },
+    chernobyl: { season: 'Miniserie', episodeIndex: 0 },
 };
 
 // ===========================================================
@@ -74,53 +74,53 @@ document.addEventListener('DOMContentLoaded', () => {
 // LÓGICA DEL BUSCADOR
 // ===========================================================
 function setupSearch() {
-    const searchInput = document.getElementById('search-input');
-    
-    searchInput.addEventListener('input', () => {
-        const searchTerm = searchInput.value.toLowerCase().trim();
+    const searchInput = document.getElementById('search-input');
+    
+    searchInput.addEventListener('input', () => {
+        const searchTerm = searchInput.value.toLowerCase().trim();
 
-        if (searchTerm === '') {
-            const activeNav = document.querySelector('.main-nav a.active');
-            if(activeNav && activeNav.dataset.filter !== 'all') {
-                switchView(activeNav.dataset.filter);
-            } else {
-                switchView('all');
-            }
-            return;
-        }
+        if (searchTerm === '') {
+            const activeNav = document.querySelector('.main-nav a.active');
+            if(activeNav && activeNav.dataset.filter !== 'all') {
+                switchView(activeNav.dataset.filter);
+            } else {
+                switchView('all');
+            }
+            return;
+        }
 
-        const searchMovies = allMoviesFull || movieDatabase;
-        const movieResults = Object.entries(searchMovies).filter(([id, movie]) => 
-            movie.title.toLowerCase().includes(searchTerm)
-        );
-        const seriesResults = Object.entries(seriesDatabase).filter(([id, series]) => 
-            series.title.toLowerCase().includes(searchTerm)
-        );
+        const searchMovies = allMoviesFull || movieDatabase;
+        const movieResults = Object.entries(searchMovies).filter(([id, movie]) => 
+            movie.title.toLowerCase().includes(searchTerm)
+        );
+        const seriesResults = Object.entries(seriesDatabase).filter(([id, series]) => 
+            series.title.toLowerCase().includes(searchTerm)
+        );
 
-        const allResults = [...movieResults, ...seriesResults];
-        displaySearchResults(allResults);
-    });
+        const allResults = [...movieResults, ...seriesResults];
+        displaySearchResults(allResults);
+    });
 }
 
 function displaySearchResults(results) {
-    const carouselContainer = document.getElementById('carousel-container');
-    const fullGridContainer = document.getElementById('full-grid-container');
-    const heroSection = document.getElementById('hero-section');
-    const grid = fullGridContainer.querySelector('.grid');
+    const carouselContainer = document.getElementById('carousel-container');
+    const fullGridContainer = document.getElementById('full-grid-container');
+    const heroSection = document.getElementById('hero-section');
+    const grid = fullGridContainer.querySelector('.grid');
 
-    heroSection.style.display = 'none';
-    carouselContainer.style.display = 'none';
-    fullGridContainer.style.display = 'block';
-    grid.innerHTML = '';
+    heroSection.style.display = 'none';
+    carouselContainer.style.display = 'none';
+    fullGridContainer.style.display = 'block';
+    grid.innerHTML = '';
 
-    if (results.length === 0) {
-        grid.innerHTML = `<p style="color: var(--text-muted); font-size: 1.2rem; text-align: center; grid-column: 1 / -1;">No se encontraron resultados.</p>`;
-    } else {
-        results.forEach(([id, item]) => {
-            const type = (allMoviesFull && allMoviesFull[id]) ? 'movie-grid' : 'series';
-            grid.appendChild(createMovieCardElement(id, item, type));
-        });
-    }
+    if (results.length === 0) {
+        grid.innerHTML = `<p style="color: var(--text-muted); font-size: 1.2rem; text-align: center; grid-column: 1 / -1;">No se encontraron resultados.</p>`;
+    } else {
+        results.forEach(([id, item]) => {
+            const type = (allMoviesFull && allMoviesFull[id]) ? 'movie-grid' : 'series';
+            grid.appendChild(createMovieCardElement(id, item, type, true));
+        });
+    }
 }
 
 
@@ -159,12 +159,10 @@ function hideSkeletons() {
 }
 
 
-// CAMBIO AQUÍ: Simplificamos la lógica para evitar el bucle infinito
 function setupHero() {
     const heroSection = document.getElementById('hero-section');
     if (!heroSection) return;
     
-    // Creamos la estructura del héroe una sola vez
     const heroContent = document.createElement('div');
     heroContent.className = 'hero-content';
     heroContent.innerHTML = `<h1 id="hero-title"></h1><p id="hero-synopsis"></p><div class="hero-buttons"></div>`;
@@ -177,7 +175,6 @@ function setupHero() {
     }
     shuffleArray(featuredIds);
     
-    // Inicializamos el héroe y el intervalo
     changeHeroMovie(currentHeroIndex);
     clearInterval(heroInterval);
     heroInterval = setInterval(() => {
@@ -186,7 +183,6 @@ function setupHero() {
     }, 7000);
 }
 
-// CAMBIO AQUÍ: La función solo cambia los datos, no la estructura
 function changeHeroMovie(index) {
     const heroSection = document.getElementById('hero-section');
     const heroContent = heroSection.querySelector('.hero-content');
@@ -209,21 +205,25 @@ function changeHeroMovie(index) {
     }, 500);
 }
 
+// CAMBIO AQUÍ: Genera carruseles con carga normal para el primero y lazy para el resto
 function generateCarousels() {
     const container = document.getElementById('carousel-container');
+    
+    // Carrusel de películas recientes (sin lazy loading)
     const recentMovieIds = Object.keys(movieDatabase);
     const moviesHTML = `<div class="carousel" data-type="movie"><h3 class="carousel-title">Agregadas Recientemente</h3><div class="carousel-track-container"><div class="carousel-track"></div></div></div>`;
     container.innerHTML += moviesHTML;
     const movieTrack = container.querySelector('.carousel[data-type="movie"] .carousel-track');
     recentMovieIds.forEach(id => {
-        movieTrack.appendChild(createMovieCardElement(id, movieDatabase[id], 'movie'));
+        movieTrack.appendChild(createMovieCardElement(id, movieDatabase[id], 'movie', false)); // false = carga inmediata
     });
     
+    // Carrusel de series (con lazy loading)
     const seriesHTML = `<div class="carousel" data-type="series" style="display: none;"><h3 class="carousel-title">Series</h3><div class="carousel-track-container"><div class="carousel-track"></div></div></div>`;
     container.innerHTML += seriesHTML;
     const seriesTrack = container.querySelector('.carousel[data-type="series"] .carousel-track');
     for (const id in seriesDatabase) {
-        seriesTrack.appendChild(createMovieCardElement(id, seriesDatabase[id], 'series'));
+        seriesTrack.appendChild(createMovieCardElement(id, seriesDatabase[id], 'series', true)); // true = lazy loading
     }
 }
 
@@ -232,7 +232,7 @@ function setupNavigation() {
     const mainHeader = document.querySelector('.main-header');
     const menuOverlay = document.getElementById('menu-overlay');
     const navMenuContainer = document.querySelector('.main-nav ul');
-    
+    
     function closeMenu() {
         mainHeader.classList.remove('menu-open');
         if (menuOverlay) menuOverlay.classList.remove('active');
@@ -253,7 +253,7 @@ function setupNavigation() {
                 event.preventDefault();
                 const linkClickeado = event.target;
                 const filter = linkClickeado.dataset.filter;
-                
+                
                 closeMenu();
                 document.getElementById('search-input').value = '';
 
@@ -297,7 +297,7 @@ function switchView(filter) {
     heroSection.style.display = 'none';
     carouselContainer.style.display = 'none';
     fullGridContainer.style.display = 'none';
-    
+    
     if (filter === 'all') {
         heroSection.style.display = 'flex';
         carouselContainer.style.display = 'block';
@@ -305,8 +305,7 @@ function switchView(filter) {
         if (moviesCarousel) moviesCarousel.querySelector('.carousel-title').style.display = 'block';
         if (seriesCarousel) seriesCarousel.style.display = 'none';
     } else if (filter === 'movie') {
-        // CAMBIO AQUÍ: Esto SIEMPRE se debe ejecutar
-        fullGridContainer.style.display = 'block'; 
+        fullGridContainer.style.display = 'block';
 
         if (!allMoviesFull) {
             const gridContainer = fullGridContainer.querySelector('.grid');
@@ -328,7 +327,6 @@ function switchView(filter) {
                     gridContainer.innerHTML = `<p style="color: var(--text-muted); text-align: center; grid-column: 1 / -1;">No se pudieron cargar las películas.</p>`;
                 });
         } else {
-            // Esto solo se ejecuta si ya tenemos la lista completa
             populateFullMovieGrid();
         }
     } else if (filter === 'series') {
@@ -340,12 +338,11 @@ function switchView(filter) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-
 function populateFullMovieGrid() {
     const gridContainer = document.querySelector('#full-grid-container .grid');
     gridContainer.innerHTML = '';
     for (const id in allMoviesFull) {
-        gridContainer.appendChild(createMovieCardElement(id, allMoviesFull[id], 'movie-grid'));
+        gridContainer.appendChild(createMovieCardElement(id, allMoviesFull[id], 'movie-grid', true));
     }
 }
 
@@ -442,7 +439,7 @@ function setupRouletteLogic() {
         finalPickIndex = Math.floor(Math.random() * 5) + 40;
         selectedMovie = moviesForRoulette[finalPickIndex];
         moviesForRoulette.forEach(movie => {
-            rouletteTrack.appendChild(createMovieCardElement(movie.id, movie.data, 'roulette'));
+            rouletteTrack.appendChild(createMovieCardElement(movie.id, movie.data, 'roulette', true));
         });
         const wrapperWidth = rouletteTrack.parentElement.offsetWidth;
         const startCardIndex = 5;
@@ -695,7 +692,7 @@ function formatDate(date, part) {
     if (!date) return '';
     const d = new Date(date);
     if (isNaN(d.getTime())) return '';
-     
+     
     if (part === 'day') {
         return new Intl.DateTimeFormat('es-ES', { day: 'numeric' }).format(d);
     }
@@ -715,7 +712,8 @@ function shuffleArray(array) {
     }
 }
 
-function createMovieCardElement(id, data, type) {
+// CAMBIO AQUÍ: La función recibe un parámetro `lazy`
+function createMovieCardElement(id, data, type, lazy) {
     const card = document.createElement('div');
     let cardClass = 'carousel-card';
     if (type === 'movie-grid' || type === 'roulette') {
@@ -730,7 +728,10 @@ function createMovieCardElement(id, data, type) {
     const img = document.createElement('img');
     img.src = data.poster;
     img.alt = data.title;
-    img.loading = 'lazy';
+    // Asigna lazy loading solo si el parámetro lazy es verdadero
+    if (lazy) {
+        img.loading = 'lazy';
+    }
     
     card.appendChild(img);
     return card;
