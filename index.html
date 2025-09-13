@@ -13,57 +13,60 @@
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/header.css">
+    <link rel="stylesheet" href="css/content.css">
+    <link rel="stylesheet" href="css/modals.css">
+    <link rel="stylesheet" href="css/responsive.css">
+
 </head>
 <body>
 
-    <header class="main-header">
-    <div class="header-left">
-        <a class="logo">
-            <img src="https://i.imgur.com/vgJjqSM.png" alt="Cine Corneta Logo" class="header-logo">
-        </a>
-        <nav class="main-nav">
-            <ul>
-                <li><a href="#" data-filter="all" class="active">Inicio</a></li>
-                <li><a href="#" data-filter="movie">Películas</a></li>
-                <li><a href="#" data-filter="series">Series</a></li>
-                <li><a href="#" data-filter="roulette">Ruleta</a></li>
-            </ul>
-        </nav>
-    </div>
-
-        <div class="search-container">
-            <i class="fas fa-search search-icon"></i>
-            <input type="text" id="search-input" placeholder="Buscar títulos...">
-        </div>
-    
-        <button id="menu-toggle" class="hamburger-btn" aria-label="Abrir menú">
-            <i class="fas fa-bars" aria-hidden="true"></i>
-        </button>
-    </header>
-
-    <main>
-        <section class="hero-section" id="hero-section"></section>
-
-        <div class="content-wrapper">
-            <div id="carousel-container"></div>
-            <div id="full-grid-container" style="display: none;">
-                <div class="grid"></div>
+    <div class="page-wrapper">
+        <header class="main-header">
+            <div class="header-left">
+                <a class="logo">
+                    <img src="https://i.imgur.com/vgJjqSM.png" alt="Cine Corneta Logo" class="header-logo">
+                </a>
+                <nav class="main-nav">
+                    <ul>
+                        <li><a href="#" data-filter="all" class="active">Inicio</a></li>
+                        <li><a href="#" data-filter="movie">Películas</a></li>
+                        <li><a href="#" data-filter="series">Series</a></li>
+                        <li><a href="#" data-filter="roulette">Ruleta</a></li>
+                    </ul>
+                </nav>
             </div>
-        </div>
+            <div class="header-right">
+                <div class="search-container">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="search-input" placeholder="Buscar títulos...">
+                </div>
+                <button id="menu-toggle" class="hamburger-btn" aria-label="Abrir menú">
+                    <i class="fas fa-bars" aria-hidden="true"></i>
+                </button>
+            </div>
+        </header>
 
-        <div id="menu-overlay" class="menu-overlay"></div>
-    </main>
-
+        <main>
+            <section class="hero-section" id="hero-section"></section>
+            <div class="content-wrapper">
+                <div id="carousel-container"></div>
+                <div id="full-grid-container" style="display: none;">
+                    <div class="grid"></div>
+                </div>
+            </div>
+            <div id="menu-overlay" class="menu-overlay"></div>
+        </main>
+    </div>
+    
     <div id="cinema" class="modal player-modal">
         <button class="close-btn" onclick="closePlayerModal('video-frame')" aria-label="Cerrar reproductor">X</button>
         <div class="screen">
             <iframe id="video-frame" src="" allow="autoplay" allowfullscreen></iframe>
         </div>
     </div>
-
     <div id="series-player-modal" class="modal"></div>
-
     <div id="details-modal" class="modal">
         <div class="details-panel" id="details-panel-content">
             <button class="close-btn" onclick="closeDetailsModal()" aria-label="Cerrar detalles">X</button>
@@ -87,7 +90,6 @@
             </div>
         </div>
     </div>
-
     <div id="roulette-modal" class="modal">
         <div class="roulette-modal-content">
             <button class="close-btn" onclick="closeRouletteModal()" aria-label="Cerrar ruleta">X</button>
