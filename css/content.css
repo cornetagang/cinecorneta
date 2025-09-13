@@ -12,7 +12,7 @@
     padding: 0 4vw;
     background-size: cover;
     background-position: center 20%;
-    padding-top: 80px; 
+    /* Eliminar el padding-top que ya no es necesario */
 }
 
 .hero-section::after {
@@ -82,10 +82,12 @@
     padding: 0;
     z-index: 5;
     position: relative;
+    /* Eliminamos el margen superior conflictivo */
 }
 
 #carousel-container.with-hero {
-    margin-top: -18vh;
+    /* Esta clase ya no es necesaria */
+    margin-top: 0;
 }
 
 .carousel {
