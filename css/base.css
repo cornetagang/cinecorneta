@@ -18,7 +18,6 @@
 
 html {
     scroll-behavior: smooth;
-    scrollbar-width: none;
 }
 
 body {
@@ -27,21 +26,33 @@ body {
     background: var(--bg-dark);
     color: var(--text-light);
     font-family: 'Montserrat', sans-serif;
+    /* La propiedad 'overflow-x: hidden' es correcta para evitar el scroll horizontal */
     overflow-x: hidden;
 }
 
+/* Ocultamos las barras de desplazamiento en WebKit (Chrome, Safari, etc.) */
 body::-webkit-scrollbar {
     display: none;
+}
+
+/* Para navegadores como Firefox */
+html {
+    scrollbar-width: none;
 }
 
 .page-wrapper {
     max-width: 1600px;
     margin: 0 auto;
     position: relative;
+    /* Añadimos min-height aquí para asegurar que el contenido ocupe al menos toda la pantalla */
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
 }
 
 main {
-    /* Sin padding aquí */
+    /* Esto hará que el contenido principal crezca y empuje el footer hacia abajo */
+    flex-grow: 1;
 }
 
 footer {
@@ -49,4 +60,5 @@ footer {
     padding: 20px;
     color: var(--text-muted);
     font-size: 0.9rem;
+    flex-shrink: 0; /* Evita que el footer se encoja */
 }
