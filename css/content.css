@@ -5,41 +5,48 @@
 /* ===== HERO BANNER ===== */
 .hero-section {
     width: 100%;
-    height: 65vh;
-    margin-top: -80px;
+    height: 70vh;
     position: relative;
     display: flex;
     align-items: center;
     padding: 0 4vw;
     background-size: cover;
     background-position: center 20%;
+    padding-top: 80px; 
 }
+
 .hero-section::after {
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(to right, rgba(20,20,20,1) 0%, rgba(20,20,20,0) 50%, rgba(20,20,20,1) 100%), linear-gradient(to top, rgba(20,20,20,1) 0%, rgba(20,20,20,0) 20%);
+    background: linear-gradient(to right, rgba(20,20,20,1) 0%, rgba(20,20,20,0) 35%, rgba(20,20,20,0) 65%, rgba(20,20,20,1) 100%),
+                linear-gradient(to top, rgba(20,20,20,1) 0%, rgba(20,20,20,0) 20%);
 }
+
 .hero-content {
     z-index: 2;
     max-width: 45%;
     transition: opacity 0.5s ease-in-out;
 }
+
 .hero-content.hero-fading {
     opacity: 0;
 }
+
 .hero-content h1 {
     font-family: 'Bebas Neue', sans-serif;
     font-size: clamp(2.5rem, 4vw, 3.5rem);
     margin: 0 0 20px 0;
     text-shadow: 0 4px 10px black;
 }
+
 .hero-content p {
     font-size: 1.1rem;
     line-height: 1.6;
     max-width: 600px;
     text-shadow: 0 2px 5px black;
 }
+
 .hero-buttons .btn {
     padding: 12px 25px;
     border-radius: 6px;
@@ -50,55 +57,73 @@
     margin-right: 15px;
     transition: all 0.2s ease;
 }
-.btn-play { background-color: var(--primary-red); color: white; }
-.btn-play:hover { background-color: var(--secondary-red); }
-.btn-info { background-color: rgba(109, 109, 110, 0.7); color: white; }
-.btn-info:hover { background-color: rgba(109, 109, 110, 0.4); }
 
-/* ===== CARRUSELES Y GRID ===== */
+.btn-play {
+    background-color: var(--primary-red);
+    color: white;
+}
+
+.btn-play:hover {
+    background-color: var(--secondary-red);
+}
+
+.btn-info {
+    background-color: rgba(109, 109, 110, 0.7);
+    color: white;
+}
+
+.btn-info:hover {
+    background-color: rgba(109, 109, 110, 0.4);
+}
+
+/* ===== CAROUSELS AND GRID ===== */
 .content-wrapper {
     width: 100%;
-    padding: 0 4vw;
+    padding: 0;
     z-index: 5;
     position: relative;
 }
+
 #carousel-container.with-hero {
-    margin-top: -10vh;
+    margin-top: -18vh;
 }
+
 .carousel {
     margin-bottom: 40px;
-    transition: display 0.3s ease-out;
+    overflow: hidden;
+    padding-top: 20px;
+    margin-top: -20px;
 }
-.carousel.hidden {
-    display: none;
-}
+
 .carousel-title {
     font-size: 1.5rem;
     font-weight: bold;
     margin-bottom: 15px;
+    padding: 0 4vw;
 }
+
 .carousel-track-container {
     position: relative;
 }
 
-/* ESTA ES LA REGLA QUE FALTABA */
 .carousel-track {
     display: flex;
-    gap: 15px;
+    gap: 20px;
     overflow-x: auto;
-    overflow-y: hidden;
+    overflow-y: visible;
     padding-bottom: 20px;
-    scrollbar-width: thin;
-    scrollbar-color: var(--primary-red) transparent;
+    padding-left: 4vw;
+    padding-right: 4vw;
+    scrollbar-width: none;
 }
-.carousel-track::-webkit-scrollbar { height: 8px; }
-.carousel-track::-webkit-scrollbar-thumb { background-color: var(--primary-red); border-radius: 4px; }
 
+.carousel-track::-webkit-scrollbar {
+    display: none;
+}
 
 /* ============================================= */
-/* ESTILOS UNIFICADOS PARA TODAS LAS TARJETAS */
+/* UNIFIED CARD STYLES */
 /* ============================================= */
-
 .carousel-card,
 .movie-card {
     border-radius: 8px;
@@ -106,8 +131,10 @@
     cursor: pointer;
     position: relative;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
-    transition: transform 0.3s ease, box-shadow 0.3s ease, border-radius 0.3s ease;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-radius 0.3s ease, filter 0.3s ease;
     background-color: var(--panel-dark);
+    aspect-ratio: 2 / 3;
+    flex-shrink: 0;
 }
 
 .carousel-card img,
@@ -116,41 +143,40 @@
     height: 100%;
     display: block;
     object-fit: cover;
+    object-position: center top;
 }
 
 .carousel-card {
-    width: 180px;
-    height: 270px;
-    flex-shrink: 0;
+    width: 200px;
 }
 
 .movie-card {
     width: 100%;
-    height: 300px;
 }
 
-.carousel-card:hover {
-    transform: scale(1.05) translateY(-5px);
-    z-index: 10;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
-    border-radius: 15px;
-}
-
+/* --- ADJUSTED HOVER EFFECT --- */
+.carousel-card:hover,
 .movie-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6), 0 0 15px var(--primary-red);
-    border-radius: 15px;
+    transform: translateY(-4px);
+    z-index: 10;
+    border-radius: 10px;
+    box-shadow: 0 8px 8px rgba(0, 0, 0, 0.8);
+    filter: drop-shadow(0 0 1px var(--primary-red));
 }
 
 #full-grid-container .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 20px;
-    padding: 20px 0;
+    padding: 20px 4vw;
+}
+
+#full-grid-container .carousel-card {
+    width: 100%;
 }
 
 /* ============================================= */
-/* CSS PARA LOS ESQUELETOS (PLACEHOLDERS) */
+/* SKELETON PLACEHOLDERS */
 /* ============================================= */
 .skeleton-card {
     background-color: #242424;
