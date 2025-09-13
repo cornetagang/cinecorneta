@@ -15,13 +15,6 @@
     transition: background-color 0.3s ease, backdrop-filter 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
-.main-header.scrolled {
-    background-color: rgba(20, 20, 20, 0.9);
-    backdrop-filter: blur(10px);
-    border-bottom: 1px solid #222;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
-
 .header-left {
     display: flex;
     align-items: center;
@@ -66,7 +59,7 @@
 .header-right {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 25px;
 }
 
 .search-container {
@@ -106,21 +99,99 @@
 }
 
 .hamburger-btn {
-    display: none;
-    background: none;
-    border: none;
-    color: white;
-    font-size: 1.5rem;
-    cursor: pointer;
-    z-index: 1011;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 44px;
+    height: 44px;
+    
+    padding: 0;
+}
+
+.hamburger-btn i {
+    font-size: 24px; 
 }
 
 .menu-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 1009;
+    position: fixed; /* Cubre toda la ventana del navegador */
+    inset: 0; /* Equivale a top:0, right:0, bottom:0, left:0 */
+    background: rgba(0, 0, 0, 0.5); /* Fondo negro semitransparente */
+    z-index: 1009; /* Justo debajo del menú (que tiene z-index: 1010) */
+    
+    /* Oculto por defecto */
     opacity: 0;
-    pointer-events: none;
+    pointer-events: none; /* No se puede hacer clic en él cuando está oculto */
     transition: opacity 0.3s ease;
+}
+
+.menu-toggle {
+    display: flex; /* Para centrar el contenido (el icono) */
+    align-items: center; /* Centrado vertical */
+    justify-content: center; /* Centrado horizontal */
+    width: 40px; /* Tamaño del área clickeable */
+    height: 40px; /* Tamaño del área clickeable */
+    cursor: pointer;
+    background: transparent; /* Fondo transparente */
+    border: none; /* Sin borde */
+    padding: 0;
+    margin: 0;
+    /* Asegura que el icono esté encima de otros elementos si es necesario */
+    z-index: 1001; 
+}
+
+/* Estilos para el icono SVG (si es un SVG) o para la fuente (si es un font icon) */
+.menu-toggle i { /* Si usas <i class="fas fa-bars"></i> */
+    font-size: 24px; /* Tamaño del icono */
+    color: var(--text-light); /* Color del icono */
+    line-height: 1; /* Para alinear bien */
+}
+
+.menu-toggle svg { /* Si usas un SVG directamente */
+    width: 28px; /* Tamaño del icono SVG */
+    height: 28px; /* Tamaño del icono SVG */
+    fill: var(--text-light); /* Color del SVG */
+}
+
+/* Si es tu propio icono de 3 líneas (como en el proyecto original) */
+.menu-toggle span {
+    display: block;
+    position: relative;
+    width: 24px; /* Ancho de las líneas */
+    height: 2px; /* Grosor de las líneas */
+    background: var(--text-light); /* Color de las líneas */
+    transition: all 0.3s ease;
+}
+
+.menu-toggle span::before,
+.menu-toggle span::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 2px;
+    background: var(--text-light);
+    transition: all 0.3s ease;
+}
+
+.menu-toggle span::before {
+    top: -8px; /* Posición de la línea superior */
+}
+
+.menu-toggle span::after {
+    bottom: -8px; /* Posición de la línea inferior */
+}
+
+/* Estado cuando el menú está abierto */
+.main-header.menu-open .menu-toggle span {
+    background: transparent; /* Oculta la línea central */
+}
+
+.main-header.menu-open .menu-toggle span::before {
+    top: 0;
+    transform: rotate(45deg); /* Gira para formar una X */
+}
+
+.main-header.menu-open .menu-toggle span::after {
+    bottom: 0;
+    transform: rotate(-45deg); /* Gira para formar una X */
 }
