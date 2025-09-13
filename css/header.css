@@ -195,3 +195,7 @@
     bottom: 0;
     transform: rotate(-45deg); /* Gira para formar una X */
 }
+
+.hamburger-btn {
+    display: none;
+}
