@@ -5,6 +5,7 @@ let movieDatabase = {};
 let seriesDatabase = {};
 let seriesEpisodesData = {};
 let allMoviesFull = null;
+let isSearchActive = false;
 
 // ===========================================================
 // ENLACE A TU API DE GOOGLE SHEETS
@@ -76,8 +77,10 @@ document.addEventListener('DOMContentLoaded', () => {
             header.classList.remove('scrolled');
         }
     });
-});
 
+    // --- AÑADE LA LLAMADA A LA NUEVA FUNCIÓN AQUÍ ---
+    setupScrollDebugger(); 
+});
 
 // ===========================================================
 // LÓGICA DEL BUSCADOR (CORREGIDA)
@@ -88,15 +91,26 @@ function setupSearch() {
     searchInput.addEventListener('input', () => {
         const searchTerm = searchInput.value.toLowerCase().trim();
 
+        // --- INICIO DE LA CORRECCIÓN ---
+        // Si el campo está vacío...
         if (searchTerm === '') {
-            const activeNav = document.querySelector('.main-nav a.active');
-            if(activeNav && activeNav.dataset.filter !== 'all') {
-                switchView(activeNav.dataset.filter);
-            } else {
-                switchView('all');
+            // ...solo recargamos la vista si ANTES había una búsqueda activa.
+            if (isSearchActive) {
+                const activeNav = document.querySelector('.main-nav a.active');
+                if (activeNav && activeNav.dataset.filter !== 'all') {
+                    switchView(activeNav.dataset.filter);
+                } else {
+                    switchView('all');
+                }
+                // Reseteamos el estado porque la búsqueda ya no está activa.
+                isSearchActive = false;
             }
-            return;
+            return; // Detenemos la función aquí si no hay término de búsqueda.
         }
+        // --- FIN DE LA CORRECCIÓN ---
+
+        // Si llegamos aquí, es porque el usuario está escribiendo algo.
+        isSearchActive = true; // Marcamos que hay una búsqueda activa.
 
         const performSearch = () => {
             const searchMovies = allMoviesFull || movieDatabase;
@@ -125,7 +139,6 @@ function setupSearch() {
         }
     });
 }
-
 function displaySearchResults(results) {
     const carouselContainer = document.getElementById('carousel-container');
     const fullGridContainer = document.getElementById('full-grid-container');
@@ -199,12 +212,13 @@ function setupHero() {
     }
     shuffleArray(featuredIds);
     
+    // Mostramos la primera película destacada
     changeHeroMovie(currentHeroIndex);
-    clearInterval(heroInterval);
-    heroInterval = setInterval(() => {
-        currentHeroIndex = (currentHeroIndex + 1) % featuredIds.length;
-        changeHeroMovie(currentHeroIndex);
-    }, 7000);
+
+    // --- CORRECCIÓN ---
+    // Hemos eliminado el 'setInterval' que causaba el problema del scroll en móviles.
+    // La función ya no rotará la película automáticamente.
+    clearInterval(heroInterval); 
 }
 
 function changeHeroMovie(index) {
@@ -254,28 +268,41 @@ function setupNavigation() {
     const menuOverlay = document.getElementById('menu-overlay');
     const navMenuContainer = document.querySelector('.main-nav ul');
     
+    // Función centralizada para cerrar el menú
     function closeMenu() {
         mainHeader.classList.remove('menu-open');
         if (menuOverlay) menuOverlay.classList.remove('active');
     }
 
+    // Listener para el botón de hamburguesa
     if (menuToggle) {
         menuToggle.addEventListener('click', (e) => {
-            e.stopPropagation();
+            // Detiene la propagación para evitar que el clic llegue al overlay
+            e.stopPropagation(); 
+            // Alterna las clases para mostrar/ocultar
             mainHeader.classList.toggle('menu-open');
             if (menuOverlay) menuOverlay.classList.toggle('active');
         });
     }
 
+    // Listener para el overlay (la cortina de fondo)
+    // ESTA ES LA CLAVE PARA CERRAR AL HACER CLIC FUERA
     if (menuOverlay) {
         menuOverlay.addEventListener('click', closeMenu);
     }
     
+    // Listener para los enlaces del menú
     if (navMenuContainer) {
         navMenuContainer.addEventListener('click', (event) => {
             if (event.target.tagName === 'A') {
                 event.preventDefault();
                 const linkClickeado = event.target;
+
+                if (linkClickeado.classList.contains('active')) {
+                    closeMenu();
+                    return; 
+                }
+
                 const filter = linkClickeado.dataset.filter;
                 
                 closeMenu();
@@ -793,4 +820,70 @@ function createMovieCardElement(id, data, type, lazy) {
     
     card.appendChild(img);
     return card;
+}
+
+/**
+ * ===========================================================
+ * FUNCIÓN DE DEPURACIÓN PARA EL PROBLEMA DE SCROLL
+ * ===========================================================
+ * Esta función detecta cuando el scroll vuelve al inicio en móviles
+ * y muestra un mensaje temporal en pantalla.
+ */
+function setupScrollDebugger() {
+    // Solo ejecutamos este código en pantallas de tipo móvil
+    if (window.innerWidth > 992) {
+        return;
+    }
+
+    // Creamos el elemento visual para el mensaje
+    const debugMessage = document.createElement('div');
+    debugMessage.setAttribute('id', 'scroll-debug-message');
+    Object.assign(debugMessage.style, {
+        position: 'fixed',
+        bottom: '20px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        padding: '10px 20px',
+        backgroundColor: '#E50914',
+        color: 'white',
+        borderRadius: '8px',
+        zIndex: '9999',
+        fontSize: '14px',
+        fontFamily: 'Montserrat, sans-serif',
+        pointerEvents: 'none',
+        opacity: '0',
+        transition: 'opacity 0.5s ease',
+        boxShadow: '0 4px 10px rgba(0,0,0,0.5)'
+    });
+    document.body.appendChild(debugMessage);
+
+    // Esta variable guardará la última posición del scroll
+    let lastScrollY = window.scrollY;
+    let messageTimeout;
+
+    // Escuchamos el evento de scroll en toda la página
+    window.addEventListener('scroll', () => {
+        const currentScrollY = window.scrollY;
+
+        // LA CONDICIÓN CLAVE:
+        // Si estábamos más abajo de 50px y de repente estamos arriba (< 5px),
+        // significa que algo nos ha devuelto al inicio.
+        if (lastScrollY > 50 && currentScrollY < 5) {
+            
+            // Mostramos el mensaje con la hora exacta
+            const now = new Date();
+            const timeString = `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+            debugMessage.textContent = `¡DETECTADO SCROLL AL TOPO! [${timeString}]`;
+            debugMessage.style.opacity = '1';
+
+            // Ocultamos el mensaje después de 3 segundos
+            clearTimeout(messageTimeout);
+            messageTimeout = setTimeout(() => {
+                debugMessage.style.opacity = '0';
+            }, 3000);
+        }
+
+        // Actualizamos la última posición para la siguiente vez que ocurra el scroll
+        lastScrollY = currentScrollY;
+    }, { passive: true }); // {passive: true} es una optimización para el scroll
 }
