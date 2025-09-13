@@ -1,9 +1,9 @@
 /* ================================== */
-/* CSS DEFINITIVO DEL HEADER     */
+/* HEADER */
 /* ================================== */
 
 .main-header {
-    background-color: var(--bg-dark);
+    background-color: transparent;
     padding: 15px 40px;
     display: flex;
     justify-content: space-between;
@@ -11,11 +11,17 @@
     position: sticky;
     top: 0;
     z-index: 1000;
-    border-bottom: 1px solid #222; /* Un borde sutil */
+    border-bottom: 1px solid transparent;
+    transition: background-color 0.3s ease, backdrop-filter 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.main-header.scrolled {
+    background-color: rgba(20, 20, 20, 0.9);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid #222;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
-/* --- LADO IZQUIERDO: Logo y Navegación --- */
 .header-left {
     display: flex;
     align-items: center;
@@ -25,6 +31,7 @@
 .logo {
     display: flex;
     align-items: center;
+    cursor: pointer;
 }
 
 .header-logo {
@@ -38,33 +45,31 @@
     margin: 0;
     padding: 0;
     display: flex;
-    gap: 10px; /* Reducimos el espacio entre elementos, ya que el botón tendrá su propio padding */
+    gap: 10px;
 }
 
-/* ============================================= */
-/* AQUÍ ESTÁ EL CAMBIO QUE PEDISTE */
-/* ============================================= */
-
-/* Estilo base del "botón" de navegación */
 .main-nav a {
     color: var(--text-muted);
     text-decoration: none;
     font-size: 1rem;
     font-weight: bold;
-    padding: 8px 15px; /* Añadimos padding para darle cuerpo */
-    border-radius: 6px; /* Redondeamos las esquinas */
-    transition: background-color 0.2s ease, color 0.2s ease; /* Animación suave */
+    padding: 8px 15px;
+    border-radius: 6px;
+    transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* Estilo al pasar el mouse o cuando está activo */
 .main-nav a:hover,
 .main-nav a.active {
-    color: var(--text-light); /* El texto se vuelve más brillante */
-    background-color: rgba(255, 255, 255, 0.1); /* El fondo se ilumina */
+    color: var(--text-light);
+    background-color: rgba(255, 255, 255, 0.1);
 }
 
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
 
-/* --- LADO DERECHO: Buscador --- */
 .search-container {
     position: relative;
     display: flex;
@@ -85,8 +90,8 @@
     border: 1px solid var(--text-muted);
     border-radius: 20px;
     color: var(--text-light);
-    padding: 8px 15px 8px 40px;
-    width: 250px;
+    padding: 8px 12px 8px 40px;
+    width: 200px;
     transition: all 0.3s ease;
     outline: none;
 }
@@ -98,10 +103,9 @@
 #search-input:focus {
     background-color: rgba(255, 255, 255, 0.2);
     border-color: var(--text-light);
-    width: 300px;
+    width: 250px;
 }
 
-/* --- MENÚ MÓVIL --- */
 .hamburger-btn {
     display: none;
     background: none;
@@ -113,16 +117,11 @@
 }
 
 .menu-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 1009;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s ease;
-}
-
-.menu-overlay.active {
-  opacity: 1;
-  pointer-events: all;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1009;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
 }
