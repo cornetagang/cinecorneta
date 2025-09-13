@@ -19,9 +19,9 @@ let currentHeroIndex = 0;
 let featuredIds = [];
 
 let playerState = {
-    dexter: { season: 1, episodeIndex: 0 },
-    peacemaker: { season: 'Temporada 1', episodeIndex: 0, lang: 'es' },
-    chernobyl: { season: 'Miniserie', episodeIndex: 0 },
+    dexter: { season: 1, episodeIndex: 0 },
+    peacemaker: { season: 'Temporada 1', episodeIndex: 0, lang: 'es' },
+    chernobyl: { season: 'Miniserie', episodeIndex: 0 },
 };
 
 // ===========================================================
@@ -67,60 +67,84 @@ document.addEventListener('DOMContentLoaded', () => {
     setupNavigation();
     setupKeydownListener();
     setupSearch();
+    // Scroll listener para el header dinámico
+    document.addEventListener('scroll', () => {
+        const header = document.querySelector('.main-header');
+        if (window.scrollY > 50) {
+            header.classList.add('scrolled');
+        } else {
+            header.classList.remove('scrolled');
+        }
+    });
 });
 
 
 // ===========================================================
-// LÓGICA DEL BUSCADOR
+// LÓGICA DEL BUSCADOR (CORREGIDA)
 // ===========================================================
 function setupSearch() {
-    const searchInput = document.getElementById('search-input');
-    
-    searchInput.addEventListener('input', () => {
-        const searchTerm = searchInput.value.toLowerCase().trim();
+    const searchInput = document.getElementById('search-input');
+    
+    searchInput.addEventListener('input', () => {
+        const searchTerm = searchInput.value.toLowerCase().trim();
 
-        if (searchTerm === '') {
-            const activeNav = document.querySelector('.main-nav a.active');
-            if(activeNav && activeNav.dataset.filter !== 'all') {
-                switchView(activeNav.dataset.filter);
-            } else {
-                switchView('all');
-            }
-            return;
-        }
+        if (searchTerm === '') {
+            const activeNav = document.querySelector('.main-nav a.active');
+            if(activeNav && activeNav.dataset.filter !== 'all') {
+                switchView(activeNav.dataset.filter);
+            } else {
+                switchView('all');
+            }
+            return;
+        }
 
-        const searchMovies = allMoviesFull || movieDatabase;
-        const movieResults = Object.entries(searchMovies).filter(([id, movie]) => 
-            movie.title.toLowerCase().includes(searchTerm)
-        );
-        const seriesResults = Object.entries(seriesDatabase).filter(([id, series]) => 
-            series.title.toLowerCase().includes(searchTerm)
-        );
+        const performSearch = () => {
+            const searchMovies = allMoviesFull || movieDatabase;
+            const movieResults = Object.entries(searchMovies).filter(([id, movie]) => 
+                movie.title.toLowerCase().includes(searchTerm)
+            );
+            const seriesResults = Object.entries(seriesDatabase).filter(([id, series]) => 
+                series.title.toLowerCase().includes(searchTerm)
+            );
 
-        const allResults = [...movieResults, ...seriesResults];
-        displaySearchResults(allResults);
-    });
+            const allResults = [...movieResults, ...seriesResults];
+            displaySearchResults(allResults);
+        };
+
+        if (!allMoviesFull) {
+            console.log('Cargando todas las películas para la búsqueda...');
+            fetch(`${API_URL}?data=allMovies`)
+                .then(res => res.json())
+                .then(data => {
+                    allMoviesFull = data;
+                    performSearch();
+                })
+                .catch(err => console.error('Error al cargar las películas para la búsqueda:', err));
+        } else {
+            performSearch();
+        }
+    });
 }
 
 function displaySearchResults(results) {
-    const carouselContainer = document.getElementById('carousel-container');
-    const fullGridContainer = document.getElementById('full-grid-container');
-    const heroSection = document.getElementById('hero-section');
-    const grid = fullGridContainer.querySelector('.grid');
+    const carouselContainer = document.getElementById('carousel-container');
+    const fullGridContainer = document.getElementById('full-grid-container');
+    const heroSection = document.getElementById('hero-section');
+    const grid = fullGridContainer.querySelector('.grid');
 
-    heroSection.style.display = 'none';
-    carouselContainer.style.display = 'none';
-    fullGridContainer.style.display = 'block';
-    grid.innerHTML = '';
+    heroSection.style.display = 'none';
+    carouselContainer.style.display = 'none';
+    fullGridContainer.style.display = 'block';
+    grid.innerHTML = '';
 
-    if (results.length === 0) {
-        grid.innerHTML = `<p style="color: var(--text-muted); font-size: 1.2rem; text-align: center; grid-column: 1 / -1;">No se encontraron resultados.</p>`;
-    } else {
-        results.forEach(([id, item]) => {
-            const type = (allMoviesFull && allMoviesFull[id]) ? 'movie-grid' : 'series';
-            grid.appendChild(createMovieCardElement(id, item, type, true));
-        });
-    }
+    if (results.length === 0) {
+        grid.innerHTML = `<p style="color: var(--text-muted); font-size: 1.2rem; text-align: center; grid-column: 1 / -1;">No se encontraron resultados.</p>`;
+    } else {
+        results.forEach(([id, item]) => {
+            const type = (allMoviesFull && allMoviesFull[id]) ? 'movie-grid' : 'series';
+            grid.appendChild(createMovieCardElement(id, item, type, true));
+        });
+    }
 }
 
 
@@ -205,25 +229,22 @@ function changeHeroMovie(index) {
     }, 500);
 }
 
-// CAMBIO AQUÍ: Genera carruseles con carga normal para el primero y lazy para el resto
 function generateCarousels() {
     const container = document.getElementById('carousel-container');
     
-    // Carrusel de películas recientes (sin lazy loading)
     const recentMovieIds = Object.keys(movieDatabase);
     const moviesHTML = `<div class="carousel" data-type="movie"><h3 class="carousel-title">Agregadas Recientemente</h3><div class="carousel-track-container"><div class="carousel-track"></div></div></div>`;
     container.innerHTML += moviesHTML;
     const movieTrack = container.querySelector('.carousel[data-type="movie"] .carousel-track');
     recentMovieIds.forEach(id => {
-        movieTrack.appendChild(createMovieCardElement(id, movieDatabase[id], 'movie', false)); // false = carga inmediata
+        movieTrack.appendChild(createMovieCardElement(id, movieDatabase[id], 'movie', false));
     });
     
-    // Carrusel de series (con lazy loading)
     const seriesHTML = `<div class="carousel" data-type="series" style="display: none;"><h3 class="carousel-title">Series</h3><div class="carousel-track-container"><div class="carousel-track"></div></div></div>`;
     container.innerHTML += seriesHTML;
     const seriesTrack = container.querySelector('.carousel[data-type="series"] .carousel-track');
     for (const id in seriesDatabase) {
-        seriesTrack.appendChild(createMovieCardElement(id, seriesDatabase[id], 'series', true)); // true = lazy loading
+        seriesTrack.appendChild(createMovieCardElement(id, seriesDatabase[id], 'series', true));
     }
 }
 
@@ -232,28 +253,31 @@ function setupNavigation() {
     const mainHeader = document.querySelector('.main-header');
     const menuOverlay = document.getElementById('menu-overlay');
     const navMenuContainer = document.querySelector('.main-nav ul');
-    
+    
     function closeMenu() {
         mainHeader.classList.remove('menu-open');
         if (menuOverlay) menuOverlay.classList.remove('active');
     }
 
     if (menuToggle) {
-        menuToggle.addEventListener('click', () => {
+        menuToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
             mainHeader.classList.toggle('menu-open');
             if (menuOverlay) menuOverlay.classList.toggle('active');
         });
     }
+
     if (menuOverlay) {
         menuOverlay.addEventListener('click', closeMenu);
     }
+    
     if (navMenuContainer) {
         navMenuContainer.addEventListener('click', (event) => {
             if (event.target.tagName === 'A') {
                 event.preventDefault();
                 const linkClickeado = event.target;
                 const filter = linkClickeado.dataset.filter;
-                
+                
                 closeMenu();
                 document.getElementById('search-input').value = '';
 
@@ -297,7 +321,7 @@ function switchView(filter) {
     heroSection.style.display = 'none';
     carouselContainer.style.display = 'none';
     fullGridContainer.style.display = 'none';
-    
+    
     if (filter === 'all') {
         heroSection.style.display = 'flex';
         carouselContainer.style.display = 'block';
@@ -330,10 +354,8 @@ function switchView(filter) {
             populateFullMovieGrid();
         }
     } else if (filter === 'series') {
-        carouselContainer.style.display = 'block';
-        if (moviesCarousel) moviesCarousel.style.display = 'none';
-        if (seriesCarousel) seriesCarousel.style.display = 'block';
-        if (seriesCarousel) seriesCarousel.querySelector('.carousel-title').style.display = 'none';
+        fullGridContainer.style.display = 'block';
+        populateFullSeriesGrid();
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -343,6 +365,14 @@ function populateFullMovieGrid() {
     gridContainer.innerHTML = '';
     for (const id in allMoviesFull) {
         gridContainer.appendChild(createMovieCardElement(id, allMoviesFull[id], 'movie-grid', true));
+    }
+}
+
+function populateFullSeriesGrid() {
+    const gridContainer = document.querySelector('#full-grid-container .grid');
+    gridContainer.innerHTML = '';
+    for (const id in seriesDatabase) {
+        gridContainer.appendChild(createMovieCardElement(id, seriesDatabase[id], 'series', true));
     }
 }
 
@@ -369,25 +399,54 @@ function changeHeroMovie(index) {
 }
 
 // ===========================================================
-// MODALES (Se adaptan a la nueva lógica)
+// MODALES
 // ===========================================================
 function openDetailsModal(id, type) {
-    const data = type.startsWith('movie') ? (allMoviesFull && allMoviesFull[id] ? allMoviesFull[id] : movieDatabase[id]) : seriesDatabase[id];
+    const sourceData = type.startsWith('movie') ? (allMoviesFull || movieDatabase) : seriesDatabase;
+    const data = sourceData[id];
     if (!data) return;
+
     const modal = document.getElementById('details-modal');
-    modal.querySelector('#details-panel-content').style.backgroundImage = `url(${data.banner})`;
-    modal.querySelector('#details-poster-img').src = data.poster;
-    modal.querySelector('#details-title').textContent = data.title;
-    modal.querySelector('#details-year').textContent = data.year;
-    modal.querySelector('#details-genres').textContent = data.genres.join(' • ');
-    modal.querySelector('#details-synopsis').textContent = data.synopsis;
+    if (!modal) {
+        console.error("Error: El modal de detalles no está en el DOM.");
+        return;
+    }
+
+    const detailsPanel = modal.querySelector('.details-panel');
+    const posterImg = modal.querySelector('#details-poster-img');
+    const titleH2 = modal.querySelector('#details-title');
+    const yearSpanDesktop = modal.querySelector('#details-year');
+    const genresSpanDesktop = modal.querySelector('#details-genres');
+    const yearSpanMobile = modal.querySelector('#details-year-mobile');
+    const genresSpanMobile = modal.querySelector('#details-genres-mobile');
+    const synopsisP = modal.querySelector('#details-synopsis');
     const buttonsContainer = modal.querySelector('#details-buttons');
+
+    if (!detailsPanel || !posterImg || !titleH2 || !yearSpanDesktop || !genresSpanDesktop || !synopsisP || !buttonsContainer || !yearSpanMobile || !genresSpanMobile) {
+        console.error("Error: Faltan elementos clave dentro del modal de detalles. Revisa tu HTML.");
+        return;
+    }
+
+    detailsPanel.style.backgroundImage = `url(${data.banner})`;
+    posterImg.src = data.poster;
+    posterImg.alt = `Poster de ${data.title}`;
+    titleH2.textContent = data.title;
+    
+    yearSpanDesktop.textContent = data.year || '';
+    genresSpanDesktop.textContent = Array.isArray(data.genres) ? data.genres.join(' • ') : '';
+    
+    yearSpanMobile.textContent = data.year || '';
+    genresSpanMobile.textContent = Array.isArray(data.genres) ? data.genres.join(' • ') : '';
+
+    synopsisP.textContent = data.synopsis || '';
+
     if (type.startsWith('movie')) {
         buttonsContainer.innerHTML = `<button class="btn btn-play" onclick="openPlayerModal('${id}')"><i class="fas fa-play"></i> Ver Ahora</button>`;
     } else {
         const seriesFunction = `openSeriesPlayer('${id}')`;
         buttonsContainer.innerHTML = `<button class="btn btn-play" onclick="${seriesFunction}"><i class="fas fa-bars"></i> Ver Episodios</button>`;
     }
+
     modal.classList.add('show');
 }
 function closeDetailsModal() { document.getElementById('details-modal').classList.remove('show'); }
@@ -692,7 +751,7 @@ function formatDate(date, part) {
     if (!date) return '';
     const d = new Date(date);
     if (isNaN(d.getTime())) return '';
-     
+    
     if (part === 'day') {
         return new Intl.DateTimeFormat('es-ES', { day: 'numeric' }).format(d);
     }
@@ -712,23 +771,22 @@ function shuffleArray(array) {
     }
 }
 
-// CAMBIO AQUÍ: La función recibe un parámetro `lazy`
 function createMovieCardElement(id, data, type, lazy) {
     const card = document.createElement('div');
     let cardClass = 'carousel-card';
-    if (type === 'movie-grid' || type === 'roulette') {
+    if (type === 'movie-grid' || type === 'roulette' || type === 'series') {
         cardClass = 'movie-card';
     }
     card.className = cardClass;
     
     if (type !== 'roulette') {
-        card.onclick = () => openDetailsModal(id, type);
+        const clickType = (type === 'movie-grid' || type === 'movie') ? 'movie' : 'series';
+        card.onclick = () => openDetailsModal(id, clickType);
     }
     
     const img = document.createElement('img');
     img.src = data.poster;
     img.alt = data.title;
-    // Asigna lazy loading solo si el parámetro lazy es verdadero
     if (lazy) {
         img.loading = 'lazy';
     }
