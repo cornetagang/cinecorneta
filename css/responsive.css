@@ -1,6 +1,8 @@
 /* ================================== */
-/* RESPONSIVE */
+/* RESPONSIVE (CORREGIDO Y OPTIMIZADO) */
 /* ================================== */
+
+/* Para pantallas de escritorio más pequeñas (hasta 1380px) */
 @media (max-width: 1380px) {
     .main-header {
         padding: 15px 3vw;
@@ -14,6 +16,7 @@
     }
 }
 
+/* Para tablets y móviles (hasta 992px) */
 @media (max-width: 992px) {
     .main-header {
         padding: 15px 20px;
@@ -41,7 +44,7 @@
         transform: translateX(100%);
         transition: transform 0.3s ease-in-out;
     }
-    
+
     .main-header.menu-open .main-nav {
         display: flex;
         flex-direction: column;
@@ -49,47 +52,54 @@
         transform: translateX(0);
         visibility: visible;
     }
-    
+
     .main-nav ul {
         flex-direction: column;
         width: 100%;
         text-align: center;
         gap: 20px;
     }
-    
+
     .main-nav li {
         margin-bottom: 0;
+    }
+
+    /* --- Buscador y Botón de Hamburguesa --- */
+    .search-container {
+        display: none; /* Se oculta en el menú principal */
+        position: absolute; /* Aparece en una posición absoluta cuando el menú está abierto */
+        top: 20px;
+        left: 20px;
+        width: calc(100% - 40px);
+        z-index: 1011;
+        opacity: 0;
+        transition: opacity 0.3s ease;
     }
     
     .main-header.menu-open .search-container {
         display: flex;
-        order: -1;
-        margin: 0 20px 30px 20px;
-        width: auto;
+        opacity: 1;
     }
 
-    .main-header.menu-open .logo {
-        visibility: hidden;
+    #search-input {
+        width: 100%;
     }
-
-    .main-header:not(.menu-open) .main-nav {
-        transform: translateX(100%);
-    }
-
+    
     .hamburger-btn {
         display: block;
     }
 
+    /* --- Contenido del Hero y Modales --- */
     .hero-content {
         max-width: 90%;
         text-align: center;
         margin: 0 auto;
     }
-    
-    #full-grid-container .grid {
-        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-        gap: 15px;
-        padding: 15px;
+
+    .hero-buttons .btn {
+        margin: 0 auto 10px auto;
+        display: block;
+        width: 80%;
     }
 
     .details-content {
@@ -97,22 +107,6 @@
         text-align: center;
         align-items: center;
         padding-top: 60px;
-    }
-    
-    .hero-buttons .btn {
-        margin: 0 auto 10px auto;
-        display: block;
-        width: 80%;
-    }
-
-    #series-player-modal .player-layout-container {
-        flex-direction: column;
-        overflow-y: auto;
-    }
-
-    #series-player-modal .episode-sidebar {
-        min-width: 100%;
-        height: 400px;
     }
 
     .details-meta {
@@ -134,5 +128,22 @@
             -1px -1px 0 #000, 1px -1px 0 #000,
             -1px 1px 0 #000, 1px 1px 0 #000;
         color: #fff;
+    }
+    
+    /* --- Carruseles y Grids --- */
+    #full-grid-container .grid {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 15px;
+        padding: 15px;
+    }
+
+    #series-player-modal .player-layout-container {
+        flex-direction: column;
+        overflow-y: auto;
+    }
+
+    #series-player-modal .episode-sidebar {
+        min-width: 100%;
+        height: 400px;
     }
 }
