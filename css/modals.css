@@ -1,8 +1,6 @@
 /* ============================================= */
-/* CSS PARA TODAS LAS VENTANAS EMERGENTES (MODALES) */
+/* MODALES                                     */
 /* ============================================= */
-
-/* Estilo base para todos los modales */
 .modal {
     position: fixed;
     inset: 0;
@@ -14,10 +12,12 @@
     opacity: 0;
     transition: opacity 0.3s ease;
 }
+
 .modal.show {
     display: flex;
     opacity: 1;
 }
+
 .close-btn {
     position: absolute;
     top: 20px;
@@ -34,6 +34,7 @@
     z-index: 1010;
     transition: all 0.2s ease;
 }
+
 .close-btn:hover {
     background: white;
     color: black;
@@ -53,12 +54,14 @@
     display: flex;
     align-items: flex-end;
 }
+
 .details-panel::after {
     content: '';
     position: absolute;
     inset: 0;
     background: linear-gradient(to top, rgba(24,24,24,1) 20%, rgba(24,24,24,0.5) 60%, rgba(24,24,24,0) 100%);
 }
+
 .details-content {
     z-index: 2;
     padding: 30px;
@@ -67,6 +70,7 @@
     align-items: center;
     width: 100%;
 }
+
 .details-poster img {
     width: clamp(180px, 25vw, 250px);
     height: auto;
@@ -75,18 +79,34 @@
     margin-top: -10vh;
     z-index: 2;
 }
+
 .details-info h2 {
     margin: 0 0 10px 0;
     font-size: clamp(1.8rem, 4vw, 2.5rem);
     line-height: 1.2;
 }
-.details-meta { display: flex; align-items: center; gap: 15px; color: var(--text-muted); margin-bottom: 15px; }
-.details-meta span { background: #333; padding: 3px 8px; border-radius: 4px; font-size: 0.9rem; }
+
+.details-meta {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    color: var(--text-muted);
+    margin-bottom: 15px;
+}
+
+.details-meta span {
+    background: #333;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
 .details-info p {
     font-size: clamp(0.9rem, 2vw, 1.1rem);
     line-height: 1.6;
     max-width: 600px;
 }
+
 .details-info .btn {
     padding: clamp(10px, 2vw, 12px) clamp(20px, 4vw, 25px);
     font-size: clamp(1rem, 2vw, 1.1rem);
@@ -96,13 +116,16 @@
     cursor: pointer;
     margin-top: 20px;
 }
-.details-meta-mobile { display: none; }
 
+.details-meta-mobile {
+    display: none;
+}
 
 /* --- MODAL REPRODUCTOR DE PELÍCULAS --- */
 #cinema.modal {
     background: radial-gradient(ellipse at center, rgba(40, 40, 40, 0.95) 0%, rgba(20, 20, 20, 0.98) 100%);
 }
+
 #cinema .screen {
     width: 85vw;
     max-width: 1600px;
@@ -112,16 +135,16 @@
     box-shadow: 0 10px 40px rgba(0,0,0,0.7);
     overflow: hidden;
 }
+
 #cinema .screen iframe {
     width: 100%;
     height: 100%;
     border: none;
 }
 
-
 /* --- ESTILOS COMPLETOS PARA EL REPRODUCTOR DE SERIES --- */
 #series-player-modal .player-layout-container {
-    display: flex; /* <-- ESTO ES CLAVE para las 2 columnas */
+    display: flex;
     gap: 20px;
     width: 95vw;
     height: 95vh;
@@ -133,26 +156,16 @@
     position: relative;
     overflow: hidden;
 }
-#series-player-modal .player-layout-container::before {
-    content: attr(data-title);
-    position: absolute;
-    top: 50%;
-    left: 20px;
-    transform: translateY(-50%);
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: clamp(5rem, 15vw, 12rem);
-    color: rgba(255, 255, 255, 0.05);
-    z-index: 0;
-    pointer-events: none;
-}
+
 #series-player-modal .player-container {
-    flex: 3; /* Ocupa la mayor parte del espacio */
+    flex: 3;
     display: flex;
     flex-direction: column;
     z-index: 1;
 }
+
 #series-player-modal .episode-sidebar {
-    flex: 1.5; /* Ocupa el espacio restante */
+    flex: 1.5;
     min-width: 380px;
     display: flex;
     flex-direction: column;
@@ -161,12 +174,14 @@
     padding: 20px;
     z-index: 1;
 }
+
 #series-player-modal .player-title {
     font-size: 1.5rem;
     font-weight: bold;
     margin-bottom: 15px;
     flex-shrink: 0;
 }
+
 #series-player-modal .screen {
     width: 100%;
     flex-grow: 1;
@@ -174,38 +189,55 @@
     border-radius: 8px;
     overflow: hidden;
 }
+
 #series-player-modal .screen iframe {
     width: 100%;
     height: 100%;
     border: none;
 }
+
+/* --- ESTILOS MEJORADOS PARA LOS BOTONES --- */
 #series-player-modal .pagination-controls {
     display: flex;
-    justify-content: center;
+    justify-content: space-between; /* Alinea los botones a los extremos */
     align-items: center;
     gap: 20px;
     padding-top: 20px;
     flex-shrink: 0;
 }
+
 #series-player-modal .page-indicator {
     font-size: 1rem;
     color: var(--text-muted);
 }
+
 #series-player-modal .episode-nav-btn {
-    background-color: #333;
+    background-color: rgba(255, 255, 255, 0.1);
     color: var(--text-light);
-    border: none;
-    padding: 8px 16px;
-    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 10px 15px;
+    border-radius: 5px;
     cursor: pointer;
     transition: background-color 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
-#series-player-modal .episode-nav-btn:hover:not(:disabled) { background-color: #444; }
-#series-player-modal .episode-nav-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+#series-player-modal .episode-nav-btn:hover:not(:disabled) {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+#series-player-modal .episode-nav-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 #series-player-modal .episode-sidebar h2 {
     margin: 0 0 10px 0;
     font-size: 1.2rem;
 }
+
 #series-player-modal .season-dropdown {
     margin-bottom: 20px;
     width: 100%;
@@ -216,15 +248,20 @@
     border-radius: 6px;
     font-size: 1rem;
 }
+
 #series-player-modal .episode-list-container {
     flex-grow: 1;
     overflow-y: auto;
     padding-right: 10px;
     scrollbar-width: none;
 }
-#series-player-modal .episode-list-container::-webkit-scrollbar { display: none; }
+
+#series-player-modal .episode-list-container::-webkit-scrollbar {
+    display: none;
+}
+
 #series-player-modal .episode-card {
-    display: flex; /* <-- ESTO ES CLAVE para la tarjeta del episodio */
+    display: flex;
     gap: 15px;
     border: 2px solid transparent;
     border-radius: 6px;
@@ -233,8 +270,16 @@
     cursor: pointer;
     transition: background-color 0.2s ease, border-color 0.2s ease;
 }
-#series-player-modal .episode-card:hover { background-color: #303030; }
-#series-player-modal .episode-card.active { border-color: var(--primary-red); background-color: #282828; }
+
+#series-player-modal .episode-card:hover {
+    background-color: #303030;
+}
+
+#series-player-modal .episode-card.active {
+    border-color: var(--primary-red);
+    background-color: #282828;
+}
+
 #series-player-modal .episode-card-thumb {
     width: 150px;
     height: 84px;
@@ -242,37 +287,23 @@
     object-fit: cover;
     border-radius: 4px;
 }
-#series-player-modal .episode-card-info {
-    padding: 5px;
-    overflow: hidden;
-}
+
 #series-player-modal .episode-card-info h3 {
     margin: 0 0 8px 0;
     font-size: 1rem;
     color: var(--text-light);
-    line-height: 1.3;
 }
-#series-player-modal .episode-card-info .episode-description {
-    margin: 0;
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    line-height: 1.5;
-    max-height: 4.5em;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-}
+
 .lang-controls {
     display: flex;
     gap: 10px;
     margin-bottom: 15px;
 }
+
 .lang-btn {
-    background-color: #333;
+    background-color: rgba(255, 255, 255, 0.1);
     color: var(--text-muted);
-    border: 2px solid #333;
+    border: 1px solid transparent;
     padding: 5px 12px;
     border-radius: 6px;
     cursor: pointer;
@@ -280,11 +311,19 @@
     font-weight: bold;
     transition: all 0.2s ease;
 }
-.lang-btn:hover { background-color: #444; color: var(--text-light); }
-.lang-btn.active { border-color: var(--primary-red); color: var(--text-light); background-color: #282828; }
 
+.lang-btn:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: var(--text-light);
+}
 
-/* --- MODAL DE LA RULETA (CORREGIDO) --- */
+.lang-btn.active {
+    border-color: var(--primary-red);
+    color: var(--text-light);
+    background-color: #282828;
+}
+
+/* --- MODAL DE LA RULETA --- */
 .roulette-modal-content {
     background-color: var(--panel-dark);
     border-radius: 10px;
@@ -296,6 +335,7 @@
     flex-direction: column;
     align-items: center;
 }
+
 .roulette-modal-content .modal-title {
     font-family: 'Bebas Neue', sans-serif;
     color: white;
@@ -303,22 +343,29 @@
     margin-bottom: 30px;
     text-align: center;
 }
+
 .roulette-carousel-wrapper {
     width: 100%;
     overflow: hidden;
     position: relative;
     padding: 20px 0;
 }
+
 .roulette-carousel-track {
     display: flex;
-    transition: transform 6s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
+
+.roulette-track.spinning .movie-card {
+    pointer-events: none;
+}
+
 .roulette-modal-content .movie-card {
     width: 150px !important;
     height: 225px !important;
     flex-shrink: 0;
     margin: 0 10px;
 }
+
 .roulette-selector {
     position: absolute;
     top: 0;
@@ -331,6 +378,7 @@
     border-top: 20px solid var(--primary-red);
     z-index: 10;
 }
+
 .btn-spin {
     background-color: var(--primary-red);
     color: white;
@@ -342,8 +390,16 @@
     margin-top: 30px;
     transition: background-color 0.3s ease;
 }
-.btn-spin:hover { background-color: var(--secondary-red); }
-.btn-spin:disabled { background-color: #666; cursor: not-allowed; }
+
+.btn-spin:hover {
+    background-color: var(--secondary-red);
+}
+
+.btn-spin:disabled {
+    background-color: #666;
+    cursor: not-allowed;
+}
+
 .roulette-carousel-wrapper::before,
 .roulette-carousel-wrapper::after {
     content: '';
@@ -354,10 +410,12 @@
     z-index: 2;
     pointer-events: none;
 }
+
 .roulette-carousel-wrapper::before {
     left: 0;
     background: linear-gradient(to right, var(--panel-dark) 20%, transparent);
 }
+
 .roulette-carousel-wrapper::after {
     right: 0;
     background: linear-gradient(to left, var(--panel-dark) 20%, transparent);
