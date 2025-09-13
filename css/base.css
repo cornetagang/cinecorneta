@@ -1,3 +1,6 @@
+/* ================================== */
+/* ESTILOS GLOBALES Y RESET */
+/* ================================== */
 :root {
     --primary-red: #E50914;
     --secondary-red: #b20710;
@@ -7,20 +10,43 @@
     --text-muted: #8a8a92;
 }
 
-/* ===== ESTILOS GLOBALES Y RESET ===== */
-*, *::before, *::after { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+}
+
 body {
     margin: 0;
     padding: 0;
     background: var(--bg-dark);
     color: var(--text-light);
-    font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    font-family: 'Montserrat', sans-serif;
     overflow-x: hidden;
 }
-body::-webkit-scrollbar { display: none; }
-html { scrollbar-width: none; }
+
+body::-webkit-scrollbar {
+    display: none;
+}
+
+.page-wrapper {
+    max-width: 1600px;
+    margin: 0 auto;
+    position: relative;
+}
 
 main {
-    padding-top: 80px; /* Espacio para el header fijo */
+    /* Sin padding aquí */
+}
+
+footer {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-muted);
+    font-size: 0.9rem;
 }
