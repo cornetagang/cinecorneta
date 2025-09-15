@@ -18,25 +18,41 @@ document.addEventListener('DOMContentLoaded', () => {
     const preloader = document.getElementById('preloader');
     const pageWrapper = document.querySelector('.page-wrapper');
 
-    // **MEJORA:** Se carga todo desde el inicio para optimizar.
     Promise.all([
-        fetch(`${API_URL}?data=series`).then(res => res.json()),
-        fetch(`${API_URL}?data=episodes`).then(res => res.json()),
-        fetch(`${API_URL}?data=allMovies`).then(res => res.json())
+        fetch(`${API_URL}?data=series`).then(res => {
+            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+            return res.json();
+        }),
+        fetch(`${API_URL}?data=episodes`).then(res => {
+            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+            return res.json();
+        }),
+        fetch(`${API_URL}?data=allMovies`).then(res => {
+            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+            return res.json();
+        })
     ])
     .then(([series, episodes, allMovies]) => {
-    seriesDatabase = series;
-    seriesEpisodesData = episodes;
-    allMoviesFull = allMovies;
-    
-    // Aquí inicializamos `allMoviesFull` con los datos de la API
-    // antes de que se ejecute la lógica de ordenación
-    const movieEntries = Object.keys(allMoviesFull)
-    .sort((a, b) => allMoviesFull[b].tr - allMoviesFull[a].tr)
-    .slice(0, 7)
-    .map(key => [key, allMoviesFull[key]]);
-    movieDatabase = Object.fromEntries(movieEntries);
-        
+        // Validación de datos para evitar que un string como "success" cause un error
+        if (typeof allMovies !== 'object' || allMovies === null) {
+            throw new Error("Datos de películas no válidos");
+        }
+        if (typeof series !== 'object' || series === null) {
+            throw new Error("Datos de series no válidos");
+        }
+
+        seriesDatabase = series;
+        seriesEpisodesData = episodes;
+        allMoviesFull = allMovies;
+
+        // Aquí inicializamos `allMoviesFull` con los datos de la API
+        // antes de que se ejecute la lógica de ordenación
+        const movieEntries = Object.keys(allMoviesFull)
+        .sort((a, b) => allMoviesFull[b].tr - allMoviesFull[a].tr)
+        .slice(0, 7)
+        .map(key => [key, allMoviesFull[key]]);
+        movieDatabase = Object.fromEntries(movieEntries);
+            
         const criticalImageUrls = new Set();
         const firstMovieId = Object.keys(movieDatabase)[0];
         if (firstMovieId && movieDatabase[firstMovieId]) {
@@ -68,7 +84,9 @@ document.addEventListener('DOMContentLoaded', () => {
     })
     .catch(error => {
         console.error("Error al cargar los datos:", error);
-        preloader.innerHTML = `<div style="text-align: center; color: var(--text-muted);"><p>Error al cargar datos.</p></div>`;
+        preloader.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 20px;"><p>Error al cargar datos. Por favor, revisa la conexión y la configuración de la API.</p><p>Detalles: ${error.message}</p></div>`;
+        preloader.style.opacity = 1;
+        preloader.style.visibility = 'visible';
     });
 });
 
