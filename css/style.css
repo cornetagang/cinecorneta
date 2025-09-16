@@ -198,7 +198,10 @@ main { flex-grow: 1; }
     background-position: center;
     position: relative;
     border-radius: 8px;
-    overflow: hidden;
+    
+    /* La clave es permitir el desplazamiento vertical */
+    overflow-y: auto;
+    
     display: flex;
     align-items: flex-end;
 }
