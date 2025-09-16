@@ -21,8 +21,27 @@ main { flex-grow: 1; }
 /* ================================== */
 /* HEADER.CSS                         */
 /* ================================== */
-.main-header { background-color: transparent; padding: 15px 40px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; border-bottom: 1px solid transparent; transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease; }
-.main-header.scrolled { background-color: rgba(20, 20, 20, 0.9); border-bottom: 1px solid #222; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); }
+.main-header {
+    background-color: transparent;
+    padding: 15px 40px;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    border-bottom: 2px solid var(--primary-red);
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+.main-header.scrolled {
+    background-color: rgba(20, 20, 20, 0.95);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+}
+.header-container {
+    width: 100%;
+    max-width: 1600px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
 .header-left, .header-right { display: flex; align-items: center; gap: 25px; }
 .header-logo { height: 25px; width: auto; }
 .main-nav ul { list-style: none; margin: 0; padding: 0; display: flex; gap: 10px; }
@@ -54,7 +73,7 @@ main { flex-grow: 1; }
     inset: 0;
     background: linear-gradient(to right, rgba(20,20,20,1) 10%, rgba(20,20,20,0.8) 40%, rgba(20,20,20,0) 65%, rgba(20,20,20,1) 100%), linear-gradient(to top, rgba(20,20,20,1) 0%, rgba(20,20,20,0) 20%);
 }
-/* Estilos para PC (sin cambios de alineación) */
+
 .hero-content {
     z-index: 2;
     transition: opacity 0.5s ease-in-out;
@@ -114,6 +133,10 @@ main { flex-grow: 1; }
     gap: 10px;
     border: 1px solid rgba(255,255,255,0.2);
 }
+#details-buttons {
+    /* Ajusta este valor para la separación perfecta */
+    margin-top: 10px;
+}
 .hero-buttons .btn:hover,
 .details-info .btn-play:hover {
     background: linear-gradient(to right, var(--secondary-red), var(--primary-red));
@@ -167,12 +190,47 @@ main { flex-grow: 1; }
 .modal.show { display: flex; opacity: 1; }
 .close-btn { position: absolute; top: 20px; right: 20px; background: rgba(20,20,20,0.7); color: #fff; border: 2px solid #fff; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; font-weight: bold; font-size: 20px; z-index: 1010; transition: all 0.2s ease; }
 .close-btn:hover { background: white; color: black; transform: scale(1.1); }
-.details-panel { width: 90%; max-width: 900px; height: 80vh; background-size: cover; background-position: center; position: relative; border-radius: 8px; overflow: hidden; display: flex; align-items: flex-end; }
-.details-panel::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, rgba(24,24,24,1) 20%, rgba(24,24,24,0) 100%); }
-.details-content { z-index: 2; padding: 30px; display: flex; gap: 30px; align-items: center; width: 100%; }
-.details-poster img { width: clamp(180px, 25vw, 250px); height: auto; border-radius: 6px; margin-top: -10vh; }
-.details-info h2 { font-size: clamp(1.8rem, 4vw, 2.5rem); }
-.details-meta { display: flex; gap: 15px; color: var(--text-muted); margin-bottom: 15px; justify-content: center;}
+.details-panel {
+    width: 90%;
+    max-width: 900px;
+    height: 80vh;
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    align-items: flex-end;
+}
+.details-panel::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(24,24,24,1) 20%, rgba(24,24,24,0) 100%);
+}
+
+.details-content {
+    z-index: 2;
+    padding: 30px;
+    display: flex;
+    gap: 30px;
+    align-items: flex-end; 
+    width: 100%;
+}
+
+.details-poster img {
+    display: block; 
+    width: clamp(180px, 25vw, 250px); 
+    height: auto;
+    border-radius: 6px;
+    margin-top: -10vh; 
+    box-shadow: 0 5px 20px rgba(0,0,0,0.6);
+}
+.details-info h2 { 
+    margin-bottom: 8px;
+    font-size: clamp(1.8rem, 4vw, 2.5rem); 
+}
+.details-meta { display: flex; gap: 15px; color: var(--text-muted); margin-bottom: 15px; justify-content: flex-start;}
 .details-meta span { background: #333; padding: 3px 8px; border-radius: 4px; font-size: 0.9rem; }
 .details-info p { font-size: clamp(0.9rem, 2vw, 1.1rem); line-height: 1.6; max-width: 600px; }
 .details-meta-mobile { display: none; }
@@ -220,46 +278,46 @@ main { flex-grow: 1; }
 .details-content-centered {
     display: flex;
     flex-direction: column;
-    align-items: center; /* Centra todo horizontalmente */
-    text-align: center; /* Centra el texto (título y descripción) */
-    padding: 60px 30px 30px 30px; /* Más padding arriba para compensar el botón de cerrar */
+    align-items: center;
+    text-align: center;
+    padding: 60px 30px 30px 30px;
     z-index: 2;
     position: relative;
     width: 100%;
     height: 100%;
-    overflow-y: auto; /* Permite scroll si el contenido es muy largo */
-    scrollbar-width: none; /* Para Firefox */
-    -ms-overflow-style: none; /* Para Internet Explorer y Edge */
+    overflow-y: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
 }
 .details-content-centered::-webkit-scrollbar {
     display: none;
 }
-/* Estilo para el póster en el nuevo layout */
+
 .details-content-centered .details-poster-top {
     width: 100%;
-    max-width: 220px; /* Tamaño del póster */
+    max-width: 220px;
     height: auto;
     border-radius: 8px;
     margin-bottom: 20px;
     box-shadow: 0 5px 20px rgba(0,0,0,0.6);
 }
-/* Limita el ancho del texto para que sea más fácil de leer */
+
 .details-content-centered .details-info {
     max-width: 550px;
 }
-/* Contenedor de la descripción para posicionar el botón "Ver más" */
+
 .description-wrapper {
     position: relative;
     margin-top: 15px;
 }
-/* Clase que se añade con JS para cortar el texto */
+
 .description-truncated {
-    max-height: 65px; /* Altura para aprox. 3 líneas de texto */
+    max-height: 65px;
     overflow: hidden;
     transition: max-height 0.4s ease-in-out;
     position: relative;
 }
-/* Efecto de degradado al final del texto cortado */
+
 .description-truncated::after {
     content: '';
     position: absolute;
@@ -267,10 +325,9 @@ main { flex-grow: 1; }
     left: 0;
     right: 0;
     height: 30px;
-    /* Usa un degradado hacia el color de fondo del panel */
     background: linear-gradient(to top, rgba(24,24,24,1) 50%, transparent);
 }
-/* Estilo del botón "Ver más..." */
+
 .toggle-description-btn {
     background: none;
     border: none;
@@ -290,11 +347,11 @@ main { flex-grow: 1; }
 @media (min-width: 993px) {
     .hero-section {
         display: flex;
-        align-items: center; /* Centra verticalmente */
+        align-items: center;
     }
     .hero-content {
         text-align: left;
-        margin-left: 4vw; /* separa un poco del borde izquierdo */
+        margin-left: 4vw;
     }
 }
 
@@ -316,7 +373,6 @@ main { flex-grow: 1; }
     .hamburger-btn { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; cursor: pointer; background: transparent; border: none; padding: 0; color: white; font-size: 24px; }
     .hamburger-btn i { font-family: "Font Awesome 6 Free"; font-weight: 900; }
     
-    /* ESTILOS ESPECÍFICOS PARA MÓVILES */
     .hero-section {
         height: 85vh;
     }
@@ -324,7 +380,6 @@ main { flex-grow: 1; }
         background: linear-gradient(to top, rgba(20,20,20,1) 20%, rgba(20,20,20,0) 100%);
     }
     .hero-content {
-        /* Centrado horizontal y vertical para móviles */
         width: 100%;
         display: flex;
         flex-direction: column;
@@ -332,7 +387,7 @@ main { flex-grow: 1; }
         align-items: center;
         text-align: center;
         padding-bottom: 5vh;
-        max-width: none; /* Elimina el límite de ancho de PC */
+        max-width: none;
     }
     .hero-content h1 {
         font-size: clamp(2.2rem, 8vw, 3rem);
@@ -362,8 +417,51 @@ main { flex-grow: 1; }
         gap: 15px;
         margin-bottom: 25px;
     }
-    .details-content { flex-direction: column; align-items: center; padding-top: 60px; }
+    .details-content {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        padding-top: 60px; 
+    }
+    .details-poster img {
+        width: 100%;
+        max-width: 220px;
+        margin-top: 0;
+    }
     .details-meta-mobile { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 15px; }
     #series-player-modal .player-layout-container { flex-direction: column; overflow-y: auto; }
     #series-player-modal .episode-sidebar { min-width: 100%; height: 400px; }
+}
+
+/* ================================== */
+/* FILTERS.CSS                        */
+/* ================================== */
+.filter-controls {
+    display: flex;
+    justify-content: flex-start;
+    gap: 20px;
+    padding: 0 4vw 20px 4vw;
+    margin-top: 30px; 
+}
+
+.filter-controls select {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-light);
+    border: 1px solid var(--text-muted);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.filter-controls select:hover {
+    border-color: var(--text-light);
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+.filter-controls select option {
+    background: rgba(30, 30, 30, 1);
+    color: var(--text-light);
 }
