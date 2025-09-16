@@ -186,7 +186,20 @@ main { flex-grow: 1; }
 /* ================================== */
 /* MODALS.CSS                         */
 /* ================================== */
-.modal { position: fixed; inset: 0; z-index: 2000; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.9); opacity: 0; transition: opacity 0.3s ease; }
+.modal {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.9);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    
+    /* Esta línea es la que hace que el modal pueda hacer scroll */
+    overflow-y: auto;
+}
 .modal.show { display: flex; opacity: 1; }
 .close-btn { position: absolute; top: 20px; right: 20px; background: rgba(20,20,20,0.7); color: #fff; border: 2px solid #fff; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; font-weight: bold; font-size: 20px; z-index: 1010; transition: all 0.2s ease; }
 .close-btn:hover { background: white; color: black; transform: scale(1.1); }
@@ -198,10 +211,7 @@ main { flex-grow: 1; }
     background-position: center;
     position: relative;
     border-radius: 8px;
-    
-    /* La clave es permitir el desplazamiento vertical */
-    overflow-y: auto;
-    
+    overflow: hidden; /* Vuelve a ocultar el desbordamiento en PC */
     display: flex;
     align-items: flex-end;
 }
