@@ -468,10 +468,15 @@ function openDetailsModal(id, type) {
     }
 
     initializeShowMore(modal);
+
+    document.body.classList.add('modal-open');
     modal.classList.add('show');
 }
 
-function closeDetailsModal() { document.getElementById('details-modal').classList.remove('show'); }
+function closeDetailsModal() {
+    document.getElementById('details-modal').classList.remove('show');
+    document.body.classList.remove('modal-open');
+}
 
 function openPlayerModal(movieId) {
     closeDetailsModal();
