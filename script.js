@@ -10,6 +10,7 @@ const playerState = {};
 // ===========================================================
 let heroInterval;
 let isHeroIntervalPaused = false;
+let heroMovieIds = [];
 
 // ===========================================================
 // INICIO DE LA APLICACIÓN
@@ -33,7 +34,6 @@ document.addEventListener('DOMContentLoaded', () => {
         })
     ])
     .then(([series, episodes, allMovies]) => {
-        // Validación de datos para evitar que un string como "success" cause un error
         if (typeof allMovies !== 'object' || allMovies === null) {
             throw new Error("Datos de películas no válidos");
         }
@@ -45,8 +45,6 @@ document.addEventListener('DOMContentLoaded', () => {
         seriesEpisodesData = episodes;
         allMoviesFull = allMovies;
 
-        // Aquí inicializamos `allMoviesFull` con los datos de la API
-        // antes de que se ejecute la lógica de ordenación
         const movieEntries = Object.keys(allMoviesFull)
         .sort((a, b) => allMoviesFull[b].tr - allMoviesFull[a].tr)
         .slice(0, 7)
@@ -101,6 +99,12 @@ function setupApp() {
     setupKeydownListener();
     setupSearch();
     setupScrollListeners();
+
+    const genreFilter = document.getElementById('genre-filter');
+    const sortBy = document.getElementById('sort-by');
+    genreFilter.addEventListener('change', handleFilterChange);
+    sortBy.addEventListener('change', handleFilterChange);
+
     switchView('all');
 }
 
@@ -110,7 +114,7 @@ function setupApp() {
 function setupScrollListeners() {
     window.addEventListener('scroll', () => {
         const header = document.querySelector('.main-header');
-        const isModalOpen = document.querySelector('.modal.show'); // Detecta si alguna modal está abierta
+        const isModalOpen = document.querySelector('.modal.show');
         
         if (window.scrollY > 50) {
             header.classList.add('scrolled');
@@ -119,12 +123,14 @@ function setupScrollListeners() {
         }
 
         if (heroInterval) {
-            // Solo pausa el carrusel si no hay una modal abierta y el usuario ha bajado
-            if (window.scrollY > 50 && !isHeroIntervalPaused && !isModalOpen) {
+           
+        if (window.scrollY > 50 && !isHeroIntervalPaused && !isModalOpen) {
                 clearInterval(heroInterval);
                 isHeroIntervalPaused = true;
-            // Solo reanuda si el usuario ha vuelto a la parte superior
-            } else if (window.scrollY <= 50 && isHeroIntervalPaused) {
+
+            }
+
+        else if (window.scrollY <= 50 && isHeroIntervalPaused) {
                 startHeroInterval();
             }
         }
@@ -189,6 +195,12 @@ function setupNavigation() {
     if (mobileNavContainer) mobileNavContainer.addEventListener('click', handleFilterClick);
 }
 
+function handleFilterChange() {
+    const activeNav = document.querySelector('.main-nav a.active, .mobile-nav a.active');
+    const type = activeNav.dataset.filter;
+    applyAndDisplayFilters(type);
+}
+
 // ===========================================================
 // BÚSQUEDA
 // ===========================================================
@@ -223,16 +235,14 @@ function displaySearchResults(results) {
     gridContainer.innerHTML = '';
 
     if (results.length === 0) {
-        // Ajusta el contenedor para centrar el mensaje
         gridContainer.style.display = 'flex';
         gridContainer.style.justifyContent = 'center';
         gridContainer.style.alignItems = 'center';
         gridContainer.innerHTML = `<p style="color: var(--text-muted); text-align: center;">No se encontraron resultados.</p>`;
     } else {
-        // Devuelve el contenedor a su estado de cuadrícula
         gridContainer.style.display = 'grid';
-        gridContainer.style.justifyContent = 'initial'; // Reinicia el estilo
-        gridContainer.style.alignItems = 'initial';   // Reinicia el estilo
+        gridContainer.style.justifyContent = 'initial';
+        gridContainer.style.alignItems = 'initial';
 
         results.forEach(([id, item]) => {
             const type = seriesDatabase[id] ? 'series' : 'movie-grid';
@@ -248,23 +258,28 @@ function setupHero() {
     const heroSection = document.getElementById('hero-section');
     if (!heroSection) return;
     heroSection.innerHTML = `<div class="hero-content"><h1 id="hero-title"></h1><p id="hero-synopsis"></p><div class="hero-buttons"></div></div>`;
-    const featuredIds = Object.keys(movieDatabase);
-    if (featuredIds.length > 0) {
-        shuffleArray(featuredIds);
-        changeHeroMovie(0, featuredIds);
-        startHeroInterval(featuredIds);
+    
+    heroMovieIds = Object.keys(movieDatabase); 
+
+    if (heroMovieIds.length > 0) {
+        shuffleArray(heroMovieIds);
+        changeHeroMovie(0, heroMovieIds);
+        startHeroInterval(); 
     } else {
        heroSection.style.display = 'none'; 
     }
 }
 
-function startHeroInterval(ids) {
+function startHeroInterval() {
     clearInterval(heroInterval);
     isHeroIntervalPaused = false;
     let currentHeroIndex = 0;
+
+    if (heroMovieIds.length === 0) return;
+
     heroInterval = setInterval(() => {
-        currentHeroIndex = (currentHeroIndex + 1) % ids.length;
-        changeHeroMovie(currentHeroIndex, ids);
+        currentHeroIndex = (currentHeroIndex + 1) % heroMovieIds.length;
+        changeHeroMovie(currentHeroIndex, heroMovieIds);
     }, 7000);
 }
 
@@ -305,54 +320,116 @@ function switchView(filter) {
     const carouselContainer = document.getElementById('carousel-container');
     const fullGridContainer = document.getElementById('full-grid-container');
     const heroSection = document.getElementById('hero-section');
+    const filterControls = document.getElementById('filter-controls');
+
     heroSection.style.display = 'none';
     carouselContainer.style.display = 'none';
     fullGridContainer.style.display = 'none';
+    filterControls.style.display = 'none';
+
+    resetFilters();
 
     if (filter === 'all') {
         heroSection.style.display = 'flex';
         carouselContainer.style.display = 'block';
     } else if (filter === 'movie') {
         fullGridContainer.style.display = 'block';
+        filterControls.style.display = 'flex';
         populateFullMovieGrid();
     } else if (filter === 'series') {
         fullGridContainer.style.display = 'block';
+        filterControls.style.display = 'flex';
         populateFullSeriesGrid();
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function populateFullMovieGrid() {
-    const gridContainer = document.querySelector('#full-grid-container .grid');
-    gridContainer.innerHTML = '';
-    for (const id in allMoviesFull) {
-        gridContainer.appendChild(createMovieCardElement(id, allMoviesFull[id], 'movie-grid', true));
-    }
+    populateFilters('movie');
+    applyAndDisplayFilters('movie');
 }
 
 function populateFullSeriesGrid() {
+    populateFilters('series');
+    applyAndDisplayFilters('series');
+}
+
+function populateFilters(type) {
+    const sourceData = (type === 'movie') ? allMoviesFull : seriesDatabase;
+    const genreFilter = document.getElementById('genre-filter');
+    const genres = new Set();
+    for (const id in sourceData) {
+        if (Array.isArray(sourceData[id].genres)) {
+            sourceData[id].genres.forEach(genre => genres.add(genre));
+        }
+    }
+    const sortedGenres = Array.from(genres).sort();
+    genreFilter.innerHTML = `<option value="all">Todos los géneros</option>`;
+    sortedGenres.forEach(genre => {
+        const option = document.createElement('option');
+        option.value = genre;
+        option.textContent = genre;
+        genreFilter.appendChild(option);
+    });
+}
+
+function applyAndDisplayFilters(type) {
+    const sourceData = (type === 'movie') ? allMoviesFull : seriesDatabase;
     const gridContainer = document.querySelector('#full-grid-container .grid');
+    const selectedGenre = document.getElementById('genre-filter').value;
+    const sortByValue = document.getElementById('sort-by').value;
+
+    let content = Object.entries(sourceData);
+    if (selectedGenre !== 'all') {
+        content = content.filter(([id, item]) => 
+            item.genres && item.genres.includes(selectedGenre)
+        );
+    }
+
+    switch (sortByValue) {
+        case 'title-asc':
+            content.sort((a, b) => a[1].title.localeCompare(b[1].title));
+            break;
+        case 'title-desc':
+            content.sort((a, b) => b[1].title.localeCompare(a[1].title));
+            break;
+        case 'year-desc':
+            content.sort((a, b) => b[1].year - a[1].year);
+            break;
+        case 'year-asc':
+
+        content.sort((a, b) => a[1].year - b[1].year); 
+            break;
+        case 'recent':
+            content.sort((a, b) => b[1].tr - a[1].tr);
+            break;
+    }
+
     gridContainer.innerHTML = '';
-    for (const id in seriesDatabase) {
-        gridContainer.appendChild(createMovieCardElement(id, seriesDatabase[id], 'series', true));
+    if (content.length > 0) {
+        const cardType = (type === 'movie') ? 'movie-grid' : 'series';
+        content.forEach(([id, item]) => {
+            gridContainer.appendChild(createMovieCardElement(id, item, cardType, true));
+        });
+    } else {
+        gridContainer.innerHTML = `<p style="color: var(--text-muted); text-align: center; grid-column: 1 / -1;">No se encontraron resultados.</p>`;
     }
 }
 
+function resetFilters() {
+    document.getElementById('genre-filter').value = 'all';
+    document.getElementById('sort-by').value = 'default';
+}
 // ===========================================================
 // MODALES
 // ===========================================================
 
-/**
- * **CORRECCIÓN:** Esta función es global para ser llamada desde el menú.
- * Comprueba si los datos están listos y luego llama a la función que carga
- * el contenido de la ruleta.
- */
 function openRouletteModal() {
     if (!allMoviesFull) {
         alert("Las películas aún se están cargando, por favor espera un segundo.");
         return;
     }
-    const rouletteModal = document.getElementById('roulette-modal'); // <-- Se asegura de usar 'roulette-modal'
+    const rouletteModal = document.getElementById('roulette-modal');
     if (rouletteModal) {
         rouletteModal.classList.add('show');
         if (window.loadRouletteMovies) {
@@ -375,7 +452,7 @@ function openDetailsModal(id, type) {
     }
     if (!data) return;
 
-    const modal = document.getElementById('details-modal'); // <-- Se asegura de usar 'details-modal'
+    const modal = document.getElementById('details-modal');
     modal.querySelector('.details-panel').style.backgroundImage = `url(${data.banner})`;
     modal.querySelector('#details-poster-img').src = data.poster;
     modal.querySelector('#details-title').textContent = data.title;
@@ -403,11 +480,8 @@ function openPlayerModal(movieId) {
     iframe.src = `https://drive.google.com/file/d/${movieId}/preview`;
     cinemaModal.classList.add('show');
     
-    // Añadir oyente para la rotación de pantalla
     const fullscreenEvent = 'fullscreenchange';
     document.addEventListener(fullscreenEvent, () => handleFullscreenChange('video-frame'), false);
-    
-    // Al cerrar, limpiar el oyente
     const closeBtn = cinemaModal.querySelector('.close-btn');
     closeBtn.onclick = () => {
         closePlayerModal('video-frame');
@@ -422,7 +496,7 @@ function closePlayerModal(iframeId) {
         const modal = iframe.closest('.modal');
         if (modal) modal.classList.remove('show');
     }
-    // Asegurarse de desbloquear la orientación al cerrar el modal
+
     if (screen.orientation && screen.orientation.unlock) {
         screen.orientation.unlock();
     }
@@ -438,17 +512,12 @@ function setupRouletteLogic() {
         return;
     }
 
-    // **CORRECCIÓN:** Se declaran las variables aquí para que no sean globales.
     const cardWidth = 150;
     const cardMargin = 10;
     const cardTotalWidth = cardWidth + (cardMargin * 2);
     let finalPickIndex = -1;
     let selectedMovie = null;
 
-    /**
-     * **CORRECCIÓN:** Definimos la función que carga las películas y la hacemos
-     * global (asignándola a 'window') para que openRouletteModal pueda llamarla.
-     */
     window.loadRouletteMovies = function() {
         rouletteTrack.classList.remove('is-spinning');
         spinButton.disabled = false;
@@ -493,7 +562,7 @@ function setupRouletteLogic() {
         const randomJitter = Math.floor(Math.random() * (cardWidth / 2)) - (cardWidth / 4);
         const finalPosition = targetPosition + randomJitter;
         
-        rouletteTrack.style.transition = 'transform 4s cubic-bezier(0.1, 0, 0.2, 1)';
+        rouletteTrack.style.transition = 'transform 8s cubic-bezier(0.1, 0, 0.2, 1)';
         rouletteTrack.style.transform = `translateX(${finalPosition}px)`;
 
         rouletteTrack.addEventListener('transitionend', () => {
@@ -521,7 +590,6 @@ function openSeriesPlayer(seriesId) {
         return;
     }
 
-    // CARGAR PROGRESO GUARDADO
     let savedProgress = loadProgress(seriesId);
     if (savedProgress && dataSet[savedProgress.season]) {
         playerState[seriesId] = savedProgress;
@@ -539,7 +607,6 @@ function openSeriesPlayer(seriesId) {
     modal.innerHTML = `<button class="close-btn" aria-label="Cerrar reproductor de series">X</button><div class="player-layout-container"><div class="player-container"><h2 id="${seriesId}-cinema-title" class="player-title"></h2>${langControlsHTML}<div class="screen"><iframe id="${iframeId}" src="" allowfullscreen></iframe></div><div class="pagination-controls"><button class="episode-nav-btn" id="${seriesId}-prev-btn" onclick="navigateEpisode('${seriesId}', -1)"><i class="fas fa-chevron-left"></i> Anterior</button><span id="${seriesId}-page-indicator" class="page-indicator"></span><button class="episode-nav-btn" id="${seriesId}-next-btn" onclick="navigateEpisode('${seriesId}', 1)">Siguiente <i class="fas fa-chevron-right"></i></button></div></div><div class="episode-sidebar"><h2>Temporadas y Episodios</h2><select id="${seriesId}-season-selector" class="season-dropdown"></select><div id="${seriesId}-episode-list" class="episode-list-container"></div></div></div>`;
     modal.classList.add('show');
     
-    // Configurar oyentes de eventos y lógica de cierre
     const fullscreenEvent = 'fullscreenchange';
     const closeBtn = modal.querySelector('.close-btn');
 
@@ -556,7 +623,6 @@ function openSeriesPlayer(seriesId) {
     document.addEventListener(fullscreenEvent, handleFullscreenChangeWithId);
     closeBtn.addEventListener('click', handleClose);
 
-    // Lógica para poblar el contenido
     populateSeasonDropdown(seriesId, season);
     populateEpisodeList(seriesId, season);
     openEpisode(seriesId, season, episodeIndex);
@@ -661,7 +727,7 @@ function initializeShowMore(modalElement) {
     const description = modalElement.querySelector('#details-synopsis');
     const wrapper = modalElement.querySelector('.description-wrapper');
 
-    if(!wrapper) return; // Añadida pequeña seguridad
+    if(!wrapper) return;
 
     const existingButton = wrapper.querySelector('.toggle-description-btn');
     if (existingButton) {
@@ -706,9 +772,7 @@ function handleFullscreenChange(elementId) {
     if (!iframe) return;
 
     if (document.fullscreenElement) {
-        // El video ha entrado en modo de pantalla completa
         try {
-            // Solicita la rotación de la pantalla a horizontal
             if (screen.orientation && screen.orientation.lock) {
                 screen.orientation.lock('landscape')
                     .then(() => console.log('Pantalla bloqueada en horizontal.'))
@@ -718,9 +782,7 @@ function handleFullscreenChange(elementId) {
             console.error('La API de orientación de pantalla no está disponible o falló:', err);
         }
     } else {
-        // El video ha salido del modo de pantalla completa
         try {
-            // Desbloquea la orientación de la pantalla
             if (screen.orientation && screen.orientation.unlock) {
                 screen.orientation.unlock();
                 console.log('Pantalla desbloqueada.');
