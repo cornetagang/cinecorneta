@@ -85,24 +85,8 @@ body.modal-open { overflow: hidden; }
 .description-truncated { max-height: 65px; overflow: hidden; position: relative; }
 .description-truncated::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 30px; background: linear-gradient(to top, rgba(24,24,24,1) 50%, transparent); }
 .toggle-description-btn { background: none; border: none; color: var(--text-light); font-weight: bold; cursor: pointer; margin-top: 10px; padding: 5px; font-size: 0.9rem; }
-
-/* --- INICIO: NUEVO ESTILO PARA AÑO Y GÉNEROS --- */
-.details-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-bottom: 15px;
-    align-items: center;
-}
-.details-meta span {
-    background-color: rgba(40, 40, 40, 0.9);
-    color: var(--text-light);
-    padding: 6px 14px;
-    border-radius: 15px;
-    font-size: 0.9rem;
-    font-weight: bold;
-}
-/* --- FIN: NUEVO ESTILO PARA AÑO Y GÉNEROS --- */
+.details-meta { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; align-items: center; }
+.details-meta span { background-color: rgba(40, 40, 40, 0.9); color: var(--text-light); padding: 6px 14px; border-radius: 15px; font-size: 0.9rem; font-weight: bold; }
 
 
 /* ================================== */
@@ -113,10 +97,10 @@ body.modal-open { overflow: hidden; }
 #series-player-modal .screen { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 8px; overflow: hidden; box-shadow: 0 5px 20px rgba(0,0,0,0.3); }
 #series-player-modal .screen iframe { width: 100%; height: 100%; border: none; }
 #series-player-modal .pagination-controls { display: flex; justify-content: space-between; align-items: center; padding-top: 15px; }
-#series-player-modal .episode-nav-btn { background-color: rgba(255,255,255,0.1); color: var(--text-light); border: 1px solid rgba(255,255,255,0.2); padding: 10px 15px; border-radius: 5px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+#series-player-modal .episode-nav-btn { flex-shrink: 0; background-color: rgba(255,255,255,0.1); color: var(--text-light); border: 1px solid rgba(255,255,255,0.2); padding: 10px 15px; border-radius: 5px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
 #series-player-modal .episode-nav-btn:hover:not(:disabled) { background-color: rgba(255,255,255,0.2); }
 #series-player-modal .episode-nav-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.lang-controls { display: flex; gap: 10px; margin-bottom: 15px; }
+.lang-controls { display: flex; gap: 10px; margin: 0 15px; }
 .lang-btn { background-color: rgba(109, 109, 110, 0.4); color: var(--text-light); border: 1px solid rgba(255, 255, 255, 0.2); padding: 8px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 0.9rem; transition: all 0.2s ease; }
 .lang-btn:hover { background-color: rgba(109, 109, 110, 0.6); border-color: rgba(255, 255, 255, 0.4); }
 .lang-btn.active { background-color: var(--primary-red); border-color: var(--secondary-red); color: white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
@@ -145,7 +129,35 @@ body.modal-open { overflow: hidden; }
 .filter-controls select { background-color: rgba(255, 255, 255, 0.1); color: var(--text-light); border: 1px solid var(--text-muted); border-radius: 6px; padding: 8px 12px; font-size: 0.9rem; cursor: pointer; outline: none; transition: all 0.2s ease; }
 .filter-controls select:hover { border-color: var(--text-light); background-color: rgba(255, 255, 255, 0.15); }
 .filter-controls select option { background: #1E1E1E; color: var(--text-light); }
-    
+
+
+/* ================================== */
+/* RULETA                             */
+/* ================================== */
+/* --- INICIO: REGLA RESTAURADA PARA EL CONTENEDOR DE LA RULETA --- */
+.roulette-modal-content {
+    background-color: var(--panel-dark);
+    border-radius: 10px;
+    padding: 30px;
+    width: 90%;
+    max-width: 650px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+}
+.roulette-modal-content .modal-title { font-family: 'Bebas Neue', sans-serif; font-size: clamp(1.5rem, 4vw, 2.5rem); margin-bottom: 30px; }
+.roulette-carousel-wrapper { width: 100%; height: 250px; overflow: hidden; position: relative; display: flex; align-items: center; }
+.roulette-carousel-wrapper::before, .roulette-carousel-wrapper::after { content: ''; position: absolute; top: 0; bottom: 0; width: 15%; z-index: 2; pointer-events: none; }
+.roulette-carousel-wrapper::before { left: 0; background: linear-gradient(to right, var(--panel-dark) 20%, transparent); }
+.roulette-carousel-wrapper::after { right: 0; background: linear-gradient(to left, var(--panel-dark) 20%, transparent); }
+.roulette-carousel-track { display: flex; flex-wrap: nowrap; }
+.roulette-carousel-track .movie-card { width: 150px; height: 225px; flex-shrink: 0; margin: 0 10px; }
+.roulette-selector { position: absolute; top: -5px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-top: 20px solid var(--primary-red); z-index: 10; }
+.btn-spin { background-color: var(--primary-red); color: white; padding: 12px 25px; border: none; border-radius: 5px; font-size: 1.1rem; cursor: pointer; margin-top: 30px; }
+.btn-spin:disabled { background-color: #666; cursor: not-allowed; }
+.roulette-carousel-track.is-spinning .movie-card { pointer-events: none; }
+
 
 /* ================================== */
 /* RESPONSIVE (MÓVIL)                 */
@@ -181,16 +193,15 @@ body.modal-open { overflow: hidden; }
     .details-poster { width: 60%; max-width: 200px; margin-top: 25px; }
     .details-poster img { margin-top: 0; }
     .details-info h2 { font-size: clamp(1.5rem, 6vw, 2rem); }
+    .details-meta { justify-content: center; }
     #details-synopsis { font-size: 0.95rem; }
 
-    /* Centrar los géneros y año en móvil */
-    .details-meta {
-        justify-content: center;
-    }
-
     #series-player-modal.player-layout-view { overflow-y: auto; }
-    #series-player-modal .player-layout-container { flex-direction: column; height: auto; width: 100%; padding: 15px; gap: 25px; }
+    #series-player-modal .player-layout-container { flex-direction: column; height: auto; width: 100%; padding: 10px; gap: 20px; }
     #series-player-modal .player-container, #series-player-modal .episode-sidebar { min-width: 100%; width: 100%; }
+    #series-player-modal .pagination-controls { justify-content: center; flex-wrap: wrap; gap: 15px; }
+    #series-player-modal .pagination-controls .lang-controls { margin: 0; }
+    #series-player-modal .episode-nav-btn { padding: 8px 12px; font-size: 0.9rem; }
     #series-player-modal .episode-sidebar { height: auto; max-height: 50vh; padding: 15px; overflow-y: hidden; }
     .sidebar-header { position: sticky; top: 0; background-color: #202020; z-index: 1; padding-bottom: 10px; }
     #series-player-modal .episode-list-container { overflow-y: auto; }
