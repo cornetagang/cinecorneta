@@ -20,23 +20,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const pageWrapper = document.querySelector('.page-wrapper');
 
     Promise.all([
-    fetch(`${API_URL}?data=series`).then(res => {
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        return res.json();
-    }),
-    fetch(`${API_URL}?data=episodes`).then(res => {
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        return res.json();
-    }),
-    fetch(`${API_URL}?data=allMovies&order=desc`).then(res => { // <-- CAMBIO APLICADO
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        return res.json();
-    }),
-    fetch(`${API_URL}?data=PostersTemporadas`).then(res => {
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        return res.json();
-    })
-])
+        fetch(`${API_URL}?data=series`).then(res => {
+            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+            return res.json();
+        }),
+        fetch(`${API_URL}?data=episodes`).then(res => {
+            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+            return res.json();
+        }),
+        fetch(`${API_URL}?data=allMovies&order=desc`).then(res => {
+            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+            return res.json();
+        }),
+        fetch(`${API_URL}?data=PostersTemporadas`).then(res => {
+            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+            return res.json();
+        })
+    ])
     .then(([series, episodes, allMovies, posters]) => {
         if (typeof allMovies !== 'object' || allMovies === null) {
             throw new Error("Datos de películas no válidos");
@@ -49,25 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
         seriesEpisodesData = episodes;
         allMoviesFull = allMovies;
         seasonPosters = posters;
-
-        // Eliminar la lógica de filtrado de películas de aquí
-        // para que 'movieDatabase' no se restrinja desde el inicio.
         
-        const criticalImageUrls = new Set();
-        // La lógica de precarga se moverá dentro de setupHero()
-        // para usar las últimas películas.
-
-        const preloadImages = (urls) => {
-            const promises = Array.from(urls).map(url => new Promise((resolve) => {
-                const img = new Image();
-                img.onload = resolve;
-                img.onerror = resolve;
-                img.src = url;
-            }));
-            return Promise.all(promises);
-        };
-
-        // No precargues imágenes aquí. Deja que setupApp las precargue.
         setupApp();
         preloader.classList.add('fade-out');
         preloader.addEventListener('transitionend', () => preloader.remove());
@@ -99,8 +81,6 @@ function setupApp() {
     sortBy.addEventListener('change', handleFilterChange);
 
     switchView('all');
-
-    // ¡AÑADE ESTA LÍNEA!
     applyAndDisplayFilters('movie'); 
 }
 
@@ -119,14 +99,10 @@ function setupScrollListeners() {
         }
 
         if (heroInterval) {
-           
-        if (window.scrollY > 50 && !isHeroIntervalPaused && !isModalOpen) {
+            if (window.scrollY > 50 && !isHeroIntervalPaused && !isModalOpen) {
                 clearInterval(heroInterval);
                 isHeroIntervalPaused = true;
-
-            }
-
-        else if (window.scrollY <= 50 && isHeroIntervalPaused) {
+            } else if (window.scrollY <= 50 && isHeroIntervalPaused) {
                 startHeroInterval();
             }
         }
@@ -136,13 +112,19 @@ function setupScrollListeners() {
 function setupKeydownListener() {
     document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') return;
-        const openModal = document.querySelector('.modal.show');
-        if (openModal) {
-            const closeButton = openModal.querySelector('.close-btn');
-            if (closeButton) closeButton.click();
-        }
+        
+        const detailsModal = document.getElementById('details-modal');
+        const cinemaModal = document.getElementById('cinema');
+        const seriesModal = document.getElementById('series-player-modal');
+        const rouletteModal = document.getElementById('roulette-modal');
+
+        if (detailsModal.classList.contains('show')) closeDetailsModal();
+        if (cinemaModal.classList.contains('show')) closePlayerModal('video-frame');
+        if (seriesModal.classList.contains('show')) closeSeriesPlayerModal();
+        if (rouletteModal.classList.contains('show')) closeRouletteModal();
     });
 }
+
 
 // ===========================================================
 // NAVEGACIÓN
@@ -193,7 +175,7 @@ function setupNavigation() {
 
 function handleFilterChange() {
     const activeNav = document.querySelector('.main-nav a.active, .mobile-nav a.active');
-    const type = activeNav.dataset.filter;
+    const type = activeNav ? activeNav.dataset.filter : 'movie';
     applyAndDisplayFilters(type);
 }
 
@@ -255,23 +237,14 @@ function setupHero() {
     if (!heroSection) return;
     heroSection.innerHTML = `<div class="hero-content"><h1 id="hero-title"></h1><p id="hero-synopsis"></p><div class="hero-buttons"></div></div>`;
     
-    // Convertir el objeto de películas a un array de pares [id, datos]
     const allMoviesArray = Object.entries(allMoviesFull);
-
-    // Ordenar las películas por la propiedad 'tr' (timestamp) en orden descendente
     allMoviesArray.sort((a, b) => b[1].tr - a[1].tr);
-    
-    // Seleccionar las primeras 7 películas (las más recientes)
     const topHeroMovies = allMoviesArray.slice(0, 7);
-    
-    // Crear un nuevo objeto de base de datos de películas con solo estas
     movieDatabase = Object.fromEntries(topHeroMovies);
-    
-    // Obtener los IDs de las películas principales para la lógica de intervalo
     heroMovieIds = Object.keys(movieDatabase); 
 
     if (heroMovieIds.length > 0) {
-        shuffleArray(heroMovieIds); // Opcional: para que no siempre sea la misma película de primera
+        shuffleArray(heroMovieIds);
         changeHeroMovie(0, heroMovieIds);
         startHeroInterval(); 
     } else {
@@ -295,10 +268,11 @@ function startHeroInterval() {
 function changeHeroMovie(index, ids) {
     const heroSection = document.getElementById('hero-section');
     const heroContent = heroSection.querySelector('.hero-content');
-    if (!heroContent || !ids) return;
+    if (!heroContent || !ids || ids.length === 0) return;
     const movieId = ids[index];
-    const movieData = movieDatabase[movieId];
+    const movieData = allMoviesFull[movieId] || movieDatabase[movieId];
     if (!movieData) return;
+    
     const imageUrl = window.innerWidth < 992 ? movieData.poster : movieData.banner;
     heroContent.classList.add('hero-fading');
     setTimeout(() => {
@@ -314,10 +288,9 @@ function generateCarousels() {
     const container = document.getElementById('carousel-container');
     container.innerHTML = '';
     
-    // Get all the movies and sort them by the 'tr' (timestamp) property
     const recentMovieIds = Object.keys(allMoviesFull)
         .sort((a, b) => allMoviesFull[b].tr - allMoviesFull[a].tr)
-        .slice(0, 7); // Show the 7 most recent movies
+        .slice(0, 15);
         
     if (recentMovieIds.length > 0) {
         const movieCarouselEl = document.createElement('div');
@@ -345,23 +318,14 @@ function switchView(filter) {
     fullGridContainer.style.display = 'none';
     filterControls.style.display = 'none';
 
-    resetFilters();
-
     if (filter === 'all') {
         heroSection.style.display = 'flex';
         carouselContainer.style.display = 'block';
-    } else if (filter === 'movie') {
+    } else {
         fullGridContainer.style.display = 'block';
         filterControls.style.display = 'flex';
-        // Llamamos a populateFilters justo antes de mostrar la vista
-        populateFilters('movie'); 
-        applyAndDisplayFilters('movie');
-    } else if (filter === 'series') {
-        fullGridContainer.style.display = 'block';
-        filterControls.style.display = 'flex';
-        // Llamamos a populateFilters justo antes de mostrar la vista
-        populateFilters('series'); 
-        applyAndDisplayFilters('series');
+        populateFilters(filter);
+        applyAndDisplayFilters(filter);
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -373,48 +337,8 @@ function populateFilters(type) {
     
     for (const id in sourceData) {
         const item = sourceData[id];
-        if (item && typeof item.genres === 'string' && item.genres.includes(';')) {
-            const itemGenres = item.genres.split(';').map(g => g.trim());
-            itemGenres.forEach(genre => genres.add(genre));
-        } else if (item && typeof item.genres === 'string') {
-            genres.add(item.genres.trim());
-        }
-    }
-    
-    const sortedGenres = Array.from(genres).sort();
-    genreFilter.innerHTML = `<option value="all">Todos los géneros</option>`;
-    
-    sortedGenres.forEach(genre => {
-        const option = document.createElement('option');
-        option.value = genre;
-        option.textContent = genre;
-        genreFilter.appendChild(option);
-    });
-}
-
-function populateFullMovieGrid() {
-    populateFilters('movie');
-    applyAndDisplayFilters('movie');
-}
-
-function populateFullSeriesGrid() {
-    populateFilters('series');
-    applyAndDisplayFilters('series');
-}
-
-function populateFilters(type) {
-    const sourceData = (type === 'movie') ? allMoviesFull : seriesDatabase;
-    const genreFilter = document.getElementById('genre-filter');
-    const genres = new Set();
-    
-    // Iteramos sobre los datos de la fuente correcta (películas o series)
-    for (const id in sourceData) {
-        const item = sourceData[id];
-        // Verificamos si la propiedad 'genres' existe y es una cadena.
         if (item && typeof item.genres === 'string') {
-            // Dividimos la cadena de géneros por el separador ';'.
             const itemGenres = item.genres.split(';').map(g => g.trim());
-            // Agregamos cada género individualmente al conjunto.
             itemGenres.forEach(genre => genres.add(genre));
         }
     }
@@ -431,84 +355,73 @@ function populateFilters(type) {
 }
 
 function applyAndDisplayFilters(type) {
-  const sourceData = (type === 'movie') ? allMoviesFull : seriesDatabase;
-  const gridContainer = document.querySelector('#full-grid-container .grid');
-  const selectedGenre = document.getElementById('genre-filter').value;
-  const sortByValue = document.getElementById('sort-by').value;
+    const sourceData = (type === 'movie') ? allMoviesFull : seriesDatabase;
+    const gridContainer = document.querySelector('#full-grid-container .grid');
+    const selectedGenre = document.getElementById('genre-filter').value;
+    const sortByValue = document.getElementById('sort-by').value;
 
-  let content = Object.entries(sourceData);
-  if (selectedGenre !== 'all') {
-    content = content.filter(([id, item]) => {
-      return item.genres && typeof item.genres === 'string' && item.genres.toLowerCase().includes(selectedGenre.toLowerCase());
-    });
-  }
+    let content = Object.entries(sourceData);
+    if (selectedGenre !== 'all') {
+        content = content.filter(([id, item]) => {
+            return item.genres && typeof item.genres === 'string' && item.genres.toLowerCase().includes(selectedGenre.toLowerCase());
+        });
+    }
 
-  // Lógica corregida para la opción "Por Defecto" y "Recientes"
-  switch (sortByValue) {
-    case 'recent':
-      content.sort((a, b) => b[1].tr - a[1].tr);
-      break;
-    case 'title-asc':
-      content.sort((a, b) => a[1].title.localeCompare(b[1].title));
-      break;
-    case 'title-desc':
-      content.sort((a, b) => b[1].title.localeCompare(a[1].title));
-      break;
-    case 'year-desc':
-      content.sort((a, b) => b[1].year - a[1].year);
-      break;
-    case 'year-asc':
-      content.sort((a, b) => a[1].year - b[1].year);
-      break;
-    // Si la opción es 'default', no hacemos nada.
-    // Los datos ya están en el orden en el que llegaron de la API (de arriba a abajo).
-  }
+    switch (sortByValue) {
+        case 'recent':
+            content.sort((a, b) => b[1].tr - a[1].tr);
+            break;
+        case 'title-asc':
+            content.sort((a, b) => a[1].title.localeCompare(b[1].title));
+            break;
+        case 'title-desc':
+            content.sort((a, b) => b[1].title.localeCompare(a[1].title));
+            break;
+        case 'year-desc':
+            content.sort((a, b) => b[1].year - a[1].year);
+            break;
+        case 'year-asc':
+            content.sort((a, b) => a[1].year - b[1].year); 
+            break;
+    }
 
-  gridContainer.innerHTML = '';
-  if (content.length > 0) {
-    const cardType = (type === 'movie') ? 'movie-grid' : 'series';
-    content.forEach(([id, item]) => {
-      gridContainer.appendChild(createMovieCardElement(id, item, cardType, true));
-    });
-  } else {
-    gridContainer.innerHTML = `<p style="color: var(--text-muted); text-align: center; grid-column: 1 / -1;">No se encontraron resultados.</p>`;
-  }
+    gridContainer.innerHTML = '';
+    if (content.length > 0) {
+        const cardType = (type === 'movie') ? 'movie-grid' : 'series';
+        content.forEach(([id, item]) => {
+            gridContainer.appendChild(createMovieCardElement(id, item, cardType, true));
+        });
+    } else {
+        gridContainer.innerHTML = `<p style="color: var(--text-muted); text-align: center; grid-column: 1 / -1;">No se encontraron resultados.</p>`;
+    }
 }
 
 function resetFilters() {
     document.getElementById('genre-filter').value = 'all';
     document.getElementById('sort-by').value = 'recent';
 }
+
 // ===========================================================
 // MODALES
 // ===========================================================
-
 function openRouletteModal() {
-    if (!allMoviesFull) {
-        alert("Las películas aún se están cargando, por favor espera un segundo.");
-        return;
-    }
+    if (!allMoviesFull) return;
     const rouletteModal = document.getElementById('roulette-modal');
     if (rouletteModal) {
+        document.body.classList.add('modal-open');
         rouletteModal.classList.add('show');
-        if (window.loadRouletteMovies) {
-            window.loadRouletteMovies();
-        }
+        if (window.loadRouletteMovies) window.loadRouletteMovies();
     }
 }
 
 function closeRouletteModal() {
     const rouletteModal = document.getElementById('roulette-modal');
     if (rouletteModal) rouletteModal.classList.remove('show');
+    document.body.classList.remove('modal-open');
 }
 
 function openDetailsModal(id, type) {
-    let data;
-    if (type.startsWith('movie')) {
-        data = (allMoviesFull && allMoviesFull[id]) ? allMoviesFull[id] : movieDatabase[id];
-    } else {
-        data = seriesDatabase[id];
-    }
+    const data = type.startsWith('movie') ? (allMoviesFull[id] || movieDatabase[id]) : seriesDatabase[id];
     if (!data) return;
 
     const modal = document.getElementById('details-modal');
@@ -516,8 +429,7 @@ function openDetailsModal(id, type) {
     modal.querySelector('#details-poster-img').src = data.poster;
     modal.querySelector('#details-title').textContent = data.title;
     modal.querySelector('#details-year').textContent = data.year || '';
-
-    // --- CÓDIGO CORREGIDO ---
+    
     const genresElement = modal.querySelector('#details-genres');
     if (Array.isArray(data.genres)) {
         genresElement.textContent = data.genres.join(' • ');
@@ -526,7 +438,6 @@ function openDetailsModal(id, type) {
     } else {
         genresElement.textContent = '';
     }
-    // --- FIN DEL CÓDIGO CORREGIDO ---
 
     modal.querySelector('#details-synopsis').textContent = data.synopsis || '';
     
@@ -538,7 +449,6 @@ function openDetailsModal(id, type) {
     }
 
     initializeShowMore(modal);
-
     document.body.classList.add('modal-open');
     modal.classList.add('show');
 }
@@ -553,15 +463,8 @@ function openPlayerModal(movieId) {
     const cinemaModal = document.getElementById('cinema');
     const iframe = cinemaModal.querySelector('iframe');
     iframe.src = `https://drive.google.com/file/d/${movieId}/preview`;
+    document.body.classList.add('modal-open');
     cinemaModal.classList.add('show');
-    
-    const fullscreenEvent = 'fullscreenchange';
-    document.addEventListener(fullscreenEvent, () => handleFullscreenChange('video-frame'), false);
-    const closeBtn = cinemaModal.querySelector('.close-btn');
-    closeBtn.onclick = () => {
-        closePlayerModal('video-frame');
-        document.removeEventListener(fullscreenEvent, () => handleFullscreenChange('video-frame'), false);
-    };
 }
 
 function closePlayerModal(iframeId) {
@@ -571,7 +474,7 @@ function closePlayerModal(iframeId) {
         const modal = iframe.closest('.modal');
         if (modal) modal.classList.remove('show');
     }
-
+    document.body.classList.remove('modal-open');
     if (screen.orientation && screen.orientation.unlock) {
         screen.orientation.unlock();
     }
@@ -581,16 +484,8 @@ function setupRouletteLogic() {
     const rouletteModal = document.getElementById('roulette-modal');
     const spinButton = document.getElementById('spin-roulette-btn');
     const rouletteTrack = document.getElementById('roulette-carousel-track');
+    if (!rouletteModal || !spinButton || !rouletteTrack) return;
 
-    if (!rouletteModal || !spinButton || !rouletteTrack) {
-        console.error("¡ERROR! No se encontró uno de los elementos de la ruleta.");
-        return;
-    }
-
-    const cardWidth = 150;
-    const cardMargin = 10;
-    const cardTotalWidth = cardWidth + (cardMargin * 2);
-    let finalPickIndex = -1;
     let selectedMovie = null;
 
     window.loadRouletteMovies = function() {
@@ -600,7 +495,7 @@ function setupRouletteLogic() {
         rouletteTrack.innerHTML = '';
         
         if (!allMoviesFull || Object.keys(allMoviesFull).length < 5) {
-            rouletteTrack.innerHTML = `<p style="color:white;text-align:center;">No hay suficientes películas para la ruleta.</p>`;
+            rouletteTrack.innerHTML = `<p style="color:white;text-align:center;">No hay suficientes películas.</p>`;
             spinButton.disabled = true;
             return;
         }
@@ -612,16 +507,19 @@ function setupRouletteLogic() {
             return { id: movieId, data: allMoviesFull[movieId] };
         });
 
-        finalPickIndex = Math.floor(Math.random() * (moviesForRoulette.length - 10)) + 5;
+        const finalPickIndex = Math.floor(Math.random() * (moviesForRoulette.length - 10)) + 5;
         selectedMovie = moviesForRoulette[finalPickIndex];
 
-        moviesForRoulette.forEach(movie => {
-            rouletteTrack.appendChild(createMovieCardElement(movie.id, movie.data, 'roulette', true));
+        moviesForRoulette.forEach((movie, index) => {
+            const card = createMovieCardElement(movie.id, movie.data, 'roulette', true);
+            if(index === finalPickIndex) card.classList.add('winner');
+            rouletteTrack.appendChild(card);
         });
         
         setTimeout(() => {
+            const cardWidth = 150 + 20; // card width + margin
             const wrapperWidth = rouletteTrack.parentElement.offsetWidth;
-            const initialOffset = (wrapperWidth / 2) - (cardTotalWidth * 2.5);
+            const initialOffset = (wrapperWidth / 2) - (cardWidth / 2);
             rouletteTrack.style.transform = `translateX(${initialOffset}px)`;
         }, 100);
     }
@@ -631,14 +529,12 @@ function setupRouletteLogic() {
         spinButton.disabled = true;
         rouletteTrack.classList.add('is-spinning');
 
-        const wrapperWidth = rouletteTrack.parentElement.offsetWidth;
-        const centerOfFinalCard = (cardTotalWidth * finalPickIndex) + (cardTotalWidth / 2);
-        const targetPosition = (wrapperWidth / 2) - centerOfFinalCard;
-        const randomJitter = Math.floor(Math.random() * (cardWidth / 2)) - (cardWidth / 4);
-        const finalPosition = targetPosition + randomJitter;
+        const cardWidth = 150 + 20; // card width + margin
+        const winnerCard = rouletteTrack.querySelector('.winner');
+        const targetPosition = -winnerCard.offsetLeft + (rouletteTrack.parentElement.offsetWidth / 2) - (cardWidth / 2);
         
         rouletteTrack.style.transition = 'transform 8s cubic-bezier(0.1, 0, 0.2, 1)';
-        rouletteTrack.style.transform = `translateX(${finalPosition}px)`;
+        rouletteTrack.style.transform = `translateX(${targetPosition}px)`;
 
         rouletteTrack.addEventListener('transitionend', () => {
             rouletteTrack.classList.remove('is-spinning');
@@ -653,18 +549,27 @@ function setupRouletteLogic() {
 // ===========================================================
 // LÓGICA DEL REPRODUCTOR DE SERIES
 // ===========================================================
+function closeSeriesPlayerModal() {
+    const modal = document.getElementById('series-player-modal');
+    modal.classList.remove('show');
+    modal.classList.remove('season-grid-view', 'player-layout-view');
+    document.body.classList.remove('modal-open');
+    const iframe = modal.querySelector('iframe');
+    if (iframe) iframe.src = '';
+}
+
 function openSeriesPlayer(seriesId) {
     closeDetailsModal();
     const seriesInfo = seriesDatabase[seriesId];
     if (!seriesInfo) return;
     const modal = document.getElementById('series-player-modal');
+    
+    document.body.classList.add('modal-open');
     modal.classList.add('show');
     
-    // Nueva lógica: Comprobar si solo hay una temporada
     const seasons = seriesEpisodesData[seriesId] ? Object.keys(seriesEpisodesData[seriesId]) : [];
     if (seasons.length === 1) {
-        const singleSeason = seasons[0];
-        openEpisodePlayer(seriesId, singleSeason);
+        openEpisodePlayer(seriesId, seasons[0]);
     } else {
         openSeasonGrid(seriesId);
     }
@@ -672,15 +577,12 @@ function openSeriesPlayer(seriesId) {
 
 function openSeasonGrid(seriesId) {
     const seriesInfo = seriesDatabase[seriesId];
-    const dataSet = seriesEpisodesData[seriesId] ? Object.keys(seriesEpisodesData[seriesId]) : [];
     const modal = document.getElementById('series-player-modal');
-    if (dataSet.length === 0) {
-        modal.innerHTML = `<div class="player-layout-container" style="flex-direction: column; align-items: center; justify-content: center; text-align: center;"><button class="close-btn" onclick="document.getElementById('series-player-modal').classList.remove('show')">X</button><h2>Error</h2><p>No se encontraron episodios para esta serie.</p></div>`;
-        return;
-    }
-
+    modal.classList.add('season-grid-view');
+    modal.classList.remove('player-layout-view');
+    
     const htmlContent = `
-        <button class="close-btn" aria-label="Cerrar reproductor de series">X</button>
+        <button class="close-btn" onclick="closeSeriesPlayerModal()" aria-label="Cerrar">X</button>
         <div class="season-grid-container">
             <h2 class="player-title">${seriesInfo.title}</h2>
             <div id="season-grid-wrapper" class="season-grid"></div>
@@ -688,46 +590,29 @@ function openSeasonGrid(seriesId) {
     `;
     modal.innerHTML = htmlContent;
     populateSeasonGrid(seriesId);
-
-    modal.querySelector('.close-btn').onclick = () => {
-        modal.classList.remove('show');
-    };
 }
 
 function populateSeasonGrid(seriesId) {
     const container = document.getElementById('season-grid-wrapper');
     const data = seriesEpisodesData[seriesId];
     const seriesInfo = seriesDatabase[seriesId];
-    
     container.innerHTML = '';
     
     const totalSeasons = Object.keys(data).length;
 
-    // Aquí está la lógica mejorada para controlar la cuadrícula
-    if (totalSeasons >= 6) {
-        // Para 6 o más temporadas, usamos Grid para dividir en 2 filas
+    if (totalSeasons >= 6 && window.innerWidth > 992) {
         const columns = Math.ceil(totalSeasons / 2);
-        
         container.style.display = 'grid';
         container.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
-        container.style.flexWrap = 'nowrap';
-        container.style.justifyContent = 'flex-start';
-        container.style.width = '100%'; // Vuelve al ancho completo para la cuadrícula
     } else {
-        // Para 5 o menos, usamos Flexbox y le decimos que se ajuste al contenido
         container.style.display = 'flex';
-        container.style.justifyContent = 'center';
-        container.style.flexWrap = 'nowrap';
-        container.style.width = 'fit-content'; // Esta es la clave
     }
-    
-    // Estos estilos son comunes y se aplican a ambos casos
+    container.style.justifyContent = 'center';
+    container.style.flexWrap = 'wrap';
     container.style.gap = '15px';
-    container.style.overflowX = 'hidden';
     
     Object.keys(data).forEach(seasonNum => {
         const posterUrl = seasonPosters[seriesId]?.[seasonNum] || seriesInfo.poster;
-        
         const card = document.createElement('div');
         card.className = 'season-poster-card';
         card.onclick = () => openEpisodePlayer(seriesId, seasonNum);
@@ -735,77 +620,53 @@ function populateSeasonGrid(seriesId) {
         container.appendChild(card);
     });
 }
+
 function openEpisodePlayer(seriesId, seasonNum) {
     const dataSet = seriesEpisodesData[seriesId];
     if (!dataSet || !dataSet[seasonNum]) return;
     
     const savedEpisodeIndex = loadProgress(seriesId, seasonNum);
     
-    playerState[seriesId] = {
-        season: seasonNum,
-        episodeIndex: savedEpisodeIndex,
-        lang: 'es'
-    };
+    playerState[seriesId] = { season: seasonNum, episodeIndex: savedEpisodeIndex, lang: 'es' };
     
-    const { season, episodeIndex } = playerState[seriesId];
+    const { season } = playerState[seriesId];
     const firstEpisode = dataSet[Object.keys(dataSet)[0]][0];
     const hasLangOptions = firstEpisode && firstEpisode.hasOwnProperty('videoId_es') && firstEpisode.videoId_es.trim() !== '';
-    let langControlsHTML = hasLangOptions ? `<div id="${seriesId}-lang-controls" class="lang-controls"><button class="lang-btn" data-lang="es" onclick="changeLanguage('${seriesId}', 'es')">Español</button><button class="lang-btn" data-lang="en" onclick="changeLanguage('${seriesId}', 'en')">Inglés</button></div>` : '';
+    let langControlsHTML = hasLangOptions ? `<div id="${seriesId}-lang-controls" class="lang-controls"><button class="lang-btn active" data-lang="es" onclick="changeLanguage('${seriesId}', 'es')">Español</button><button class="lang-btn" data-lang="en" onclick="changeLanguage('${seriesId}', 'en')">Inglés</button></div>` : '';
     
     const iframeId = `video-frame-${seriesId}`;
-
     const seasonsCount = Object.keys(seriesEpisodesData[seriesId]).length;
-    // Modified HTML for the back button
-    const backButtonHTML = seasonsCount > 1 
-        ? `<button class="player-back-link" onclick="openSeasonGrid('${seriesId}')"><i class="fas fa-arrow-left"></i> Temporadas</button>`
-        : '';
+    const backButtonHTML = seasonsCount > 1 ? `<button class="player-back-link" onclick="openSeasonGrid('${seriesId}')"><i class="fas fa-arrow-left"></i> Temporadas</button>` : '';
 
     const modal = document.getElementById('series-player-modal');
+    modal.classList.add('player-layout-view');
+    modal.classList.remove('season-grid-view');
+    
+    // --- CAMBIO: Añadir el nuevo div .sidebar-header ---
     modal.innerHTML = `
-        <button class="close-btn" aria-label="Cerrar reproductor de series">X</button>
+        <button class="close-btn" onclick="closeSeriesPlayerModal()" aria-label="Cerrar">X</button>
         <div class="player-layout-container">
             <div class="player-container">
                 <h2 id="${seriesId}-cinema-title" class="player-title"></h2>
                 ${langControlsHTML}
-                <div class="screen">
-                    <iframe id="${iframeId}" src="" allowfullscreen></iframe>
-                </div>
+                <div class="screen"><iframe id="${iframeId}" src="" allowfullscreen></iframe></div>
                 <div class="pagination-controls">
-                    <button class="episode-nav-btn" id="${seriesId}-prev-btn" onclick="navigateEpisode('${seriesId}', -1)">
-                        <i class="fas fa-chevron-left"></i> Anterior
-                    </button>
-                    <span id="${seriesId}-page-indicator" class="page-indicator"></span>
-                    <button class="episode-nav-btn" id="${seriesId}-next-btn" onclick="navigateEpisode('${seriesId}', 1)">
-                        Siguiente <i class="fas fa-chevron-right"></i>
-                    </button>
+                    <button class="episode-nav-btn" id="${seriesId}-prev-btn" onclick="navigateEpisode('${seriesId}', -1)"><i class="fas fa-chevron-left"></i> Anterior</button>
+                    <button class="episode-nav-btn" id="${seriesId}-next-btn" onclick="navigateEpisode('${seriesId}', 1)">Siguiente <i class="fas fa-chevron-right"></i></button>
                 </div>
             </div>
             <div class="episode-sidebar">
-                ${backButtonHTML}
-                <h2>Episodios</h2>
+                <div class="sidebar-header">
+                    ${backButtonHTML}
+                    <h2>Episodios</h2>
+                </div>
                 <div id="${seriesId}-episode-list" class="episode-list-container"></div>
             </div>
         </div>
     `;
 
-    const fullscreenEvent = 'fullscreenchange';
-    const closeBtn = modal.querySelector('.close-btn');
-
-    const handleClose = () => {
-        closePlayerModal(iframeId);
-        document.removeEventListener(fullscreenEvent, handleFullscreenChange);
-        closeBtn.removeEventListener('click', handleClose);
-    };
-
-    const handleFullscreenChangeWithId = () => {
-        handleFullscreenChange(iframeId);
-    };
-
-    document.addEventListener(fullscreenEvent, handleFullscreenChangeWithId);
-    closeBtn.addEventListener('click', handleClose);
-
     populateEpisodeList(seriesId, season);
-    openEpisode(seriesId, season, episodeIndex);
+    openEpisode(seriesId, season, savedEpisodeIndex);
 }
 
 function changeLanguage(seriesId, lang) {
@@ -820,11 +681,10 @@ function populateEpisodeList(seriesId, seasonNum) {
     const container = document.getElementById(`${seriesId}-episode-list`);
     let episodes = seriesEpisodesData[seriesId]?.[seasonNum];
     if (!episodes) {
-        container.innerHTML = `<p style="color:var(--text-muted); text-align:center;">No se encontraron episodios para esta temporada.</p>`;
+        container.innerHTML = `<p style="color:var(--text-muted); text-align:center;">No se encontraron episodios.</p>`;
         return;
     }
 
-    // ¡NUEVA LÓGICA! Ordenar los episodios por número antes de mostrarlos
     episodes.sort((a, b) => a.episodeNumber - b.episodeNumber);
 
     container.innerHTML = '';
@@ -835,28 +695,20 @@ function populateEpisodeList(seriesId, seasonNum) {
         card.onclick = () => openEpisode(seriesId, seasonNum, index);
         card.innerHTML = `
             <img src="${episode.thumbnail}" alt="${episode.title}" class="episode-card-thumb" loading="lazy">
-        <div class="episode-card-info">
-            <h3>${episode.title}</h3>
-            <p class="episode-description">${episode.description || ''}</p>
-        </div>
-    `;
+            <div class="episode-card-info">
+                <h3>${episode.title}</h3>
+                <p class="episode-description">${episode.description || ''}</p>
+            </div>`;
 
-    let hoverTimeout;
-
-    card.addEventListener('mouseenter', () => {
-        // Set a timeout of 1.5 seconds before expanding
-        hoverTimeout = setTimeout(() => {
-        card.classList.add('expanded');
-        }, 1500);
-    });
-
-    card.addEventListener('mouseleave', () => {
-        // Clear the timeout and remove the 'expanded' class
-        clearTimeout(hoverTimeout);
-        card.classList.remove('expanded');
-    });
-
-    container.appendChild(card);
+        let hoverTimeout;
+        card.addEventListener('mouseenter', () => {
+            hoverTimeout = setTimeout(() => card.classList.add('expanded'), 1500);
+        });
+        card.addEventListener('mouseleave', () => {
+            clearTimeout(hoverTimeout);
+            card.classList.remove('expanded');
+        });
+        container.appendChild(card);
     });
 }
 
@@ -864,23 +716,14 @@ function openEpisode(seriesId, season, episodeIndex) {
     const episode = seriesEpisodesData[seriesId]?.[season]?.[episodeIndex];
     if (!episode) return;
     
-    // Step 1: Remove the 'active' class from all episode cards
-    const episodeListContainer = document.getElementById(`${seriesId}-episode-list`);
-    episodeListContainer.querySelectorAll('.episode-card.active').forEach(c => c.classList.remove('active'));
+    document.querySelectorAll(`#${seriesId}-episode-list .episode-card.active`).forEach(c => c.classList.remove('active'));
     
-    // Step 2: Add the 'active' class to the correct episode card
     const activeEpisodeCard = document.getElementById(`${seriesId}-episode-${String(season).replace(/\s/g, '')}-${episodeIndex}`);
     if (activeEpisodeCard) {
         activeEpisodeCard.classList.add('active');
-        
-        // Step 3: Scroll the container to bring the active card into view
-        activeEpisodeCard.scrollIntoView({
-            behavior: 'smooth',
-            block: 'nearest'
-        });
+        activeEpisodeCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
-    // Step 4: Update the player state and UI
     playerState[seriesId] = { ...playerState[seriesId], season, episodeIndex };
     saveProgress(seriesId);
     
@@ -897,6 +740,7 @@ function openEpisode(seriesId, season, episodeIndex) {
     document.getElementById(`${seriesId}-cinema-title`).textContent = `T${season} E${episodeIndex + 1} - ${episode.title}`;
     updateNavButtons(seriesId, season, episodeIndex);
 }
+
 function navigateEpisode(seriesId, direction) {
     const { season, episodeIndex } = playerState[seriesId];
     const newIndex = episodeIndex + direction;
@@ -904,21 +748,20 @@ function navigateEpisode(seriesId, direction) {
         openEpisode(seriesId, season, newIndex);
     }
 }
+
 function updateNavButtons(seriesId, season, episodeIndex) {
     const totalEpisodes = seriesEpisodesData[seriesId][season].length;
     document.getElementById(`${seriesId}-prev-btn`).disabled = (episodeIndex === 0);
     document.getElementById(`${seriesId}-next-btn`).disabled = (episodeIndex === totalEpisodes - 1);
 }
+
 function saveProgress(seriesId) {
     try {
         let allSeriesProgress = JSON.parse(localStorage.getItem('seriesProgress')) || {};
-        
         if (!allSeriesProgress[seriesId]) {
             allSeriesProgress[seriesId] = {};
         }
-
         allSeriesProgress[seriesId][playerState[seriesId].season] = playerState[seriesId].episodeIndex;
-
         localStorage.setItem('seriesProgress', JSON.stringify(allSeriesProgress));
     } catch (e) {
         console.error("Error al guardar el progreso:", e);
@@ -953,33 +796,21 @@ function createMovieCardElement(id, data, type, lazy) {
 function initializeShowMore(modalElement) {
     const description = modalElement.querySelector('#details-synopsis');
     const wrapper = modalElement.querySelector('.description-wrapper');
-
-    if(!wrapper) return;
+    if (!wrapper) return;
 
     const existingButton = wrapper.querySelector('.toggle-description-btn');
-    if (existingButton) {
-        existingButton.remove();
-    }
-
+    if (existingButton) existingButton.remove();
     description.classList.remove('description-truncated');
 
     if (description.scrollHeight > 65) {
         description.classList.add('description-truncated');
-        
         const toggleButton = document.createElement('button');
         toggleButton.innerText = 'Ver más...';
         toggleButton.className = 'toggle-description-btn';
-        
         wrapper.appendChild(toggleButton);
-
         toggleButton.addEventListener('click', () => {
-            if (description.classList.contains('description-truncated')) {
-                description.classList.remove('description-truncated');
-                toggleButton.innerText = 'Ver menos';
-            } else {
-                description.classList.add('description-truncated');
-                toggleButton.innerText = 'Ver más...';
-            }
+            description.classList.toggle('description-truncated');
+            toggleButton.innerText = description.classList.contains('description-truncated') ? 'Ver más...' : 'Ver menos';
         });
     }
 }
@@ -993,31 +824,23 @@ function loadProgress(seriesId, seasonNum) {
     } catch (e) {
         console.error("Error al cargar el progreso:", e);
     }
-    return 0; // Si no hay progreso guardado, retorna el primer episodio (índice 0)
+    return 0;
 }
 
 function handleFullscreenChange(elementId) {
     const iframe = document.getElementById(elementId);
     if (!iframe) return;
-
+    const lockOrientation = async () => {
+        try {
+            if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape');
+        } catch (err) { console.error('No se pudo bloquear la orientación:', err); }
+    };
+    const unlockOrientation = () => {
+        if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+    };
     if (document.fullscreenElement) {
-        try {
-            if (screen.orientation && screen.orientation.lock) {
-                screen.orientation.lock('landscape')
-                    .then(() => console.log('Pantalla bloqueada en horizontal.'))
-                    .catch(err => console.error('Error al bloquear la pantalla:', err));
-            }
-        } catch (err) {
-            console.error('La API de orientación de pantalla no está disponible o falló:', err);
-        }
+        lockOrientation();
     } else {
-        try {
-            if (screen.orientation && screen.orientation.unlock) {
-                screen.orientation.unlock();
-                console.log('Pantalla desbloqueada.');
-            }
-        } catch (err) {
-            console.error('La API de orientación de pantalla no está disponible o falló:', err);
-        }
+        unlockOrientation();
     }
 }
