@@ -480,11 +480,16 @@ function closePlayerModal(iframeId) {
     }
 }
 
+// --- INICIO: LÓGICA DE RULETA RECONSTRUIDA ---
 function setupRouletteLogic() {
     const rouletteModal = document.getElementById('roulette-modal');
     const spinButton = document.getElementById('spin-roulette-btn');
     const rouletteTrack = document.getElementById('roulette-carousel-track');
-    if (!rouletteModal || !spinButton || !rouletteTrack) return;
+
+    if (!rouletteModal || !spinButton || !rouletteTrack) {
+        console.error("Elementos de la ruleta no encontrados.");
+        return;
+    }
 
     let selectedMovie = null;
 
@@ -494,8 +499,8 @@ function setupRouletteLogic() {
         rouletteTrack.style.transition = 'none';
         rouletteTrack.innerHTML = '';
         
-        if (!allMoviesFull || Object.keys(allMoviesFull).length < 5) {
-            rouletteTrack.innerHTML = `<p style="color:white;text-align:center;">No hay suficientes películas.</p>`;
+        if (!allMoviesFull || Object.keys(allMoviesFull).length < 15) {
+            rouletteTrack.innerHTML = `<p style="color:var(--text-muted);text-align:center;">No hay suficientes películas para la ruleta.</p>`;
             spinButton.disabled = true;
             return;
         }
@@ -512,14 +517,18 @@ function setupRouletteLogic() {
 
         moviesForRoulette.forEach((movie, index) => {
             const card = createMovieCardElement(movie.id, movie.data, 'roulette', true);
-            if(index === finalPickIndex) card.classList.add('winner');
+            if (index === finalPickIndex) {
+                card.dataset.winner = 'true';
+            }
             rouletteTrack.appendChild(card);
         });
         
         setTimeout(() => {
-            const cardWidth = 150 + 20; // card width + margin
             const wrapperWidth = rouletteTrack.parentElement.offsetWidth;
-            const initialOffset = (wrapperWidth / 2) - (cardWidth / 2);
+            const card = rouletteTrack.querySelector('.movie-card');
+            if (!card) return;
+            const cardTotalWidth = card.offsetWidth + (parseFloat(getComputedStyle(card).marginLeft) * 2);
+            const initialOffset = (wrapperWidth / 2) - (cardTotalWidth / 2);
             rouletteTrack.style.transform = `translateX(${initialOffset}px)`;
         }, 100);
     }
@@ -529,12 +538,17 @@ function setupRouletteLogic() {
         spinButton.disabled = true;
         rouletteTrack.classList.add('is-spinning');
 
-        const cardWidth = 150 + 20; // card width + margin
-        const winnerCard = rouletteTrack.querySelector('.winner');
-        const targetPosition = -winnerCard.offsetLeft + (rouletteTrack.parentElement.offsetWidth / 2) - (cardWidth / 2);
+        const winnerCard = rouletteTrack.querySelector('[data-winner="true"]');
+        if (!winnerCard) return;
+
+        const wrapperWidth = rouletteTrack.parentElement.offsetWidth;
+        const targetPosition = (wrapperWidth / 2) - winnerCard.offsetLeft - (winnerCard.offsetWidth / 2);
+        
+        const randomJitter = Math.floor(Math.random() * (winnerCard.offsetWidth / 4)) - (winnerCard.offsetWidth / 8);
+        const finalPosition = targetPosition + randomJitter;
         
         rouletteTrack.style.transition = 'transform 8s cubic-bezier(0.1, 0, 0.2, 1)';
-        rouletteTrack.style.transform = `translateX(${targetPosition}px)`;
+        rouletteTrack.style.transform = `translateX(${finalPosition}px)`;
 
         rouletteTrack.addEventListener('transitionend', () => {
             rouletteTrack.classList.remove('is-spinning');
@@ -545,6 +559,8 @@ function setupRouletteLogic() {
         }, { once: true });
     });
 }
+// --- FIN: LÓGICA DE RULETA RECONSTRUIDA ---
+
 
 // ===========================================================
 // LÓGICA DEL REPRODUCTOR DE SERIES
@@ -642,16 +658,15 @@ function openEpisodePlayer(seriesId, seasonNum) {
     modal.classList.add('player-layout-view');
     modal.classList.remove('season-grid-view');
     
-    // --- CAMBIO: Añadir el nuevo div .sidebar-header ---
     modal.innerHTML = `
         <button class="close-btn" onclick="closeSeriesPlayerModal()" aria-label="Cerrar">X</button>
         <div class="player-layout-container">
             <div class="player-container">
                 <h2 id="${seriesId}-cinema-title" class="player-title"></h2>
-                ${langControlsHTML}
                 <div class="screen"><iframe id="${iframeId}" src="" allowfullscreen></iframe></div>
                 <div class="pagination-controls">
                     <button class="episode-nav-btn" id="${seriesId}-prev-btn" onclick="navigateEpisode('${seriesId}', -1)"><i class="fas fa-chevron-left"></i> Anterior</button>
+                    ${langControlsHTML}
                     <button class="episode-nav-btn" id="${seriesId}-next-btn" onclick="navigateEpisode('${seriesId}', 1)">Siguiente <i class="fas fa-chevron-right"></i></button>
                 </div>
             </div>
@@ -732,7 +747,7 @@ function openEpisode(seriesId, season, episodeIndex) {
     if (episode.hasOwnProperty('videoId_es') && episode.videoId_es.trim() !== '') {
         const lang = playerState[seriesId]?.lang || 'es';
         videoId = lang === 'es' ? episode.videoId_es : episode.videoId_en;
-        document.querySelectorAll(`#${seriesId}-lang-controls .lang-btn`).forEach(btn => {
+        document.querySelectorAll(`#series-player-modal .lang-btn`).forEach(btn => {
             btn.classList.toggle('active', btn.dataset.lang === lang);
         });
     }
