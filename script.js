@@ -717,7 +717,7 @@ function populateEpisodeList(seriesId, seasonNum) {
 
         let hoverTimeout;
         card.addEventListener('mouseenter', () => {
-            hoverTimeout = setTimeout(() => card.classList.add('expanded'), 1500);
+            hoverTimeout = setTimeout(() => card.classList.add('expanded'), 1000);
         });
         card.addEventListener('mouseleave', () => {
             clearTimeout(hoverTimeout);
