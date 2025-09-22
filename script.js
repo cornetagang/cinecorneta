@@ -123,6 +123,10 @@ function setupKeydownListener() {
         if (seriesModal.classList.contains('show')) closeSeriesPlayerModal();
         if (rouletteModal.classList.contains('show')) closeRouletteModal();
     });
+
+    // --- AÑADIDO ---
+    // Se agrega el listener para el cambio a pantalla completa
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
 }
 
 
@@ -842,17 +846,29 @@ function loadProgress(seriesId, seasonNum) {
     return 0;
 }
 
-function handleFullscreenChange(elementId) {
-    const iframe = document.getElementById(elementId);
-    if (!iframe) return;
+// --- MODIFICADO ---
+// Se ha simplificado la función para que no necesite un ID
+function handleFullscreenChange() {
     const lockOrientation = async () => {
         try {
-            if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape');
-        } catch (err) { console.error('No se pudo bloquear la orientación:', err); }
+            // Se comprueba que la API de orientación exista y sea una función
+            if (screen.orientation && typeof screen.orientation.lock === 'function') {
+                await screen.orientation.lock('landscape');
+            }
+        } catch (err) { 
+            console.error('No se pudo bloquear la orientación (puede ser normal en PC):', err); 
+        }
     };
+
     const unlockOrientation = () => {
-        if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+        // Se comprueba que la API de orientación exista y sea una función
+        if (screen.orientation && typeof screen.orientation.unlock === 'function') {
+            screen.orientation.unlock();
+        }
     };
+
+    // Si hay un elemento en pantalla completa (cualquiera), bloquea la orientación.
+    // Si no hay ninguno, la desbloquea.
     if (document.fullscreenElement) {
         lockOrientation();
     } else {
