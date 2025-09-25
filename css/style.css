@@ -15,6 +15,57 @@ body.modal-open { overflow: hidden; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ================================== */
+/* HEADER - BOTONES DE AUTENTICACIÓN  */
+/* ================================== */
+
+/* Estilo Base para los botones de Ingresar/Registrarse */
+#auth-buttons {
+    display: flex;
+    align-items: center;
+    gap: 10px; /* Reducido a 10px para móvil y desktop */
+}
+
+/* Base para ambos enlaces */
+#auth-buttons a {
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 0.95rem; /* Ligeramente más grande que el nav, pero no exagerado */
+    padding: 8px 16px;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    white-space: nowrap; /* Evita que el texto se rompa */
+}
+
+/* 1. Botón de REGISTRARSE (El principal de llamada a la acción) */
+.btn-register {
+    background: var(--primary-red);
+    color: white;
+    border: 2px solid var(--primary-red);
+    box-shadow: 0 4px 8px rgba(229, 9, 20, 0.4); /* Sombra para destacarlo */
+}
+
+.btn-register:hover {
+    background: var(--secondary-red);
+    border-color: var(--secondary-red);
+    box-shadow: 0 6px 12px rgba(229, 9, 20, 0.6);
+    transform: translateY(-2px);
+}
+
+/* 2. Botón de INGRESAR (El secundario, más sutil) */
+.btn-login {
+    background: transparent; /* Fondo transparente para sutilidad */
+    color: var(--text-light); /* Color de texto blanco para contraste */
+    border: 2px solid var(--text-muted); /* Borde gris sutil */
+}
+
+.btn-login:hover {
+    background: rgba(255, 255, 255, 0.1); /* Fondo muy sutil al pasar el ratón */
+    border-color: var(--text-light);
+    color: var(--text-light);
+    transform: translateY(-1px);
+}
+
+/* ================================== */
 /* HEADER                             */
 /* ================================== */
 .main-header {
@@ -1304,7 +1355,7 @@ body.modal-open { overflow: hidden; }
         /* Para que se vea el hover o el activo centrado */
         background-color: rgba(255, 255, 255, 0.1); 
     }
-    .header-right { gap: 10px; }
+    .header-right { gap: 8px; }
     #search-input { width: 40px; height: 40px; padding: 0; border-radius: 20px; cursor: pointer; text-indent: -9999px; }
     #search-input:focus { width: 150px; cursor: text; padding: 6px 12px 6px 40px; text-indent: 0; }
     .search-icon { left: 12px; }
@@ -1409,7 +1460,16 @@ body.modal-open { overflow: hidden; }
     }
     
     #auth-buttons {
-        gap: 8px;
+        gap: 6px; /* Espacio más pequeño entre los botones */
+    }
+    
+    #auth-buttons a {
+        padding: 6px 10px; /* Reducción de padding para hacerlos más compactos */
+        font-size: 0.8rem; /* Tamaño de fuente más pequeño */
+        border-width: 1px; /* Borde más fino para el móvil */
+        border-radius: 4px; /* Bordes ligeramente más cuadrados */
+        transform: none !important; /* Asegura que el hover no cause saltos */
+        font-size: 0.85rem;
     }
     
     .btn-login, .btn-register {
