@@ -22,90 +22,175 @@
             <div class="header-container">
                 <div class="header-left">
                     <div class="logo">
-                        <img src="https://i.imgur.com/vgJjqSM.png" alt="Cine Corneta Logo" class="header-logo">
+                        <img src="https://i.imgur.com/vgJjqSM.png" alt="Cine Corneta Logo">
                     </div>
                     <nav class="main-nav">
                         <ul>
-                            <li><a href="#" data-filter="all" class="active">Inicio</a></li>
+                            <li><a href="#" class="active" data-filter="all">Inicio</a></li>
                             <li><a href="#" data-filter="movie">Películas</a></li>
                             <li><a href="#" data-filter="series">Series</a></li>
                             <li><a href="#" data-filter="roulette">Ruleta</a></li>
+                            <li id="my-list-nav-link" style="display: none;"><a href="#" data-filter="my-list">Mi Lista</a></li>
+                            <li id="history-nav-link" style="display: none;"><a href="#" data-filter="history">Historial</a></li>
                         </ul>
                     </nav>
                 </div>
                 <div class="header-right">
-                    <div class="search-container">
+                    <div id="search-container">
+                        <input type="text" id="search-input" placeholder="Buscar..." autocomplete="off">
                         <i class="fas fa-search search-icon"></i>
-                        <input type="text" id="search-input" placeholder="Buscar...">
                     </div>
-                    <button id="menu-toggle" class="hamburger-btn" aria-label="Abrir menú">
-                        <i class="fas fa-bars" aria-hidden="true"></i>
-                    </button>
+
+                    <div id="user-profile-container" style="display: none;">
+                        <div class="user-dropdown-wrapper">
+                            <button id="user-greeting" class="user-greeting-btn">Hola, Usuario</button>
+                            <div id="user-menu-dropdown" class="user-menu-dropdown">
+                                <a href="#" data-action="profile">
+                                    <i class="fas fa-user-circle" style="width: 18px;"></i> Mi Perfil
+                                </a>
+                                <a href="#" data-action="settings">
+                                    <i class="fas fa-cog" style="width: 18px;"></i> Ajustes de Cuenta
+                                </a>
+                                <a href="#" id="logout-btn" data-action="logout">
+                                    <i class="fas fa-sign-out-alt" style="width: 18px;"></i> Cerrar Sesión
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="auth-buttons" style="display: flex;">
+                        <a href="#" id="login-btn-header" class="btn btn-login">Ingresar</a>
+                        <a href="#" id="register-btn-header" class="btn btn-register">Registrarse</a>
+                    </div>
+                    <button id="menu-toggle" class="hamburger-btn" aria-label="Abrir menú de navegación"><i class="fas fa-bars"></i></button>
                 </div>
             </div>
         </header>
 
         <main>
-            <section class="hero-section" id="hero-section">
-                <div class="hero-content-wrapper">
-                    <div class="hero-content">
-                        <h1>LA HORA DE LA DESAPARICIÓN</h1>
-                        <p>...</p>
-                        <div class="hero-buttons">
-                            <a href="#" class="btn btn-play">Ver Ahora</a>
-                            <a href="#" class="btn btn-info">Más Información</a>
+            <section id="hero-section" class="hero-section">
+                </section>
+
+            <div id="carousel-container">
+                </div>
+
+            <div id="full-grid-container" style="display: none;">
+                <div class="filter-controls" id="filter-controls">
+                    <select id="genre-filter"></select>
+                    <select id="sort-by"></select>
+                </div>
+                <div class="grid"></div>
+            </div>
+
+            <div id="my-list-container" style="display: none;">
+                <div class="content-header"><h2>Mi Lista</h2></div>
+                <div id="my-list-grid" class="grid"></div>
+            </div>
+
+            <div id="history-container" style="display: none;">
+                <div class="content-header"><h2>Historial de Reproducción</h2></div>
+                <div id="history-grid" class="grid"></div>
+            </div>
+
+            <div id="profile-container" class="content-container" style="display: none;">
+                <div class="profile-header-wrapper">
+                    <div class="profile-main-info">
+                        <div class="profile-avatar-placeholder">
+                             <i class="fas fa-user-circle"></i>
+                        </div>
+                        <div class="profile-text-info">
+                            <h3 id="profile-username"></h3>
+                            <p id="profile-email"></p>
                         </div>
                     </div>
-                </div>
-            </section>
-            <div class="content-wrapper">
-                <div id="carousel-container"></div>
-                <div id="full-grid-container" style="display: none;">
-                    <div class="filter-controls" id="filter-controls">
-                        <select id="genre-filter">
-                            <option value="all">Todos los géneros</option>
-                        </select>
-                        <select id="sort-by">
-                            <option value="recent">Recientes</option>
-                            <option value="title-asc">Título (A - Z)</option>
-                            <option value="title-desc">Título (Z - A)</option>
-                            <option value="year-asc">Año (Ascendente)</option>
-                            <option value="year-desc">Año (Descendente)</option>
-                        </select>
+                    <div class="profile-nav-tabs">
+                        <button class="profile-tab active" data-tab="activity">Mi Actividad</button>
+                        <button class="profile-tab" data-tab="ratings">Mis Calificaciones</button>
                     </div>
-                    <div class="grid"></div>
+                </div>
+
+                <div class="profile-tab-content active" id="activity-tab">
+                    <div class="stats-container">
+                        <div class="stat-card">
+                            <i class="fas fa-film"></i>
+                            <span id="stat-movies-watched" class="stat-value">0</span>
+                            <span class="stat-label">Películas Vistas</span>
+                        </div>
+                        <div class="stat-card">
+                            <i class="fas fa-tv"></i>
+                            <span id="stat-series-watched" class="stat-value">0</span>
+                            <span class="stat-label">Series Únicas Vistas</span>
+                        </div>
+                        <div class="stat-card">
+                            <i class="fas fa-clock"></i>
+                            <span id="stat-total-items" class="stat-value">0</span>
+                            <span class="stat-label">Títulos en Historial</span>
+                        </div>
+                        <div class="stat-card">
+                            <i class="fas fa-star"></i>
+                            <span id="stat-avg-rating" class="stat-value">N/A</span>
+                            <span class="stat-label">Tu Calificación Promedio</span>
+                        </div>
+                    </div>
+                    <h4>Tus Géneros Favoritos</h4>
+                    <div id="genre-stats-container">
+                        </div>
+                </div>
+
+                <div class="profile-tab-content" id="ratings-tab">
+                     <h4>Tus Calificaciones</h4>
+                     <div id="ratings-history-container" class="ratings-list">
+                        </div>
                 </div>
             </div>
-        </main>
-    </div>
-    
-    <div id="menu-overlay" class="menu-overlay"></div>
 
-    <div class="mobile-nav-panel" id="mobile-nav-panel">
-        <button class="close-nav-btn" aria-label="Cerrar menú"><i class="fas fa-times"></i></button>
+            <div id="settings-container" class="content-container" style="display: none;">
+                <div class="content-header">
+                    <h1 class="main-title">Ajustes de Cuenta</h1>
+                    <p class="section-description">Administra la configuración de tu perfil y cuenta.</p>
+                </div>
+                <div class="settings-form-wrapper">
+                    <div class="settings-group">
+                        <label for="settings-username-input">Nombre de usuario</label>
+                        <div class="input-with-button">
+                            <input type="text" id="settings-username-input" placeholder="Nuevo nombre de usuario">
+                            <button id="update-username-btn" class="btn-primary">Guardar Nombre</button>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <label for="settings-password-input">Contraseña</label>
+                        <div class="input-with-button">
+                            <input type="password" id="settings-password-input" placeholder="Nueva contraseña (mín. 6 caracteres)">
+                            <button id="update-password-btn" class="btn-primary">Actualizar Contraseña</button>
+                        </div>
+                    </div>
+                    <p id="settings-feedback" class="feedback-message"></p>
+                </div>
+            </div>
+            </main>
+    </div>
+
+    <div id="mobile-nav-panel" class="mobile-nav-panel">
+        <button class="close-nav-btn">&times;</button>
         <nav class="mobile-nav">
             <ul>
                 <li><a href="#" data-filter="all">Inicio</a></li>
                 <li><a href="#" data-filter="movie">Películas</a></li>
                 <li><a href="#" data-filter="series">Series</a></li>
                 <li><a href="#" data-filter="roulette">Ruleta</a></li>
+                <li id="my-list-nav-link-mobile" style="display: none;"><a href="#" data-filter="my-list">Mi Lista</a></li>
+                <li id="history-nav-link-mobile" style="display: none;"><a href="#" data-filter="history">Historial</a></li>
             </ul>
         </nav>
     </div>
-
-    <div id="cinema" class="modal player-modal">
-        <button class="close-btn" onclick="closePlayerModal('video-frame')">X</button>
-        <div class="screen"><iframe id="video-frame" src="" allow="autoplay" allowfullscreen></iframe></div>
-    </div>
-
-    <div id="series-player-modal" class="modal"></div>
+    <div id="menu-overlay" class="menu-overlay"></div>
 
     <div id="details-modal" class="modal">
-    <div class="details-panel" id="details-panel-content">
-        <button class="close-btn" onclick="closeDetailsModal()">X</button>
+    <div class="details-panel">
+        <button class="close-btn">&times;</button>
         <div class="details-content">
             <div class="details-poster">
-                <img id="details-poster-img" src="" alt="Poster de la película">
+                <img id="details-poster-img" src="" alt="Poster">
             </div>
             <div class="details-info">
                 <h2 id="details-title"></h2>
@@ -113,8 +198,14 @@
                     <span id="details-year"></span>
                     <span id="details-genres"></span>
                 </div>
-                <div class="description-wrapper">
-                     <p id="details-synopsis"></p>
+
+                <div id="details-rating-display" class="rating-display">
+                    </div>
+                <p id="details-synopsis"></p>
+                <div id="details-user-rating" class="user-rating-container">
+                    <p>Tu calificación:</p>
+                    <div class="stars-interactive">
+                        </div>
                 </div>
                 <div id="details-buttons"></div>
             </div>
@@ -122,19 +213,62 @@
     </div>
 </div>
 
+    <div id="cinema" class="modal">
+        <div class="screen"><iframe src="" allowfullscreen></iframe></div>
+        <button class="close-btn">&times;</button>
+    </div>
+
     <div id="roulette-modal" class="modal">
         <div class="roulette-modal-content">
-            <button class="close-btn" onclick="closeRouletteModal()">X</button>
-            <h2 class="modal-title">Película al azar</h2>
+            <button class="close-btn">&times;</button>
+            <h2>Ruleta de Películas</h2>
             <div class="roulette-carousel-wrapper">
                 <div id="roulette-carousel-track" class="roulette-carousel-track"></div>
                 <div class="roulette-selector"></div>
             </div>
-            <button id="spin-roulette-btn" class="btn btn-spin">GIRAR</button>
+            <button id="spin-roulette-btn" class="btn-spin">Girar</button>
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <div id="series-player-modal" class="modal">
+        </div>
+
+    <div id="auth-modal" class="modal">
+        <div class="auth-modal-content">
+            <button class="close-btn">&times;</button>
+            <form id="register-form" class="auth-form">
+                <h2>Crear Cuenta</h2>
+                <input type="text" id="register-username" placeholder="Nombre de usuario" required>
+                <input type="email" id="register-email" placeholder="Correo electrónico" required>
+                <input type="password" id="register-password" placeholder="Contraseña (mín. 6 caracteres)" required>
+                <p class="auth-error" id="register-error"></p>
+                <button type="submit">Registrarse</button>
+            </form>
+            <form id="login-form" class="auth-form" style="display:none;">
+                <h2>Iniciar Sesión</h2>
+                <input type="email" id="login-email" placeholder="Correo electrónico" required>
+                <input type="password" id="login-password" placeholder="Contraseña" required>
+                <p class="auth-error" id="login-error"></p>
+                <button type="submit">Ingresar</button>
+            </form>
+            <p class="auth-switch"><a href="#" id="switch-auth-mode">¿Ya tienes cuenta? Inicia Sesión</a></p>
+        </div>
+    </div>
+
+    <div id="confirmation-modal" class="modal">
+        <div class="confirmation-modal-content">
+            <h2></h2>
+            <p></p>
+            <div class="confirmation-buttons">
+                <button id="cancel-delete-btn" class="btn-cancel">Cancelar</button>
+                <button id="confirm-delete-btn" class="btn-confirm">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="script.js?v=2"></script>
 </body>
 </html>
-
