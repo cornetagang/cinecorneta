@@ -1477,18 +1477,26 @@ body.modal-open { overflow: hidden; }
         font-size: 0.9rem;
     }
     
-    /* ===== INICIO DE CORRECCIONES PARA SERIES EN MÓVIL ===== */
-    /* 1. ELIMINAR EL ESPACIO EN EL REPRODUCTOR */
+    /* 1. VISTA DEL REPRODUCTOR DE EPISODIOS */
     #series-player-modal.player-layout-view {
+        /* Permite que el modal se desplace si es necesario, pero intenta ajustarse a la pantalla */
         align-items: flex-start;
         overflow-y: auto;
     }
-    #series-player-modal.player-layout-view .player-layout-container {
-        margin-top: 5vh;
-        margin-bottom: 5vh;
+    
+    #series-player-modal.player-layout-view .player-layout-container { 
+        flex-direction: column; 
+        height: auto; /* Deja que la altura se ajuste al contenido */
+        width: 100%; 
+        padding: 15px; 
+        gap: 20px; 
+        
+        /* CORRECCIÓN APLICADA: Margen superior fijo y sin margen inferior excesivo */
+        margin-top: 15px; 
+        margin-bottom: 0;
     }
 
-    /* 2. ESTILO CORRECTO PARA VISTA DE TEMPORADAS */
+    /* 2. VISTA DE SELECCIÓN DE TEMPORADAS */
     #series-player-modal.season-grid-view {
         overflow: hidden;
     }
