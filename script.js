@@ -604,7 +604,7 @@ function generateContinueWatchingCarousel(snapshot) {
         const carouselEl = document.createElement('div');
         carouselEl.id = 'continue-watching-carousel';
         carouselEl.className = 'carousel';
-        carouselEl.innerHTML = `<h3 class="carousel-title">Visto Recientemente</h3><div class="carousel-track"></div>`;
+        carouselEl.innerHTML = `<h3 class="carousel-title">Continuar Viendo</h3><div class="carousel-track"></div>`;
         const track = carouselEl.querySelector('.carousel-track');
         itemsToDisplay.forEach(itemData => {
             track.appendChild(createContinueWatchingCard(itemData));
@@ -1921,3 +1921,4 @@ async function deleteRating(contentId, oldRating, type) {
         closeAllModals();
     }
 }
+
