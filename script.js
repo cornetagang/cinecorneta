@@ -1638,9 +1638,16 @@ function openConfirmationModal(title, message, onConfirm) {
     const newCancelBtn = cancelBtn.cloneNode(true);
     cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
 
+    // =================== INICIO DE LA CORRECCIÓN ===================
     // Asignar nuevos listeners
-    newConfirmBtn.addEventListener('click', onConfirm);
-    newCancelBtn.addEventListener('click', closeAllModals); // Usa tu función global para cerrar
+    // Ahora nos aseguramos de que el modal se cierre DESPUÉS de ejecutar la acción.
+    newConfirmBtn.addEventListener('click', () => {
+        onConfirm(); // Primero, ejecuta la acción (ej: removeFromHistory)
+        closeAllModals(); // Después, cierra todos los modales
+    });
+    // ==================== FIN DE LA CORRECCIÓN =====================
+    
+    newCancelBtn.addEventListener('click', closeAllModals); // El botón de cancelar ya funcionaba bien
 
     // Mostrar el modal
     modal.classList.add('show');
