@@ -134,25 +134,38 @@ document.addEventListener('DOMContentLoaded', () => {
 function fetchInitialData() {
     const CACHE_KEY = 'cineCornetaData';
 
-    // Función para procesar los datos y mostrarlos en la UI
-    const processAndDisplayData = (data) => {
-        Object.assign(appState.content.movies, data.allMovies);
-        Object.assign(appState.content.series, data.series);
-        Object.assign(appState.content.seriesEpisodes, data.episodes);
-        Object.assign(appState.content.seasonPosters, data.posters);
+    // Función interna para procesar y asignar los datos al estado de la app
+    const processData = (data) => {
+        appState.content.movies = data.allMovies || {};
+        appState.content.series = data.series || {};
+        appState.content.seriesEpisodes = data.episodes || {};
+        appState.content.seasonPosters = data.posters || {};
     };
 
-    // Función para configurar la aplicación después de tener los datos de Firebase
-    const setupAppWithFirebaseData = (movieMeta, seriesMeta) => {
-        Object.assign(appState.content.metadata.movies, movieMeta);
-        Object.assign(appState.content.metadata.series, seriesMeta);
-        setupApp(); // Tu función setupApp existente
-        DOM.preloader.classList.add('fade-out');
-        DOM.preloader.addEventListener('transitionend', () => DOM.preloader.remove());
-        DOM.pageWrapper.style.display = 'block';
+    // Función interna para configurar y mostrar la app
+    const setupAndShow = (movieMeta, seriesMeta) => {
+        appState.content.metadata.movies = movieMeta || {};
+        appState.content.metadata.series = seriesMeta || {};
+        
+        // Solo muestra la página si aún no se ha hecho
+        if (DOM.pageWrapper.style.display !== 'block') {
+            setupApp();
+            DOM.preloader.classList.add('fade-out');
+            DOM.preloader.addEventListener('transitionend', () => DOM.preloader.remove());
+            DOM.pageWrapper.style.display = 'block';
+        } else {
+            // Si la página ya era visible, solo refresca los componentes dinámicos
+            setupHero();
+            generateCarousels();
+            // Si el usuario está en una vista de grid, la refrescamos también
+            const activeFilter = document.querySelector('.main-nav a.active, .mobile-nav a.active')?.dataset.filter;
+            if (activeFilter === 'movie' || activeFilter === 'series') {
+                applyAndDisplayFilters(activeFilter);
+            }
+        }
     };
 
-    // 1. Inicia la carga de datos nuevos (API + Firebase) INMEDIATAMENTE
+    // 1. Inicia la petición de datos frescos en segundo plano
     const freshDataPromise = Promise.all([
         fetch(`${API_URL}?data=series`).then(res => res.json()),
         fetch(`${API_URL}?data=episodes`).then(res => res.json()),
@@ -162,68 +175,41 @@ function fetchInitialData() {
         db.ref('series_metadata').once('value').then(snapshot => snapshot.val() || {})
     ]);
 
-    // 2. Muestra los datos del caché (si existen) para una carga visual instantánea
-    const cachedData = localStorage.getItem(CACHE_KEY);
-    if (cachedData) {
-        console.log("Cargando desde el caché para una UI rápida...");
-        const cachedContent = JSON.parse(cachedData).data;
-        processAndDisplayData(cachedContent);
-        
-        // Obtenemos solo los metadatos de Firebase para terminar de configurar la UI
+    // 2. Intenta cargar desde el caché para una UI instantánea
+    const cachedDataString = localStorage.getItem(CACHE_KEY);
+    if (cachedDataString) {
+        console.log("Cargando UI desde el caché...");
+        const cachedData = JSON.parse(cachedDataString).data;
+        processData(cachedData);
+
+        // Los metadatos de Firebase (calificaciones) sí los pedimos para que estén actualizados
         Promise.all([
             db.ref('movie_metadata').once('value').then(s => s.val() || {}),
             db.ref('series_metadata').once('value').then(s => s.val() || {})
         ]).then(([movieMeta, seriesMeta]) => {
-            setupAppWithFirebaseData(movieMeta, seriesMeta);
+            setupAndShow(movieMeta, seriesMeta);
         });
-
     }
 
-    // 3. Una vez que los datos nuevos (que se pidieron al inicio) llegan...
+    // 3. Cuando los datos frescos lleguen, actualiza la UI y el caché
     freshDataPromise.then(([series, episodes, allMovies, posters, movieMeta, seriesMeta]) => {
-        console.log("Datos frescos recibidos. Actualizando caché...");
-        const dataToCache = { allMovies, series, episodes, posters };
-
-        // ...procesa los datos y actualiza el caché para la próxima visita
-        processAndDisplayData(dataToCache);
-        localStorage.setItem(CACHE_KEY, JSON.stringify({ data: dataToCache }));
-
-        // 4. Si NO había caché (primera visita), muestra los datos nuevos cuando lleguen
-        if (!cachedData) {
-            console.log("Primera visita o caché vacío. Mostrando datos frescos.");
-            setupAppWithFirebaseData(movieMeta, seriesMeta);
-        }
-    }).catch(error => {
-        console.error("Error al cargar los datos frescos:", error);
-        // Si la carga de datos frescos falla, nos aseguramos de que la UI se muestre si teníamos caché
-        if (!cachedData) {
-            DOM.preloader.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 20px;"><p>Error al cargar datos. Intenta recargar la página.</p></div>`;
-        }
-    });
-}
-    Promise.all([
-        fetch(`${API_URL}?data=series`).then(res => res.json()),
-        fetch(`${API_URL}?data=episodes`).then(res => res.json()),
-        fetch(`${API_URL}?data=allMovies&order=desc`).then(res => res.json()),
-        fetch(`${API_URL}?data=PostersTemporadas`).then(res => res.json()),
-        db.ref('movie_metadata').once('value').then(snapshot => snapshot.val() || {}),
-        db.ref('series_metadata').once('value').then(snapshot => snapshot.val() || {})
-    ])
-    .then(([series, episodes, allMovies, posters, movieMeta, seriesMeta]) => {
-        Object.assign(appState.content.series, series);
-        Object.assign(appState.content.seriesEpisodes, episodes);
-        Object.assign(appState.content.movies, allMovies);
-        Object.assign(appState.content.seasonPosters, posters);
-        Object.assign(appState.content.metadata.movies, movieMeta);
-        Object.assign(appState.content.metadata.series, seriesMeta);
-
-        const dataToCache = { allMovies, series, episodes, posters };
+        console.log("Datos frescos recibidos.");
+        const freshData = { allMovies, series, episodes, posters };
         
-        setupAndShow();
-    })
-    .catch(error => {
-        console.error("Error al cargar los datos:", error);
-        DOM.preloader.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 20px;"><p>Error al cargar datos. Intenta recargar la página.</p></div>`;
+        // Actualiza el estado de la aplicación con los datos frescos
+        processData(freshData);
+        // Guarda los datos frescos en el caché para la próxima vez
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ data: freshData }));
+        
+        // Vuelve a renderizar toda la UI con la información nueva
+        setupAndShow(movieMeta, seriesMeta);
+
+    }).catch(error => {
+        console.error("Error al cargar datos frescos:", error);
+        // Si todo falla y no teníamos caché, muestra un error
+        if (!cachedDataString) {
+            DOM.preloader.innerHTML = `<p>Error de conexión. Intenta recargar.</p>`;
+        }
     });
 }
 
@@ -1956,6 +1942,7 @@ async function deleteRating(contentId, oldRating, type) {
         closeAllModals();
     }
 }
+
 
 
 
