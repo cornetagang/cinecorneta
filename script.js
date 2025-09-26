@@ -182,7 +182,6 @@ function fetchInitialData() {
         Object.assign(appState.content.metadata.series, seriesMeta);
 
         const dataToCache = { allMovies, series, episodes, posters };
-        localStorage.setItem(CACHE_KEY, JSON.stringify({ data: dataToCache, timestamp: new Date().getTime() }));
         
         setupAndShow();
     })
@@ -1921,4 +1920,5 @@ async function deleteRating(contentId, oldRating, type) {
         closeAllModals();
     }
 }
+
 
