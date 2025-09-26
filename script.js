@@ -204,6 +204,22 @@ function fetchInitialData() {
         // Vuelve a renderizar toda la UI con la información nueva
         setupAndShow(movieMeta, seriesMeta);
 
+        // =================== INICIO DE LA CORRECCIÓN ===================
+        // Forzamos la regeneración del carrusel "Continuar Viendo" después
+        // de que los datos de contenido (series, episodios) se hayan actualizado.
+        // Esto soluciona el problema donde el carrusel no aparecía en cargas
+        // posteriores porque el historial del usuario se comparaba con datos
+        // de caché obsoletos.
+        const user = auth.currentUser;
+        if (user) {
+            db.ref(`users/${user.uid}/history`).orderByChild('viewedAt').once('value', snapshot => {
+                if (snapshot.exists()) {
+                    generateContinueWatchingCarousel(snapshot);
+                }
+            });
+        }
+        // ==================== FIN DE LA CORRECCIÓN =====================
+
     }).catch(error => {
         console.error("Error al cargar datos frescos:", error);
         // Si todo falla y no teníamos caché, muestra un error
@@ -1942,7 +1958,3 @@ async function deleteRating(contentId, oldRating, type) {
         closeAllModals();
     }
 }
-
-
-
-
