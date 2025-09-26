@@ -107,7 +107,7 @@ const DOM = {
     menuOverlay: document.getElementById('menu-overlay')
 };
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbzNEU_9fiHXqHl_-Rcq4Vmx5dE6Wm6wc1xgKtGF3uWHf4w1hkHsySfArtjeBDx-BKA/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbyoyppmVsPAxnepMvqSMHHN386LW4Y0X90bkADVEBg54Irx5O2Vuvt0lTDQk4eYrEH-/exec';
 const ITEMS_PER_LOAD = 18;
 
 const firebaseConfig = {
@@ -1954,6 +1954,7 @@ async function deleteRating(contentId, oldRating, type) {
         closeAllModals();
     }
 }
+
 
 
 
