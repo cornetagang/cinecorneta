@@ -1323,7 +1323,18 @@ function openEpisode(seriesId, season, newEpisodeIndex) {
     
     const iframe = DOM.seriesPlayerModal.querySelector(`#video-frame-${seriesId}`);
     const lang = appState.player.state[seriesId]?.lang || 'es';
-    const videoId = (lang === 'es' && episode.videoId_es) ? episode.videoId_es : episode.videoId;
+    
+    // --- INICIO DE LA CORRECCIÓN ---
+    let videoId;
+    if (lang === 'en' && episode.videoId_en) {
+        videoId = episode.videoId_en; // Usa el ID en inglés si está disponible y seleccionado.
+    } else if (lang === 'es' && episode.videoId_es) {
+        videoId = episode.videoId_es; // Usa el ID en español si está disponible y seleccionado.
+    } else {
+        videoId = episode.videoId; // Como último recurso, usa el ID por defecto.
+    }
+    // --- FIN DE LA CORRECCIÓN ---
+
     iframe.src = videoId ? `https://drive.google.com/file/d/${videoId}/preview` : '';
     
     const episodeNumber = episode.episodeNumber || newEpisodeIndex + 1;
@@ -1954,8 +1965,3 @@ async function deleteRating(contentId, oldRating, type) {
         closeAllModals();
     }
 }
-
-
-
-
-
