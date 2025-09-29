@@ -302,6 +302,7 @@ function switchView(filter) {
         if (DOM.filterControls) DOM.filterControls.style.display = 'flex';
         populateFilters(filter);
         applyAndDisplayFilters(filter);
+        setupInfiniteScroll(filter);
     } else if (filter === 'my-list') {
         if (DOM.myListContainer) { DOM.myListContainer.style.display = 'block'; displayMyListView(); }
     } else if (filter === 'history') {
@@ -399,24 +400,7 @@ function applyAndDisplayFilters(type) {
 // 4. MÓDULOS DE FUNCIONALIDADES (HERO, BÚSQUEDA, RULETA, ETC.)
 // ===========================================================
 function setupEventListeners() {
-    window.addEventListener('scroll', () => {
-        if (DOM.header) DOM.header.classList.toggle('scrolled', window.scrollY > 50);
-
-        const gridIsVisible = DOM.gridContainer.style.display === 'block';
-
-        if (DOM.gridContainer && gridIsVisible && !appState.flags.isLoadingMore) {
-            const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
-            if (scrollTop + clientHeight >= scrollHeight - 300) {
-                const activeNav = document.querySelector('.main-nav a.active, .mobile-nav a.active');
-                if (activeNav) {
-                    const currentType = activeNav.dataset.filter;
-                    if (currentType === 'movie' || currentType === 'series') {
-                        loadMoreContent(currentType);
-                    }
-                }
-            }
-        }
-    }, { passive: true });
+    // Ya no usamos scroll manual, ahora IntersectionObserver
 
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') closeAllModals();
@@ -446,6 +430,36 @@ function handleFullscreenChange() {
     } else {
         unlockOrientation();
     }
+}
+
+function setupInfiniteScroll(type) {
+    const sentinelId = "infinite-scroll-sentinel";
+
+    // Si no existe, lo creamos al final del grid
+    let sentinel = document.getElementById(sentinelId);
+    if (!sentinel) {
+        sentinel = document.createElement("div");
+        sentinel.id = sentinelId;
+        sentinel.style.height = "1px";
+        DOM.gridContainer.appendChild(sentinel);
+    }
+
+    // Limpiar observadores previos
+    if (sentinel._observer) {
+        sentinel._observer.disconnect();
+    }
+
+    // Crear nuevo IntersectionObserver
+    const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting && !appState.flags.isLoadingMore) {
+                loadMoreContent(type);
+            }
+        });
+    }, { rootMargin: "200px" });
+
+    observer.observe(sentinel);
+    sentinel._observer = observer; // Guardamos referencia para limpiar después
 }
 
 function handleGlobalClick(event) {
@@ -485,7 +499,7 @@ function startHeroInterval() {
     appState.ui.heroInterval = setInterval(() => {
         currentHeroIndex = (currentHeroIndex + 1) % appState.ui.heroMovieIds.length;
         changeHeroMovie(appState.ui.heroMovieIds[currentHeroIndex]);
-    }, 7000);
+    }, 8000);
 }
 
 function changeHeroMovie(movieId) {
@@ -497,8 +511,8 @@ function changeHeroMovie(movieId) {
 
     setTimeout(() => {
         const imageUrl = window.innerWidth < 992 ? movieData.poster : movieData.banner;
-        const cacheBuster = `?t=${new Date().getTime()}`;
-        DOM.heroSection.style.backgroundImage = `url(${imageUrl}${cacheBuster})`;
+        // 🔧 FIX: quitamos el cache-buster para que no descargue la imagen en cada cambio
+        DOM.heroSection.style.backgroundImage = `url(${imageUrl})`;
         
         heroContent.querySelector('#hero-title').textContent = movieData.title;
         heroContent.querySelector('#hero-synopsis').textContent = movieData.synopsis;
@@ -764,49 +778,62 @@ function closeRouletteModal() {
 function closeAllModals() {
     document.querySelectorAll('.modal.show').forEach(modal => {
         modal.classList.remove('show');
-        const iframe = modal.querySelector('iframe');
-        if (iframe) iframe.src = '';
     });
     document.body.classList.remove('modal-open');
+
+    // Restaurar foco al último elemento que abrió el modal
+    if (lastFocusedElement) {
+        lastFocusedElement.focus();
+        lastFocusedElement = null; // limpiar
+    }
 }
 
-async function openDetailsModal(id, type) {
+let lastFocusedElement = null;
+
+async function openDetailsModal(id, type, triggerElement = null) {
+    if (triggerElement) lastFocusedElement = triggerElement;
+
     const data = type.includes('series') ? appState.content.series[id] : appState.content.movies[id];
-    if (!data) return;
-    if (!DOM.detailsModal) return;
-    
-    DOM.detailsModal.querySelector('.details-panel').style.backgroundImage = `url(${data.banner})`;
-    DOM.detailsModal.querySelector('#details-poster-img').src = data.poster;
-    DOM.detailsModal.querySelector('#details-title').textContent = data.title;
-    DOM.detailsModal.querySelector('#details-year').textContent = data.year || '';
-    DOM.detailsModal.querySelector('#details-genres').textContent = data.genres?.split(';').map(g => g.trim()).join(' • ') || '';
-    DOM.detailsModal.querySelector('#details-synopsis').textContent = data.synopsis || '';
-    
+    if (!data || !DOM.detailsModal) return;
+
+    // Mostrar modal
+    DOM.detailsModal.classList.add('show');
+    document.body.classList.add('modal-open');
+
+    // 🎬 Fondo con banner (poster como fallback)
+    const detailsPanel = DOM.detailsModal.querySelector('.details-panel');
+    if (detailsPanel) {
+        const bgImage = data.banner || data.poster;
+        detailsPanel.style.backgroundImage = `url(${bgImage})`;
+    }
+
+    // 🎞️ Poster lateral
+    const posterImg = DOM.detailsModal.querySelector('#details-poster-img');
+    if (posterImg) {
+        posterImg.src = data.poster;
+        posterImg.alt = `Poster de ${data.title}`;
+        posterImg.loading = "lazy";
+    }
+
+    // 📝 Título, año, géneros, sinopsis
+    DOM.detailsModal.querySelector('#details-title').textContent = data.title || "Sin título";
+    DOM.detailsModal.querySelector('#details-year').textContent = data.year || "";
+    DOM.detailsModal.querySelector('#details-genres').textContent = data.genres || "";
+    DOM.detailsModal.querySelector('#details-synopsis').textContent = data.synopsis || "";
+
+    // ⭐ Calificación promedio
     const ratingDisplay = DOM.detailsModal.querySelector('#details-rating-display');
-    const userRatingContainer = DOM.detailsModal.querySelector('#details-user-rating');
-    const metadata = type === 'movie' ? appState.content.metadata.movies[id] : appState.content.metadata.series[id];
-    if (metadata && metadata.avgRating > 0) {
-        const avg = metadata.avgRating.toFixed(1);
-        const count = metadata.ratingCount;
-        ratingDisplay.innerHTML = `<div class="stars-static">${generateStaticStars(avg)}</div><span class="rating-value">${avg}</span><span class="rating-count">(${count} votos)</span>`;
-        ratingDisplay.style.display = 'flex';
-    } else {
-        ratingDisplay.innerHTML = `<span class="rating-count">Aún no hay calificaciones.</span>`;
-        ratingDisplay.style.display = 'flex';
-    }
+    const metadataSource = type.includes('series') ? appState.content.metadata.series : appState.content.metadata.movies;
+    const rating = metadataSource?.[id]?.avgRating || null;
+    ratingDisplay.innerHTML = rating
+        ? `<span>⭐ ${rating.toFixed(1)}/5</span>`
+        : `<span>Sin calificación</span>`;
 
-    const user = auth.currentUser;
-    if (user) {
-        userRatingContainer.style.display = 'block';
-        const userRatingSnapshot = await db.ref(`ratings/${id}/${user.uid}`).once('value');
-        const userRating = userRatingSnapshot.val();
-        renderInteractiveStars(id, userRating, type);
-    } else {
-        userRatingContainer.style.display = 'none';
-    }
-
+    // 🎛️ Botones dinámicos
     const buttonsContainer = DOM.detailsModal.querySelector('#details-buttons');
     let watchlistButtonHTML = '';
+
+    const user = auth.currentUser;
     if (user) {
         const isInList = appState.user.watchlist.has(id);
         const iconClass = isInList ? 'fa-check' : 'fa-plus';
@@ -814,14 +841,41 @@ async function openDetailsModal(id, type) {
         watchlistButtonHTML = `<button class="${buttonClass}" data-content-id="${id}" title="Añadir a Mi Lista"><i class="fas ${iconClass}"></i></button>`;
     }
 
-    if (type === 'series') {
-        buttonsContainer.innerHTML = `<button class="btn btn-play" onclick="openSeriesPlayer('${id}')"><i class="fas fa-bars"></i> Ver Temporadas</button>${watchlistButtonHTML}`;
-    } else {
-        buttonsContainer.innerHTML = `<button class="btn btn-play" onclick="openPlayerModal('${id}')"><i class="fas fa-play"></i> Ver Ahora</button>${watchlistButtonHTML}`;
+    // Decidir botón episodios/temporadas
+    let episodesOrSeasonsBtn = '';
+        if (type.includes('series')) {
+        // Contar temporadas reales desde la data en memoria
+        const seriesEpisodes = appState.content.seriesEpisodes[id] || {};
+        const seasonCount = Object.keys(seriesEpisodes).length;
+
+        if (seasonCount <= 1) {
+            // Solo una temporada -> Ver Episodios
+        episodesOrSeasonsBtn = `
+                <button class="btn btn-episodes" onclick="openSeriesPlayer('${id}')">
+                    <i class="fas fa-tv"></i> Ver Episodios
+                </button>
+            `;
+        } else {
+            // Varias temporadas -> Temporadas
+            episodesOrSeasonsBtn = `
+                <button class="btn btn-seasons" onclick="openSeriesPlayer('${id}')">
+                    <i class="fas fa-layer-group"></i> Temporadas
+                </button>
+            `;
+        }
     }
 
-    DOM.detailsModal.classList.add('show');
-    document.body.classList.add('modal-open');
+    buttonsContainer.innerHTML = `
+        <button class="btn btn-play" onclick="openPlayerModal('${id}', '${type}')">
+            <i class="fas fa-play"></i> Ver Ahora
+        </button>
+        ${episodesOrSeasonsBtn}
+        ${watchlistButtonHTML}
+    `;
+
+    // ♿ Accesibilidad: enfocar botón de cerrar
+    const closeBtn = DOM.detailsModal.querySelector('.close-btn');
+    if (closeBtn) closeBtn.focus();
 }
 
 function openPlayerModal(movieId) {
@@ -1204,24 +1258,59 @@ function populateSeasonGrid(seriesId) {
     if (!container || !data) return;
 
     container.innerHTML = '';
-    
-    const seasons = Object.keys(data);
-    const seasonCount = seasons.length;
+
+    // Normalizar claves de temporada
+    const seasonKeys = Object.keys(data);
+    const seasonsMapped = seasonKeys.map(k => {
+        const numMatch = String(k).replace(/\D/g, '');
+        const num = numMatch ? parseInt(numMatch, 10) : 0;
+        return { key: k, num };
+    }).sort((a, b) => a.num - b.num);
+
+    const seasonCount = seasonsMapped.length;
     let columns = (seasonCount <= 5) ? seasonCount : Math.ceil(seasonCount / 2);
-    
     container.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
 
-    seasons.sort((a,b) => parseInt(a.replace('T', '')) - parseInt(b.replace('T', ''))).forEach(seasonNum => {
-        const posterUrl = appState.content.seasonPosters[seriesId]?.[seasonNum] || seriesInfo.poster;
+    seasonsMapped.forEach(({ key: seasonKey, num: seasonNum }) => {
+        const episodes = Array.isArray(data[seasonKey]) ? data[seasonKey] : Object.values(data[seasonKey] || {});
+        const posterUrl = appState.content.seasonPosters[seriesId]?.[seasonKey] || seriesInfo.poster || '';
+        const totalEpisodes = episodes.length;
+
+        // Calcular progreso
+        const lastWatchedIndex = loadProgress(seriesId, seasonKey);
+        const watchedEpisodes = lastWatchedIndex > 0 ? lastWatchedIndex + 1 : 0;
+        const progressPercent = totalEpisodes > 0 ? Math.round((watchedEpisodes / totalEpisodes) * 100) : 0;
+
+        // Decidir barra de progreso
+        let progressHTML = '';
+        if (progressPercent > 0 && progressPercent < 100) {
+            progressHTML = `
+                <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progressPercent}">
+                    <div style="width: ${progressPercent}%"></div>
+                </div>
+            `;
+        } else if (progressPercent === 100) {
+            progressHTML = `
+                <div class="progress-bar complete" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
+                    <div style="width: 100%"></div>
+                </div>
+            `;
+        }
+
+        // Construir la card
         const card = document.createElement('div');
         card.className = 'season-poster-card';
-        card.onclick = () => renderEpisodePlayer(seriesId, seasonNum);
+        card.onclick = () => renderEpisodePlayer(seriesId, seasonKey);
+
         card.innerHTML = `
-            <img src="${posterUrl}" alt="Temporada ${seasonNum.replace('T','')}">
-            <div class="season-card-overlay">
-                <span>Temporada ${seasonNum.replace('T','')}</span>
+            <img src="${posterUrl}" alt="Temporada ${seasonNum}">
+            <div class="overlay">
+                <h3>Temporada ${seasonNum}</h3>
+                <p>${totalEpisodes} episodios</p>
             </div>
+            ${progressHTML}
         `;
+
         container.appendChild(card);
     });
 }
