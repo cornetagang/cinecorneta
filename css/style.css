@@ -17,31 +17,26 @@ body.modal-open { overflow: hidden; }
 /* ================================== */
 /* HEADER - BOTONES DE AUTENTICACIÓN  */
 /* ================================== */
-
-/* Estilo Base para los botones de Ingresar/Registrarse */
 #auth-buttons {
     display: flex;
     align-items: center;
-    gap: 10px; /* Reducido a 10px para móvil y desktop */
+    gap: 10px;
 }
-
-/* Base para ambos enlaces */
 #auth-buttons a {
     text-decoration: none;
     font-weight: bold;
-    font-size: 0.95rem; /* Ligeramente más grande que el nav, pero no exagerado */
+    font-size: 0.95rem;
     padding: 8px 16px;
     border-radius: 6px;
     transition: all 0.3s ease;
-    white-space: nowrap; /* Evita que el texto se rompa */
+    white-space: nowrap;
 }
 
-/* 1. Botón de REGISTRARSE (El principal de llamada a la acción) */
 .btn-register {
     background: var(--primary-red);
     color: white;
     border: 2px solid var(--primary-red);
-    box-shadow: 0 4px 8px rgba(229, 9, 20, 0.4); /* Sombra para destacarlo */
+    box-shadow: 0 4px 8px rgba(229, 9, 20, 0.4);
 }
 
 .btn-register:hover {
@@ -51,15 +46,14 @@ body.modal-open { overflow: hidden; }
     transform: translateY(-2px);
 }
 
-/* 2. Botón de INGRESAR (El secundario, más sutil) */
 .btn-login {
-    background: transparent; /* Fondo transparente para sutilidad */
-    color: var(--text-light); /* Color de texto blanco para contraste */
-    border: 2px solid var(--text-muted); /* Borde gris sutil */
+    background: transparent;
+    color: var(--text-light);
+    border: 2px solid var(--text-muted);
 }
 
 .btn-login:hover {
-    background: rgba(255, 255, 255, 0.1); /* Fondo muy sutil al pasar el ratón */
+    background: rgba(255, 255, 255, 0.1);
     border-color: var(--text-light);
     color: var(--text-light);
     transform: translateY(-1px);
@@ -69,9 +63,19 @@ body.modal-open { overflow: hidden; }
 /* HEADER                             */
 /* ================================== */
 .main-header {
-    background-color: transparent; padding: 15px 40px; position: sticky; top: 0; z-index: 1000; border-bottom: 2px solid var(--primary-red); transition: background-color 0.3s ease, box-shadow 0.3s ease;
+    background-color: rgba(20, 20, 20, 0.95);
+    padding: 15px 40px;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    border-bottom: 2px solid var(--primary-red);
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
 }
-.main-header.scrolled { background-color: rgba(20, 20, 20, 0.95); box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3); }
+
+.main-header.scrolled {
+    background-color: rgba(20, 20, 20, 0.95);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+}
 .header-container { width: 100%; max-width: 1600px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
 .header-left {
     display: flex;
@@ -109,6 +113,7 @@ body.modal-open { overflow: hidden; }
 .hero-content p { font-size: 1.1rem; line-height: 1.6; max-width: 600px; text-shadow: 0 2px 5px black; }
 .hero-buttons { display: flex; gap: 15px; margin-top: 20px; }
 .hero-content.hero-fading { opacity: 0; }
+
 .btn, .btn-play, .btn-info, .btn-episodes { padding: 12px 25px; border-radius: 8px; border: none; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: all 0.3s ease; display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
 .btn-play { background: linear-gradient(to right, var(--primary-red), var(--secondary-red)); color: white; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4); }
 .btn-info { background: rgba(109, 109, 110, 0.7); color: white; border: 1px solid rgba(255,255,255,0.2); }
@@ -152,11 +157,11 @@ body.modal-open { overflow: hidden; }
     -webkit-line-clamp: unset;
     white-space: normal;
     overflow: visible;
-    max-height: 500px; /* Suficiente para mostrar la sinopsis completa */
+    max-height: 500px;
 }
 
 .content-container {
-    margin-bottom: 40px; /* Esto da espacio entre las secciones */
+    margin-bottom: 40px;
 }
 
 .content-header {
@@ -166,7 +171,7 @@ body.modal-open { overflow: hidden; }
     font-size: 1.5rem;
     font-weight: bold;
     margin-bottom: 15px;
-    padding: 0 4vw; /* Este padding alinea los títulos con el resto del contenido */
+    padding: 0 4vw;
 }
 
 /* ================================== */
@@ -213,7 +218,7 @@ body.modal-open { overflow: hidden; }
 }
 .history-item-date {
     font-size: 0.8rem;
-    color: var(--text-light); /* Texto más claro y legible */
+    color: var(--text-light);
     margin-top: 5px;
     white-space: nowrap;
     overflow: hidden;
@@ -250,47 +255,6 @@ body.modal-open { overflow: hidden; }
     font-size: 0.8rem;
     color: var(--text-muted);
 }
-.history-item-overlay { position: absolute; bottom: 0; left: 0; right: 0; padding: 40px 15px 15px; background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%); opacity: 0; transition: opacity 0.3s ease; text-align: center; pointer-events: none; }
-#history-container .movie-card:hover .history-item-overlay { opacity: 1; }
-.history-item-title { font-size: 1rem; font-weight: bold; color: white; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.btn-remove-history {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    z-index: 3;
-    background: rgba(20, 20, 20, 0.75);
-    color: #e6e3db;
-    border: 2px solid #e6e3db;
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s ease;
-    opacity: 0;
-    transform: scale(0.8);
-}
-#history-container .movie-card:hover .btn-remove-history {
-    opacity: 1;
-    transform: scale(1);
-}
-.btn-remove-history:hover {
-    background: var(--primary-red);
-    border-color: var(--primary-red);
-    color: white;
-    transform: scale(1.1) rotate(90deg);
-}
-.history-item-date {
-    font-size: 0.8rem;
-    color: var(--text-light); /* Texto más claro y legible */
-    margin-top: 5px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
 
 /* ================================== */
 /* MODALES                            */
@@ -300,9 +264,9 @@ body.modal-open { overflow: hidden; }
 .close-btn { position: absolute; top: 20px; right: 20px; background: rgba(20,20,20,0.7); color: #fff; border: 2px solid #fff; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; font-size: 20px; z-index: 1010; transition: all 0.2s ease; }
 .close-btn:hover { background: white; color: black; transform: scale(1.1); }
 .details-panel { 
-    width: 95%; /* Usar más del ancho de la pantalla */
-    max-width: 1200px; /* Aumentar el límite máximo de ancho (ej: 1200px) */
-    height: 85vh; /* Opcional: Aumentar un poco la altura si lo deseas */
+    width: 95%;
+    max-width: 1200px;
+    height: 85vh;
     background-size: cover; 
     background-position: center; 
     position: relative; 
@@ -319,6 +283,129 @@ body.modal-open { overflow: hidden; }
 .details-meta span { background-color: rgba(40, 40, 40, 0.9); padding: 6px 14px; border-radius: 15px; font-size: 0.9rem; }
 #details-buttons { display: flex; gap: 15px; align-items: center; margin-top: 20px; }
 
+.seasons-grid, #season-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(4, 1fr);
+  margin-top: 20px;
+}
+
+.season-poster-card {
+  position: relative;
+  cursor: pointer;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.35);
+  transition: transform 0.28s ease, box-shadow 0.28s ease;
+  background: #111;
+}
+
+.season-poster-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 10px;
+  transition: transform 0.3s ease;
+}
+
+.season-poster-card:hover img {
+  transform: scale(1.07);
+}
+
+.season-poster-card .overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.3) 60%, transparent 100%);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 20px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.season-poster-card:hover .overlay {
+  opacity: 1;
+}
+
+.season-poster-card .overlay h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: bold;
+}
+
+.season-poster-card .overlay p {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+  opacity: 0.85;
+}
+
+.progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 6px;
+  width: 100%;
+  background: rgba(255,255,255,0.12);
+}
+.progress-bar > div {
+  height: 100%;
+  background: #e50914;
+  width: 0%;
+  transition: width 0.4s ease;
+}
+
+.season-poster-card:hover {
+  transform: scale(1.04);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.6);
+}
+
+.season-poster-card::after {
+  position: absolute;
+  bottom: 44px;
+  left: 0;
+  right: 0;
+  background: rgba(0,0,0,0.75);
+  color: #fff;
+  padding: 6px 8px;
+  font-size: 0.85rem;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.22s ease, transform 0.22s ease;
+  pointer-events: none;
+}
+
+.season-label {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.7);
+  color: #fff;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 6px;
+  width: 100%;
+  background: rgba(255,255,255,0.12);
+}
+.progress-bar > div {
+  height: 100%;
+  background: #e50914;
+  width: 0%;
+  transition: width 0.4s ease;
+}
+
 /* ================================== */
 /* REPRODUCTOR DE PELÍCULAS           */
 /* ================================== */
@@ -326,10 +413,8 @@ body.modal-open { overflow: hidden; }
 #cinema .screen iframe { width: 100%; height: 100%; border: none; }
 
 /* ================================== */
-/* REPRODUCTOR DE SERIES (UNIFICADO)  */
+/* REPRODUCTOR DE SERIES              */
 /* ================================== */
-
-/* --- Vista de Selección de Temporada --- */
 #series-player-modal.season-grid-view .season-grid-container {
     max-width: 90vw;
     background-color: var(--panel-dark);
@@ -346,14 +431,13 @@ body.modal-open { overflow: hidden; }
     display: none;
 }
 .season-grid {
-    -ms-overflow-style: none;  /* IE y Edge */
-    scrollbar-width: none;     /* Firefox */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
 }
 
-/* Añade esta NUEVA regla para controlar el tamaño de cada póster */
 .season-grid .season-poster-card {
-    width: 180px;               /* Tamaño fijo para cada póster */
-    flex-shrink: 0;             /* Evita que los pósters se encojan para caber */
+    width: 180px;
+    flex-shrink: 0;
 }
 
 .season-poster-card img {
@@ -384,8 +468,6 @@ body.modal-open { overflow: hidden; }
     opacity: 1;
 }
 
-
-/* --- Vista del Reproductor de Episodios --- */
 #series-player-modal.player-layout-view .player-layout-container {
     display: flex;
     gap: 30px;
@@ -488,10 +570,10 @@ body.modal-open { overflow: hidden; }
 .episode-list-container {
     flex-grow: 1;
     overflow-y: auto;
-    scrollbar-width: none; /* Firefox */
+    scrollbar-width: none;
 }
 .episode-list-container::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, etc. */
+    display: none;
 }
 
 .episode-card {
@@ -500,18 +582,18 @@ body.modal-open { overflow: hidden; }
     padding: 10px;
     margin-bottom: 10px;
     border-radius: 6px;
-    border: 2px solid transparent; /* Borde transparente por defecto */
+    border: 2px solid transparent;
     cursor: pointer;
     transition: background-color 0.2s, border-color 0.2s;
     overflow: hidden;
 }
 
 .episode-card:hover {
-    background-color: #333; /* Fondo gris oscuro al pasar el ratón */
+    background-color: #333;
 }
 
 .episode-card.active {
-    border-color: var(--primary-red); /* Borde rojo cuando está activo */
+    border-color: var(--primary-red);
     background-color: #282828;
 }
 
@@ -538,14 +620,17 @@ body.modal-open { overflow: hidden; }
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
     overflow: hidden;
-    /* LÍNEAS AÑADIDAS */
-    max-height: 40px; /* Altura aproximada de 2 líneas, para la animación */
-    transition: max-height 0.4s ease-in-out; /* La animación suave */
+    max-height: 40px;
+    transition: max-height 0.4s ease-in-out;
 }
 
 .episode-card.expanded .episode-description {
-    -webkit-line-clamp: unset; /* Quita el límite de 2 líneas */
-    max-height: 500px; /* Una altura máxima grande para mostrar todo el texto */
+    -webkit-line-clamp: unset;
+    max-height: 500px;
+}
+
+.progress-bar.complete > div {
+  background: #2ecc71;
 }
 
 /* ================================== */
@@ -593,16 +678,13 @@ body.modal-open { overflow: hidden; }
 /* ================================== */
 /* ESTILOS PARA BOTONES EN MODAL      */
 /* ================================== */
-
-/* 1. Estilos para el contenedor de los botones */
 #details-buttons {
-    display: flex;         /* Pone los botones uno al lado del otro */
-    gap: 15px;             /* Crea un espacio entre los botones */
-    align-items: center;   /* Los alinea verticalmente al centro */
-    margin-top: 20px;      /* Añade un espacio arriba */
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    margin-top: 20px;
 }
 
-/* 2. Estilos para el botón circular de "Mi Lista" DENTRO del modal */
 #details-buttons .btn-watchlist {
     width: 44px;
     height: 44px;
@@ -617,7 +699,7 @@ body.modal-open { overflow: hidden; }
     border: 1px solid rgba(255, 255, 255, 0.2);
     transition: all 0.3s ease;
     cursor: pointer;
-    position: static; /* Muy importante para que se alinee bien */
+    position: static;
     opacity: 1;
 }
 
@@ -626,7 +708,6 @@ body.modal-open { overflow: hidden; }
     transform: translateY(-2px);
 }
 
-/* 3. Estilos para cuando el item ya está en la lista */
 #details-buttons .btn-watchlist.in-list {
     background-color: var(--primary-red);
     border-color: var(--secondary-red);
@@ -660,7 +741,7 @@ body.modal-open { overflow: hidden; }
 }
 
 /* ================================== */
-/* MENÚ DESPLEGABLE DE USUARIO (MEJORADO) */
+/* MENÚ DESPLEGABLE DE USUARIO */
 /* ================================== */
 .user-dropdown-wrapper {
     position: relative;
@@ -687,16 +768,16 @@ body.modal-open { overflow: hidden; }
 
 .user-menu-dropdown {
     position: absolute;
-    top: calc(100% + 5px); /* Un poco más de espacio desde el botón */
+    top: calc(100% + 5px);
     right: 0;
-    background-color: rgba(24, 24, 24, 0.85); /* Fondo ligeramente traslúcido */
-    backdrop-filter: blur(10px); /* Efecto "glass" moderno */
+    background-color: rgba(24, 24, 24, 0.85);
+    backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
-    border-radius: 8px; /* Bordes más redondeados */
-    min-width: 220px; /* Un poco más ancho */
+    border-radius: 8px;
+    min-width: 220px;
     z-index: 1020;
-    padding: 8px; /* Padding general para que no esté pegado a los bordes */
+    padding: 8px;
     display: none;
     opacity: 0;
     transform: translateY(10px);
@@ -711,32 +792,31 @@ body.modal-open { overflow: hidden; }
 
 .user-menu-dropdown a {
     color: var(--text-light);
-    padding: 13px 15px; /* Más padding vertical para más espacio */
+    padding: 13px 15px;
     text-decoration: none;
-    display: flex; /* CAMBIO CLAVE: para alinear icono y texto */
-    align-items: center; /* Alinear verticalmente */
-    gap: 12px; /* Espacio entre el icono y el texto */
-    border-radius: 6px; /* Bordes redondeados para el hover */
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-radius: 6px;
     font-weight: 500;
     transition: background-color 0.2s, transform 0.2s ease;
 }
 
 .user-menu-dropdown a:hover {
     background-color: rgba(255, 255, 255, 0.08);
-    transform: translateX(4px); /* Sutil efecto al pasar el ratón */
+    transform: translateX(4px);
 }
 
-/* Separador para "Cerrar Sesión" */
 .user-menu-dropdown a[data-action="logout"] {
-    margin-top: 6px; /* Espacio arriba */
+    margin-top: 6px;
     padding-top: 12px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1); /* Línea divisoria */
-    color: #ff9a9a; /* Color rojo sutil para indicar acción de salida */
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    color: #ff9a9a;
 }
 
 .user-menu-dropdown a[data-action="logout"]:hover {
     color: white;
-    background-color: rgba(229, 9, 20, 0.4); /* Fondo rojo al pasar el ratón */
+    background-color: rgba(229, 9, 20, 0.4);
 }
 
 /* ================================== */
@@ -796,7 +876,6 @@ body.modal-open { overflow: hidden; }
 .profile-tab-content.active { display: block; }
 .profile-tab-content h4 { font-size: 1.5rem; margin-bottom: 20px; }
 
-/* --- Estadísticas --- */
 .stats-container {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -827,8 +906,6 @@ body.modal-open { overflow: hidden; }
 .genre-progress { flex-grow: 1; height: 20px; background-color: #333; border-radius: 10px; overflow: hidden; }
 .genre-progress-fill { height: 100%; background-color: var(--primary-red); width: 0%; transition: width 0.5s ease-in-out; }
 .genre-count { font-weight: bold; }
-
-/* --- Historial de Calificaciones --- */
 .ratings-list { display: flex; flex-direction: column; gap: 15px; }
 .rating-item {
     display: flex;
@@ -845,16 +922,14 @@ body.modal-open { overflow: hidden; }
 .rating-item-stars { color: #ffc107; margin-top: 5px; }
 
 /* ================================== */
-/* SISTEMA DE CALIFICACIÓN (ESTRELLAS)*/
+/* SISTEMA DE CALIFICACIÓN            */
 /* ================================== */
-
-/* Estrellas en las tarjetas de película (Grid/Carrusel) */
 .card-rating {
     position: absolute;
     top: 10px;
     left: 10px;
     background-color: rgba(0, 0, 0, 0.8);
-    color: #ffc107; /* Color amarillo de estrella */
+    color: #ffc107;
     padding: 5px 8px;
     border-radius: 5px;
     font-size: 0.9rem;
@@ -870,7 +945,6 @@ body.modal-open { overflow: hidden; }
     opacity: 1;
 }
 
-/* Estrellas en el Modal de Detalles (Promedio) */
 .rating-display {
     display: flex;
     align-items: center;
@@ -898,17 +972,11 @@ body.modal-open { overflow: hidden; }
     padding: 15px 10px;
     background-color: rgba(0,0,0,0.3);
     border-radius: 8px;
-
-    /* Hace que el contenedor se ajuste al ancho de su contenido */
-    width: -moz-fit-content; /* Para compatibilidad con Firefox */
     width: fit-content;
-
-    /* Mantenemos el margen por si acaso */
     margin-left: 0;
 }
 
 .user-rating-container p {
-    /* Eliminamos cualquier margen que pueda empujar la caja */
     margin: 0 0 10px 0; 
     font-weight: bold;
     color: var(--text-muted);
@@ -917,11 +985,9 @@ body.modal-open { overflow: hidden; }
 .stars-interactive {
     color: #999; 
     font-size: 2rem;
-    
-    /* Aseguramos que las estrellas no tengan padding/margin extra */
     padding: 0;
     margin: 0;
-    line-height: 1; /* Esto ayuda a que el alto se ajuste */
+    line-height: 1;
 }
 
 
@@ -934,25 +1000,24 @@ body.modal-open { overflow: hidden; }
     transform: scale(1.15);
 }
 
-/* Clases que se añadirán con JS */
 .stars-interactive.rated i,
 .stars-interactive i.hover {
-    color: #ffc107 !important; /* Amarillo para estrellas calificadas o en hover */
+    color: #ffc107 !important;
 }
 
 /* ================================== */
-/* AJUSTES DE CUENTA (VISUALMENTE MEJORADO) */
+/* AJUSTES DE CUENTA */
 /* ================================== */
 #settings-container {
     padding: 40px 4vw;
-    max-width: 900px; /* Limita el ancho para mejor legibilidad */
-    margin: 20px auto; /* Centra el contenedor en la página */
+    max-width: 900px;
+    margin: 20px auto;
 }
 
 #settings-container .content-header {
-    flex-direction: column;   /* Apila el título y la descripción verticalmente */
-    justify-content: center;  /* Los centra en el espacio disponible */
-    gap: 10px;                /* Añade un pequeño espacio entre ellos */
+    flex-direction: column;
+    justify-content: center;
+    gap: 10px;
     text-align: center;
     margin-bottom: 50px;
 }
@@ -973,7 +1038,6 @@ body.modal-open { overflow: hidden; }
     line-height: 1.6;
 }
 
-/* Contenedor principal del formulario */
 .settings-form-wrapper {
     background-color: var(--panel-dark);
     border-radius: 12px;
@@ -982,11 +1046,10 @@ body.modal-open { overflow: hidden; }
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
 }
 
-/* Grupo de cada ajuste (Nombre, Email, etc.) */
 .settings-group {
     padding-bottom: 25px;
     margin-bottom: 25px;
-    border-bottom: 1px solid #282828; /* Separador sutil */
+    border-bottom: 1px solid #282828;
 }
 
 .settings-group::after {
@@ -1009,14 +1072,13 @@ body.modal-open { overflow: hidden; }
     font-weight: bold;
 }
 
-/* Estilo para los campos de texto */
 .settings-group input[type="text"],
 .settings-group input[type="email"],
 .settings-group input[type="password"] {
-    width: 100%; /* Ocupa todo el ancho disponible */
-    box-sizing: border-box; /* Asegura que el padding no afecte el ancho */
+    width: 100%;
+    box-sizing: border-box;
     padding: 14px 18px;
-    background-color: #1A1A1A; /* Un poco más oscuro que el panel */
+    background-color: #1A1A1A;
     border: 1px solid #333;
     border-radius: 8px;
     color: var(--text-light);
@@ -1038,9 +1100,9 @@ body.modal-open { overflow: hidden; }
 
 .input-with-button {
     display: flex;
-    flex-direction: column; /* Apila los elementos verticalmente */
-    align-items: flex-start;  /* Alinea el botón a la derecha */
-    gap: 15px;              /* Espacio entre el campo y el botón */
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
 }
 
 .input-with-button input {
@@ -1067,9 +1129,8 @@ body.modal-open { overflow: hidden; }
     transform: translateY(-2px);
 }
 
-/* Zona de Peligro bien diferenciada */
 .danger-zone {
-    background-color: rgba(229, 9, 20, 0.05); /* Fondo rojo muy sutil */
+    background-color: rgba(229, 9, 20, 0.05);
     border: 1px solid var(--secondary-red);
     padding: 25px;
     border-radius: 8px;
@@ -1077,7 +1138,7 @@ body.modal-open { overflow: hidden; }
 }
 
 .danger-zone h3 {
-    color: #ff8a8a; /* Un rojo más claro para el texto */
+    color: #ff8a8a;
     font-size: 1.3rem;
     margin-top: 0;
     margin-bottom: 10px;
@@ -1108,7 +1169,6 @@ body.modal-open { overflow: hidden; }
     border-color: var(--primary-red);
 }
 
-/* Mensajes de feedback (ya los tenías, pero asegúrate que estén) */
 .feedback-message {
     text-align: center;
     margin-top: 25px;
@@ -1116,7 +1176,7 @@ body.modal-open { overflow: hidden; }
     font-weight: 500;
     padding: 12px 20px;
     border-radius: 6px;
-    display: none; /* Se muestra con JS */
+    display: none;
 }
 
 .feedback-message.success {
@@ -1157,23 +1217,19 @@ body.modal-open { overflow: hidden; }
 /* ================================== */
 /* AJUSTES PARA CALIFICACIONES        */
 /* ================================== */
-
-/* Estilo para cuando se está procesando el voto */
 .stars-interactive.processing {
     cursor: wait;
     opacity: 0.7;
 }
 
-/* Estilo para las estrellas cuando ya se ha votado (solo lectura) */
 .stars-interactive.rated-static i {
     color: #ffc107;
     cursor: default;
-    transform: none !important; /* Evita cualquier efecto hover */
+    transform: none !important;
 }
 
-/* Estilo para el botón de eliminar en la lista de calificaciones del perfil */
 .rating-item {
-    position: relative; /* Necesario para el botón */
+    position: relative;
 }
 
 .btn-delete-rating {
@@ -1189,7 +1245,7 @@ body.modal-open { overflow: hidden; }
     align-items: center;
     justify-content: center;
     transition: background-color 0.3s, color 0.3s;
-    margin-left: auto; /* Empuja el botón a la derecha */
+    margin-left: auto;
     flex-shrink: 0;
 }
 
@@ -1204,7 +1260,7 @@ body.modal-open { overflow: hidden; }
 
 .continue-watching-card {
     position: relative;
-    width: 280px; /* Un poco más anchas que las tarjetas normales */
+    width: 280px;
     aspect-ratio: 16 / 9;
     border-radius: 8px;
     overflow: hidden;
@@ -1223,7 +1279,7 @@ body.modal-open { overflow: hidden; }
 .cw-card-thumbnail {
     width: 100%;
     height: 100%;
-    object-fit: cover; /* Esta es la línea clave */
+    object-fit: cover;
 }
 
 .cw-card-overlay {
@@ -1234,7 +1290,7 @@ body.modal-open { overflow: hidden; }
 
 .cw-card-info {
     position: absolute;
-    bottom: 15px;      /* Ajustado para estar más abajo */
+    bottom: 15px;
     left: 15px;
     right: 15px;
     color: white;
@@ -1251,7 +1307,7 @@ body.modal-open { overflow: hidden; }
 
 .cw-card-subtitle {
     font-size: 0.85rem;
-    color: var(--text-muted);
+    font-weight: bold;
     margin: 0;
     white-space: nowrap;
     overflow: hidden;
@@ -1310,6 +1366,12 @@ body.modal-open { overflow: hidden; }
 /* ================================== */
 /* RESPONSIVE (MÓVIL)                 */
 /* ================================== */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .seasons-grid, #season-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 @media (max-width: 992px) {
     body.modal-open { position: fixed; width: 100%; }
     .main-header { padding: 10px 15px; }
@@ -1320,20 +1382,17 @@ body.modal-open { overflow: hidden; }
     .mobile-nav-panel.is-open { transform: translateX(0); }
     .close-nav-btn { display: block; position: absolute; top: 15px; right: 15px; background: transparent; border: none; padding: 10px; cursor: pointer; color: white; font-size: 28px; }
     .mobile-nav ul {
-        /* Mantiene la lista sin estilos de lista, sin padding ni margen */
         list-style: none;
         padding: 80px 0 0 0;
         margin: 0;
-        /* Define la lista como una columna flexible */
         display: flex;
         flex-direction: column;
-        /* Importante: asegura que los elementos de la lista ocupen todo el ancho del panel */
         align-items: stretch; 
-        gap: 15px; /* Ajusta el espacio entre los elementos */
+        gap: 15px;
     }
 
     .mobile-nav li {
-        width: 100%; /* Asegura que cada item ocupe el 100% */
+        width: 100%;
         justify-content: center;
     }
 
@@ -1343,16 +1402,13 @@ body.modal-open { overflow: hidden; }
         font-size: 1.4rem;
         font-weight: bold;
         padding: 15px 25px;
-        /* Hace que el enlace ocupe todo el espacio del <li> */
         display: block; 
-        /* Centra el texto del enlace horizontalmente */
         text-align: center; 
-        border-radius: 8px; /* Opcional: añade un poco de estilo */
+        border-radius: 8px; 
         transition: background-color 0.2s ease;
     }
     
     .mobile-nav a:hover, .mobile-nav a.active {
-        /* Para que se vea el hover o el activo centrado */
         background-color: rgba(255, 255, 255, 0.1); 
     }
     .header-right { gap: 8px; }
@@ -1365,6 +1421,7 @@ body.modal-open { overflow: hidden; }
     .hero-section::after { background: linear-gradient(to top, rgba(20,20,20,1) 25%, rgba(20,20,20,0) 100%); }
     .hero-content { width: 100%; flex-direction: column; align-items: center; text-align: center; padding-bottom: 5vh; max-width: none; }
     .hero-content h1 { font-size: clamp(2rem, 10vw, 2.8rem); }
+    
     .hero-content p { display: none; }
     .hero-buttons { justify-content: center; }
     .hero-buttons .btn, .hero-buttons .btn-info { padding: 10px 18px; font-size: 1rem; }
@@ -1460,15 +1517,15 @@ body.modal-open { overflow: hidden; }
     }
     
     #auth-buttons {
-        gap: 6px; /* Espacio más pequeño entre los botones */
+        gap: 6px;
     }
     
     #auth-buttons a {
-        padding: 6px 10px; /* Reducción de padding para hacerlos más compactos */
-        font-size: 0.8rem; /* Tamaño de fuente más pequeño */
-        border-width: 1px; /* Borde más fino para el móvil */
-        border-radius: 4px; /* Bordes ligeramente más cuadrados */
-        transform: none !important; /* Asegura que el hover no cause saltos */
+        padding: 6px 10px;
+        font-size: 0.8rem;
+        border-width: 1px;
+        border-radius: 4px;
+        transform: none !important;
         font-size: 0.85rem;
     }
     
@@ -1477,26 +1534,22 @@ body.modal-open { overflow: hidden; }
         font-size: 0.9rem;
     }
     
-    /* 1. VISTA DEL REPRODUCTOR DE EPISODIOS */
     #series-player-modal.player-layout-view {
-        /* Permite que el modal se desplace si es necesario, pero intenta ajustarse a la pantalla */
+
         align-items: flex-start;
         overflow-y: auto;
     }
     
     #series-player-modal.player-layout-view .player-layout-container { 
         flex-direction: column; 
-        height: auto; /* Deja que la altura se ajuste al contenido */
+        height: auto;
         width: 100%; 
         padding: 15px; 
         gap: 20px; 
-        
-        /* CORRECCIÓN APLICADA: Margen superior fijo y sin margen inferior excesivo */
         margin-top: 15px; 
         margin-bottom: 0;
     }
 
-    /* 2. VISTA DE SELECCIÓN DE TEMPORADAS */
     #series-player-modal.season-grid-view {
         overflow: hidden;
     }
@@ -1522,4 +1575,11 @@ body.modal-open { overflow: hidden; }
     #history-container, #my-list-container {
         padding-top: 30px;
     }
+}
+
+@media (max-width: 768px) {
+  .seasons-grid, #season-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
 }
