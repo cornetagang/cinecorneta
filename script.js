@@ -796,44 +796,55 @@ async function openDetailsModal(id, type, triggerElement = null) {
     const data = type.includes('series') ? appState.content.series[id] : appState.content.movies[id];
     if (!data || !DOM.detailsModal) return;
 
-    // Mostrar modal
+    // Mostrar modal y contenido básico inmediatamente
     DOM.detailsModal.classList.add('show');
     document.body.classList.add('modal-open');
 
-    // 🎬 Fondo con banner (poster como fallback)
     const detailsPanel = DOM.detailsModal.querySelector('.details-panel');
     if (detailsPanel) {
         const bgImage = data.banner || data.poster;
         detailsPanel.style.backgroundImage = `url(${bgImage})`;
     }
-
-    // 🎞️ Poster lateral
     const posterImg = DOM.detailsModal.querySelector('#details-poster-img');
     if (posterImg) {
         posterImg.src = data.poster;
         posterImg.alt = `Poster de ${data.title}`;
         posterImg.loading = "lazy";
     }
-
-    // 📝 Título, año, géneros, sinopsis
     DOM.detailsModal.querySelector('#details-title').textContent = data.title || "Sin título";
     DOM.detailsModal.querySelector('#details-year').textContent = data.year || "";
     DOM.detailsModal.querySelector('#details-genres').textContent = data.genres || "";
     DOM.detailsModal.querySelector('#details-synopsis').textContent = data.synopsis || "";
 
-    // ⭐ Calificación promedio
     const ratingDisplay = DOM.detailsModal.querySelector('#details-rating-display');
     const metadataSource = type.includes('series') ? appState.content.metadata.series : appState.content.metadata.movies;
     const rating = metadataSource?.[id]?.avgRating || null;
-    ratingDisplay.innerHTML = rating
-        ? `<span>⭐ ${rating.toFixed(1)}/5</span>`
-        : `<span>Sin calificación</span>`;
+    ratingDisplay.innerHTML = rating ? `<span>⭐ ${rating.toFixed(1)}/5</span>` : `<span>Sin calificación</span>`;
 
-    // 🎛️ Botones dinámicos
+    // ===================== INICIO DE LA NUEVA LÓGICA =====================
+    // Se revisa el historial del usuario ANTES de crear los botones.
+    
+    let playButtonText = "Ver Ahora"; // Texto por defecto
+    const user = auth.currentUser;
+
+    if (user && type.includes('series')) {
+        const historySnapshot = await db.ref(`users/${user.uid}/history`).once('value');
+        if (historySnapshot.exists()) {
+            const historyData = historySnapshot.val();
+            // Usamos 'Object.values' y 'some' para revisar eficientemente si la serie ya está en el historial
+            const hasHistory = Object.values(historyData).some(
+                item => item.contentId === id && item.type === 'series'
+            );
+            if (hasHistory) {
+                playButtonText = "Seguir Viendo"; // Si se encuentra, cambiamos el texto
+            }
+        }
+    }
+    // ====================== FIN DE LA NUEVA LÓGICA =======================
+
+    // 🎛️ Botones dinámicos (ahora usan el texto dinámico)
     const buttonsContainer = DOM.detailsModal.querySelector('#details-buttons');
     let watchlistButtonHTML = '';
-
-    const user = auth.currentUser;
     if (user) {
         const isInList = appState.user.watchlist.has(id);
         const iconClass = isInList ? 'fa-check' : 'fa-plus';
@@ -841,33 +852,22 @@ async function openDetailsModal(id, type, triggerElement = null) {
         watchlistButtonHTML = `<button class="${buttonClass}" data-content-id="${id}" title="Añadir a Mi Lista"><i class="fas ${iconClass}"></i></button>`;
     }
 
-    // Decidir botón episodios/temporadas
     let episodesOrSeasonsBtn = '';
-        if (type.includes('series')) {
-        // Contar temporadas reales desde la data en memoria
+    if (type.includes('series')) {
         const seriesEpisodes = appState.content.seriesEpisodes[id] || {};
         const seasonCount = Object.keys(seriesEpisodes).length;
-
-        if (seasonCount <= 1) {
-            // Solo una temporada -> Ver Episodios
-        episodesOrSeasonsBtn = `
-                <button class="btn btn-episodes" onclick="openSeriesPlayer('${id}')">
-                    <i class="fas fa-tv"></i> Ver Episodios
-                </button>
-            `;
-        } else {
-            // Varias temporadas -> Temporadas
-            episodesOrSeasonsBtn = `
-                <button class="btn btn-seasons" onclick="openSeriesPlayer('${id}')">
-                    <i class="fas fa-layer-group"></i> Temporadas
-                </button>
-            `;
+        if (seasonCount > 1) {
+            episodesOrSeasonsBtn = `<button class="btn btn-seasons" onclick="openSeriesPlayer('${id}', true)"><i class="fas fa-layer-group"></i> Temporadas</button>`;
         }
     }
 
+    const playAction = type.includes('series') 
+        ? `openSeriesPlayer('${id}')` 
+        : `openPlayerModal('${id}')`;
+
     buttonsContainer.innerHTML = `
-        <button class="btn btn-play" onclick="openPlayerModal('${id}', '${type}')">
-            <i class="fas fa-play"></i> Ver Ahora
+        <button class="btn btn-play" onclick="${playAction}">
+            <i class="fas fa-play"></i> ${playButtonText}
         </button>
         ${episodesOrSeasonsBtn}
         ${watchlistButtonHTML}
@@ -1219,20 +1219,67 @@ function closeSeriesPlayerModal() {
     appState.player.activeSeriesId = null; 
 }
 
-function openSeriesPlayer(seriesId) {
+async function openSeriesPlayer(seriesId, forceSeasonGrid = false) {
     closeAllModals();
     const seriesInfo = appState.content.series[seriesId];
     if (!seriesInfo) return;
+
     document.body.classList.add('modal-open');
     DOM.seriesPlayerModal.classList.add('show');
-    
-    const seasons = appState.content.seriesEpisodes[seriesId] ? Object.keys(appState.content.seriesEpisodes[seriesId]) : [];
-    if (seasons.length > 1) {
+    // Muestra un spinner mientras se decide qué cargar
+    DOM.seriesPlayerModal.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;"><div class="spinner"></div></div>`;
+
+    const seriesEpisodes = appState.content.seriesEpisodes[seriesId] || {};
+    const seasons = Object.keys(seriesEpisodes);
+
+    // 1. Si se hizo clic en "Temporadas" o si la serie solo tiene 1 temporada, se muestra la cuadrícula.
+    if (forceSeasonGrid && seasons.length > 1) {
         renderSeasonGrid(seriesId);
-    } else if (seasons.length === 1) {
-        renderEpisodePlayer(seriesId, seasons[0]);
+        return;
+    }
+
+    // 2. Si no hay episodios, muestra un mensaje.
+    if (seasons.length === 0) {
+        DOM.seriesPlayerModal.innerHTML = `<button class="close-btn" onclick="closeSeriesPlayerModal()">&times;</button><p>No hay episodios disponibles.</p>`;
+        return;
+    }
+
+    const user = auth.currentUser;
+    let lastWatched = null;
+
+    // 3. Si el usuario está logueado, busca su historial para esta serie.
+    if (user) {
+        const historySnapshot = await db.ref(`users/${user.uid}/history`).orderByChild('viewedAt').once('value');
+        if (historySnapshot.exists()) {
+            let userHistoryForThisSeries = [];
+            historySnapshot.forEach(child => {
+                const item = child.val();
+                if (item.type === 'series' && item.contentId === seriesId) {
+                    userHistoryForThisSeries.push(item);
+                }
+            });
+            // El último item de la lista será el más reciente
+            if (userHistoryForThisSeries.length > 0) {
+                lastWatched = userHistoryForThisSeries.pop();
+            }
+        }
+    }
+
+    // 4. Decide qué vista renderizar.
+    if (lastWatched) {
+        // Si hay historial, abre el reproductor en el último episodio visto.
+        renderEpisodePlayer(seriesId, lastWatched.season, lastWatched.lastEpisode);
     } else {
-        DOM.seriesPlayerModal.innerHTML = `<button class="close-btn" onclick="closeSeriesPlayerModal()">&times;</button><p>No hay episodios.</p>`;
+        // Si no hay historial, abre en la Temporada 1, Episodio 1.
+        // Se asegura de encontrar la primera temporada aunque no esté ordenada.
+        const seasonsMapped = seasons.map(k => {
+            const numMatch = String(k).replace(/\D/g, '');
+            const num = numMatch ? parseInt(numMatch, 10) : 0;
+            return { key: k, num };
+        }).sort((a, b) => a.num - b.num);
+
+        const firstSeasonKey = seasonsMapped.length > 0 ? seasonsMapped[0].key : seasons[0];
+        renderEpisodePlayer(seriesId, firstSeasonKey, 0); // Abre el primer episodio (índice 0).
     }
 }
 
