@@ -1615,3 +1615,96 @@ body.modal-open { overflow: hidden; }
   }
 }
 
+/*
+█▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀█
+█                                                           █
+█        INICIO: BLOQUE COMPLETO DEL TEMA DE HALLOWEEN        █
+█                                                           █
+█   Para activar: Pega este bloque al final de style.css.   █
+█   Para desactivar: Bórralo por completo.                  █
+█                                                           █
+█▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄█
+*/
+
+/* 1. Definiciones principales del tema (colores, fuentes y preparación del fondo) */
+body.halloween-theme {
+    /* === Variables de Color para Halloween === */
+    --primary-red: #FF6600;     /* Naranja calabaza */
+    --secondary-red: #cc5200;   /* Naranja más oscuro */
+    --bg-dark: #0A0A0A;         /* Fondo aún más oscuro */
+    --panel-dark: #1F002F;      /* Panel púrpura oscuro */
+    --text-muted: #9e91a6;      /* Texto apagado púrpura */
+
+    /* === Fuente para textos y párrafos === */
+    font-family: 'IM Fell English SC', serif;
+
+    /* === Preparación para la capa de textura === */
+    background-image: none; /* Limpiamos cualquier imagen de fondo anterior */
+    background-color: var(--bg-dark); /* Usamos el color oscuro base */
+    position: relative;
+    z-index: 1;
+    overflow-x: hidden;
+}
+
+/* 2. Capa de textura de telaraña sobrepuesta a toda la página */
+body.halloween-theme::after {
+    content: '';
+    position: fixed;
+    inset: 0; /* Abarca toda la pantalla de borde a borde */
+    background-image: url('https://res.cloudinary.com/djhgmmdjx/image/upload/v1759209351/Decoracion_sx3zen.png');
+    background-size: cover;
+    background-position: center;
+    opacity: 0.1;
+    mix-blend-mode: overlay;
+    pointer-events: none; /* MUY IMPORTANTE: Permite hacer clic a través de la capa */
+    z-index: 9999;
+}
+
+/* 3. Fuentes para los Títulos Principales */
+body.halloween-theme .hero-content h1,
+body.halloween-theme .auth-form h2,
+body.halloween-theme #settings-container .main-title,
+body.halloween-theme .carousel-title,
+body.halloween-theme .content-header h2,
+body.halloween-theme .profile-text-info h3,
+body.halloween-theme .confirmation-modal-content h2,
+body.halloween-theme .player-title {
+    font-family: 'Creepster', cursive;
+    letter-spacing: 1.5px; /* Añadimos espacio para mejorar legibilidad */
+}
+
+/* 4. Ajustes menores a otros elementos para que encajen con el tema */
+body.halloween-theme .main-header {
+    background-color: rgba(10, 10, 10, 0.9);
+}
+
+body.halloween-theme .main-nav a:hover, 
+body.halloween-theme .main-nav a.active {
+    color: var(--primary-red); /* Usamos el naranja de Halloween */
+    background-color: rgba(255, 102, 0, 0.1);
+}
+
+/* 5. Borde decorativo para la sección principal (Hero) */
+body.halloween-theme #hero-section {
+    /* Borde sólido con el color naranja del tema */
+    border: 2px solid var(--primary-red);
+
+    /* Múltiples sombras para un efecto más complejo y profesional */
+    box-shadow:
+        /* Sombra exterior para crear un "brillo" naranja alrededor del marco */
+        0 0 20px -5px var(--primary-red),
+        
+        /* Sombra interior para oscurecer los bordes de la imagen y darle profundidad */
+        inset 0 0 25px 15px rgba(0, 0, 0, 0.9);
+
+    /* Una transición suave para futuros efectos */
+    transition: all 0.3s ease-in-out;
+}
+
+/*
+█▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀█
+█                                                           █
+█         FIN: BLOQUE COMPLETO DEL TEMA DE HALLOWEEN          █
+█                                                           █
+█▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄█
+*/
