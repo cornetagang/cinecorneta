@@ -528,7 +528,7 @@ function changeHeroMovie(movieId) {
         }
 
         heroContent.querySelector('.hero-buttons').innerHTML = `
-            <button class="btn btn-play" onclick="openPlayerModal('${movieId}')"><i class="fas fa-play"></i> Ver Ahora</button>
+            <button class="btn btn-play" onclick="openPlayerModal('${movieId}', '${movieData.title.replace(/'/g, "\\'")}')"><i class="fas fa-play"></i> Ver Ahora</button>
             <button class="btn btn-info" onclick="openDetailsModal('${movieId}', 'movie')">Más Información</button>
             ${watchlistButtonHTML}
         `;
@@ -863,7 +863,7 @@ async function openDetailsModal(id, type, triggerElement = null) {
 
     const playAction = type.includes('series') 
         ? `openSeriesPlayer('${id}')` 
-        : `openPlayerModal('${id}')`;
+        : `openPlayerModal('${id}', '${data.title.replace(/'/g, "\\'")}')`;
 
     buttonsContainer.innerHTML = `
         <button class="btn btn-play" onclick="${playAction}">
@@ -878,10 +878,21 @@ async function openDetailsModal(id, type, triggerElement = null) {
     if (closeBtn) closeBtn.focus();
 }
 
-function openPlayerModal(movieId) {
+function openPlayerModal(movieId, movieTitle) {
     closeAllModals();
     addToHistoryIfLoggedIn(movieId, 'movie');
-    DOM.cinemaModal.querySelector('iframe').src = `https://drive.google.com/file/d/${movieId}/preview`;
+
+    // Cambiar la URL del iframe
+    DOM.cinemaModal.querySelector('iframe').src =
+        `https://drive.google.com/file/d/${movieId}/preview`;
+
+    // 👉 Actualizar el título dinámico
+    if (movieTitle) {
+        DOM.cinemaModal.querySelector('#cinema-title').textContent = movieTitle;
+    } else {
+        DOM.cinemaModal.querySelector('#cinema-title').textContent = "Película";
+    }
+
     DOM.cinemaModal.classList.add('show');
     document.body.classList.add('modal-open');
 }
