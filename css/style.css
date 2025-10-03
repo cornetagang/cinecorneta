@@ -99,9 +99,6 @@ body.modal-open { overflow: hidden; }
 #search-input::placeholder { color: var(--text-muted); }
 #search-input:focus { background-color: rgba(255, 255, 255, 0.2); border-color: var(--text-light); width: 250px; }
 .search-icon { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
-.hamburger-btn, .mobile-nav-panel, .close-nav-btn { display: none; }
-.menu-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 1009; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; display: none; }
-.menu-overlay.active { display: block; opacity: 1; }
 
 /* ================================== */
 /* CONTENIDO PRINCIPAL Y TARJETAS     */
@@ -867,7 +864,7 @@ body.modal-open { overflow: hidden; }
 }
 
 /* ================================== */
-/* PERFIL DE USUARIO MEJORADO         */
+/* PERFIL DE USUARIO Y HUB DE PERFIL  */
 /* ================================== */
 .profile-header-wrapper {
     background-color: var(--panel-dark);
@@ -967,6 +964,57 @@ body.modal-open { overflow: hidden; }
 .rating-item-info { flex-grow: 1; }
 .rating-item-title { font-size: 1.2rem; font-weight: bold; margin: 0; }
 .rating-item-stars { color: #ffc107; margin-top: 5px; }
+
+/* NUEVO: Estilos para la vista de "Perfil" en móvil */
+#profile-hub-container {
+    padding: 30px 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+.profile-hub-header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+.profile-hub-header h2 {
+    font-size: 2rem;
+    margin: 0 0 5px 0;
+}
+.profile-hub-header p {
+    font-size: 1.1rem;
+    color: var(--text-muted);
+    margin: 0;
+}
+.profile-hub-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    background-color: var(--panel-dark);
+    color: var(--text-light);
+    text-decoration: none;
+    padding: 20px;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    transition: background-color 0.2s, transform 0.2s;
+}
+.profile-hub-menu-item:hover {
+    background-color: #222;
+    transform: translateX(5px);
+}
+.profile-hub-menu-item i {
+    font-size: 1.5rem;
+    color: var(--primary-red);
+    width: 30px;
+    text-align: center;
+}
+.profile-hub-menu-item.logout {
+    color: #ff9a9a;
+}
+.profile-hub-menu-item.logout i {
+    color: #ff9a9a;
+}
+
 
 /* ================================== */
 /* SISTEMA DE CALIFICACIÓN            */
@@ -1400,6 +1448,60 @@ body.modal-open { overflow: hidden; }
     transform: translate(-50%, -50%) scale(1.1);
 }
 
+/* ======================================== */
+/* NUEVO: BARRA DE NAVEGACIÓN INFERIOR      */
+/* ======================================== */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 65px;
+    background-color: var(--bg-dark);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    z-index: 1050;
+    display: none;
+    justify-content: space-around;
+    /* Ajustes clave aquí */
+    align-items: stretch; /* Hace que los enlaces ocupen toda la altura */
+    padding: 0; /* Eliminamos el padding superior de la barra */
+    margin: 0; /* Nos aseguramos de que no haya márgenes */
+}
+.nav-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center; /* Centramos el icono y el texto */
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.7rem;
+    font-weight: 500;
+    width: 20%;
+    height: 100%;
+    transition: color 0.2s ease, transform 0.2s ease;
+    border-top: 3px solid transparent;
+}
+.nav-link i {
+    font-size: 1.4rem;
+    margin-bottom: 4px;
+}
+.nav-link.active {
+    color: var(--primary-red);
+    border-top-color: var(--primary-red);
+}
+.nav-link:active {
+    transform: scale(0.95);
+}
+.roulette-btn.nav-link {
+    color: var(--text-light);
+}
+.roulette-btn.nav-link i {
+    font-size: 1.8rem;
+}
+
+
 /* ================================== */
 /* AJUSTE PARA PCS PEQUEÑAS (993px - 1399px) */
 /* ================================== */
@@ -1420,49 +1522,28 @@ body.modal-open { overflow: hidden; }
 }
 
 @media (max-width: 992px) {
+    /* Agregamos padding inferior para que la barra no tape el contenido */
+    .page-wrapper {
+        padding-bottom: 65px; 
+    }
+    
+    .bottom-nav {
+        display: flex; /* Mostramos la barra de navegación inferior */
+    }
+
     body.modal-open { position: fixed; width: 100%; }
     .main-header { padding: 10px 15px; }
+    
+    /* Ocultamos elementos que ya no son necesarios */
     .main-nav { display: none; }
+    #auth-buttons, #user-profile-container { display: none; }
+
     .logo img { height: 22px; }
     
-    .mobile-nav-panel { display: block; position: fixed; top: 0; right: 0; width: 70%; height: 100vh; max-width: 320px; z-index: 1010; background-color: rgba(24, 24, 24, 0.95); backdrop-filter: blur(10px); transform: translateX(100%); transition: transform 0.3s ease-in-out; }
-    .mobile-nav-panel.is-open { transform: translateX(0); }
-    .close-nav-btn { display: block; position: absolute; top: 15px; right: 15px; background: transparent; border: none; padding: 10px; cursor: pointer; color: white; font-size: 28px; }
-    .mobile-nav ul {
-        list-style: none;
-        padding: 80px 0 0 0;
-        margin: 0;
-        display: flex;
-        flex-direction: column;
-        align-items: stretch; 
-        gap: 15px;
-    }
-
-    .mobile-nav li {
-        width: 100%;
-        justify-content: center;
-    }
-
-    .mobile-nav a {
-        color: var(--text-light);
-        text-decoration: none;
-        font-size: 1.4rem;
-        font-weight: bold;
-        padding: 15px 25px;
-        display: block; 
-        text-align: center; 
-        border-radius: 8px; 
-        transition: background-color 0.2s ease;
-    }
-    
-    .mobile-nav a:hover, .mobile-nav a.active {
-        background-color: rgba(255, 255, 255, 0.1); 
-    }
     .header-right { gap: 8px; }
     #search-input { width: 40px; height: 40px; padding: 0; border-radius: 20px; cursor: pointer; text-indent: -9999px; }
     #search-input:focus { width: 150px; cursor: text; padding: 6px 12px 6px 40px; text-indent: 0; }
     .search-icon { left: 12px; }
-    .hamburger-btn { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; background: transparent; border: none; padding: 0; color: white; font-size: 22px; }
     
     .hero-section { height: 75vh; align-items: flex-end; padding: 0 15px; }
     .hero-section::after { background: linear-gradient(to top, rgba(20,20,20,1) 25%, rgba(20,20,20,0) 100%); }
@@ -1513,38 +1594,29 @@ body.modal-open { overflow: hidden; }
     #series-player-modal .pagination-controls .lang-controls { margin: 0; }
     #series-player-modal .episode-nav-btn { padding: 8px 12px; font-size: 0.9rem; }
     #series-player-modal .episode-sidebar {
-        min-width: 100%;
-        width: 100%;
-        /* ¡ESTA ES LA CLAVE! Limitamos su altura máxima al 45% de la altura de la pantalla. */
-        /* Puedes ajustar este valor si lo prefieres más alto o más bajo. */
         max-height: 45vh;
-        display: flex; /* Necesario para que el header y la lista se organicen */
-        flex-direction: column; /* Apila el header y la lista uno sobre otro */
+        display: flex;
+        flex-direction: column;
         background: #222;
         border-radius: 8px;
         padding: 15px;
-        /* Ocultamos el overflow de la propia barra, ya que lo manejará la lista interna */
         overflow-y: hidden;
     }
-
-    /* 2. Asegúrate de que el header (título y botón) se quede fijo arriba */
     .sidebar-header {
-        position: sticky; /* Hace que se "pegue" arriba al hacer scroll */
-        top: 0; /* Lo pega en la parte superior de su contenedor (.episode-sidebar) */
-        background-color: #222; /* Le damos un fondo para que no se vea el texto de abajo */
-        z-index: 1; /* Lo ponemos por encima de la lista de episodios */
+        position: sticky;
+        top: 0;
+        background-color: #222;
+        z-index: 1;
         padding-bottom: 10px;
-        flex-shrink: 0; /* Evita que este contenedor se encoja */
+        flex-shrink: 0;
     }
-
-    /* 3. Haz que solo la lista de episodios tenga scroll */
     #series-player-modal .episode-list-container {
-        flex-grow: 1; /* Hace que la lista ocupe todo el espacio restante */
-        overflow-y: auto; /* ¡AQUÍ OCURRE LA MAGIA! El scroll solo se aplicará a este elemento */
-        scrollbar-width: none; /* Opcional: Oculta la barra de scroll en Firefox */
+        flex-grow: 1;
+        overflow-y: auto;
+        scrollbar-width: none;
     }
     #series-player-modal .episode-list-container::-webkit-scrollbar {
-        display: none; /* Opcional: Oculta la barra de scroll en Chrome/Safari */
+        display: none;
     }
     
     .filter-controls { flex-direction: column; gap: 15px; padding: 0 15px 20px 15px; }
@@ -1570,47 +1642,6 @@ body.modal-open { overflow: hidden; }
     .settings-form-wrapper { padding: 25px 20px; border-radius: 0; }
     .input-with-button { flex-direction: column; align-items: stretch; }
     .btn-primary { width: 100%; }
-
-    .user-greeting-btn {
-        font-size: 0;
-        padding: 0;
-        width: 40px;
-        height: 40px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-    }
-
-    .user-greeting-btn:hover {
-        background-color: rgba(255, 255, 255, 0.1);
-    }
-
-    .user-greeting-btn::before {
-        content: '\f2bd';
-        font-family: "Font Awesome 6 Free";
-        font-weight: 400;
-        font-size: 24px;
-        color: var(--text-light);
-    }
-    
-    #auth-buttons {
-        gap: 6px;
-    }
-    
-    #auth-buttons a {
-        padding: 6px 10px;
-        font-size: 0.8rem;
-        border-width: 1px;
-        border-radius: 4px;
-        transform: none !important;
-        font-size: 0.85rem;
-    }
-    
-    .btn-login, .btn-register {
-        padding: 8px 12px;
-        font-size: 0.9rem;
-    }
     
     #series-player-modal.player-layout-view {
 
@@ -1669,7 +1700,7 @@ body.modal-open { overflow: hidden; }
 /* En pantallas grandes */
 @media (min-width: 1600px) {
   #cinema .cinema-wrapper {
-    width: 70vw; /* menos ancho para no verse tan “pegado” */
+    width: 70vw;
     max-width: 1600px;
     padding: 30px;
   }
@@ -1742,6 +1773,66 @@ body.modal-open { overflow: hidden; }
   }
 }
 
+/* ================================== */
+/* FORZAR OCULTAR BOTONES EN MÓVIL    */
+/* ================================== */
+@media (max-width: 992px) {
+    .main-header .header-right #user-profile-container,
+    .main-header .header-right #auth-buttons {
+        display: none !important;
+    }
+}
+
+/* ================================== */
+/* ESTILOS PARA ICONO DE RULETA IMG   */
+/* ================================== */
+.nav-link .nav-icon-img {
+    height: 50px; /* Altura del icono */
+    width: 50px;  /* Anchura del icono */
+    margin-bottom: 2px; /* Espacio entre el icono y el texto */
+    object-fit: contain;
+    transition: transform 0.2s ease;
+}
+
+/* El icono se verá ligeramente opaco cuando no esté seleccionado */
+.nav-link:not(.active) .nav-icon-img {
+    opacity: 0.7;
+}
+
+/* Cuando el botón de la ruleta esté activo, el icono brillará al 100% */
+.nav-link.active .nav-icon-img {
+    opacity: 1;
+    transform: scale(1.1); /* Un pequeño efecto para destacarlo */
+}
+
+/* ================================== */
+/* AJUSTE SIMETRÍA BOTONES MODAL MÓVIL*/
+/* ================================== */
+@media (max-width: 992px) {
+    #details-buttons {
+        flex-wrap: wrap; /* Permite que los botones se coloquen en varias líneas */
+        gap: 12px;
+    }
+
+    /* El botón "Ver Ahora" ocupará su propia fila, como acción principal */
+    #details-buttons .btn-play {
+        flex-basis: 100%; /* Ocupa todo el ancho */
+        order: 1; /* Lo posiciona primero */
+    }
+
+    /* El botón "Temporadas" crecerá para ocupar el espacio disponible */
+    #details-buttons .btn-info, /* Para películas */
+    #details-buttons .btn-seasons /* Para series */ {
+        flex-grow: 1;
+        order: 2;
+    }
+
+    /* El botón de "Mi Lista" mantendrá su tamaño circular */
+    #details-buttons .btn-watchlist {
+        flex-shrink: 0; /* Evita que el botón '+' se encoja */
+        order: 3;
+    }
+}
 
 /*
 █▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀█
