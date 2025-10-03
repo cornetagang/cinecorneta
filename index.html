@@ -62,19 +62,16 @@
                         <a href="#" id="login-btn-header" class="btn btn-login">Ingresar</a>
                         <a href="#" id="register-btn-header" class="btn btn-register">Registrarse</a>
                     </div>
-                    <button id="menu-toggle" class="hamburger-btn" aria-label="Abrir menú de navegación">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                </div>
+                    </div>
             </div>
         </header>
 
         <main>
             <section id="hero-section" class="hero-section">
-                </section>
+            </section>
 
             <div id="carousel-container">
-                </div>
+            </div>
 
             <div id="full-grid-container" style="display: none;">
                 <div class="filter-controls" id="filter-controls">
@@ -93,6 +90,9 @@
                 <div class="content-header"><h2>Historial de Reproducción</h2></div>
                 <div id="history-grid" class="grid"></div>
             </div>
+
+            <div id="profile-hub-container" class="content-container" style="display: none;">
+                </div>
 
             <div id="profile-container" class="content-container" style="display: none;">
                 <div class="profile-header-wrapper">
@@ -136,13 +136,13 @@
                     </div>
                     <h4>Tus Géneros Favoritos</h4>
                     <div id="genre-stats-container">
-                        </div>
+                    </div>
                 </div>
 
                 <div class="profile-tab-content" id="ratings-tab">
                      <h4>Tus Calificaciones</h4>
                      <div id="ratings-history-container" class="ratings-list">
-                        </div>
+                     </div>
                 </div>
             </div>
 
@@ -169,46 +169,31 @@
                     <p id="settings-feedback" class="feedback-message"></p>
                 </div>
             </div>
-            </main>
+        </main>
     </div>
-
-    <div id="mobile-nav-panel" class="mobile-nav-panel">
-        <button class="close-nav-btn">&times;</button>
-        <nav class="mobile-nav">
-            <ul>
-                <li><a href="#" data-filter="all">Inicio</a></li>
-                <li><a href="#" data-filter="movie">Películas</a></li>
-                <li><a href="#" data-filter="series">Series</a></li>
-                <li><a href="#" data-filter="roulette">Ruleta</a></li>
-                <li id="my-list-nav-link-mobile" style="display: none;"><a href="#" data-filter="my-list">Mi Lista</a></li>
-                <li id="history-nav-link-mobile" style="display: none;"><a href="#" data-filter="history">Historial</a></li>
-            </ul>
-        </nav>
-    </div>
-    <div id="menu-overlay" class="menu-overlay"></div>
 
     <div id="details-modal" class="modal">
-    <div class="details-panel">
-        <button class="close-btn" aria-label="Cerrar modal">&times;</button>
-        <div class="details-content">
-            <div class="details-poster">
-                <img id="details-poster-img" src="" alt="Poster">
-            </div>
-            <div class="details-info">
-                <h2 id="details-title"></h2>
-                <div class="details-meta">
-                    <span id="details-year"></span>
-                    <span id="details-genres"></span>
+        <div class="details-panel">
+            <button class="close-btn" aria-label="Cerrar modal">&times;</button>
+            <div class="details-content">
+                <div class="details-poster">
+                    <img id="details-poster-img" src="" alt="Poster">
                 </div>
-
-                <div id="details-rating-display" class="rating-display">
+                <div class="details-info">
+                    <h2 id="details-title"></h2>
+                    <div class="details-meta">
+                        <span id="details-year"></span>
+                        <span id="details-genres"></span>
                     </div>
-                <p id="details-synopsis"></p>
-                <div id="details-user-rating" class="user-rating-container">
-                    <p>Tu calificación:</p>
-                    <div class="stars-interactive">
+
+                    <div id="details-rating-display" class="rating-display">
+                    </div>
+                    <p id="details-synopsis"></p>
+                    <div id="details-user-rating" class="user-rating-container">
+                        <p>Tu calificación:</p>
+                        <div class="stars-interactive">
                         </div>
-                </div>
+                    </div>
                     <div id="details-buttons"></div>
                 </div>
             </div>
@@ -218,17 +203,17 @@
     <div id="cinema" class="modal">
         <div class="cinema-wrapper">
             <div class="screen">
-            <iframe src="" allowfullscreen></iframe>
-        </div>
-    <div class="cinema-info">
-        <h2 id="cinema-title">Título de la Película</h2>
-            <div class="cinema-controls">
-                <button class="btn btn-watchlist">
-                    <i class="fas fa-plus"></i> Mi Lista
-                </button>
+                <iframe src="" allowfullscreen></iframe>
+            </div>
+            <div class="cinema-info">
+                <h2 id="cinema-title">Título de la Película</h2>
+                <div class="cinema-controls">
+                    <button class="btn btn-watchlist">
+                        <i class="fas fa-plus"></i> Mi Lista
+                    </button>
+                </div>
             </div>
         </div>
-    </div>
         <button class="close-btn">&times;</button>
     </div>
 
@@ -245,7 +230,7 @@
     </div>
 
     <div id="series-player-modal" class="modal">
-        </div>
+    </div>
 
     <div id="auth-modal" class="modal">
         <div class="auth-modal-content">
@@ -279,6 +264,28 @@
             </div>
         </div>
     </div>
+    
+    <footer class="bottom-nav">
+        <a href="#" class="nav-link active" data-filter="all" aria-label="Inicio">
+            <i class="fas fa-home"></i>
+            <span>Inicio</span>
+        </a>
+        <a href="#" class="nav-link" data-filter="movie" aria-label="Películas">
+            <i class="fas fa-film"></i>
+            <span>Películas</span>
+        </a>
+        <a href="#" class="nav-link roulette-btn" data-filter="roulette" aria-label="Ruleta">
+            <img src="https://res.cloudinary.com/djhgmmdjx/image/upload/v1759456737/Ruletaaaaaaaaaaaaaaaa_ipprhm.png" alt="Icono de Ruleta" class="nav-icon-img">
+        </a>
+        <a href="#" class="nav-link" data-filter="series" aria-label="Series">
+            <i class="fas fa-tv"></i>
+            <span>Series</span>
+        </a>
+        <a href="#" class="nav-link" data-filter="profile-hub" aria-label="Mi Perfil">
+            <i class="fas fa-user-circle"></i>
+            <span>Perfil</span>
+        </a>
+    </footer>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
