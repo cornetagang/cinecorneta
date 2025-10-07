@@ -433,7 +433,7 @@ const DOM = {
     menuOverlay: document.getElementById('menu-overlay')
 };
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbzdTx1P27x9M_AewBL8rwOTRflgpuBhO5mlpsCuvFIMpAXPgEWIuMYul0jLZfQ4d3g9/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbyIxDBAkSD3F4goZrw9adQlkQIP6todICeW8wUPzeAI39W2yzQg32LbeiCCqn9SSZ9U/exec';
 const ITEMS_PER_LOAD = 18;
 
 const firebaseConfig = {
@@ -1054,12 +1054,13 @@ function setupRouletteLogic() {
         selectedMovie = moviesForRoulette[finalPickIndex];
 
         moviesForRoulette.forEach((movie, index) => {
-            const card = createMovieCardElement(movie.id, movie.data, 'movie', 'roulette', true);
-            if (index === finalPickIndex) {
-                card.dataset.winner = 'true';
-            }
-            rouletteTrack.appendChild(card);
-        });
+        // 🔧 CAMBIO: lazy = false para que las imágenes carguen inmediatamente en la ruleta
+        const card = createMovieCardElement(movie.id, movie.data, 'movie', 'roulette', false);
+        if (index === finalPickIndex) {
+            card.dataset.winner = 'true';
+        }
+        rouletteTrack.appendChild(card);
+    });
         
         setTimeout(() => {
             const wrapperWidth = rouletteTrack.parentElement.offsetWidth;
@@ -1458,7 +1459,8 @@ function displayMyListView() {
         const data = allContent[contentId];
         if (data) {
             const type = appState.content.series[contentId] ? 'series' : 'movie';
-            myListGrid.appendChild(createMovieCardElement(contentId, data, type, 'grid', true));
+            // 🔧 CAMBIO: lazy = false para cargar inmediatamente
+            myListGrid.appendChild(createMovieCardElement(contentId, data, type, 'grid', false));
         }
     });
 }
@@ -1488,7 +1490,8 @@ function renderHistory() {
                 source: 'history',
                 season: item.season
             };
-            const card = createMovieCardElement(item.contentId, item, item.type, 'grid', true, options);
+            // 🔧 CAMBIO: lazy = false para cargar inmediatamente
+            const card = createMovieCardElement(item.contentId, item, item.type, 'grid', false, options);
             
             const removeButton = document.createElement('button');
             removeButton.className = 'btn-remove-history';
@@ -2383,4 +2386,3 @@ VERSIÓN: 2.0.0
 ÚLTIMA ACTUALIZACIÓN: 2025-01-07
 COMPATIBILIDAD: Chrome 90+, Firefox 88+, Safari 14+, Edge 90+
 */
-
