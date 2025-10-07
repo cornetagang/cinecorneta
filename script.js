@@ -1,4 +1,342 @@
 // ===========================================================
+// CINE CORNETA - SCRIPT COMPLETO CON MEJORAS INTEGRADAS
+// Versión: 2.0.0
+// ===========================================================
+
+// ===========================================================
+// 🆕 NUEVOS SISTEMAS - GESTIÓN DE ERRORES
+// ===========================================================
+const ErrorHandler = {
+    types: {
+        NETWORK: 'network',
+        AUTH: 'auth',
+        DATABASE: 'database',
+        CONTENT: 'content',
+        UNKNOWN: 'unknown'
+    },
+
+    messages: {
+        network: 'No se pudo conectar al servidor. Verifica tu conexión.',
+        auth: 'Error de autenticación. Intenta iniciar sesión nuevamente.',
+        database: 'Error al guardar datos. Tus cambios podrían no haberse guardado.',
+        content: 'No se pudo cargar el contenido. Intenta refrescar la página.',
+        unknown: 'Ocurrió un error inesperado. Intenta nuevamente.'
+    },
+
+    show(type, customMessage = null, duration = 5000) {
+        const message = customMessage || this.messages[type];
+        
+        let notification = document.getElementById('error-notification');
+        if (!notification) {
+            notification = document.createElement('div');
+            notification.id = 'error-notification';
+            notification.className = 'error-notification';
+            document.body.appendChild(notification);
+        }
+
+        const icons = {
+            network: 'fa-wifi',
+            auth: 'fa-user-lock',
+            database: 'fa-database',
+            content: 'fa-film',
+            unknown: 'fa-exclamation-triangle'
+        };
+
+        notification.innerHTML = `
+            <i class="fas ${icons[type] || icons.unknown}"></i>
+            <span>${message}</span>
+            <button class="close-notification">&times;</button>
+        `;
+
+        notification.classList.add('show', `type-${type}`);
+
+        const timeoutId = setTimeout(() => this.hide(), duration);
+
+        notification.querySelector('.close-notification').onclick = () => {
+            clearTimeout(timeoutId);
+            this.hide();
+        };
+
+        console.error(`[${type.toUpperCase()}]`, message);
+    },
+
+    hide() {
+        const notification = document.getElementById('error-notification');
+        if (notification) notification.classList.remove('show');
+    },
+
+    async firebaseOperation(operation, type = this.types.DATABASE) {
+        try {
+            return await operation();
+        } catch (error) {
+            console.error('Firebase Error:', error);
+            
+            if (error.code === 'PERMISSION_DENIED') {
+                this.show(this.types.AUTH, 'No tienes permiso para realizar esta acción.');
+            } else if (error.code === 'NETWORK_ERROR') {
+                this.show(this.types.NETWORK);
+            } else {
+                this.show(type);
+            }
+            
+            throw error;
+        }
+    },
+
+    async fetchOperation(url, options = {}) {
+        try {
+            const response = await fetch(url, options);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return await response.json();
+        } catch (error) {
+            console.error('Fetch Error:', error);
+            if (error.name === 'TypeError') {
+                this.show(this.types.NETWORK);
+            } else {
+                this.show(this.types.CONTENT);
+            }
+            throw error;
+        }
+    }
+};
+
+// Inyectar estilos de notificaciones
+if (!document.getElementById('error-notification-styles')) {
+    const errorStyles = document.createElement('style');
+    errorStyles.id = 'error-notification-styles';
+    errorStyles.textContent = `
+        .error-notification {
+            position: fixed; top: 80px; right: 20px;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+            color: white; padding: 18px 24px; border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            display: flex; align-items: center; gap: 15px; z-index: 10000;
+            min-width: 320px; max-width: 450px;
+            transform: translateX(500px); opacity: 0;
+            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            border-left: 4px solid var(--primary-red);
+        }
+        .error-notification.show { transform: translateX(0); opacity: 1; }
+        .error-notification i { font-size: 1.5rem; color: var(--primary-red); flex-shrink: 0; }
+        .error-notification span { flex-grow: 1; font-size: 0.95rem; line-height: 1.4; }
+        .error-notification .close-notification {
+            background: transparent; border: none; color: #999;
+            font-size: 1.3rem; cursor: pointer; padding: 0;
+            width: 24px; height: 24px; display: flex;
+            align-items: center; justify-content: center;
+            transition: color 0.2s; flex-shrink: 0;
+        }
+        .error-notification .close-notification:hover { color: white; }
+        @media (max-width: 768px) {
+            .error-notification {
+                top: auto; bottom: 20px; right: 10px; left: 10px;
+                min-width: auto; max-width: none;
+            }
+        }
+    `;
+    document.head.appendChild(errorStyles);
+}
+
+// ===========================================================
+// 🆕 SISTEMA DE CACHÉ AVANZADO
+// ===========================================================
+class CacheManager {
+    constructor() {
+        this.version = '1.2.0';
+        this.defaultTTL = 24 * 60 * 60 * 1000;
+        this.keys = {
+            content: `cineCornetaData_v${this.version}`,
+            metadata: `contentMetadata_v${this.version}`
+        };
+    }
+
+    set(key, data, ttl = this.defaultTTL) {
+        try {
+            const cacheEntry = {
+                data,
+                timestamp: Date.now(),
+                ttl,
+                version: this.version
+            };
+            localStorage.setItem(key, JSON.stringify(cacheEntry));
+            return true;
+        } catch (error) {
+            console.error('Error al guardar en caché:', error);
+            if (error.name === 'QuotaExceededError') {
+                this.cleanup(true);
+            }
+            return false;
+        }
+    }
+
+    get(key, options = {}) {
+        const { ignoreExpiration = false, defaultValue = null } = options;
+        try {
+            const cached = localStorage.getItem(key);
+            if (!cached) return defaultValue;
+
+            const cacheEntry = JSON.parse(cached);
+
+            if (cacheEntry.version !== this.version) {
+                this.remove(key);
+                return defaultValue;
+            }
+
+            if (!ignoreExpiration && cacheEntry.ttl) {
+                const age = Date.now() - cacheEntry.timestamp;
+                if (age > cacheEntry.ttl) {
+                    this.remove(key);
+                    return defaultValue;
+                }
+            }
+
+            return cacheEntry.data;
+        } catch (error) {
+            console.error('Error al leer caché:', error);
+            return defaultValue;
+        }
+    }
+
+    remove(key) {
+        try {
+            localStorage.removeItem(key);
+            return true;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    cleanup(aggressive = false) {
+        try {
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (!key) continue;
+                try {
+                    const item = localStorage.getItem(key);
+                    const parsed = JSON.parse(item);
+                    if (parsed.version && parsed.version !== this.version) {
+                        keysToRemove.push(key);
+                    }
+                } catch (e) {
+                    if (aggressive) keysToRemove.push(key);
+                }
+            }
+            keysToRemove.forEach(key => localStorage.removeItem(key));
+            return keysToRemove.length;
+        } catch (error) {
+            return 0;
+        }
+    }
+
+    clearAll() {
+        try {
+            localStorage.clear();
+            return true;
+        } catch (error) {
+            return false;
+        }
+    }
+}
+
+const cacheManager = new CacheManager();
+
+// ===========================================================
+// 🆕 SISTEMA DE LAZY LOADING
+// ===========================================================
+class LazyImageLoader {
+    constructor() {
+        this.observer = null;
+        this.options = {
+            root: null,
+            rootMargin: '50px',
+            threshold: 0.01
+        };
+        this.init();
+    }
+
+    init() {
+        if (!('IntersectionObserver' in window)) {
+            this.loadAllImages();
+            return;
+        }
+
+        this.observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    this.loadImage(entry.target);
+                    this.observer.unobserve(entry.target);
+                }
+            });
+        }, this.options);
+
+        this.observeImages();
+    }
+
+    observeImages() {
+        const lazyImages = document.querySelectorAll('img[data-src]');
+        lazyImages.forEach(img => this.observer.observe(img));
+    }
+
+    loadImage(img) {
+        const src = img.dataset.src;
+        if (!src) return;
+
+        img.classList.add('lazy-loading');
+        const tempImg = new Image();
+        
+        tempImg.onload = () => {
+            img.src = src;
+            img.classList.remove('lazy-loading');
+            img.classList.add('lazy-loaded');
+            delete img.dataset.src;
+        };
+
+        tempImg.onerror = () => {
+            img.classList.remove('lazy-loading');
+            img.classList.add('lazy-error');
+            console.warn('Error al cargar:', src);
+        };
+
+        tempImg.src = src;
+    }
+
+    loadAllImages() {
+        const lazyImages = document.querySelectorAll('img[data-src]');
+        lazyImages.forEach(img => {
+            if (img.dataset.src) {
+                img.src = img.dataset.src;
+                delete img.dataset.src;
+            }
+        });
+    }
+
+    observe(img) {
+        if (this.observer) this.observer.observe(img);
+    }
+}
+
+const lazyLoader = new LazyImageLoader();
+
+// Inyectar estilos de lazy loading
+if (!document.getElementById('lazy-loading-styles')) {
+    const lazyStyles = document.createElement('style');
+    lazyStyles.id = 'lazy-loading-styles';
+    lazyStyles.textContent = `
+        img[data-src] { filter: blur(5px); transition: filter 0.3s ease; }
+        img.lazy-loading {
+            background: linear-gradient(135deg, #333 0%, #222 100%);
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+        img.lazy-loaded { filter: blur(0); animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0.7; } to { opacity: 1; } }
+        img.lazy-error { filter: grayscale(1); opacity: 0.5; }
+    `;
+    document.head.appendChild(lazyStyles);
+}
+
+// ===========================================================
 // 1. ESTADO GLOBAL Y CONFIGURACIÓN
 // ===========================================================
 const appState = {
@@ -31,16 +369,18 @@ const appState = {
     },
     flags: {
         isLoadingMore: false
+    },
+    hero: {
+        preloadedImages: new Map(),
+        currentIndex: 0,
+        isTransitioning: false
     }
 };
 
 const DOM = {
-    // Contenedores principales
     preloader: document.getElementById('preloader'),
     pageWrapper: document.querySelector('.page-wrapper'),
     header: document.querySelector('.main-header'),
-    
-    // Secciones de la vista
     heroSection: document.getElementById('hero-section'),
     carouselContainer: document.getElementById('carousel-container'),
     gridContainer: document.getElementById('full-grid-container'),
@@ -48,23 +388,16 @@ const DOM = {
     historyContainer: document.getElementById('history-container'),
     profileContainer: document.getElementById('profile-container'),
     settingsContainer: document.getElementById('settings-container'),
-    profileHubContainer: document.getElementById('profile-hub-container'), // NUEVO
-
-    // Modales
     detailsModal: document.getElementById('details-modal'),
     cinemaModal: document.getElementById('cinema'),
     rouletteModal: document.getElementById('roulette-modal'),
     seriesPlayerModal: document.getElementById('series-player-modal'),
     authModal: document.getElementById('auth-modal'),
     confirmationModal: document.getElementById('confirmation-modal'),
-
-    // Controles y otros
     searchInput: document.getElementById('search-input'),
     filterControls: document.getElementById('filter-controls'),
     genreFilter: document.getElementById('genre-filter'),
     sortBy: document.getElementById('sort-by'),
-
-    // Elementos de Autenticación
     authButtons: document.getElementById('auth-buttons'),
     loginBtnHeader: document.getElementById('login-btn-header'),
     registerBtnHeader: document.getElementById('register-btn-header'),
@@ -78,30 +411,26 @@ const DOM = {
     registerPasswordInput: document.getElementById('register-password'),
     loginEmailInput: document.getElementById('login-email'),
     loginPasswordInput: document.getElementById('login-password'),
-    
-    // Elementos de Perfil de Usuario
     userProfileContainer: document.getElementById('user-profile-container'),
     userGreetingBtn: document.getElementById('user-greeting'),
     userMenuDropdown: document.getElementById('user-menu-dropdown'),
     myListNavLink: document.getElementById('my-list-nav-link'),
     historyNavLink: document.getElementById('history-nav-link'),
+    myListNavLinkMobile: document.getElementById('my-list-nav-link-mobile'),
+    historyNavLinkMobile: document.getElementById('history-nav-link-mobile'),
     profileUsername: document.getElementById('profile-username'),
     profileEmail: document.getElementById('profile-email'),
-
-    // Elementos de Ajustes
     settingsUsernameInput: document.getElementById('settings-username-input'),
     updateUsernameBtn: document.getElementById('update-username-btn'),
     settingsPasswordInput: document.getElementById('settings-password-input'),
     updatePasswordBtn: document.getElementById('update-password-btn'),
     settingsFeedback: document.getElementById('settings-feedback'),
-    
-    // Elementos de Confirmación
     confirmDeleteBtn: document.getElementById('confirm-delete-btn'),
     cancelDeleteBtn: document.getElementById('cancel-delete-btn'),
-
-    // Elementos de Navegación (AHORA INCLUYE LA BARRA INFERIOR)
-    bottomNav: document.querySelector('.bottom-nav'),
-    desktopNav: document.querySelector('.main-nav ul')
+    hamburgerBtn: document.getElementById('menu-toggle'),
+    mobileNavPanel: document.getElementById('mobile-nav-panel'),
+    closeNavBtn: document.querySelector('.close-nav-btn'),
+    menuOverlay: document.getElementById('menu-overlay')
 };
 
 const API_URL = 'https://script.google.com/macros/s/AKfycbyIxDBAkSD3F4goZrw9adQlkQIP6todICeW8wUPzeAI39W2yzQg32LbeiCCqn9SSZ9U/exec';
@@ -122,15 +451,13 @@ const auth = firebase.auth();
 const db = firebase.database();
 
 // ===========================================================
-// 2. INICIO Y CARGA DE DATOS
+// 2. INICIO Y CARGA DE DATOS (🆕 MEJORADO CON CACHÉ)
 // ===========================================================
 document.addEventListener('DOMContentLoaded', () => {
-    fetchInitialData();
+    fetchInitialDataWithCache();
 });
 
-function fetchInitialData() {
-    const CACHE_KEY = 'cineCornetaData';
-
+async function fetchInitialDataWithCache() {
     const processData = (data) => {
         appState.content.movies = data.allMovies || {};
         appState.content.series = data.series || {};
@@ -150,60 +477,88 @@ function fetchInitialData() {
         } else {
             setupHero();
             generateCarousels();
-            const activeFilter = document.querySelector('.main-nav a.active, .bottom-nav a.active')?.dataset.filter;
+            const activeFilter = document.querySelector('.main-nav a.active, .mobile-nav a.active')?.dataset.filter;
             if (activeFilter === 'movie' || activeFilter === 'series') {
                 applyAndDisplayFilters(activeFilter);
             }
         }
     };
 
-    const freshDataPromise = Promise.all([
-        fetch(`${API_URL}?data=series`).then(res => res.json()),
-        fetch(`${API_URL}?data=episodes`).then(res => res.json()),
-        fetch(`${API_URL}?data=allMovies&order=desc`).then(res => res.json()),
-        fetch(`${API_URL}?data=PostersTemporadas`).then(res => res.json()),
-        db.ref('movie_metadata').once('value').then(snapshot => snapshot.val() || {}),
-        db.ref('series_metadata').once('value').then(snapshot => snapshot.val() || {})
-    ]);
+    // Intentar cargar desde caché
+    const cachedContent = cacheManager.get(cacheManager.keys.content);
+    const cachedMetadata = cacheManager.get(cacheManager.keys.metadata);
 
-    const cachedDataString = localStorage.getItem(CACHE_KEY);
-    if (cachedDataString) {
-        console.log("Cargando UI desde el caché...");
-        const cachedData = JSON.parse(cachedDataString).data;
-        processData(cachedData);
+    if (cachedContent) {
+        console.log('✓ Cargando UI desde caché...');
+        processData(cachedContent);
+        
+        if (cachedMetadata) {
+            appState.content.metadata.movies = cachedMetadata.movies || {};
+            appState.content.metadata.series = cachedMetadata.series || {};
+        }
 
-        Promise.all([
-            db.ref('movie_metadata').once('value').then(s => s.val() || {}),
-            db.ref('series_metadata').once('value').then(s => s.val() || {})
-        ]).then(([movieMeta, seriesMeta]) => {
-            setupAndShow(movieMeta, seriesMeta);
-        });
+        setupAndShow(cachedMetadata?.movies, cachedMetadata?.series);
     }
 
-    freshDataPromise.then(([series, episodes, allMovies, posters, movieMeta, seriesMeta]) => {
-        console.log("Datos frescos recibidos.");
-        const freshData = { allMovies, series, episodes, posters };
+    // Cargar datos frescos en background
+    try {
+        console.log('⟳ Cargando datos frescos...');
         
-        processData(freshData);
-        localStorage.setItem(CACHE_KEY, JSON.stringify({ data: freshData }));
-        
-        setupAndShow(movieMeta, seriesMeta);
+        const [series, episodes, allMovies, posters, movieMeta, seriesMeta] = await Promise.all([
+            ErrorHandler.fetchOperation(`${API_URL}?data=series`),
+            ErrorHandler.fetchOperation(`${API_URL}?data=episodes`),
+            ErrorHandler.fetchOperation(`${API_URL}?data=allMovies&order=desc`),
+            ErrorHandler.fetchOperation(`${API_URL}?data=PostersTemporadas`),
+            db.ref('movie_metadata').once('value').then(s => s.val() || {}),
+            db.ref('series_metadata').once('value').then(s => s.val() || {})
+        ]);
+
+        const freshContent = { allMovies, series, episodes, posters };
+        const freshMetadata = { movies: movieMeta, series: seriesMeta };
+
+        processData(freshContent);
+        appState.content.metadata.movies = freshMetadata.movies;
+        appState.content.metadata.series = freshMetadata.series;
+
+        cacheManager.set(cacheManager.keys.content, freshContent);
+        cacheManager.set(cacheManager.keys.metadata, freshMetadata);
+
+        console.log('✓ Datos frescos guardados');
+
+        if (cachedContent) {
+            setupHero();
+            generateCarousels();
+            const activeFilter = document.querySelector('.main-nav a.active')?.dataset.filter;
+            if (activeFilter === 'movie' || activeFilter === 'series') {
+                applyAndDisplayFilters(activeFilter);
+            }
+        } else {
+            setupApp();
+            DOM.preloader.classList.add('fade-out');
+            setTimeout(() => DOM.preloader.remove(), 500);
+            DOM.pageWrapper.style.display = 'block';
+        }
 
         const user = auth.currentUser;
         if (user) {
             db.ref(`users/${user.uid}/history`).orderByChild('viewedAt').once('value', snapshot => {
-                if (snapshot.exists()) {
-                    generateContinueWatchingCarousel(snapshot);
-                }
+                if (snapshot.exists()) generateContinueWatchingCarousel(snapshot);
             });
         }
 
-    }).catch(error => {
-        console.error("Error al cargar datos frescos:", error);
-        if (!cachedDataString) {
-            DOM.preloader.innerHTML = `<p>Error de conexión. Intenta recargar.</p>`;
+    } catch (error) {
+        console.error('✗ Error al cargar datos:', error);
+        if (!cachedContent) {
+            DOM.preloader.innerHTML = `
+                <div style="text-align: center;">
+                    <p style="color: white; margin-bottom: 20px;">Error al cargar el contenido</p>
+                    <button onclick="location.reload()" style="padding: 10px 20px; background: var(--primary-red); color: white; border: none; border-radius: 5px; cursor: pointer;">
+                        Reintentar
+                    </button>
+                </div>
+            `;
         }
-    });
+    }
 }
 
 function setupApp() {
@@ -222,34 +577,40 @@ function setupApp() {
 // 3. NAVEGACIÓN Y MANEJO DE VISTAS
 // ===========================================================
 function setupNavigation() {
-    // Listener para la navegación de escritorio
-    if (DOM.desktopNav) {
-        DOM.desktopNav.addEventListener('click', handleNavigationClick);
-    }
-    // Listener para la nueva navegación móvil inferior
-    if (DOM.bottomNav) {
-        DOM.bottomNav.addEventListener('click', handleNavigationClick);
-    }
+    const navContainers = document.querySelectorAll('.main-nav ul, .mobile-nav ul');
+    navContainers.forEach(container => container.addEventListener('click', handleFilterClick));
+    
+    const openMenu = () => { 
+        DOM.mobileNavPanel.classList.add('is-open'); 
+        DOM.menuOverlay.classList.add('active'); 
+    };
+    const closeMenu = () => { 
+        DOM.mobileNavPanel.classList.remove('is-open'); 
+        DOM.menuOverlay.classList.remove('active'); 
+    };
+
+    if (DOM.hamburgerBtn) DOM.hamburgerBtn.addEventListener('click', openMenu);
+    if (DOM.closeNavBtn) DOM.closeNavBtn.addEventListener('click', closeMenu);
+    if (DOM.menuOverlay) DOM.menuOverlay.addEventListener('click', closeMenu);
 }
 
-function handleNavigationClick(event) {
+function handleFilterClick(event) {
     const link = event.target.closest('a');
-    if (!link || !link.dataset.filter) return;
+    if (!link) return;
     event.preventDefault();
 
+    DOM.mobileNavPanel.classList.remove('is-open');
+    DOM.menuOverlay.classList.remove('active');
+    
     const filter = link.dataset.filter;
-
     if (filter === 'roulette') {
         openRouletteModal();
         return;
     }
-    
-    // Evita recargar la misma vista, excepto las vistas de usuario que pueden cambiar
-    const activeFilter = document.querySelector('.main-nav a.active, .bottom-nav a.active')?.dataset.filter;
-    if (filter === activeFilter && !['history', 'my-list', 'profile-hub'].includes(filter)) return;
 
-    // Actualiza el estado activo en ambas barras de navegación
-    document.querySelectorAll('.main-nav a, .bottom-nav a').forEach(l => l.classList.remove('active'));
+    if (link.classList.contains('active') && !['history', 'my-list'].includes(filter)) return;
+
+    document.querySelectorAll('.main-nav a, .mobile-nav a').forEach(l => l.classList.remove('active'));
     document.querySelectorAll(`a[data-filter="${filter}"]`).forEach(l => l.classList.add('active'));
     
     DOM.searchInput.value = '';
@@ -260,7 +621,7 @@ function switchView(filter) {
     [
         DOM.heroSection, DOM.carouselContainer, DOM.gridContainer, 
         DOM.myListContainer, DOM.historyContainer, DOM.profileContainer, 
-        DOM.settingsContainer, DOM.profileHubContainer
+        DOM.settingsContainer
     ].forEach(container => container.style.display = 'none');
 
     if (DOM.filterControls) DOM.filterControls.style.display = 'none';
@@ -282,84 +643,10 @@ function switchView(filter) {
         if (DOM.profileContainer) { DOM.profileContainer.style.display = 'block'; renderProfile(); }
     } else if (filter === 'settings') {
         if (DOM.settingsContainer) { DOM.settingsContainer.style.display = 'block'; renderSettings(); }
-    } else if (filter === 'profile-hub') { // NUEVO
-        if (DOM.profileHubContainer) { DOM.profileHubContainer.style.display = 'block'; renderProfileHub(); }
     }
     
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
-
-// NUEVA FUNCIÓN para renderizar el menú de perfil en móvil
-function renderProfileHub() {
-    const user = auth.currentUser;
-    const container = DOM.profileHubContainer;
-    if (!container) return;
-
-    if (user) {
-        // Vista para usuario logueado
-        container.innerHTML = `
-            <div class="profile-hub-header">
-                <h2>Hola, ${user.displayName || user.email.split('@')[0]}</h2>
-                <p>Gestiona tu cuenta y actividad</p>
-            </div>
-            <a href="#" class="profile-hub-menu-item" data-filter="my-list">
-                <i class="fas fa-list-ul"></i>
-                <span>Mi Lista</span>
-            </a>
-            <a href="#" class="profile-hub-menu-item" data-filter="history">
-                <i class="fas fa-history"></i>
-                <span>Historial</span>
-            </a>
-            <a href="#" class="profile-hub-menu-item" data-filter="profile">
-                <i class="fas fa-user-circle"></i>
-                <span>Mi Perfil</span>
-            </a>
-            <a href="#" class="profile-hub-menu-item" data-filter="settings">
-                <i class="fas fa-cog"></i>
-                <span>Ajustes de Cuenta</span>
-            </a>
-            <a href="#" class="profile-hub-menu-item logout" data-action="logout">
-                <i class="fas fa-sign-out-alt"></i>
-                <span>Cerrar Sesión</span>
-            </a>
-        `;
-        // Añadir listeners para los nuevos elementos
-        container.querySelectorAll('a[data-filter]').forEach(link => {
-            link.addEventListener('click', handleNavigationClick);
-        });
-        container.querySelector('a[data-action="logout"]').addEventListener('click', (e) => {
-            e.preventDefault();
-            auth.signOut();
-        });
-
-    } else {
-        // Vista para usuario no logueado
-        container.innerHTML = `
-            <div class="profile-hub-header">
-                <h2>Tu Perfil</h2>
-                <p>Ingresa para acceder a tus listas, historial y más.</p>
-            </div>
-            <a href="#" class="profile-hub-menu-item" data-auth="login">
-                <i class="fas fa-sign-in-alt"></i>
-                <span>Ingresar</span>
-            </a>
-            <a href="#" class="profile-hub-menu-item" data-auth="register">
-                <i class="fas fa-user-plus"></i>
-                <span>Registrarse</span>
-            </a>
-        `;
-        // Añadir listeners para los nuevos elementos
-        container.querySelector('a[data-auth="login"]').addEventListener('click', (e) => {
-            e.preventDefault();
-            openAuthModal(true);
-        });
-        container.querySelector('a[data-auth="register"]').addEventListener('click', (e) => {
-            e.preventDefault();
-            openAuthModal(false);
-        });
-    }
-}
-
 
 function populateFilters(type) {
     const sourceData = (type === 'movie') ? appState.content.movies : appState.content.series;
@@ -401,36 +688,32 @@ function applyAndDisplayFilters(type) {
     }
 
     content.sort((a, b) => {
-    const aData = a[1], bData = b[1];
-    const metadataSource = type === 'movie' ? appState.content.metadata.movies : appState.content.metadata.series;
-    const aRating = metadataSource[a[0]]?.avgRating || 0;
-    const bRating = metadataSource[b[0]]?.avgRating || 0;
+        const aData = a[1], bData = b[1];
+        const metadataSource = type === 'movie' ? appState.content.metadata.movies : appState.content.metadata.series;
+        const aRating = metadataSource[a[0]]?.avgRating || 0;
+        const bRating = metadataSource[b[0]]?.avgRating || 0;
 
-    switch (sortByValue) {
-        case 'recent':
-            return bData.tr - aData.tr;
-
-        case 'rating-desc':
-        case 'rating-asc': {
-            if (aRating === 0 && bRating > 0) return 1;
-            if (bRating === 0 && aRating > 0) return -1;
-            return sortByValue === 'rating-asc' ? aRating - bRating : bRating - aRating;
+        switch (sortByValue) {
+            case 'recent':
+                return bData.tr - aData.tr;
+            case 'rating-desc':
+            case 'rating-asc': {
+                if (aRating === 0 && bRating > 0) return 1;
+                if (bRating === 0 && aRating > 0) return -1;
+                return sortByValue === 'rating-asc' ? aRating - bRating : bRating - aRating;
+            }
+            case 'title-asc':
+                return aData.title.localeCompare(bData.title);
+            case 'title-desc':
+                return bData.title.localeCompare(aData.title);
+            case 'year-desc':
+                return (bData.year || 0) - (aData.year || 0);
+            case 'year-asc':
+                return (aData.year || 0) - (bData.year || 0);
+            default:
+                return bData.tr - aData.tr;
         }
-
-        case 'title-asc':
-            return aData.title.localeCompare(bData.title);
-        case 'title-desc':
-            return bData.title.localeCompare(aData.title);
-
-        case 'year-desc':
-            return (bData.year || 0) - (aData.year || 0);
-        case 'year-asc':
-            return (aData.year || 0) - (bData.year || 0);
-
-        default:
-            return bData.tr - aData.tr;
-    }
-});
+    });
     
     appState.ui.contentToDisplay = content;
     appState.ui.currentIndex = 0;
@@ -439,7 +722,7 @@ function applyAndDisplayFilters(type) {
 }
 
 // ===========================================================
-// 4. MÓDULOS DE FUNCIONALIDADES (HERO, BÚSQUEDA, RULETA, ETC.)
+// 4. MÓDULOS DE FUNCIONALIDADES (HERO, BÚSQUEDA, ETC.)
 // ===========================================================
 function setupEventListeners() {
     document.addEventListener('keydown', (event) => {
@@ -474,7 +757,6 @@ function handleFullscreenChange() {
 
 function setupInfiniteScroll(type) {
     const sentinelId = "infinite-scroll-sentinel";
-
     let sentinel = document.getElementById(sentinelId);
     if (!sentinel) {
         sentinel = document.createElement("div");
@@ -483,9 +765,7 @@ function setupInfiniteScroll(type) {
         DOM.gridContainer.appendChild(sentinel);
     }
 
-    if (sentinel._observer) {
-        sentinel._observer.disconnect();
-    }
+    if (sentinel._observer) sentinel._observer.disconnect();
 
     const observer = new IntersectionObserver(entries => {
         entries.forEach(entry => {
@@ -510,6 +790,29 @@ function handleGlobalClick(event) {
     }
 }
 
+// 🆕 HERO CON PRECARGA DE IMÁGENES
+function preloadHeroImages(movieIds) {
+    movieIds.forEach((movieId) => {
+        const movieData = appState.content.movies[movieId];
+        if (!movieData) return;
+
+        const imagesToPreload = [
+            { type: 'banner', url: movieData.banner },
+            { type: 'poster', url: movieData.poster }
+        ];
+
+        imagesToPreload.forEach(({ type, url }) => {
+            if (!url) return;
+            const img = new Image();
+            img.onload = () => {
+                const key = `${movieId}_${type}`;
+                appState.hero.preloadedImages.set(key, url);
+            };
+            img.src = url;
+        });
+    });
+}
+
 function setupHero() {
     clearInterval(appState.ui.heroInterval);
     if (!DOM.heroSection) return;
@@ -522,6 +825,7 @@ function setupHero() {
 
     if (appState.ui.heroMovieIds.length > 0) {
         shuffleArray(appState.ui.heroMovieIds);
+        preloadHeroImages(appState.ui.heroMovieIds);
         changeHeroMovie(appState.ui.heroMovieIds[0]);
         startHeroInterval(); 
     } else {
@@ -540,14 +844,23 @@ function startHeroInterval() {
 }
 
 function changeHeroMovie(movieId) {
+    if (appState.hero.isTransitioning) return;
+    
     const heroContent = DOM.heroSection.querySelector('.hero-content');
     const movieData = appState.content.movies[movieId];
     if (!heroContent || !movieData) return;
 
+    appState.hero.isTransitioning = true;
     heroContent.classList.add('hero-fading');
 
     setTimeout(() => {
-        const imageUrl = window.innerWidth < 992 ? movieData.poster : movieData.banner;
+        const isMobile = window.innerWidth < 992;
+        const imageType = isMobile ? 'poster' : 'banner';
+        const cacheKey = `${movieId}_${imageType}`;
+        
+        const imageUrl = appState.hero.preloadedImages.get(cacheKey) || 
+                        (isMobile ? movieData.poster : movieData.banner);
+        
         DOM.heroSection.style.backgroundImage = `url(${imageUrl})`;
         
         heroContent.querySelector('#hero-title').textContent = movieData.title;
@@ -569,6 +882,7 @@ function changeHeroMovie(movieId) {
             ${watchlistButtonHTML}
         `;
         heroContent.classList.remove('hero-fading');
+        appState.hero.isTransitioning = false;
     }, 300);
 }
 
@@ -601,7 +915,7 @@ function setupSearch() {
             }
 
             if (isSearchActive) {
-                const activeNav = document.querySelector('.main-nav a.active, .bottom-nav a.active');
+                const activeNav = document.querySelector('.main-nav a.active, .mobile-nav a.active');
                 switchView(activeNav ? activeNav.dataset.filter : 'all');
                 isSearchActive = false;
             }
@@ -675,6 +989,7 @@ function generateContinueWatchingCarousel(snapshot) {
                     title: seriesData.title,
                     subtitle: `Visto: T${String(item.season).replace('T', '')} E${lastEpisode.episodeNumber || lastWatchedIndex + 1}`
                 });
+
                 displayedSeries.add(item.contentId);
             }
         }
@@ -808,11 +1123,6 @@ function closeAllModals() {
         modal.classList.remove('show');
     });
     document.body.classList.remove('modal-open');
-
-    if (lastFocusedElement) {
-        lastFocusedElement.focus();
-        lastFocusedElement = null;
-    }
 }
 
 let lastFocusedElement = null;
@@ -915,7 +1225,7 @@ function openPlayerModal(movieId, movieTitle) {
 }
 
 // ===========================================================
-// 6. AUTENTICACIÓN Y DATOS DE USUARIO (FIREBASE)
+// 6. AUTENTICACIÓN Y DATOS DE USUARIO (🆕 CON ERROR HANDLER)
 // ===========================================================
 function setupAuthListeners() {
     if (DOM.loginBtnHeader) DOM.loginBtnHeader.addEventListener('click', () => openAuthModal(true));
@@ -982,11 +1292,8 @@ function openAuthModal(isLogin) {
 }
 
 function updateUIAfterAuthStateChange(user) {
-    const loggedInElements = [DOM.userProfileContainer, DOM.myListNavLink];
+    const loggedInElements = [DOM.userProfileContainer, DOM.myListNavLink, DOM.historyNavLink, DOM.myListNavLinkMobile, DOM.historyNavLinkMobile];
     const loggedOutElements = [DOM.authButtons];
-    
-    // Mostramos u ocultamos la sección de historial en el nav de escritorio
-    if (DOM.historyNavLink) DOM.historyNavLink.style.display = user ? 'flex' : 'none';
 
     if (user) {
         loggedInElements.forEach(el => el && (el.style.display = 'flex'));
@@ -1014,14 +1321,13 @@ function updateUIAfterAuthStateChange(user) {
         if (continueWatchingCarousel) continueWatchingCarousel.remove();
     }
     
-    const activeFilter = document.querySelector('.main-nav a.active, .bottom-nav a.active')?.dataset.filter;
-    if (!user && (activeFilter === 'my-list' || activeFilter === 'history' || activeFilter === 'profile-hub')) {
-        document.querySelectorAll('.main-nav a, .bottom-nav a').forEach(l => l.classList.remove('active'));
+    const activeFilter = document.querySelector('.main-nav a.active, .mobile-nav a.active')?.dataset.filter;
+    if (!user && (activeFilter === 'my-list' || activeFilter === 'history')) {
+        document.querySelectorAll('.main-nav a, .mobile-nav a').forEach(l => l.classList.remove('active'));
         document.querySelectorAll(`a[data-filter="all"]`).forEach(l => l.classList.add('active'));
         switchView('all');
     }
 }
-
 
 function addToHistoryIfLoggedIn(contentId, type, episodeInfo = {}) {
     const user = auth.currentUser;
@@ -1087,49 +1393,51 @@ function handleWatchlistClick(button) {
     }
 }
 
-function addToWatchlist(contentId) {
+// 🆕 CON ERROR HANDLER
+async function addToWatchlist(contentId) {
     const user = auth.currentUser;
     if (!user) return;
 
-    db.ref(`users/${user.uid}/watchlist/${contentId}`).set(true)
-        .then(() => {
-            appState.user.watchlist.add(contentId);
-            document.querySelectorAll(`.btn-watchlist[data-content-id="${contentId}"]`).forEach(button => {
-                button.classList.add('in-list');
-                button.innerHTML = '<i class="fas fa-check"></i>';
-            });
-        })
-        .catch(error => {
-            console.error("Error al agregar a Mi Lista:", error);
+    await ErrorHandler.firebaseOperation(async () => {
+        await db.ref(`users/${user.uid}/watchlist/${contentId}`).set(true);
+        appState.user.watchlist.add(contentId);
+        
+        document.querySelectorAll(`.btn-watchlist[data-content-id="${contentId}"]`).forEach(button => {
+            button.classList.add('in-list');
+            button.innerHTML = '<i class="fas fa-check"></i>';
         });
+    });
 }
 
-function removeFromWatchlist(contentId) {
+async function removeFromWatchlist(contentId) {
     const user = auth.currentUser;
     if (!user) return;
-    db.ref(`users/${user.uid}/watchlist/${contentId}`).remove()
-        .then(() => {
-            appState.user.watchlist.delete(contentId);
-            document.querySelectorAll(`.btn-watchlist[data-content-id="${contentId}"]`).forEach(button => {
-                button.classList.remove('in-list');
-                button.innerHTML = '<i class="fas fa-plus"></i>';
-            });
-            const activeFilter = document.querySelector('.main-nav a.active, .bottom-nav a.active')?.dataset.filter;
-            if (activeFilter === 'my-list') {
-                const cardToRemove = DOM.myListContainer.querySelector(`.movie-card[data-content-id="${contentId}"]`);
-                if (cardToRemove) {
-                    cardToRemove.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-                    cardToRemove.style.opacity = '0';
-                    cardToRemove.style.transform = 'scale(0.9)';
-                    setTimeout(() => {
-                        cardToRemove.remove();
-                        if (appState.user.watchlist.size === 0) {
-                            DOM.myListContainer.querySelector('.grid').innerHTML = `<p class="empty-message">Tu lista está vacía. Agrega contenido para verlo aquí.</p>`;
-                        }
-                    }, 300);
-                }
-            }
+    
+    await ErrorHandler.firebaseOperation(async () => {
+        await db.ref(`users/${user.uid}/watchlist/${contentId}`).remove();
+        appState.user.watchlist.delete(contentId);
+        
+        document.querySelectorAll(`.btn-watchlist[data-content-id="${contentId}"]`).forEach(button => {
+            button.classList.remove('in-list');
+            button.innerHTML = '<i class="fas fa-plus"></i>';
         });
+        
+        const activeFilter = document.querySelector('.main-nav a.active, .mobile-nav a.active')?.dataset.filter;
+        if (activeFilter === 'my-list') {
+            const cardToRemove = DOM.myListContainer.querySelector(`.movie-card[data-content-id="${contentId}"]`);
+            if (cardToRemove) {
+                cardToRemove.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                cardToRemove.style.opacity = '0';
+                cardToRemove.style.transform = 'scale(0.9)';
+                setTimeout(() => {
+                    cardToRemove.remove();
+                    if (appState.user.watchlist.size === 0) {
+                        DOM.myListContainer.querySelector('.grid').innerHTML = `<p class="empty-message">Tu lista está vacía. Agrega contenido para verlo aquí.</p>`;
+                    }
+                }, 300);
+            }
+        }
+    });
 }
 
 function displayMyListView() {
@@ -1210,8 +1518,7 @@ function setupRealtimeHistoryListener(user) {
 
             appState.player.historyUpdateDebounceTimer = setTimeout(() => {
                 generateContinueWatchingCarousel(snapshot);
-                const activeFilter = document.querySelector('.main-nav a.active, .bottom-nav a.active')?.dataset.filter;
-                if (activeFilter === 'history') {
+                if (DOM.historyContainer && DOM.historyContainer.style.display === 'block') {
                     renderHistory();
                 }
             }, 250);
@@ -1538,7 +1845,6 @@ function loadProgress(seriesId, seasonNum) {
 // ===========================================================
 document.addEventListener('DOMContentLoaded', () => {
     if (DOM.confirmDeleteBtn && DOM.cancelDeleteBtn && DOM.confirmationModal) {
-        
         DOM.confirmDeleteBtn.addEventListener('click', () => {
             if (typeof DOM.confirmationModal.onConfirm === 'function') {
                 DOM.confirmationModal.onConfirm();
@@ -1558,8 +1864,24 @@ function hideConfirmationModal() {
     }
 }
 
+function openConfirmationModal(title, message, onConfirm) {
+    const modal = document.getElementById('confirmation-modal');
+    if (!modal) return;
+
+    const titleEl = modal.querySelector('h2');
+    const messageEl = modal.querySelector('p');
+
+    if (titleEl) titleEl.textContent = title;
+    if (messageEl) messageEl.textContent = message;
+
+    DOM.confirmationModal.onConfirm = onConfirm;
+
+    modal.classList.add('show');
+    document.body.classList.add('modal-open');
+}
+
 // ===========================================================
-// 9. FUNCIONES DE UTILIDAD
+// 9. FUNCIONES DE UTILIDAD Y HELPERS
 // ===========================================================
 function createMovieCardElement(id, data, type, layout = 'carousel', lazy = false, options = {}) {
     const card = document.createElement('div');
@@ -1592,8 +1914,13 @@ function createMovieCardElement(id, data, type, layout = 'carousel', lazy = fals
         ratingHTML = `<div class="card-rating"><i class="fas fa-star"></i> ${avg}</div>`;
     }
 
+    // 🆕 USO DE LAZY LOADING
+    const imgHTML = lazy 
+        ? `<img data-src="${data.poster}" alt="${data.title}" data-width="200" data-height="300">`
+        : `<img src="${data.poster}" alt="${data.title}">`;
+
     card.innerHTML = `
-        <img src="${data.poster}" alt="${data.title}" ${lazy ? 'loading="lazy"' : ''}>
+        ${imgHTML}
         ${watchlistBtnHTML}
         ${ratingHTML}
     `;
@@ -1628,6 +1955,7 @@ function shuffleArray(array) {
     }
 }
 
+// 🆕 CON LAZY LOADING
 function loadMoreContent(type) {
     if (appState.flags.isLoadingMore || appState.ui.currentIndex >= appState.ui.contentToDisplay.length) return;
     
@@ -1638,13 +1966,17 @@ function loadMoreContent(type) {
         const [id, item] = appState.ui.contentToDisplay[i];
         gridEl.appendChild(createMovieCardElement(id, item, type, 'grid', true));
     }
+    
+    // 🆕 RE-OBSERVAR NUEVAS IMÁGENES
+    lazyLoader.observeImages();
+    
     appState.ui.currentIndex = nextIndex;
     appState.flags.isLoadingMore = false;
 }
 
-// =========================================================
-// 10. NUEVAS FUNCIONES DE PERFIL Y AJUSTES
-// =========================================================
+// ===========================================================
+// 10. PERFIL Y AJUSTES DE USUARIO
+// ===========================================================
 function setupUserDropdown() {
     if (DOM.userGreetingBtn && DOM.userMenuDropdown) {
         DOM.userGreetingBtn.addEventListener('click', (e) => {
@@ -1662,7 +1994,7 @@ function setupUserDropdown() {
             if (action === 'logout') {
                 auth.signOut();
             } else if (action === 'profile' || action === 'settings') {
-                document.querySelectorAll('.main-nav a, .bottom-nav a').forEach(l => l.classList.remove('active'));
+                document.querySelectorAll('.main-nav a, .mobile-nav a').forEach(l => l.classList.remove('active'));
                 switchView(action);
             }
             
@@ -1682,7 +2014,7 @@ function renderProfile() {
     if (!user) {
         switchView('all');
         return;
-    };
+    }
 
     DOM.profileUsername.textContent = user.displayName || 'Usuario';
     DOM.profileEmail.textContent = user.email;
@@ -1731,11 +2063,11 @@ function renderSettings() {
                 showFeedbackMessage('Nombre de usuario actualizado correctamente.', 'success');
                 DOM.userGreetingBtn.textContent = `Hola, ${newUsername}`;
             } catch (error) {
-                console.error("Error al actualizar nombre de usuario:", error);
-                showFeedbackMessage(`Error al actualizar nombre: ${error.message}`, 'error');
+                console.error("Error al actualizar nombre:", error);
+                showFeedbackMessage(`Error: ${error.message}`, 'error');
             }
         } else {
-            showFeedbackMessage('Por favor, ingresa un nombre de usuario válido y diferente.', 'error');
+            showFeedbackMessage('Por favor, ingresa un nombre válido y diferente.', 'error');
         }
     };
 
@@ -1748,7 +2080,7 @@ function renderSettings() {
                 DOM.settingsPasswordInput.value = '';
             } catch (error) {
                 console.error("Error al actualizar contraseña:", error);
-                showFeedbackMessage(`Error al actualizar contraseña: ${error.message}`, 'error');
+                showFeedbackMessage(`Error: ${error.message}`, 'error');
             }
         } else {
             showFeedbackMessage('La contraseña debe tener al menos 6 caracteres.', 'error');
@@ -1769,22 +2101,6 @@ function showFeedbackMessage(message, type) {
     }, 5000);
 }
 
-function openConfirmationModal(title, message, onConfirm) {
-    const modal = document.getElementById('confirmation-modal');
-    if (!modal) return;
-
-    const titleEl = modal.querySelector('h2');
-    const messageEl = modal.querySelector('p');
-
-    if (titleEl) titleEl.textContent = title;
-    if (messageEl) messageEl.textContent = message;
-
-    DOM.confirmationModal.onConfirm = onConfirm;
-
-    modal.classList.add('show');
-    document.body.classList.add('modal-open');
-}
-
 function generateStaticStars(rating) {
     const totalStars = 5;
     let starsHTML = '';
@@ -1798,110 +2114,6 @@ function generateStaticStars(rating) {
     
     return starsHTML;
 }
-
-function renderInteractiveStars(contentId, currentRating, type) {
-    const container = DOM.detailsModal.querySelector('.stars-interactive');
-    if (!container) return;
-
-    container.innerHTML = '';
-    container.className = 'stars-interactive';
-
-    if (currentRating) {
-        container.classList.add('rated-static');
-        for (let i = 1; i <= 5; i++) {
-            const star = document.createElement('i');
-            star.className = (i <= currentRating) ? 'fas fa-star' : 'far fa-star';
-            container.appendChild(star);
-        }
-        return;
-    }
-
-    for (let i = 1; i <= 5; i++) {
-        const star = document.createElement('i');
-        star.className = 'far fa-star';
-        star.dataset.value = i;
-        container.appendChild(star);
-    }
-
-    const stars = container.querySelectorAll('i');
-
-    stars.forEach(star => {
-        star.addEventListener('mouseover', () => {
-            if (container.classList.contains('processing')) return;
-            stars.forEach(s => {
-                s.className = (s.dataset.value <= star.dataset.value) ? 'fas fa-star hover' : 'far fa-star hover';
-            });
-        });
-
-        star.addEventListener('mouseout', () => {
-            if (container.classList.contains('processing')) return;
-            stars.forEach(s => s.className = 'far fa-star');
-        });
-
-        star.addEventListener('click', () => {
-            if (container.classList.contains('processing')) return;
-            
-            const newRating = parseInt(star.dataset.value);
-            submitRating(contentId, newRating, null, type);
-        });
-    });
-}
-
-async function submitRating(contentId, newRating, oldRating, type) {
-    const user = auth.currentUser;
-    if (!user) {
-        openConfirmationModal("Acción Requerida", "Debes iniciar sesión para calificar.", () => openAuthModal(true));
-        return;
-    }
-
-    const container = DOM.detailsModal.querySelector('.stars-interactive');
-    if(container) container.classList.add('processing');
-
-    try {
-        await db.ref(`ratings/${contentId}/${user.uid}`).set(newRating);
-        const metadataRef = db.ref(`${type}_metadata/${contentId}`);
-
-        await metadataRef.transaction(currentData => {
-            if (currentData === null) {
-                if (newRating === null) return;
-                return { avgRating: newRating, ratingCount: 1, totalScore: newRating };
-            }
-
-            let newTotalScore = currentData.totalScore || 0;
-            let newRatingCount = currentData.ratingCount || 0;
-
-            if (oldRating !== null && newRating !== null) {
-                newTotalScore = newTotalScore - oldRating + newRating;
-            } else if (oldRating === null && newRating !== null) {
-                newTotalScore += newRating;
-                newRatingCount++;
-            } else if (oldRating !== null && newRating === null) {
-                newTotalScore -= oldRating;
-                newRatingCount--;
-            }
-
-            if (newRatingCount <= 0) return null;
-
-            const newAvgRating = newTotalScore / newRatingCount;
-            return { avgRating: newAvgRating, ratingCount: newRatingCount, totalScore: newTotalScore };
-        });
-
-        const updatedMetadata = (await metadataRef.once('value')).val();
-        if (type === 'movie') { appState.content.metadata.movies[contentId] = updatedMetadata; } 
-        else { appState.content.metadata.series[contentId] = updatedMetadata; }
-
-        await openDetailsModal(contentId, type);
-
-    } catch (error) {
-        console.error("Falló la transacción de calificación:", error);
-    } finally {
-        if(container) container.classList.remove('processing');
-    }
-}
-
-// =========================================================
-// 11. FUNCIONES DE PERFIL DE USUARIO AVANZADAS
-// =========================================================
 
 async function calculateAndDisplayUserStats() {
     const user = auth.currentUser;
@@ -2068,8 +2280,11 @@ async function deleteRating(contentId, oldRating, type) {
         });
 
         const updatedMetadata = (await metadataRef.once('value')).val();
-        if (type === 'movie') { appState.content.metadata.movies[contentId] = updatedMetadata; } 
-        else { appState.content.metadata.series[contentId] = updatedMetadata; }
+        if (type === 'movie') { 
+            appState.content.metadata.movies[contentId] = updatedMetadata; 
+        } else { 
+            appState.content.metadata.series[contentId] = updatedMetadata; 
+        }
 
         renderRatingsHistory();
         
@@ -2079,3 +2294,20 @@ async function deleteRating(contentId, oldRating, type) {
         closeAllModals();
     }
 }
+
+// ===========================================================
+// 🎯 EXPORTAR PARA USO GLOBAL
+// ===========================================================
+window.ErrorHandler = ErrorHandler;
+window.cacheManager = cacheManager;
+window.lazyLoader = lazyLoader;
+window.showCacheStats = () => {
+    const stats = {
+        itemCount: localStorage.length,
+        version: cacheManager.version,
+        contentCached: !!cacheManager.get(cacheManager.keys.content),
+        metadataCached: !!cacheManager.get(cacheManager.keys.metadata)
+    };
+    console.table(stats);
+    return stats;
+};
