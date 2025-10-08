@@ -456,6 +456,39 @@ body.modal-open { overflow: hidden; }
   to   { transform: scale(1); opacity: 1; }
 }
 
+/* ========================================
+   CONTROLES DE IDIOMA PARA PELÍCULAS
+   ======================================== */
+.lang-controls-movie {
+    display: flex;
+    gap: 10px;
+}
+
+.lang-btn-movie {
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    color: var(--text-light);
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+
+.lang-btn-movie:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.4);
+    transform: translateY(-2px);
+}
+
+.lang-btn-movie.active {
+    background: var(--primary-red);
+    border-color: var(--primary-red);
+    color: white;
+    box-shadow: 0 4px 12px rgba(229, 9, 20, 0.4);
+}
+
 /* ================================== */
 /* REPRODUCTOR DE SERIES              */
 /* ================================== */
@@ -1687,6 +1720,24 @@ body.modal-open { overflow: hidden; }
 }
 
 @media (max-width: 768px) {
+    .cinema-controls {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .lang-controls-movie {
+        width: 100%;
+        justify-content: center;
+        margin-left: 0;
+    }
+    
+    .lang-btn-movie {
+        flex: 1;
+        padding: 12px;
+    }
+}
+
+@media (max-width: 768px) {
   .seasons-grid, #season-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
@@ -1738,11 +1789,11 @@ body.modal-open { overflow: hidden; }
 /* En móviles */
 @media (max-width: 767px) {
   #cinema .cinema-wrapper {
-    width: 100vw;
-    height: 100vh;
-    border-radius: 0;
-    padding: 10px;
-    box-shadow: none;
+    width: 95vw;                /* Usa el 95% del ancho de la pantalla */
+    height: auto;               /* La altura se ajusta sola al contenido */
+    border-radius: 12px;        /* Vuelve a ponerle las esquinas redondeadas */
+    padding: 20px;              /* Un poco más de espacio interno */
+    box-shadow: 0 5px 25px rgba(0,0,0,0.5); /* Le devolvemos la sombra */
   }
 
   #cinema .screen {
@@ -1927,3 +1978,4 @@ body.halloween-theme #hero-section {
 █                                                           █
 █▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄█
 */
+
