@@ -577,7 +577,7 @@ function setupApp() {
 // 3. NAVEGACIÓN Y MANEJO DE VISTAS
 // ===========================================================
 function setupNavigation() {
-    const navContainers = document.querySelectorAll('.main-nav ul, .mobile-nav ul');
+    const navContainers = document.querySelectorAll('.main-nav ul, .mobile-nav ul, .bottom-nav');
     navContainers.forEach(container => container.addEventListener('click', handleFilterClick));
     
     const openMenu = () => { 
@@ -611,7 +611,7 @@ function handleFilterClick(event) {
 
     if (link.classList.contains('active') && !['history', 'my-list'].includes(filter)) return;
 
-    document.querySelectorAll('.main-nav a, .mobile-nav a').forEach(l => l.classList.remove('active'));
+    document.querySelectorAll('.main-nav a, .mobile-nav a, .bottom-nav a').forEach(l => l.classList.remove('active'));
     document.querySelectorAll(`a[data-filter="${filter}"]`).forEach(l => l.classList.add('active'));
     
     DOM.searchInput.value = '';
@@ -2555,3 +2555,4 @@ VERSIÓN: 2.0.0
 ÚLTIMA ACTUALIZACIÓN: 2025-01-07
 COMPATIBILIDAD: Chrome 90+, Firefox 88+, Safari 14+, Edge 90+
 */
+
