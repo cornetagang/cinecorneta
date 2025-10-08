@@ -942,7 +942,8 @@ function displaySearchResults(results) {
         gridEl.style.display = 'grid';
         results.forEach(([id, item]) => {
             const type = appState.content.series[id] ? 'series' : 'movie';
-            gridEl.appendChild(createMovieCardElement(id, item, type, 'grid', true));
+            // 🔧 CAMBIO: lazy = false para que las imágenes carguen inmediatamente en búsqueda
+            gridEl.appendChild(createMovieCardElement(id, item, type, 'grid', false));
         });
     } else {
         gridEl.style.display = 'flex';
@@ -2386,3 +2387,4 @@ VERSIÓN: 2.0.0
 ÚLTIMA ACTUALIZACIÓN: 2025-01-07
 COMPATIBILIDAD: Chrome 90+, Firefox 88+, Safari 14+, Edge 90+
 */
+
