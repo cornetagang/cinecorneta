@@ -92,7 +92,31 @@
             </div>
 
             <div id="profile-hub-container" class="content-container" style="display: none;">
+                <div class="profile-hub-header">
+                    <h2>Mi Perfil</h2>
+                    <p id="profile-hub-email"></p>
                 </div>
+                <a href="#" class="profile-hub-menu-item" data-filter="my-list">
+                    <i class="fas fa-list"></i>
+                    <span>Mi Lista</span>
+                </a>
+                <a href="#" class="profile-hub-menu-item" data-filter="history">
+                    <i class="fas fa-history"></i>
+                    <span>Historial</span>
+                </a>
+                <a href="#" class="profile-hub-menu-item" data-filter="profile">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Mi Actividad y Estadísticas</span>
+                </a>
+                <a href="#" class="profile-hub-menu-item" data-filter="settings">
+                    <i class="fas fa-cog"></i>
+                    <span>Ajustes de Cuenta</span>
+                </a>
+                <a href="#" id="logout-btn-hub" class="profile-hub-menu-item logout">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Cerrar Sesión</span>
+                </a>
+            </div>
 
             <div id="profile-container" class="content-container" style="display: none;">
                 <div class="profile-header-wrapper">
@@ -293,3 +317,4 @@
     <script src="script.js?v=2"></script>
 </body>
 </html>
+
