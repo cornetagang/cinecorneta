@@ -577,7 +577,7 @@ function setupApp() {
 // 3. NAVEGACIÓN Y MANEJO DE VISTAS
 // ===========================================================
 function setupNavigation() {
-    const navContainers = document.querySelectorAll('.main-nav ul, .mobile-nav ul, .bottom-nav');
+    const navContainers = document.querySelectorAll('.main-nav ul, .mobile-nav ul, .bottom-nav, #profile-hub-container');
     navContainers.forEach(container => container.addEventListener('click', handleFilterClick));
     
     const openMenu = () => { 
@@ -619,14 +619,19 @@ function handleFilterClick(event) {
 }
 
 function switchView(filter) {
+    // Primero, oculta todos los contenedores principales.
     [
-        DOM.heroSection, DOM.carouselContainer, DOM.gridContainer, 
-        DOM.myListContainer, DOM.historyContainer, DOM.profileContainer, 
-        DOM.settingsContainer
-    ].forEach(container => container.style.display = 'none');
+        DOM.heroSection, DOM.carouselContainer, DOM.gridContainer,
+        DOM.myListContainer, DOM.historyContainer, DOM.profileContainer,
+        DOM.settingsContainer, document.getElementById('profile-hub-container') // Asegúrate de incluir el nuevo hub aquí
+    ].forEach(container => {
+        if (container) container.style.display = 'none';
+    });
 
+    // Oculta los controles de filtro por defecto.
     if (DOM.filterControls) DOM.filterControls.style.display = 'none';
 
+    // Ahora, muestra el contenedor correcto según el filtro seleccionado.
     if (filter === 'all') {
         if(DOM.heroSection) DOM.heroSection.style.display = 'flex';
         if(DOM.carouselContainer) DOM.carouselContainer.style.display = 'block';
@@ -640,12 +645,23 @@ function switchView(filter) {
         if (DOM.myListContainer) { DOM.myListContainer.style.display = 'block'; displayMyListView(); }
     } else if (filter === 'history') {
         if (DOM.historyContainer) { DOM.historyContainer.style.display = 'block'; renderHistory(); }
+    } else if (filter === 'profile-hub') { // <-- CASO AÑADIDO PARA EL MENÚ DE PERFIL MÓVIL
+        const hubContainer = document.getElementById('profile-hub-container');
+        if (hubContainer) {
+            hubContainer.style.display = 'block';
+            const user = auth.currentUser;
+            if (user) {
+                const emailEl = document.getElementById('profile-hub-email');
+                if(emailEl) emailEl.textContent = user.email;
+            }
+        }
     } else if (filter === 'profile') {
         if (DOM.profileContainer) { DOM.profileContainer.style.display = 'block'; renderProfile(); }
     } else if (filter === 'settings') {
         if (DOM.settingsContainer) { DOM.settingsContainer.style.display = 'block'; renderSettings(); }
     }
-    
+
+    // Finalmente, desplaza la vista hacia la parte superior de la página.
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -1399,9 +1415,11 @@ function updateWatchlistButtonInPlayer(movieId, isInList) {
 // 6. AUTENTICACIÓN Y DATOS DE USUARIO (🆕 CON ERROR HANDLER)
 // ===========================================================
 function setupAuthListeners() {
+    // Asigna la función para abrir el modal de autenticación a los botones del encabezado.
     if (DOM.loginBtnHeader) DOM.loginBtnHeader.addEventListener('click', () => openAuthModal(true));
     if (DOM.registerBtnHeader) DOM.registerBtnHeader.addEventListener('click', () => openAuthModal(false));
-    
+
+    // Configura el enlace para cambiar entre el formulario de inicio de sesión y el de registro.
     if (DOM.switchAuthModeLink) {
         DOM.switchAuthModeLink.addEventListener('click', (e) => {
             e.preventDefault();
@@ -1410,6 +1428,7 @@ function setupAuthListeners() {
         });
     }
 
+    // Gestiona el envío del formulario de registro.
     if (DOM.registerForm) {
         DOM.registerForm.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -1423,6 +1442,7 @@ function setupAuthListeners() {
         });
     }
 
+    // Gestiona el envío del formulario de inicio de sesión.
     if (DOM.loginForm) {
         DOM.loginForm.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -1434,8 +1454,10 @@ function setupAuthListeners() {
         });
     }
 
+    // Listener principal de Firebase: se activa cuando un usuario inicia o cierra sesión.
     auth.onAuthStateChanged(updateUIAfterAuthStateChange);
-    
+
+    // Gestiona los clics en los botones de eliminar del historial.
     if (DOM.historyContainer) {
         DOM.historyContainer.addEventListener('click', (event) => {
             const removeButton = event.target.closest('.btn-remove-history');
@@ -1448,6 +1470,15 @@ function setupAuthListeners() {
                     () => removeFromHistory(entryKey)
                 );
             }
+        });
+    }
+
+    // Listener para el nuevo botón de "Cerrar Sesión" en el hub de perfil móvil.
+    const logoutBtnHub = document.getElementById('logout-btn-hub');
+    if (logoutBtnHub) {
+        logoutBtnHub.addEventListener('click', (e) => {
+            e.preventDefault();
+            auth.signOut();
         });
     }
 }
@@ -2555,4 +2586,5 @@ VERSIÓN: 2.0.0
 ÚLTIMA ACTUALIZACIÓN: 2025-01-07
 COMPATIBILIDAD: Chrome 90+, Firefox 88+, Safari 14+, Edge 90+
 */
+
 
