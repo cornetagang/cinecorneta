@@ -433,7 +433,7 @@ const DOM = {
     menuOverlay: document.getElementById('menu-overlay')
 };
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbyIxDBAkSD3F4goZrw9adQlkQIP6todICeW8wUPzeAI39W2yzQg32LbeiCCqn9SSZ9U/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbyJysb4t5tZQ_k7iAYy9uENj_a3x8jEJ46OZDQGc--sVy_UMMsFEr45MSVnyiO3lApy/exec';
 const ITEMS_PER_LOAD = 18;
 
 const firebaseConfig = {
@@ -1210,21 +1210,189 @@ async function openDetailsModal(id, type, triggerElement = null) {
     if (closeBtn) closeBtn.focus();
 }
 
+// ===========================================================
+// REPRODUCTOR DE PELÍCULAS CON SELECCIÓN DE IDIOMA
+// ===========================================================
+
+/**
+ * Abre el modal del reproductor de películas con soporte para múltiples idiomas
+ * @param {string} movieId - ID único de la película (ej: "superman-2025")
+ * @param {string} movieTitle - Título de la película para mostrar
+ */
 function openPlayerModal(movieId, movieTitle) {
     closeAllModals();
     addToHistoryIfLoggedIn(movieId, 'movie');
 
-    DOM.cinemaModal.querySelector('iframe').src =
-        `https://drive.google.com/file/d/${movieId}/preview`;
-
-    if (movieTitle) {
-        DOM.cinemaModal.querySelector('#cinema-title').textContent = movieTitle;
-    } else {
-        DOM.cinemaModal.querySelector('#cinema-title').textContent = "Película";
+    // 🎬 OBTENER DATOS DE LA PELÍCULA
+    const movieData = appState.content.movies[movieId];
+    if (!movieData) {
+        console.error(`Película no encontrada: ${movieId}`);
+        ErrorHandler.show(ErrorHandler.types.CONTENT, 'No se pudo cargar la película.');
+        return;
     }
 
+    // 🌐 VERIFICAR DISPONIBILIDAD DE IDIOMAS
+    const hasSpanish = !!(movieData.videoId_es && movieData.videoId_es.trim());
+    const hasEnglish = !!(movieData.videoId_en && movieData.videoId_en.trim());
+    const hasMultipleLangs = hasSpanish && hasEnglish;
+    
+    // 🎯 DETERMINAR IDIOMA Y VIDEO INICIAL
+    let defaultLang, initialVideoId;
+    
+    if (hasSpanish) {
+        // Prioridad 1: Español si está disponible
+        defaultLang = 'es';
+        initialVideoId = movieData.videoId_es;
+    } else if (hasEnglish) {
+        // Prioridad 2: Inglés si español no está disponible
+        defaultLang = 'en';
+        initialVideoId = movieData.videoId_en;
+    } else {
+        // Prioridad 3: Usar el ID de la película como fallback (compatibilidad con estructura antigua)
+        defaultLang = 'default';
+        initialVideoId = movieId;
+        console.warn(`Película ${movieId} no tiene videoId_es ni videoId_en, usando ID como videoId`);
+    }
+
+    // 🎥 CONFIGURAR IFRAME DEL REPRODUCTOR
+    const iframe = DOM.cinemaModal.querySelector('iframe');
+    if (!iframe) {
+        console.error('Iframe del reproductor no encontrado');
+        return;
+    }
+    
+    iframe.src = `https://drive.google.com/file/d/${initialVideoId}/preview`;
+
+    // 📝 ACTUALIZAR TÍTULO
+    const titleElement = DOM.cinemaModal.querySelector('#cinema-title');
+    if (titleElement) {
+        titleElement.textContent = movieTitle || movieData.title || "Película";
+    }
+
+    // 🎛️ CONFIGURAR CONTROLES (Idioma + Mi Lista)
+    const cinemaControls = DOM.cinemaModal.querySelector('.cinema-controls');
+    
+    if (cinemaControls) {
+        let controlsHTML = '';
+
+        // Botón de "Mi Lista" (siempre visible si hay usuario)
+        const user = auth.currentUser;
+        if (user) {
+            const isInList = appState.user.watchlist.has(movieId);
+            const iconClass = isInList ? 'fa-check' : 'fa-plus';
+            const buttonClass = isInList ? 'btn-watchlist in-list' : 'btn-watchlist';
+            controlsHTML += `
+                <button class="${buttonClass}" data-content-id="${movieId}">
+                    <i class="fas ${iconClass}"></i> Mi Lista
+                </button>
+            `;
+        }
+
+        // Controles de idioma (solo si hay múltiples idiomas)
+        if (hasMultipleLangs) {
+            controlsHTML += `
+                <div class="lang-controls-movie">
+                    <button class="lang-btn-movie ${defaultLang === 'es' ? 'active' : ''}" 
+                            data-lang="es" 
+                            data-movie-id="${movieId}"
+                            ${!hasSpanish ? 'disabled' : ''}>
+                        Español
+                    </button>
+                    <button class="lang-btn-movie ${defaultLang === 'en' ? 'active' : ''}" 
+                            data-lang="en" 
+                            data-movie-id="${movieId}"
+                            ${!hasEnglish ? 'disabled' : ''}>
+                        Inglés
+                    </button>
+                </div>
+            `;
+        }
+
+        cinemaControls.innerHTML = controlsHTML;
+
+        // 🔄 EVENTOS PARA CAMBIAR IDIOMA
+        if (hasMultipleLangs) {
+            cinemaControls.querySelectorAll('.lang-btn-movie').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const selectedLang = this.dataset.lang;
+                    const targetMovieId = this.dataset.movieId;
+                    const targetMovieData = appState.content.movies[targetMovieId];
+                    
+                    if (!targetMovieData) {
+                        console.error('Datos de película no encontrados al cambiar idioma');
+                        return;
+                    }
+
+                    // Determinar el videoId según el idioma seleccionado
+                    let newVideoId;
+                    if (selectedLang === 'es' && targetMovieData.videoId_es) {
+                        newVideoId = targetMovieData.videoId_es;
+                    } else if (selectedLang === 'en' && targetMovieData.videoId_en) {
+                        newVideoId = targetMovieData.videoId_en;
+                    } else {
+                        // Fallback: usar ID de película si no hay videoId específico
+                        newVideoId = targetMovieId;
+                        console.warn(`VideoId para idioma ${selectedLang} no encontrado, usando ID de película`);
+                    }
+
+                    // Cambiar el video en el iframe
+                    const iframe = DOM.cinemaModal.querySelector('iframe');
+                    if (iframe) {
+                        iframe.src = `https://drive.google.com/file/d/${newVideoId}/preview`;
+                    }
+
+                    // Actualizar botones activos
+                    cinemaControls.querySelectorAll('.lang-btn-movie').forEach(b => 
+                        b.classList.remove('active')
+                    );
+                    this.classList.add('active');
+
+                    // Log para debugging
+                    console.log(`Idioma cambiado a: ${selectedLang}, VideoID: ${newVideoId}`);
+                });
+            });
+        }
+    }
+
+    // 📺 MOSTRAR MODAL
     DOM.cinemaModal.classList.add('show');
     document.body.classList.add('modal-open');
+
+    // Log para debugging
+    console.log('Película abierta:', {
+        id: movieId,
+        title: movieTitle,
+        hasSpanish,
+        hasEnglish,
+        defaultLang,
+        videoId: initialVideoId
+    });
+}
+
+
+// ===========================================================
+// FUNCIÓN AUXILIAR: Actualizar botón de watchlist en el reproductor
+// ===========================================================
+
+/**
+ * Actualiza el estado visual del botón de watchlist
+ * @param {string} movieId - ID de la película
+ * @param {boolean} isInList - Si la película está en la lista
+ */
+function updateWatchlistButtonInPlayer(movieId, isInList) {
+    const cinemaControls = DOM.cinemaModal.querySelector('.cinema-controls');
+    if (!cinemaControls) return;
+
+    const watchlistBtn = cinemaControls.querySelector(`.btn-watchlist[data-content-id="${movieId}"]`);
+    if (!watchlistBtn) return;
+
+    if (isInList) {
+        watchlistBtn.classList.add('in-list');
+        watchlistBtn.innerHTML = '<i class="fas fa-check"></i> En Mi Lista';
+    } else {
+        watchlistBtn.classList.remove('in-list');
+        watchlistBtn.innerHTML = '<i class="fas fa-plus"></i> Mi Lista';
+    }
 }
 
 // ===========================================================
@@ -2387,4 +2555,3 @@ VERSIÓN: 2.0.0
 ÚLTIMA ACTUALIZACIÓN: 2025-01-07
 COMPATIBILIDAD: Chrome 90+, Firefox 88+, Safari 14+, Edge 90+
 */
-
