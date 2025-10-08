@@ -1885,6 +1885,58 @@ body.modal-open { overflow: hidden; }
     }
 }
 
+/* ================================== */
+/* VISTA DE HUB DE PERFIL (MÓVIL)     */
+/* ================================== */
+#profile-hub-container {
+    padding: 30px 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+.profile-hub-header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+.profile-hub-header h2 {
+    font-size: 2rem;
+    margin: 0 0 5px 0;
+}
+.profile-hub-header p {
+    font-size: 1.1rem;
+    color: var(--text-muted);
+    margin: 0;
+}
+.profile-hub-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    background-color: var(--panel-dark);
+    color: var(--text-light);
+    text-decoration: none;
+    padding: 20px;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    transition: background-color 0.2s, transform 0.2s;
+}
+.profile-hub-menu-item:hover {
+    background-color: #222;
+    transform: translateX(5px);
+}
+.profile-hub-menu-item i {
+    font-size: 1.5rem;
+    color: var(--primary-red);
+    width: 30px;
+    text-align: center;
+}
+.profile-hub-menu-item.logout {
+    color: #ff9a9a;
+}
+.profile-hub-menu-item.logout i {
+    color: #ff9a9a;
+}
+
 /*
 █▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀█
 █                                                           █
@@ -1978,4 +2030,5 @@ body.halloween-theme #hero-section {
 █                                                           █
 █▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄█
 */
+
 
