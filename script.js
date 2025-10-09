@@ -1140,6 +1140,8 @@ function closeRouletteModal() {
 function closeAllModals() {
     document.querySelectorAll('.modal.show').forEach(modal => {
         modal.classList.remove('show');
+        const iframe = modal.querySelector('iframe');
+        if (iframe) iframe.src = ''; // detiene cualquier video
     });
     document.body.classList.remove('modal-open');
 }
@@ -1254,17 +1256,14 @@ function openPlayerModal(movieId, movieTitle) {
     
     // 🎯 DETERMINAR IDIOMA Y VIDEO INICIAL
     let defaultLang, initialVideoId;
-    
-    if (hasSpanish) {
-        // Prioridad 1: Español si está disponible
-        defaultLang = 'es';
-        initialVideoId = movieData.videoId_es;
-    } else if (hasEnglish) {
-        // Prioridad 2: Inglés si español no está disponible
+
+    if (hasEnglish) {
         defaultLang = 'en';
         initialVideoId = movieData.videoId_en;
+    } else if (hasSpanish) {
+        defaultLang = 'es';
+        initialVideoId = movieData.videoId_es
     } else {
-        // Prioridad 3: Usar el ID de la película como fallback (compatibilidad con estructura antigua)
         defaultLang = 'default';
         initialVideoId = movieId;
         console.warn(`Película ${movieId} no tiene videoId_es ni videoId_en, usando ID como videoId`);
@@ -1308,17 +1307,17 @@ function openPlayerModal(movieId, movieTitle) {
         if (hasMultipleLangs) {
             controlsHTML += `
                 <div class="lang-controls-movie">
+                    <button class="lang-btn-movie ${defaultLang === 'en' ? 'active' : ''}" 
+                            data-lang="en" 
+                            data-movie-id="${movieId}"
+                            ${!hasEnglish ? 'disabled' : ''}>
+                        Original
+                    </button>
                     <button class="lang-btn-movie ${defaultLang === 'es' ? 'active' : ''}" 
                             data-lang="es" 
                             data-movie-id="${movieId}"
                             ${!hasSpanish ? 'disabled' : ''}>
                         Español
-                    </button>
-                    <button class="lang-btn-movie ${defaultLang === 'en' ? 'active' : ''}" 
-                            data-lang="en" 
-                            data-movie-id="${movieId}"
-                            ${!hasEnglish ? 'disabled' : ''}>
-                        Inglés
                     </button>
                 </div>
             `;
