@@ -433,7 +433,7 @@ const DOM = {
     menuOverlay: document.getElementById('menu-overlay')
 };
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbyJysb4t5tZQ_k7iAYy9uENj_a3x8jEJ46OZDQGc--sVy_UMMsFEr45MSVnyiO3lApy/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbwwctEPJQEsLPTkzwD1jgvXEg6QH_QiG12lNCH9sVUVnK08G58pp5ZDAYh8QphOxXje/exec';
 const ITEMS_PER_LOAD = 18;
 
 const firebaseConfig = {
@@ -2585,5 +2585,6 @@ VERSIÓN: 2.0.0
 ÚLTIMA ACTUALIZACIÓN: 2025-01-07
 COMPATIBILIDAD: Chrome 90+, Firefox 88+, Safari 14+, Edge 90+
 */
+
 
 
