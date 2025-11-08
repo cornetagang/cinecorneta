@@ -1265,11 +1265,9 @@ async function openDetailsModal(id, type, triggerElement = null) {
             listBtn = document.createElement('button'); // Asignar a la variable de fuera
             listBtn.className = `btn btn-watchlist ${isInList ? 'in-list' : ''}`;
             
-            // ✅ CORRECCIÓN 1: Dejar solo el icono (sin texto "Mi Lista")
             listBtn.innerHTML = `<i class="fas ${isInList ? 'fa-check' : 'fa-plus'}"></i>`; 
             
             listBtn.addEventListener('click', () => handleWatchlistClick(listBtn, id, type));
-            // (No hay appendChild aquí)
         }
 
         // 3. Añadir "Ver ahora" (siempre primero)
@@ -1279,9 +1277,11 @@ async function openDetailsModal(id, type, triggerElement = null) {
         playBtn.addEventListener('click', () => {
             closeAllModals();
             if (type === 'movie') {
-                openCinemaModal(id);
+                // ✅ CORREGIDO: Llamar a la función correcta para películas
+                openPlayerModal(id, data.title); 
             } else {
-                openSeriesPlayerModal(id);
+                // ✅ CORREGIDO: Llamar a la función correcta para series (sin forzar la cuadrícula)
+                openSeriesPlayer(id, false);
             }
         });
         detailsButtons.appendChild(playBtn);
@@ -1293,7 +1293,8 @@ async function openDetailsModal(id, type, triggerElement = null) {
             infoBtn.innerHTML = `<i class="fas fa-tv"></i> Ver Temporadas`;
             infoBtn.addEventListener('click', () => {
                 closeAllModals();
-                openSeriesPlayerModal(id);
+                // ✅ CORREGIDO: Llamar a la función correcta, forzando la cuadrícula de temporadas
+                openSeriesPlayer(id, true);
             });
             detailsButtons.appendChild(infoBtn);
         }
@@ -1311,7 +1312,7 @@ async function openDetailsModal(id, type, triggerElement = null) {
             detailsButtons.appendChild(randomBtn);
         }
 
-        // 6. ✅ CORRECCIÓN 2: Añadir "Mi Lista" al final de todo
+        // 6. Añadir "Mi Lista" al final de todo
         if (listBtn) {
             detailsButtons.appendChild(listBtn);
         }
