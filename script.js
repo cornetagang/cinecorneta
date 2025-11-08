@@ -433,7 +433,7 @@ const DOM = {
     menuOverlay: document.getElementById('menu-overlay')
 };
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbwwctEPJQEsLPTkzwD1jgvXEg6QH_QiG12lNCH9sVUVnK08G58pp5ZDAYh8QphOxXje/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycby2Jr0KETsnw97TQLRygS9AHjpsPcjbmJXfXkJ-4WjCfOmbtsk9a7hOR0IC80vm0DMz/exec';
 const ITEMS_PER_LOAD = 18;
 
 const firebaseConfig = {
@@ -904,18 +904,55 @@ function changeHeroMovie(movieId) {
 }
 
 function generateCarousels() {
-    if (!DOM.carouselContainer) return;
-    DOM.carouselContainer.querySelectorAll('.carousel').forEach(c => c.remove());
-    
-    const recentMovieIds = Object.keys(appState.content.movies).sort((a, b) => appState.content.movies[b].tr - appState.content.movies[a].tr).slice(0, 7);
-    if (recentMovieIds.length > 0) {
-        const carouselEl = document.createElement('div');
-        carouselEl.className = 'carousel';
-        carouselEl.innerHTML = `<h3 class="carousel-title">Agregadas Recientemente</h3><div class="carousel-track"></div>`;
-        const track = carouselEl.querySelector('.carousel-track');
-        recentMovieIds.forEach(id => track.appendChild(createMovieCardElement(id, appState.content.movies[id], 'movie')));
-        DOM.carouselContainer.appendChild(carouselEl);
-    }
+    const container = DOM.carouselContainer;
+    container.innerHTML = '';
+
+    createCarouselSection('Películas Nuevas', appState.content.movies);
+
+    createCarouselSection('Series Nuevas', appState.content.series);
+}
+
+function createCarouselSection(title, dataSource) {
+    if (!dataSource || Object.keys(dataSource).length === 0) return;
+
+    const section = document.createElement('section');
+    section.classList.add('carousel');
+
+    const titleEl = document.createElement('h2');
+    titleEl.classList.add('carousel-title');
+    titleEl.textContent = title;
+    section.appendChild(titleEl);
+
+    const track = document.createElement('div');
+    track.classList.add('carousel-track');
+
+    // ▼▼▼▼▼ INICIO DE LA CORRECCIÓN ▼▼▼▼▼
+    // Antes, esto creaba un <div> manual sin onclick.
+    // Ahora, usa la función createMovieCardElement que SÍ tiene el onclick.
+    Object.entries(dataSource)
+        .sort((a, b) => b[1].tr - a[1].tr)
+        .slice(0, 15) // número de elementos a mostrar
+        .forEach(([id, item]) => {
+            
+            // 1. Determinar el tipo (movie o series)
+            const type = title.includes('Serie') ? 'series' : 'movie';
+            
+            // 2. Usar la función que SÍ crea la tarjeta con el onclick
+            // Pasamos 'true' para el lazy loading
+            const card = createMovieCardElement(id, item, type, 'carousel', true);
+            
+            track.appendChild(card);
+            
+            // 3. Asegurarse de que el lazy loader observe la imagen dentro de la tarjeta
+            const img = card.querySelector('img[data-src]');
+            if (img) {
+                lazyLoader.observe(img);
+            }
+        });
+    // ▲▲▲▲▲ FIN DE LA CORRECCIÓN ▲▲▲▲▲
+
+    section.appendChild(track);
+    DOM.carouselContainer.appendChild(section);
 }
 
 function setupSearch() {
@@ -1149,83 +1186,249 @@ function closeAllModals() {
 let lastFocusedElement = null;
 
 async function openDetailsModal(id, type, triggerElement = null) {
-    if (triggerElement) lastFocusedElement = triggerElement;
+    try {
+        const modal = DOM.detailsModal;
+        // ✅ CORRECCIÓN 1: Seleccionar el panel principal
+        const panel = modal.querySelector('.details-panel'); 
+        
+        const detailsPoster = document.getElementById('details-poster-img');
+        const detailsTitle = document.getElementById('details-title');
+        const detailsYear = document.getElementById('details-year');
+        const detailsGenres = document.getElementById('details-genres');
+        const detailsSynopsis = document.getElementById('details-synopsis');
+        const detailsButtons = document.getElementById('details-buttons');
+        const detailsRatingDisplay = document.getElementById('details-rating-display');
 
-    const data = type.includes('series') ? appState.content.series[id] : appState.content.movies[id];
-    if (!data || !DOM.detailsModal) return;
+        // Obtener datos base
+        const data = type === 'movie'
+            ? appState.content.movies[id]
+            : appState.content.series[id];
 
-    DOM.detailsModal.classList.add('show');
-    document.body.classList.add('modal-open');
+        if (!data) {
+            ErrorHandler.show('content', 'No se pudo cargar la información del título.');
+            return;
+        }
 
-    const detailsPanel = DOM.detailsModal.querySelector('.details-panel');
-    if (detailsPanel) {
-        const bgImage = data.banner || data.poster;
-        detailsPanel.style.backgroundImage = `url(${bgImage})`;
-    }
-    const posterImg = DOM.detailsModal.querySelector('#details-poster-img');
-    if (posterImg) {
-        posterImg.src = data.poster;
-        posterImg.alt = `Poster de ${data.title}`;
-        posterImg.loading = "lazy";
-    }
-    DOM.detailsModal.querySelector('#details-title').textContent = data.title || "Sin título";
-    DOM.detailsModal.querySelector('#details-year').textContent = data.year || "";
-    DOM.detailsModal.querySelector('#details-genres').textContent = data.genres || "";
-    DOM.detailsModal.querySelector('#details-synopsis').textContent = data.synopsis || "";
+        // Limpieza previa
+        detailsButtons.innerHTML = '';
+        detailsRatingDisplay.innerHTML = '';
 
-    const ratingDisplay = DOM.detailsModal.querySelector('#details-rating-display');
-    const metadataSource = type.includes('series') ? appState.content.metadata.series : appState.content.metadata.movies;
-    const rating = metadataSource?.[id]?.avgRating || null;
-    ratingDisplay.innerHTML = rating ? `<span>⭐ ${rating.toFixed(1)}/5</span>` : `<span>Sin calificación</span>`;
+        // Imagen, título, año, géneros, sinopsis
+        detailsPoster.src = data.poster || '';
+        
+        // ✅ CORRECCIÓN 1: Asignar el banner al fondo del panel
+        if (data.banner && data.banner.trim() !== '') {
+            panel.style.backgroundImage = `url(${data.banner})`;
+        } else {
+            // Fallback si no hay banner: solo un fondo oscuro
+            panel.style.backgroundImage = 'none';
+            panel.style.backgroundColor = '#181818'; // O 'black'
+        }
+        
+        detailsTitle.textContent = data.title || 'Sin título';
+        detailsYear.textContent = data.year ? `(${data.year})` : '';
+        detailsGenres.textContent = data.genres || '';
+        detailsSynopsis.textContent = data.synopsis || 'Sin descripción disponible.';
 
-    let playButtonText = "Ver Ahora";
-    const user = auth.currentUser;
+        // Calificación promedio (desde metadata o Firebase)
+        let rating = null;
+        const metaSource = type === 'movie'
+            ? appState.content.metadata.movies
+            : appState.content.metadata.series;
 
-    if (user && type.includes('series')) {
-        const historySnapshot = await db.ref(`users/${user.uid}/history`).once('value');
-        if (historySnapshot.exists()) {
-            const historyData = historySnapshot.val();
-            const hasHistory = Object.values(historyData).some(
-                item => item.contentId === id && item.type === 'series'
-            );
-            if (hasHistory) {
-                playButtonText = "Seguir Viendo";
+        if (metaSource?.[id]?.avgRating) {
+            rating = metaSource[id].avgRating;
+        } else {
+            try {
+                const snapshot = await db.ref(`${type}_metadata/${id}/avgRating`).once('value');
+                rating = snapshot.val() || null;
+            } catch {
+                rating = null;
             }
         }
-    }
 
-    const buttonsContainer = DOM.detailsModal.querySelector('#details-buttons');
-    let watchlistButtonHTML = '';
-    if (user) {
-        const isInList = appState.user.watchlist.has(id);
-        const iconClass = isInList ? 'fa-check' : 'fa-plus';
-        const buttonClass = isInList ? 'btn-watchlist in-list' : 'btn-watchlist';
-        watchlistButtonHTML = `<button class="${buttonClass}" data-content-id="${id}" title="Añadir a Mi Lista"><i class="fas ${iconClass}"></i></button>`;
-    }
-
-    let episodesOrSeasonsBtn = '';
-    if (type.includes('series')) {
-        const seriesEpisodes = appState.content.seriesEpisodes[id] || {};
-        const seasonCount = Object.keys(seriesEpisodes).length;
-        if (seasonCount > 1) {
-            episodesOrSeasonsBtn = `<button class="btn btn-seasons" onclick="openSeriesPlayer('${id}', true)"><i class="fas fa-layer-group"></i> Temporadas</button>`;
+        if (rating) {
+            detailsRatingDisplay.innerHTML = `
+                <div class="rating-display-inner">
+                    <i class="fas fa-star"></i>
+                    <span>${rating.toFixed(1)} / 5</span>
+                </div>
+            `;
         }
+
+        // ====== BOTONES PRINCIPALES ======
+
+        // ▶️ Ver ahora
+        const playBtn = document.createElement('button');
+        playBtn.className = 'btn btn-play';
+        playBtn.innerHTML = `<i class="fas fa-play"></i> Ver ahora`;
+        playBtn.addEventListener('click', () => {
+            closeAllModals();
+            if (type === 'movie') {
+                openCinemaModal(id);
+            } else {
+                openSeriesPlayerModal(id);
+            }
+        });
+        detailsButtons.appendChild(playBtn);
+
+        // 💾 Mi lista (solo si hay usuario logueado)
+        const user = auth.currentUser;
+        if (user) {
+            const isInList = appState.user.watchlist.has(id);
+            const listBtn = document.createElement('button');
+            listBtn.className = `btn btn-watchlist ${isInList ? 'in-list' : ''}`;
+            listBtn.innerHTML = `<i class="fas ${isInList ? 'fa-check' : 'fa-plus'}"></i> Mi Lista`;
+            listBtn.addEventListener('click', () => handleWatchlistClick(listBtn, id, type));
+            detailsButtons.appendChild(listBtn);
+        }
+
+        // ℹ️ Ver Temporadas (solo para series)
+        if (type === 'series') {
+            const infoBtn = document.createElement('button');
+            infoBtn.className = 'btn btn-info';
+            infoBtn.innerHTML = `<i class="fas fa-tv"></i> Ver Temporadas`;
+            infoBtn.addEventListener('click', () => {
+                closeAllModals();
+                openSeriesPlayerModal(id);
+            });
+            detailsButtons.appendChild(infoBtn);
+        }
+
+        // 🎲 Episodio Aleatorio (solo si tiene episodios y random = "sí")
+        if (
+            type === 'series' &&
+            appState.content.seriesEpisodes[id] &&
+            data.random?.toLowerCase() === 'sí'
+            ) {
+            const randomBtn = document.createElement('button');
+            
+            // ✅ CORRECCIÓN 2: Usar la clase personalizada 'btn-random'
+            randomBtn.className = 'btn btn-random'; 
+            
+            randomBtn.innerHTML = `<i class="fas fa-random"></i> Episodio Aleatorio`;
+            randomBtn.addEventListener('click', () => playRandomEpisode(id));
+            detailsButtons.appendChild(randomBtn);
+        }
+
+        // Mostrar modal
+        modal.classList.add('show');
+        document.body.classList.add('modal-open');
+
+        // Cerrar modal (botón X o fondo)
+        const closeBtn = modal.querySelector('.close-btn');
+        if (closeBtn) {
+            closeBtn.onclick = () => {
+                modal.classList.remove('show');
+                document.body.classList.remove('modal-open');
+            };
+        }
+    } catch (error) {
+        console.error('Error en openDetailsModal:', error);
+        ErrorHandler.show('content', 'Ocurrió un error al abrir los detalles.');
+    }
+}
+
+function playRandomEpisode(seriesId) {
+    const episodesData = appState.content.seriesEpisodes[seriesId];
+    if (!episodesData) {
+        ErrorHandler.show('content', 'No hay episodios disponibles para esta serie.');
+        return;
     }
 
-    const playAction = type.includes('series') 
-        ? `openSeriesPlayer('${id}')` 
-        : `openPlayerModal('${id}', '${data.title.replace(/'/g, "\\'")}')`;
+    // 1. Combinar todos los episodios de todas las temporadas
+    const allEpisodes = Object.entries(episodesData).flatMap(([seasonKey, episodes]) =>
+        // Mapeamos cada episodio y guardamos su 'seasonKey' (ej: "T1") y su 'index' (ej: 0, 1, 2)
+        episodes.map((ep, index) => ({
+            ...ep,
+            season: seasonKey,
+            index: index
+        }))
+    );
 
-    buttonsContainer.innerHTML = `
-        <button class="btn btn-play" onclick="${playAction}">
-            <i class="fas fa-play"></i> ${playButtonText}
-        </button>
-        ${episodesOrSeasonsBtn}
-        ${watchlistButtonHTML}
-    `;
+    if (allEpisodes.length === 0) {
+        ErrorHandler.show('content', 'No se encontraron episodios registrados.');
+        return;
+    }
 
-    const closeBtn = DOM.detailsModal.querySelector('.close-btn');
-    if (closeBtn) closeBtn.focus();
+    // 2. Elegir uno completamente al azar
+    const randomEpisode = allEpisodes[Math.floor(Math.random() * allEpisodes.length)];
+
+    // 3. Llamar a la función correcta para reproducir el episodio
+    // Esta es la función que usa "Continuar Viendo" y es la correcta para esto.
+    if (typeof openPlayerToEpisode === 'function') {
+        console.log(`Reproduciendo aleatorio: Serie ${seriesId}, Temporada ${randomEpisode.season}, Índice ${randomEpisode.index}`);
+        
+        // Cierra el modal de detalles ANTES de abrir el reproductor
+        closeAllModals(); 
+        
+        // Llama a la función que abre el reproductor en el episodio exacto
+        openPlayerToEpisode(seriesId, randomEpisode.season, randomEpisode.index);
+    } else {
+        // Fallback por si la función no existiera (aunque sí existe en tu script)
+        console.warn('openPlayerToEpisode no definida, usando renderEpisodePlayer');
+        renderEpisodePlayer(seriesId, randomEpisode.season, randomEpisode.index);
+    }
+}
+
+// 🎥 Abrir directamente un episodio aleatorio sin pasar por selección
+function openSeriesEpisode(seriesId, seasonNumber, episodeNumber) {
+    const series = appState.content.series[seriesId];
+    const episodesData = appState.content.seriesEpisodes[seriesId];
+
+    if (!series || !episodesData) {
+        ErrorHandler.show('content', 'No se pudieron cargar los episodios de la serie.');
+        return;
+    }
+
+    const targetSeason = episodesData[seasonNumber];
+    if (!targetSeason) {
+        ErrorHandler.show('content', `No existe la temporada ${seasonNumber} en esta serie.`);
+        return;
+    }
+
+    // Buscar episodio aunque el campo tenga distinto nombre o formato
+    const episode = targetSeason.find(ep => {
+        const epNum =
+            ep.number ||
+            ep.episodeNumber ||
+            ep.episode ||
+            ep.capitulo ||
+            ep.ep ||
+            ep.idEpisodio ||
+            ep.id ||
+            1;
+        return Number(epNum) === Number(episodeNumber);
+    });
+
+    if (!episode) {
+        console.warn(`⚠️ Episodio no encontrado — Temporada ${seasonNumber}, Episodio ${episodeNumber}`);
+        console.log('Datos de temporada:', targetSeason);
+        ErrorHandler.show('content', 'Episodio no encontrado.');
+        return;
+    }
+
+    // Cerrar cualquier modal abierto antes de reproducir
+    closeAllModals();
+
+    // 🔹 Abrir directamente el reproductor del episodio si existe
+    if (typeof openSeriesPlayerModal === 'function') {
+        openSeriesPlayerModal(seriesId, seasonNumber, episodeNumber);
+        return;
+    }
+
+    if (typeof openSeriesPlayer === 'function') {
+        openSeriesPlayer(seriesId, seasonNumber, episodeNumber);
+        return;
+    }
+
+    // 🧩 Si no existe ninguna función, mostrar por consola (modo debug)
+    console.log(`▶️ Reproducir episodio aleatorio:
+        Serie: ${series.title}
+        Temporada: ${seasonNumber}
+        Episodio: ${episodeNumber}
+        Título: ${episode.title || '(sin título)'}
+    `);
 }
 
 // ===========================================================
