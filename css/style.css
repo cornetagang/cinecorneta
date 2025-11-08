@@ -1936,3 +1936,18 @@ body.modal-open { overflow: hidden; }
 .profile-hub-menu-item.logout i {
     color: #ff9a9a;
 }
+
+/* ================================== */
+/* BOTÓN ALEATORIO PERSONALIZADO      */
+/* ================================== */
+
+.btn-random {
+    background: #5D3D94; /* Un tono morado */
+    color: white;
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
+.btn-random:hover {
+    background-color: #7a52c2; /* Más claro al pasar el ratón */
+    transform: translateY(-2px);
+}
