@@ -1188,7 +1188,6 @@ let lastFocusedElement = null;
 async function openDetailsModal(id, type, triggerElement = null) {
     try {
         const modal = DOM.detailsModal;
-        // ✅ CORRECCIÓN 1: Seleccionar el panel principal
         const panel = modal.querySelector('.details-panel'); 
         
         const detailsPoster = document.getElementById('details-poster-img');
@@ -1216,13 +1215,11 @@ async function openDetailsModal(id, type, triggerElement = null) {
         // Imagen, título, año, géneros, sinopsis
         detailsPoster.src = data.poster || '';
         
-        // ✅ CORRECCIÓN 1: Asignar el banner al fondo del panel
         if (data.banner && data.banner.trim() !== '') {
             panel.style.backgroundImage = `url(${data.banner})`;
         } else {
-            // Fallback si no hay banner: solo un fondo oscuro
             panel.style.backgroundImage = 'none';
-            panel.style.backgroundColor = '#181818'; // O 'black'
+            panel.style.backgroundColor = '#181818';
         }
         
         detailsTitle.textContent = data.title || 'Sin título';
@@ -1257,8 +1254,25 @@ async function openDetailsModal(id, type, triggerElement = null) {
         }
 
         // ====== BOTONES PRINCIPALES ======
+        
+        // 1. Declarar listBtn fuera del if para que exista en el scope
+        let listBtn = null; 
 
-        // ▶️ Ver ahora
+        // 2. Crear el botón de Mi Lista, pero NO AÑADIRLO (NO appendChild)
+        const user = auth.currentUser;
+        if (user) {
+            const isInList = appState.user.watchlist.has(id);
+            listBtn = document.createElement('button'); // Asignar a la variable de fuera
+            listBtn.className = `btn btn-watchlist ${isInList ? 'in-list' : ''}`;
+            
+            // ✅ CORRECCIÓN 1: Dejar solo el icono (sin texto "Mi Lista")
+            listBtn.innerHTML = `<i class="fas ${isInList ? 'fa-check' : 'fa-plus'}"></i>`; 
+            
+            listBtn.addEventListener('click', () => handleWatchlistClick(listBtn, id, type));
+            // (No hay appendChild aquí)
+        }
+
+        // 3. Añadir "Ver ahora" (siempre primero)
         const playBtn = document.createElement('button');
         playBtn.className = 'btn btn-play';
         playBtn.innerHTML = `<i class="fas fa-play"></i> Ver ahora`;
@@ -1272,18 +1286,7 @@ async function openDetailsModal(id, type, triggerElement = null) {
         });
         detailsButtons.appendChild(playBtn);
 
-        // 💾 Mi lista (solo si hay usuario logueado)
-        const user = auth.currentUser;
-        if (user) {
-            const isInList = appState.user.watchlist.has(id);
-            const listBtn = document.createElement('button');
-            listBtn.className = `btn btn-watchlist ${isInList ? 'in-list' : ''}`;
-            listBtn.innerHTML = `<i class="fas ${isInList ? 'fa-check' : 'fa-plus'}"></i> Mi Lista`;
-            listBtn.addEventListener('click', () => handleWatchlistClick(listBtn, id, type));
-            detailsButtons.appendChild(listBtn);
-        }
-
-        // ℹ️ Ver Temporadas (solo para series)
+        // 4. Añadir "Ver Temporadas" (si es serie)
         if (type === 'series') {
             const infoBtn = document.createElement('button');
             infoBtn.className = 'btn btn-info';
@@ -1295,20 +1298,22 @@ async function openDetailsModal(id, type, triggerElement = null) {
             detailsButtons.appendChild(infoBtn);
         }
 
-        // 🎲 Episodio Aleatorio (solo si tiene episodios y random = "sí")
+        // 5. Añadir "Episodio Aleatorio" (si es serie y random)
         if (
             type === 'series' &&
             appState.content.seriesEpisodes[id] &&
             data.random?.toLowerCase() === 'sí'
             ) {
             const randomBtn = document.createElement('button');
-            
-            // ✅ CORRECCIÓN 2: Usar la clase personalizada 'btn-random'
             randomBtn.className = 'btn btn-random'; 
-            
-            randomBtn.innerHTML = `<i class="fas fa-random"></i> Episodio Aleatorio`;
+            randomBtn.innerHTML = `🎲 Episodio Aleatorio`;
             randomBtn.addEventListener('click', () => playRandomEpisode(id));
             detailsButtons.appendChild(randomBtn);
+        }
+
+        // 6. ✅ CORRECCIÓN 2: Añadir "Mi Lista" al final de todo
+        if (listBtn) {
+            detailsButtons.appendChild(listBtn);
         }
 
         // Mostrar modal
@@ -2306,7 +2311,7 @@ function createMovieCardElement(id, data, type, layout = 'carousel', lazy = fals
     };
     
     let watchlistBtnHTML = '';
-    if(auth.currentUser){
+    if(auth.currentUser && options.source !== 'history'){
         const isInList = appState.user.watchlist.has(id);
         const icon = isInList ? 'fa-check' : 'fa-plus';
         const inListClass = isInList ? 'in-list' : '';
