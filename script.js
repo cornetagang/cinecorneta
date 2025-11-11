@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT COMPLETO CON MEJORAS INTEGRADAS
-// Versión: 2.0.0
+// Versión: 2.7.0
 // ===========================================================
 
 // ===========================================================
@@ -2098,11 +2098,11 @@ async function renderEpisodePlayer(seriesId, seasonNum, startAtIndex = null) {
     appState.player.activeSeriesId = seriesId;
     const savedEpisodeIndex = loadProgress(seriesId, seasonNum);
     const initialEpisodeIndex = startAtIndex !== null ? startAtIndex : savedEpisodeIndex;
-    appState.player.state[seriesId] = { season: seasonNum, episodeIndex: initialEpisodeIndex, lang: 'es' };
+    appState.player.state[seriesId] = { season: seasonNum, episodeIndex: initialEpisodeIndex, lang: 'en' };
     
     const firstEpisode = appState.content.seriesEpisodes[seriesId]?.[seasonNum]?.[0];
     const hasLangOptions = firstEpisode?.videoId_es?.trim();
-    let langControlsHTML = hasLangOptions ? `<div class="lang-controls"><button class="lang-btn active" data-lang="es">Español</button><button class="lang-btn" data-lang="en">Inglés</button></div>` : '';
+    let langControlsHTML = hasLangOptions ? `<div class="lang-controls"><button class="lang-btn active" data-lang="en">Original</button><button class="lang-btn" data-lang="es">Español</button></div>` : '';
     
     const seasonsCount = Object.keys(appState.content.seriesEpisodes[seriesId]).length;
     const backButtonHTML = seasonsCount > 1 ? `<button class="player-back-link" onclick="renderSeasonGrid('${seriesId}')"><i class="fas fa-arrow-left"></i> Temporadas</button>` : '';
