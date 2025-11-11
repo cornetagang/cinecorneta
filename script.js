@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT COMPLETO CON MEJORAS INTEGRADAS
-// Versión: 2.7.0
+// Versión: 2.8.0
 // ===========================================================
 
 // ===========================================================
@@ -687,8 +687,6 @@ function populateFilters(type) {
         <option value="title-desc">Título (Z - A)</option>
         <option value="year-desc">Año (Descendente)</option>
         <option value="year-asc">Año (Ascendente)</option>
-        <option value="rating-desc">Calificación (Mejor a peor)</option>
-        <option value="rating-asc">Calificación (Peor a mejor)</option>
     `;
 }
 
@@ -707,18 +705,10 @@ function applyAndDisplayFilters(type) {
     content.sort((a, b) => {
         const aData = a[1], bData = b[1];
         const metadataSource = type === 'movie' ? appState.content.metadata.movies : appState.content.metadata.series;
-        const aRating = metadataSource[a[0]]?.avgRating || 0;
-        const bRating = metadataSource[b[0]]?.avgRating || 0;
 
         switch (sortByValue) {
             case 'recent':
                 return bData.tr - aData.tr;
-            case 'rating-desc':
-            case 'rating-asc': {
-                if (aRating === 0 && bRating > 0) return 1;
-                if (bRating === 0 && aRating > 0) return -1;
-                return sortByValue === 'rating-asc' ? aRating - bRating : bRating - aRating;
-            }
             case 'title-asc':
                 return aData.title.localeCompare(bData.title);
             case 'title-desc':
@@ -1196,7 +1186,6 @@ async function openDetailsModal(id, type, triggerElement = null) {
         const detailsGenres = document.getElementById('details-genres');
         const detailsSynopsis = document.getElementById('details-synopsis');
         const detailsButtons = document.getElementById('details-buttons');
-        const detailsRatingDisplay = document.getElementById('details-rating-display');
 
         // Obtener datos base
         const data = type === 'movie'
@@ -1210,7 +1199,6 @@ async function openDetailsModal(id, type, triggerElement = null) {
 
         // Limpieza previa
         detailsButtons.innerHTML = '';
-        detailsRatingDisplay.innerHTML = '';
 
         // Imagen, título, año, géneros, sinopsis
         detailsPoster.src = data.poster || '';
@@ -1227,32 +1215,6 @@ async function openDetailsModal(id, type, triggerElement = null) {
         detailsGenres.textContent = data.genres || '';
         detailsSynopsis.textContent = data.synopsis || 'Sin descripción disponible.';
 
-        // Calificación promedio (desde metadata o Firebase)
-        let rating = null;
-        const metaSource = type === 'movie'
-            ? appState.content.metadata.movies
-            : appState.content.metadata.series;
-
-        if (metaSource?.[id]?.avgRating) {
-            rating = metaSource[id].avgRating;
-        } else {
-            try {
-                const snapshot = await db.ref(`${type}_metadata/${id}/avgRating`).once('value');
-                rating = snapshot.val() || null;
-            } catch {
-                rating = null;
-            }
-        }
-
-        if (rating) {
-            detailsRatingDisplay.innerHTML = `
-                <div class="rating-display-inner">
-                    <i class="fas fa-star"></i>
-                    <span>${rating.toFixed(1)} / 5</span>
-                </div>
-            `;
-        }
-
         // ====== BOTONES PRINCIPALES ======
         
         // 1. Declarar listBtn fuera del if para que exista en el scope
@@ -1264,10 +1226,12 @@ async function openDetailsModal(id, type, triggerElement = null) {
             const isInList = appState.user.watchlist.has(id);
             listBtn = document.createElement('button'); // Asignar a la variable de fuera
             listBtn.className = `btn btn-watchlist ${isInList ? 'in-list' : ''}`;
+            listBtn.dataset.contentId = id; // <-- ¡¡AQUÍ ESTÁ LA LÍNEA QUE FALTABA!!
             
             listBtn.innerHTML = `<i class="fas ${isInList ? 'fa-check' : 'fa-plus'}"></i>`; 
             
-            listBtn.addEventListener('click', () => handleWatchlistClick(listBtn, id, type));
+            // CORREGIDO: La función solo necesita el botón como argumento
+            listBtn.addEventListener('click', () => handleWatchlistClick(listBtn));
         }
 
         // 3. Añadir "Ver ahora" (siempre primero)
@@ -1277,26 +1241,31 @@ async function openDetailsModal(id, type, triggerElement = null) {
         playBtn.addEventListener('click', () => {
             closeAllModals();
             if (type === 'movie') {
-                // ✅ CORREGIDO: Llamar a la función correcta para películas
                 openPlayerModal(id, data.title); 
             } else {
-                // ✅ CORREGIDO: Llamar a la función correcta para series (sin forzar la cuadrícula)
                 openSeriesPlayer(id, false);
             }
         });
         detailsButtons.appendChild(playBtn);
 
-        // 4. Añadir "Ver Temporadas" (si es serie)
+        // 4. Añadir "Ver Temporadas" (solo si es serie Y tiene MÁS DE 1 temporada)
         if (type === 'series') {
-            const infoBtn = document.createElement('button');
-            infoBtn.className = 'btn btn-info';
-            infoBtn.innerHTML = `<i class="fas fa-tv"></i> Ver Temporadas`;
-            infoBtn.addEventListener('click', () => {
-                closeAllModals();
-                // ✅ CORREGIDO: Llamar a la función correcta, forzando la cuadrícula de temporadas
-                openSeriesPlayer(id, true);
-            });
-            detailsButtons.appendChild(infoBtn);
+            // Contamos cuántas temporadas tiene la serie
+            const seriesEpisodes = appState.content.seriesEpisodes[id] || {};
+            const seasonCount = Object.keys(seriesEpisodes).length;
+
+            // Solo mostramos el botón si hay más de una temporada
+            if (seasonCount > 1) { 
+                const infoBtn = document.createElement('button');
+                infoBtn.className = 'btn btn-info';
+                infoBtn.innerHTML = `<i class="fas fa-tv"></i> Temporadas`;
+                infoBtn.addEventListener('click', () => {
+                    closeAllModals();
+                    // Forzamos la cuadrícula de temporadas
+                    openSeriesPlayer(id, true);
+                });
+                detailsButtons.appendChild(infoBtn);
+            }
         }
 
         // 5. Añadir "Episodio Aleatorio" (si es serie y random)
@@ -1307,7 +1276,7 @@ async function openDetailsModal(id, type, triggerElement = null) {
             ) {
             const randomBtn = document.createElement('button');
             randomBtn.className = 'btn btn-random'; 
-            randomBtn.innerHTML = `🎲 Episodio Aleatorio`;
+            randomBtn.innerHTML = `🎲 Aleatorio`;
             randomBtn.addEventListener('click', () => playRandomEpisode(id));
             detailsButtons.appendChild(randomBtn);
         }
@@ -2319,13 +2288,6 @@ function createMovieCardElement(id, data, type, layout = 'carousel', lazy = fals
         watchlistBtnHTML = `<button class="btn-watchlist ${inListClass}" data-content-id="${id}"><i class="fas ${icon}"></i></button>`;
     }
 
-    let ratingHTML = '';
-    const metadata = type === 'movie' ? appState.content.metadata.movies[id] : appState.content.metadata.series[id];
-    if (metadata && metadata.avgRating > 0) {
-        const avg = metadata.avgRating.toFixed(1);
-        ratingHTML = `<div class="card-rating"><i class="fas fa-star"></i> ${avg}</div>`;
-    }
-
     // 🆕 USO DE LAZY LOADING
     const imgHTML = lazy 
         ? `<img data-src="${data.poster}" alt="${data.title}" data-width="200" data-height="300">`
@@ -2334,7 +2296,6 @@ function createMovieCardElement(id, data, type, layout = 'carousel', lazy = fals
     card.innerHTML = `
         ${imgHTML}
         ${watchlistBtnHTML}
-        ${ratingHTML}
     `;
 
     return card;
@@ -2431,6 +2392,10 @@ function renderProfile() {
     DOM.profileUsername.textContent = user.displayName || 'Usuario';
     DOM.profileEmail.textContent = user.email;
 
+    // ✅ ¡LÍNEA AÑADIDA!
+    // Llamamos a la función que calcula y muestra las estadísticas.
+    calculateAndDisplayUserStats(); 
+
     const tabs = document.querySelectorAll('.profile-tab');
     const tabContents = document.querySelectorAll('.profile-tab-content');
 
@@ -2443,12 +2408,6 @@ function renderProfile() {
             tabContents.forEach(content => {
                 content.classList.toggle('active', content.id === `${tabName}-tab`);
             });
-
-            if (tabName === 'activity') {
-                calculateAndDisplayUserStats();
-            } else if (tabName === 'ratings') {
-                renderRatingsHistory();
-            }
         });
     });
 
@@ -2513,27 +2472,13 @@ function showFeedbackMessage(message, type) {
     }, 5000);
 }
 
-function generateStaticStars(rating) {
-    const totalStars = 5;
-    let starsHTML = '';
-    const fullStars = Math.floor(rating);
-    const halfStar = rating % 1 >= 0.3;
-    const emptyStars = totalStars - fullStars - (halfStar ? 1 : 0);
-
-    for (let i = 0; i < fullStars; i++) starsHTML += '<i class="fas fa-star"></i>';
-    if (halfStar) starsHTML += '<i class="fas fa-star-half-alt"></i>';
-    for (let i = 0; i < emptyStars; i++) starsHTML += '<i class="far fa-star"></i>';
-    
-    return starsHTML;
-}
-
 async function calculateAndDisplayUserStats() {
     const user = auth.currentUser;
     if (!user) return;
 
-    const [historySnapshot, ratingsSnapshot] = await Promise.all([
+    const [historySnapshot] = await Promise.all([
         db.ref(`users/${user.uid}/history`).once('value'),
-        db.ref('ratings').once('value')
+
     ]);
 
     if (!historySnapshot.exists()) {
@@ -2542,13 +2487,10 @@ async function calculateAndDisplayUserStats() {
     }
 
     const history = historySnapshot.val();
-    const allRatings = ratingsSnapshot.val() || {};
 
     let moviesWatched = 0;
     const seriesWatched = new Set();
     let genreCounts = {};
-    let userTotalRating = 0;
-    let userRatingCount = 0;
     let totalItemsInHistory = 0;
 
     for (const item of Object.values(history)) {
@@ -2570,17 +2512,9 @@ async function calculateAndDisplayUserStats() {
         }
     }
 
-    Object.values(allRatings).forEach(contentRatings => {
-        if (contentRatings[user.uid]) {
-            userTotalRating += contentRatings[user.uid];
-            userRatingCount++;
-        }
-    });
-
     document.getElementById('stat-movies-watched').textContent = moviesWatched;
     document.getElementById('stat-series-watched').textContent = seriesWatched.size;
     document.getElementById('stat-total-items').textContent = totalItemsInHistory;
-    document.getElementById('stat-avg-rating').textContent = userRatingCount > 0 ? (userTotalRating / userRatingCount).toFixed(1) : 'N/A';
 
     const genreStatsContainer = document.getElementById('genre-stats-container');
     genreStatsContainer.innerHTML = '';
@@ -2599,112 +2533,6 @@ async function calculateAndDisplayUserStats() {
             </div>`;
         genreStatsContainer.insertAdjacentHTML('beforeend', barHtml);
     });
-}
-
-async function renderRatingsHistory() {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    const ratingsSnapshot = await db.ref('ratings').once('value');
-    const container = document.getElementById('ratings-history-container');
-    container.innerHTML = '';
-
-    if (!ratingsSnapshot.exists()) {
-        container.innerHTML = `<p class="empty-message">Aún no has calificado ningún título.</p>`;
-        return;
-    }
-
-    const allRatings = ratingsSnapshot.val();
-    const userRatings = [];
-
-    for (const [contentId, ratings] of Object.entries(allRatings)) {
-        if (ratings[user.uid]) {
-            const contentType = appState.content.movies[contentId] ? 'movie' : 'series';
-            const contentData = appState.content.movies[contentId] || appState.content.series[contentId];
-            if (contentData) {
-                userRatings.push({
-                    id: contentId,
-                    title: contentData.title,
-                    poster: contentData.poster,
-                    rating: ratings[user.uid],
-                    type: contentType
-                });
-            }
-        }
-    }
-
-    if (userRatings.length === 0) {
-        container.innerHTML = `<p class="empty-message">Aún no has calificado ningún título.</p>`;
-        return;
-    }
-
-    userRatings.forEach(item => {
-        const ratingHtml = `
-            <div class="rating-item">
-                <img src="${item.poster}" alt="${item.title}" class="rating-item-poster">
-                <div class="rating-item-info">
-                    <h5 class="rating-item-title">${item.title}</h5>
-                    <div class="rating-item-stars">${generateStaticStars(item.rating)}</div>
-                </div>
-                <button class="btn-delete-rating" data-content-id="${item.id}" data-rating-value="${item.rating}" data-content-type="${item.type}" title="Eliminar calificación">
-                    <i class="fas fa-trash-alt"></i>
-                </button>
-            </div>`;
-        container.insertAdjacentHTML('beforeend', ratingHtml);
-    });
-
-    container.querySelectorAll('.btn-delete-rating').forEach(button => {
-        button.addEventListener('click', (e) => {
-            const currentButton = e.currentTarget;
-            const contentId = currentButton.dataset.contentId;
-            const ratingValue = parseInt(currentButton.dataset.ratingValue);
-            const contentType = currentButton.dataset.contentType;
-            
-            openConfirmationModal(
-                'Eliminar Calificación',
-                '¿Estás seguro de que quieres eliminar tu calificación para este título? Podrás volver a calificarlo más tarde.',
-                () => deleteRating(contentId, ratingValue, contentType)
-            );
-        });
-    });
-}
-
-async function deleteRating(contentId, oldRating, type) {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    try {
-        await db.ref(`ratings/${contentId}/${user.uid}`).remove();
-
-        const metadataRef = db.ref(`${type}_metadata/${contentId}`);
-        await metadataRef.transaction(currentData => {
-            if (currentData === null) return null;
-
-            let newTotalScore = (currentData.totalScore || 0) - oldRating;
-            let newRatingCount = (currentData.ratingCount || 0) - 1;
-
-            if (newRatingCount <= 0) {
-                return null;
-            }
-
-            const newAvgRating = newTotalScore / newRatingCount;
-            return { avgRating: newAvgRating, ratingCount: newRatingCount, totalScore: newTotalScore };
-        });
-
-        const updatedMetadata = (await metadataRef.once('value')).val();
-        if (type === 'movie') { 
-            appState.content.metadata.movies[contentId] = updatedMetadata; 
-        } else { 
-            appState.content.metadata.series[contentId] = updatedMetadata; 
-        }
-
-        renderRatingsHistory();
-        
-    } catch (error) {
-        console.error("Error al eliminar la calificación:", error);
-    } finally {
-        closeAllModals();
-    }
 }
 
 // ===========================================================
