@@ -111,9 +111,22 @@ body.modal-open { overflow: hidden; }
 .hero-buttons { display: flex; gap: 15px; margin-top: 20px; }
 .hero-content.hero-fading { opacity: 0; }
 
-.btn, .btn-play, .btn-info, .btn-episodes, .btn-random { padding: 12px 25px; border-radius: 8px; border: none; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: all 0.3s ease; display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
-.btn-play { background: linear-gradient(to right, var(--primary-red), var(--secondary-red)); color: white; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4); }
-.btn-info { background: rgba(109, 109, 110, 0.7); color: white; border: 1px solid rgba(255,255,255,0.2); }
+.btn, .btn-play, .btn-info, .btn-episodes, .btn-random { 
+    padding: 12px 25px; 
+    border-radius: 8px; 
+    border: 1px solid transparent;
+    font-size: 1.1rem; 
+    line-height: 1.4;
+    font-weight: bold; 
+    cursor: pointer; 
+    transition: all 0.3s ease; 
+    display: inline-flex; 
+    align-items: center; 
+    gap: 10px; 
+    text-decoration: none; 
+}
+.btn-play { background: linear-gradient(to right, var(--primary-red), var(--secondary-red)); color: white; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4); border-color: var(--primary-red); }
+.btn-info { background: rgba(109, 109, 110, 0.7); color: white; border-color: rgba(255,255,255,0.2); }
 .btn-play:hover { background: linear-gradient(to right, var(--secondary-red), var(--primary-red)); transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0, 0, 0, 0.5); }
 .btn-info:hover { background-color: rgba(109, 109, 110, 0.5); transform: translateY(-2px); }
 
@@ -278,7 +291,7 @@ body.modal-open { overflow: hidden; }
 .details-info h2 { margin-bottom: 8px; font-size: clamp(1.8rem, 4vw, 2.5rem); }
 .details-meta { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; align-items: center; }
 .details-meta span { background-color: rgba(40, 40, 40, 0.9); padding: 6px 14px; border-radius: 15px; font-size: 0.9rem; }
-#details-buttons { display: flex; gap: 15px; align-items: center; margin-top: 20px; }
+#details-buttons { display: flex; align-items: center; margin-top: 20px; }
 
 .seasons-grid, #season-grid {
   display: grid;
@@ -495,7 +508,7 @@ body.modal-open { overflow: hidden; }
 #series-player-modal.season-grid-view .season-grid-container {
     max-width: 90vw;
     background-color: var(--panel-dark);
-    padding: 30px;
+    padding: 20px;
     border-radius: 12px;
 }
 
@@ -631,7 +644,7 @@ body.modal-open { overflow: hidden; }
 
 .player-title {
     font-size: 1.8rem;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
     text-align: center;
 }
 
@@ -741,7 +754,7 @@ body.modal-open { overflow: hidden; }
 .btn-watchlist:hover { background: #fff; color: #000; transform: scale(1.1); }
 .btn-watchlist.in-list { background: var(--primary-red); border-color: var(--secondary-red); }
 .hero-buttons .btn-watchlist { position: static; width: 44px; height: 44px; background: rgba(109, 109, 110, 0.7); border: 1px solid rgba(255,255,255,0.2); }
-#details-buttons .btn-watchlist { position: static; width: 44px; height: 44px; background: rgba(109, 109, 110, 0.7); border: 1px solid rgba(255,255,255,0.2); }
+#details-buttons .btn-watchlist { position: static; width: 44px; height: 44px; flex-grow: 0; flex-shrink: 0;background: rgba(109, 109, 110, 0.7); border: 1px solid rgba(255,255,255,0.2); }
 
 /* ================================== */
 /* MODAL DE CONFIRMACIÓN              */
@@ -768,12 +781,9 @@ body.modal-open { overflow: hidden; }
     border-radius: 50%;
     padding: 0;
     font-size: 1.2rem;
-
-    /* Asegurarse de que esté centrado con Flexbox */
-    display: flex; /* Ya debería estar */
-    align-items: center; /* Centrar verticalmente */
-    justify-content: center; /* Centrar horizontalmente */
-
+    display: flex;
+    align-items: center;
+    justify-content: center;
     background: rgba(109, 109, 110, 0.7);
     color: white;
     border: 1px solid rgba(255, 255, 255, 0.2);
@@ -783,17 +793,15 @@ body.modal-open { overflow: hidden; }
     opacity: 1;
 }
 
-/* Ajuste fino para el icono dentro del botón "Mi Lista" */
 #details-buttons .btn-watchlist i {
-    /* Reiniciar posibles desplazamientos internos del icono */
-    line-height: 1; /* Asegura que la altura de línea no lo desplace */
-    margin: 0; /* Quita cualquier margen inesperado */
-    padding: 0; /* Quita cualquier padding inesperado */
-    display: flex; /* Tratar el icono como flex item también */
-    align-items: center; /* Centrar su contenido (aunque no tenga) */
-    justify-content: center; /* Centrar su contenido */
-    width: 100%; /* Que ocupe todo el espacio del botón */
-    height: 100%; /* Que ocupe todo el espacio del botón */
+    line-height: 1;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
 }
 
 #details-buttons .btn-watchlist:hover {
@@ -831,6 +839,22 @@ body.modal-open { overflow: hidden; }
 .filter-controls select option {
     background: #1E1E1E;
     color: var(--text-light);
+}
+
+/* ================================== */
+/* AJUSTE PARA SIMETRÍA DE BOTONES V2 */
+/* ================================== */
+
+#details-buttons .btn {
+    margin-right: 15px;
+}
+
+#details-buttons .btn-play,
+#details-buttons .btn-info,
+#details-buttons .btn-random {
+    flex-grow: 1;
+    flex-basis: 0;
+    justify-content: center; 
 }
 
 /* ================================== */
@@ -1026,20 +1050,6 @@ body.modal-open { overflow: hidden; }
 .genre-progress { flex-grow: 1; height: 20px; background-color: #333; border-radius: 10px; overflow: hidden; }
 .genre-progress-fill { height: 100%; background-color: var(--primary-red); width: 0%; transition: width 0.5s ease-in-out; }
 .genre-count { font-weight: bold; }
-.ratings-list { display: flex; flex-direction: column; gap: 15px; }
-.rating-item {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    background-color: var(--panel-dark);
-    padding: 15px;
-    border-radius: 8px;
-    border-left: 4px solid var(--primary-red);
-}
-.rating-item-poster { width: 60px; height: 90px; object-fit: cover; border-radius: 4px; }
-.rating-item-info { flex-grow: 1; }
-.rating-item-title { font-size: 1.2rem; font-weight: bold; margin: 0; }
-.rating-item-stars { color: #ffc107; margin-top: 5px; }
 
 /* NUEVO: Estilos para la vista de "Perfil" en móvil */
 #profile-hub-container {
@@ -1089,91 +1099,6 @@ body.modal-open { overflow: hidden; }
 }
 .profile-hub-menu-item.logout i {
     color: #ff9a9a;
-}
-
-
-/* ================================== */
-/* SISTEMA DE CALIFICACIÓN            */
-/* ================================== */
-.card-rating {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    background-color: rgba(0, 0, 0, 0.8);
-    color: #ffc107;
-    padding: 5px 8px;
-    border-radius: 5px;
-    font-size: 0.9rem;
-    font-weight: bold;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-}
-
-.movie-card:hover .card-rating {
-    opacity: 1;
-}
-
-.rating-display {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 15px;
-    font-size: 1.1rem;
-}
-
-.rating-display .stars-static {
-    color: #ffc107;
-}
-
-.rating-display .rating-value {
-    font-weight: bold;
-    color: var(--text-light);
-}
-
-.rating-display .rating-count {
-    color: var(--text-muted);
-    font-size: 0.9rem;
-}
-
-.user-rating-container {
-    margin-top: 15px;
-    padding: 15px 10px;
-    background-color: rgba(0,0,0,0.3);
-    border-radius: 8px;
-    width: fit-content;
-    margin-left: 0;
-}
-
-.user-rating-container p {
-    margin: 0 0 10px 0; 
-    font-weight: bold;
-    color: var(--text-muted);
-}
-
-.stars-interactive {
-    color: #999; 
-    font-size: 2rem;
-    padding: 0;
-    margin: 0;
-    line-height: 1;
-}
-
-
-.stars-interactive i {
-    cursor: pointer;
-    transition: color 0.2s ease, transform 0.2s ease;
-}
-
-.stars-interactive i:hover {
-    transform: scale(1.15);
-}
-
-.stars-interactive.rated i,
-.stars-interactive i.hover {
-    color: #ffc107 !important;
 }
 
 /* ================================== */
@@ -1363,69 +1288,6 @@ body.modal-open { overflow: hidden; }
 }
 
 /* ================================== */
-/* AJUSTES PARA CALIFICACIÓN DE SERIES*/
-/* ================================== */
-
-.sidebar-rating-section {
-    padding: 15px 10px;
-    margin: 0 5px 15px 5px;
-    border-top: 1px solid #333;
-    border-bottom: 1px solid #333;
-}
-
-.sidebar-rating-section .rating-display {
-    justify-content: center;
-    margin-bottom: 10px;
-}
-
-.sidebar-rating-section .user-rating-container {
-    background-color: transparent;
-    padding: 0;
-    margin-top: 10px;
-    text-align: center;
-}
-
-/* ================================== */
-/* AJUSTES PARA CALIFICACIONES        */
-/* ================================== */
-.stars-interactive.processing {
-    cursor: wait;
-    opacity: 0.7;
-}
-
-.stars-interactive.rated-static i {
-    color: #ffc107;
-    cursor: default;
-    transform: none !important;
-}
-
-.rating-item {
-    position: relative;
-}
-
-.btn-delete-rating {
-    background: #444;
-    color: var(--text-muted);
-    border: none;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    cursor: pointer;
-    font-size: 1rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background-color 0.3s, color 0.3s;
-    margin-left: auto;
-    flex-shrink: 0;
-}
-
-.btn-delete-rating:hover {
-    background-color: var(--secondary-red);
-    color: white;
-}
-
-/* ================================== */
 /* CARRUSEL "CONTINUAR VIENDO"        */
 /* ================================== */
 
@@ -1577,7 +1439,6 @@ body.modal-open { overflow: hidden; }
     font-size: 1.8rem;
 }
 
-
 /* ================================== */
 /* AJUSTE PARA PCS PEQUEÑAS (993px - 1399px) */
 /* ================================== */
@@ -1585,6 +1446,16 @@ body.modal-open { overflow: hidden; }
     .details-panel {
         max-width: 900px; 
         height: 80vh; 
+    }
+
+    /* === AÑADE ESTO === */
+    /* Achicamos los botones para que quepan en 900px */
+    #details-buttons .btn-play,
+    #details-buttons .btn-info,
+    #details-buttons .btn-random {
+        padding: 12px 12px;  /* Menos padding horizontal */
+        font-size: 0.95rem; /* Texto un poco más pequeño */
+        gap: 4px;           /* Menos espacio entre icono y texto */
     }
 }
 
@@ -1598,19 +1469,17 @@ body.modal-open { overflow: hidden; }
 }
 
 @media (max-width: 992px) {
-    /* Agregamos padding inferior para que la barra no tape el contenido */
     .page-wrapper {
         padding-bottom: 65px; 
     }
     
     .bottom-nav {
-        display: flex; /* Mostramos la barra de navegación inferior */
+        display: flex;
     }
 
     body.modal-open { position: fixed; width: 100%; }
     .main-header { padding: 10px 15px; }
-    
-    /* Ocultamos elementos que ya no son necesarios */
+
     .main-nav { display: none; }
     #auth-buttons, #user-profile-container { display: none; }
 
@@ -1653,10 +1522,6 @@ body.modal-open { overflow: hidden; }
     .details-info h2 { font-size: clamp(1.5rem, 6vw, 2rem); }
     .details-meta { justify-content: center; }
     #details-synopsis { font-size: 0.95rem; }
-
-    #details-rating-display {
-        justify-content: center;
-    }
     
     #details-buttons {
         justify-content: center;
@@ -1709,7 +1574,6 @@ body.modal-open { overflow: hidden; }
     .stat-card i { font-size: 2rem; }
     .stat-value { font-size: 1.5rem; }
     .genre-label { flex-basis: 80px; font-size: 0.8rem; }
-    .rating-item { flex-direction: column; align-items: flex-start; }
     
     #settings-container { max-width: 100%; margin: 0; }
     #settings-container .content-header { padding: 0 15px; margin-bottom: 30px; }
@@ -1908,23 +1772,25 @@ body.modal-open { overflow: hidden; }
         gap: 12px;
     }
 
-    /* El botón "Ver Ahora" ocupará su propia fila, como acción principal */
     #details-buttons .btn-play {
         flex-basis: 100%; /* Ocupa todo el ancho */
         order: 1; /* Lo posiciona primero */
+        flex-grow: 1; /* Añadido para que ocupe todo */
     }
 
-    /* El botón "Temporadas" crecerá para ocupar el espacio disponible */
-    #details-buttons .btn-info, /* Para películas */
-    #details-buttons .btn-seasons /* Para series */ {
-        flex-grow: 1;
-        order: 2;
+    #details-buttons .btn-random {
+        flex-grow: 1; /* Crecerán para rellenar el espacio */
+        order: 2;   /* Irán en la segunda fila */
     }
 
-    /* El botón de "Mi Lista" mantendrá su tamaño circular */
+    #details-buttons .btn-info {
+        flex-grow: 1; /* Crecerán para rellenar el espacio */
+        order: 3;   /* Irán en la segunda fila */
+    }
+
     #details-buttons .btn-watchlist {
         flex-shrink: 0; /* Evita que el botón '+' se encoja */
-        order: 3;
+        order: 4; /* Va al final */
     }
 }
 
@@ -1987,7 +1853,7 @@ body.modal-open { overflow: hidden; }
 .btn-random {
     background: #5D3D94; /* Un tono morado */
     color: white;
-    border: 1px solid rgba(255,255,255,0.2);
+    border-color: rgba(255,255,255,0.2);
 }
 
 .btn-random:hover {
