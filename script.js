@@ -1,7 +1,47 @@
 // ===========================================================
-// CINE CORNETA - SCRIPT COMPLETO CON MEJORAS INTEGRADAS
-// Versión: 2.8.0
+// CINE CORNETA - SCRIPT PRINCIPAL (MODULAR)
+// Versión: 4.0.0
 // ===========================================================
+
+// ===========================================================
+// 🆕 CARGADOR DE MÓDULOS (Code Splitting)
+// ===========================================================
+let playerModule = null;
+let profileModule = null;
+let rouletteModule = null;
+
+async function getPlayerModule() {
+    if (playerModule) return playerModule;
+    const module = await import('./player.js');
+    module.initPlayer({
+        appState, DOM, ErrorHandler, auth, db,
+        addToHistoryIfLoggedIn, closeAllModals, openDetailsModal
+    });
+    playerModule = module;
+    return playerModule;
+}
+
+async function getProfileModule() {
+    if (profileModule) return profileModule;
+    const module = await import('./profile.js');
+    module.initProfile({
+        appState, DOM, auth, db, switchView
+    });
+    profileModule = module;
+    // Llama a la configuración del menú desplegable tan pronto como se cargue el módulo
+    module.setupUserDropdown();
+    return module;
+}
+
+async function getRouletteModule() {
+    if (rouletteModule) return rouletteModule;
+    const module = await import('./roulette.js');
+    module.initRoulette({
+        appState, DOM, createMovieCardElement, openDetailsModal
+    });
+    rouletteModule = module;
+    return module;
+}
 
 // ===========================================================
 // 🆕 NUEVOS SISTEMAS - GESTIÓN DE ERRORES
@@ -337,6 +377,37 @@ if (!document.getElementById('lazy-loading-styles')) {
 }
 
 // ===========================================================
+// GESTOR DE ASSETS (ICONOS Y LOGOS AUTOMÁTICOS)
+// ===========================================================
+const THEME_ASSETS = {
+    normal: {
+        icon: 'https://res.cloudinary.com/djhgmmdjx/image/upload/v1759209689/u71QEFc_bet4rv.png',
+        logo: 'https://res.cloudinary.com/djhgmmdjx/image/upload/v1759209688/vgJjqSM_oicebo.png'
+    },
+    christmas: {
+        icon: 'https://res.cloudinary.com/djhgmmdjx/image/upload/v1762920149/cornenavidad_lxtqh3.webp',
+        logo: 'https://res.cloudinary.com/djhgmmdjx/image/upload/v1763875732/NavidadCorneta_pjcdgq.webp'
+    }
+};
+
+function updateThemeAssets() {
+    const isChristmas = document.body.classList.contains('tema-navidad');
+    const assets = isChristmas ? THEME_ASSETS.christmas : THEME_ASSETS.normal;
+
+    // 1. Actualizar Logo del Header
+    const logoImg = document.getElementById('app-logo');
+    if (logoImg) {
+        logoImg.src = assets.logo;
+    }
+
+    // 2. Actualizar Icono de la Pestaña (Favicon)
+    const iconLink = document.getElementById('app-icon');
+    if (iconLink) {
+        iconLink.href = assets.icon;
+    }
+}
+
+// ===========================================================
 // 1. ESTADO GLOBAL Y CONFIGURACIÓN
 // ===========================================================
 const appState = {
@@ -434,7 +505,7 @@ const DOM = {
 };
 
 const API_URL = 'https://script.google.com/macros/s/AKfycby2Jr0KETsnw97TQLRygS9AHjpsPcjbmJXfXkJ-4WjCfOmbtsk9a7hOR0IC80vm0DMz/exec';
-const ITEMS_PER_LOAD = 18;
+const ITEMS_PER_LOAD = window.innerWidth < 1600 ? 25 : 24;
 
 const firebaseConfig = {
     apiKey: "AIzaSyBgfvfYs-A_-IgAbYoT8GAmoOrSi--cLkw",
@@ -454,10 +525,24 @@ const db = firebase.database();
 // 2. INICIO Y CARGA DE DATOS (🆕 MEJORADO CON CACHÉ)
 // ===========================================================
 document.addEventListener('DOMContentLoaded', () => {
+    updateThemeAssets();
     fetchInitialDataWithCache();
 });
 
+function preloadImage(url) {
+    return new Promise((resolve) => {
+        if (!url) { resolve(); return; }
+        const img = new Image();
+        img.src = url;
+        img.onload = () => resolve();
+        img.onerror = () => resolve(); // Resolvemos aunque falle para no bloquear la app
+    });
+}
+
 async function fetchInitialDataWithCache() {
+    const startLoadTime = Date.now();
+    
+    // 1. Función interna para procesar y asignar datos al estado
     const processData = (data) => {
         appState.content.movies = data.allMovies || {};
         appState.content.series = data.series || {};
@@ -465,112 +550,174 @@ async function fetchInitialDataWithCache() {
         appState.content.seasonPosters = data.posters || {};
     };
 
-    const setupAndShow = (movieMeta, seriesMeta) => {
+    // 2. Lógica de Renderizado + PRECARGA INTELIGENTE DE IMÁGENES
+    const setupAndShow = async (movieMeta, seriesMeta) => {
         appState.content.metadata.movies = movieMeta || {};
         appState.content.metadata.series = seriesMeta || {};
+
+        // A. Generamos HTML y Listeners
+        setupHero();
+        generateCarousels();
         
-        if (DOM.pageWrapper.style.display !== 'block') {
-            setupApp();
-            DOM.preloader.classList.add('fade-out');
-            DOM.preloader.addEventListener('transitionend', () => DOM.preloader.remove());
-            DOM.pageWrapper.style.display = 'block';
-        } else {
-            setupHero();
-            generateCarousels();
-            const activeFilter = document.querySelector('.main-nav a.active, .mobile-nav a.active')?.dataset.filter;
-            if (activeFilter === 'movie' || activeFilter === 'series') {
-                applyAndDisplayFilters(activeFilter);
+        // (Aquí eliminamos la llamada a setupDragScrolling)
+
+        setupEventListeners();
+        setupNavigation();
+        setupAuthListeners();
+        setupSearch();
+        setupPageVisibilityHandler();
+
+        // Detectamos qué filtro está activo (Inicio, Pelis o Series)
+        const activeFilter = document.querySelector('.main-nav a.active, .mobile-nav a.active')?.dataset.filter || 'all';
+        
+        // Si es Grid (Pelis/Series), aplicamos filtro y paginación
+        if (activeFilter === 'movie' || activeFilter === 'series') {
+            applyAndDisplayFilters(activeFilter);
+        }
+
+        // ============================================================
+        // 🚀 FASE DE PRECARGA DE IMÁGENES
+        // ============================================================
+        
+        const imagesToPreload = [];
+
+        // 1. SIEMPRE precargar el Hero (Banner gigante)
+        if (appState.ui.heroMovieIds.length > 0) {
+            const firstHeroId = appState.ui.heroMovieIds[0];
+            const movieData = appState.content.movies[firstHeroId];
+            if (movieData) {
+                const isMobile = window.innerWidth < 992;
+                const heroImgUrl = isMobile ? movieData.poster : movieData.banner;
+                imagesToPreload.push(heroImgUrl);
             }
         }
+
+        // 2. Precargar contenido según la vista
+        if (activeFilter === 'all') {
+            // Si estamos en INICIO: Precargar los carruseles (aprox los primeros 10 de cada uno)
+            const topMovies = Object.values(appState.content.movies)
+                .sort((a, b) => b.tr - a.tr).slice(0, 8).map(m => m.poster);
+            const topSeries = Object.values(appState.content.series)
+                .sort((a, b) => b.tr - a.tr).slice(0, 8).map(s => s.poster);
+            
+            imagesToPreload.push(...topMovies, ...topSeries);
+
+        } else if (activeFilter === 'movie' || activeFilter === 'series') {
+            // Si estamos en GRID: Precargar la PRIMERA PÁGINA
+            if (appState.ui.contentToDisplay && appState.ui.contentToDisplay.length > 0) {
+                const firstPageItems = appState.ui.contentToDisplay.slice(0, ITEMS_PER_LOAD);
+                const pagePosters = firstPageItems.map(([id, item]) => item.poster);
+                imagesToPreload.push(...pagePosters);
+            }
+        }
+
+        // 3. Ejecutar la precarga masiva
+        const imagePromises = imagesToPreload.map(url => preloadImage(url));
+        
+        // 4. Esperar (con límite de seguridad de 5s)
+        const minLoadTime = 800; // Estético
+        const maxWaitTime = new Promise(resolve => setTimeout(resolve, 5000));
+
+        try {
+            await Promise.race([
+                Promise.all(imagePromises), 
+                maxWaitTime
+            ]);
+            console.log(`✓ Precargadas ${imagesToPreload.length} imágenes críticas.`);
+        } catch (e) { 
+            console.warn("La precarga de imágenes tardó demasiado, mostrando web de todos modos."); 
+        }
+
+        // ============================================================
+
+        // B. Calculamos tiempo estético restante
+        const timeElapsed = Date.now() - startLoadTime;
+        const remainingTime = Math.max(0, minLoadTime - timeElapsed);
+        await new Promise(r => setTimeout(r, remainingTime));
+
+        // C. Transición de entrada
+        requestAnimationFrame(() => {
+            if (DOM.pageWrapper) DOM.pageWrapper.style.display = 'block';
+            
+            setTimeout(() => {
+                if (DOM.pageWrapper) DOM.pageWrapper.classList.add('visible'); 
+                if (DOM.preloader) DOM.preloader.classList.add('fade-out');
+            }, 50);
+
+            setTimeout(() => {
+                if(DOM.preloader) DOM.preloader.remove();
+            }, 800); 
+        });
     };
 
-    // Intentar cargar desde caché
+    // --- OBTENCIÓN DE DATOS (CACHÉ VS RED) ---
     const cachedContent = cacheManager.get(cacheManager.keys.content);
     const cachedMetadata = cacheManager.get(cacheManager.keys.metadata);
 
     if (cachedContent) {
-        console.log('✓ Cargando UI desde caché...');
+        console.log('✓ Iniciando desde caché...');
         processData(cachedContent);
+        await setupAndShow(cachedMetadata?.movies, cachedMetadata?.series);
+        refreshDataInBackground(); 
         
-        if (cachedMetadata) {
-            appState.content.metadata.movies = cachedMetadata.movies || {};
-            appState.content.metadata.series = cachedMetadata.series || {};
-        }
-
-        setupAndShow(cachedMetadata?.movies, cachedMetadata?.series);
-    }
-
-    // Cargar datos frescos en background
-    try {
-        console.log('⟳ Cargando datos frescos...');
-        
-        const [series, episodes, allMovies, posters, movieMeta, seriesMeta] = await Promise.all([
-            ErrorHandler.fetchOperation(`${API_URL}?data=series`),
-            ErrorHandler.fetchOperation(`${API_URL}?data=episodes`),
-            ErrorHandler.fetchOperation(`${API_URL}?data=allMovies&order=desc`),
-            ErrorHandler.fetchOperation(`${API_URL}?data=PostersTemporadas`),
-            db.ref('movie_metadata').once('value').then(s => s.val() || {}),
-            db.ref('series_metadata').once('value').then(s => s.val() || {})
-        ]);
-
-        const freshContent = { allMovies, series, episodes, posters };
-        const freshMetadata = { movies: movieMeta, series: seriesMeta };
-
-        processData(freshContent);
-        appState.content.metadata.movies = freshMetadata.movies;
-        appState.content.metadata.series = freshMetadata.series;
-
-        cacheManager.set(cacheManager.keys.content, freshContent);
-        cacheManager.set(cacheManager.keys.metadata, freshMetadata);
-
-        console.log('✓ Datos frescos guardados');
-
-        if (cachedContent) {
-            setupHero();
-            generateCarousels();
-            const activeFilter = document.querySelector('.main-nav a.active')?.dataset.filter;
-            if (activeFilter === 'movie' || activeFilter === 'series') {
-                applyAndDisplayFilters(activeFilter);
-            }
-        } else {
-            setupApp();
-            DOM.preloader.classList.add('fade-out');
-            setTimeout(() => DOM.preloader.remove(), 500);
-            DOM.pageWrapper.style.display = 'block';
-        }
-
+        // Cargar historial si hay usuario
         const user = auth.currentUser;
         if (user) {
             db.ref(`users/${user.uid}/history`).orderByChild('viewedAt').once('value', snapshot => {
-                if (snapshot.exists()) generateContinueWatchingCarousel(snapshot);
+                if (snapshot.exists()) {
+                    generateContinueWatchingCarousel(snapshot);
+                }
             });
         }
+    } else {
+        try {
+            console.log('⟳ Descargando base de datos...');
+            const [series, episodes, allMovies, posters, movieMeta, seriesMeta] = await Promise.all([
+                ErrorHandler.fetchOperation(`${API_URL}?data=series`),
+                ErrorHandler.fetchOperation(`${API_URL}?data=episodes`),
+                ErrorHandler.fetchOperation(`${API_URL}?data=allMovies&order=desc`),
+                ErrorHandler.fetchOperation(`${API_URL}?data=PostersTemporadas`),
+                db.ref('movie_metadata').once('value').then(s => s.val() || {}),
+                db.ref('series_metadata').once('value').then(s => s.val() || {})
+            ]);
 
-    } catch (error) {
-        console.error('✗ Error al cargar datos:', error);
-        if (!cachedContent) {
-            DOM.preloader.innerHTML = `
-                <div style="text-align: center;">
-                    <p style="color: white; margin-bottom: 20px;">Error al cargar el contenido</p>
-                    <button onclick="location.reload()" style="padding: 10px 20px; background: var(--primary-red); color: white; border: none; border-radius: 5px; cursor: pointer;">
-                        Reintentar
-                    </button>
-                </div>
-            `;
+            const freshContent = { allMovies, series, episodes, posters };
+            const freshMetadata = { movies: movieMeta, series: seriesMeta };
+
+            processData(freshContent);
+            cacheManager.set(cacheManager.keys.content, freshContent);
+            cacheManager.set(cacheManager.keys.metadata, freshMetadata);
+
+            await setupAndShow(freshMetadata.movies, freshMetadata.series);
+            
+            const user = auth.currentUser;
+            if (user) {
+                db.ref(`users/${user.uid}/history`).orderByChild('viewedAt').once('value', snapshot => {
+                    if (snapshot.exists()) {
+                        generateContinueWatchingCarousel(snapshot);
+                    }
+                });
+            }
+
+        } catch (error) {
+            console.error('✗ Error crítico:', error);
+            if (DOM.preloader) DOM.preloader.innerHTML = `<div style="text-align: center; color: white;"><p>Error de conexión</p><button onclick="location.reload()" class="btn-primary">Reintentar</button></div>`;
         }
     }
 }
-
-function setupApp() {
-    setupHero();
-    generateCarousels();
-    setupRouletteLogic();
-    setupEventListeners();
-    setupAuthListeners();
-    setupNavigation();
-    setupSearch();
-    setupUserDropdown();
-    switchView('all');
+// Función auxiliar para refrescar datos sin molestar al usuario (si cargó desde caché)
+async function refreshDataInBackground() {
+    try {
+        const [series, episodes, allMovies, posters] = await Promise.all([
+            ErrorHandler.fetchOperation(`${API_URL}?data=series`),
+            ErrorHandler.fetchOperation(`${API_URL}?data=episodes`),
+            ErrorHandler.fetchOperation(`${API_URL}?data=allMovies&order=desc`),
+            ErrorHandler.fetchOperation(`${API_URL}?data=PostersTemporadas`)
+        ]);
+        const freshContent = { allMovies, series, episodes, posters };
+        cacheManager.set(cacheManager.keys.content, freshContent);
+        console.log('✓ Caché actualizada en segundo plano');
+    } catch (e) { console.warn('No se pudo actualizar background', e); }
 }
 
 // ===========================================================
@@ -594,18 +741,20 @@ function setupNavigation() {
     if (DOM.menuOverlay) DOM.menuOverlay.addEventListener('click', closeMenu);
 }
 
-function handleFilterClick(event) {
+async function handleFilterClick(event) { // 🆕 Convertida en 'async'
     const link = event.target.closest('a');
     if (!link) return;
     event.preventDefault();
 
-    // 🔑 SOLUCIÓN: Usar el Encadenamiento Opcional (?. ) para evitar el error
     DOM.mobileNavPanel?.classList.remove('is-open');
     DOM.menuOverlay?.classList.remove('active');
     
     const filter = link.dataset.filter;
+    
+    // 🆕 CARGA BAJO DEMANDA DE RULETA
     if (filter === 'roulette') {
-        openRouletteModal();
+        const roulette = await getRouletteModule();
+        roulette.openRouletteModal();
         return;
     }
 
@@ -618,20 +767,17 @@ function handleFilterClick(event) {
     switchView(filter);
 }
 
-function switchView(filter) {
-    // Primero, oculta todos los contenedores principales.
+async function switchView(filter) { // 🆕 Convertida en 'async'
     [
         DOM.heroSection, DOM.carouselContainer, DOM.gridContainer,
         DOM.myListContainer, DOM.historyContainer, DOM.profileContainer,
-        DOM.settingsContainer, document.getElementById('profile-hub-container') // Asegúrate de incluir el nuevo hub aquí
+        DOM.settingsContainer, document.getElementById('profile-hub-container')
     ].forEach(container => {
         if (container) container.style.display = 'none';
     });
 
-    // Oculta los controles de filtro por defecto.
     if (DOM.filterControls) DOM.filterControls.style.display = 'none';
 
-    // Ahora, muestra el contenedor correcto según el filtro seleccionado.
     if (filter === 'all') {
         if(DOM.heroSection) DOM.heroSection.style.display = 'flex';
         if(DOM.carouselContainer) DOM.carouselContainer.style.display = 'block';
@@ -640,12 +786,11 @@ function switchView(filter) {
         if (DOM.filterControls) DOM.filterControls.style.display = 'flex';
         populateFilters(filter);
         applyAndDisplayFilters(filter);
-        setupInfiniteScroll(filter);
     } else if (filter === 'my-list') {
         if (DOM.myListContainer) { DOM.myListContainer.style.display = 'block'; displayMyListView(); }
     } else if (filter === 'history') {
         if (DOM.historyContainer) { DOM.historyContainer.style.display = 'block'; renderHistory(); }
-    } else if (filter === 'profile-hub') { // <-- CASO AÑADIDO PARA EL MENÚ DE PERFIL MÓVIL
+    } else if (filter === 'profile-hub') {
         const hubContainer = document.getElementById('profile-hub-container');
         if (hubContainer) {
             hubContainer.style.display = 'block';
@@ -656,12 +801,15 @@ function switchView(filter) {
             }
         }
     } else if (filter === 'profile') {
-        if (DOM.profileContainer) { DOM.profileContainer.style.display = 'block'; renderProfile(); }
+        // 🆕 CARGA BAJO DEMANDA DE PERFIL
+        const profile = await getProfileModule();
+        if (DOM.profileContainer) { DOM.profileContainer.style.display = 'block'; profile.renderProfile(); }
     } else if (filter === 'settings') {
-        if (DOM.settingsContainer) { DOM.settingsContainer.style.display = 'block'; renderSettings(); }
+        // 🆕 CARGA BAJO DEMANDA DE AJUSTES
+        const profile = await getProfileModule();
+        if (DOM.settingsContainer) { DOM.settingsContainer.style.display = 'block'; profile.renderSettings(); }
     }
 
-    // Finalmente, desplaza la vista hacia la parte superior de la página.
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -690,42 +838,75 @@ function populateFilters(type) {
     `;
 }
 
-function applyAndDisplayFilters(type) {
+async function applyAndDisplayFilters(type) {
     const sourceData = (type === 'movie') ? appState.content.movies : appState.content.series;
     const gridEl = DOM.gridContainer.querySelector('.grid');
     if (!gridEl) return;
+
     const selectedGenre = DOM.genreFilter.value;
     const sortByValue = DOM.sortBy.value;
 
+    // 1. Limpiar el grid y mostrar TEXTO DE CARGA
+    gridEl.innerHTML = `
+        <div style="
+            width: 100%; 
+            height: 60vh; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            grid-column: 1 / -1; 
+        ">
+            <div class="loading-text">Cargando...</div>
+        </div>`;
+
+    // 2. Filtrar datos (Proceso interno)
     let content = Object.entries(sourceData);
     if (selectedGenre !== 'all') {
         content = content.filter(([id, item]) => item.genres?.toLowerCase().includes(selectedGenre.toLowerCase()));
     }
 
+    // 3. Ordenar datos
     content.sort((a, b) => {
         const aData = a[1], bData = b[1];
-        const metadataSource = type === 'movie' ? appState.content.metadata.movies : appState.content.metadata.series;
-
         switch (sortByValue) {
-            case 'recent':
-                return bData.tr - aData.tr;
-            case 'title-asc':
-                return aData.title.localeCompare(bData.title);
-            case 'title-desc':
-                return bData.title.localeCompare(aData.title);
-            case 'year-desc':
-                return (bData.year || 0) - (aData.year || 0);
-            case 'year-asc':
-                return (aData.year || 0) - (bData.year || 0);
-            default:
-                return bData.tr - aData.tr;
+            case 'recent': return bData.tr - aData.tr;
+            case 'title-asc': return aData.title.localeCompare(bData.title);
+            case 'title-desc': return bData.title.localeCompare(aData.title);
+            case 'year-desc': return (bData.year || 0) - (aData.year || 0);
+            case 'year-asc': return (aData.year || 0) - (bData.year || 0);
+            default: return bData.tr - aData.tr;
         }
     });
     
+    // 4. Guardar resultados y resetear a página 0
     appState.ui.contentToDisplay = content;
-    appState.ui.currentIndex = 0;
-    gridEl.innerHTML = '';
-    loadMoreContent(type);
+    appState.ui.currentIndex = 0; 
+    
+    // 5. Configurar los botones de paginación
+    setupPaginationControls();
+
+    // ============================================================
+    // 🚀 PRECARGA DE IMÁGENES (Para que no se vea "a medias")
+    // ============================================================
+    
+    // Identificamos las primeras 24 imágenes que se van a ver
+    const firstPageItems = content.slice(0, ITEMS_PER_LOAD);
+    
+    // Las descargamos en memoria RAM antes de quitar el spinner
+    const imagePromises = firstPageItems.map(([id, item]) => preloadImage(item.poster));
+
+    try {
+        // Esperamos a que bajen (máximo 2 segundos para que se sienta ágil)
+        await Promise.race([
+            Promise.all(imagePromises),
+            new Promise(r => setTimeout(r, 2000))
+        ]);
+    } catch (e) { console.warn("Tiempo de espera excedido en cambio de filtro"); }
+
+    // ============================================================
+
+    // 6. Ahora sí, con todo listo en RAM, pintamos la grilla
+    renderCurrentPage();
 }
 
 // ===========================================================
@@ -762,28 +943,133 @@ function handleFullscreenChange() {
     }
 }
 
-function setupInfiniteScroll(type) {
-    const sentinelId = "infinite-scroll-sentinel";
-    let sentinel = document.getElementById(sentinelId);
-    if (!sentinel) {
-        sentinel = document.createElement("div");
-        sentinel.id = sentinelId;
-        sentinel.style.height = "1px";
-        DOM.gridContainer.appendChild(sentinel);
+function setupPaginationControls() {
+    // Buscamos si ya existe el contenedor, si no, lo creamos
+    let paginationContainer = document.getElementById('pagination-controls');
+    
+    if (!paginationContainer) {
+        paginationContainer = document.createElement('div');
+        paginationContainer.id = 'pagination-controls';
+        paginationContainer.className = 'pagination-container';
+        // Lo insertamos DESPUÉS del grid container
+        DOM.gridContainer.appendChild(paginationContainer);
     }
 
-    if (sentinel._observer) sentinel._observer.disconnect();
+    // Renderizamos los botones
+    paginationContainer.innerHTML = `
+        <button id="prev-page-btn" class="pagination-btn"><i class="fas fa-chevron-left"></i> Anterior</button>
+        <span id="page-info" class="pagination-info">Página 1 de 1</span>
+        <button id="next-page-btn" class="pagination-btn">Siguiente <i class="fas fa-chevron-right"></i></button>
+    `;
 
-    const observer = new IntersectionObserver(entries => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting && !appState.flags.isLoadingMore) {
-                loadMoreContent(type);
-            }
-        });
-    }, { rootMargin: "200px" });
+    // Asignamos eventos
+    document.getElementById('prev-page-btn').onclick = () => changePage(-1);
+    document.getElementById('next-page-btn').onclick = () => changePage(1);
+}
 
-    observer.observe(sentinel);
-    sentinel._observer = observer;
+async function changePage(direction) {
+    const totalPages = Math.ceil(appState.ui.contentToDisplay.length / ITEMS_PER_LOAD);
+    const newPage = appState.ui.currentIndex + direction;
+
+    if (newPage >= 0 && newPage < totalPages) {
+        appState.ui.currentIndex = newPage;
+
+        // 1. Scroll suave hacia arriba antes de cargar
+        const headerOffset = 80; 
+        const elementPosition = DOM.gridContainer.getBoundingClientRect().top;
+        const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+        window.scrollTo({ top: offsetPosition, behavior: "smooth" });
+
+        // 2. Mostrar TEXTO DE CARGA CENTRADO
+        const gridEl = DOM.gridContainer.querySelector('.grid');
+        if (gridEl) {
+            gridEl.innerHTML = `
+                <div style="
+                    width: 100%; 
+                    height: 60vh; 
+                    display: flex; 
+                    justify-content: center; 
+                    align-items: center; 
+                    grid-column: 1 / -1; 
+                ">
+                    <div class="loading-text">Cargando...</div>
+                </div>`;
+        }
+
+        // 3. Identificar qué imágenes vamos a mostrar en la NUEVA página
+        const start = appState.ui.currentIndex * ITEMS_PER_LOAD;
+        const end = start + ITEMS_PER_LOAD;
+        const nextItems = appState.ui.contentToDisplay.slice(start, end);
+
+        // 4. Precargar esas imágenes en memoria (RAM)
+        const imagePromises = nextItems.map(([id, item]) => preloadImage(item.poster));
+        
+        try {
+            await Promise.race([
+                Promise.all(imagePromises),
+                new Promise(r => setTimeout(r, 3000))
+            ]);
+        } catch (e) { console.warn("Tardó mucho en cargar página"); }
+
+        // 5. Renderizamos la cascada.
+        renderCurrentPage();
+    }
+}
+
+function renderCurrentPage() {
+    const gridEl = DOM.gridContainer.querySelector('.grid');
+    if (!gridEl) return;
+
+    gridEl.innerHTML = '';
+
+    const start = appState.ui.currentIndex * ITEMS_PER_LOAD;
+    const end = start + ITEMS_PER_LOAD;
+    const itemsPage = appState.ui.contentToDisplay.slice(start, end);
+
+    const activeFilter = document.querySelector('.main-nav a.active, .mobile-nav a.active')?.dataset.filter;
+    let type = 'movie';
+    if (itemsPage.length > 0) {
+        const firstId = itemsPage[0][0];
+        if (appState.content.series[firstId]) type = 'series';
+    }
+
+    itemsPage.forEach(([id, item], index) => {
+        // CAMBIO IMPORTANTE:
+        // Cambiamos el 5to parámetro (lazy) a FALSE.
+        // ¿Por qué? Porque ya las precargamos en changePage, así que queremos que el navegador
+        // use el archivo de caché inmediatamente sin efectos de desenfoque/carga.
+        const card = createMovieCardElement(id, item, type, 'grid', false); 
+        
+        // Animación en cascada
+        const delay = index * 40; 
+        card.style.animationDelay = `${delay}ms`;
+
+        gridEl.appendChild(card);
+    });
+
+    // Ya no necesitamos lazyLoader.observeImages() aquí necesariamente, 
+    // pero no hace daño dejarlo por si acaso.
+    
+    updatePaginationUI();
+}
+
+function updatePaginationUI() {
+    const totalPages = Math.ceil(appState.ui.contentToDisplay.length / ITEMS_PER_LOAD);
+    const currentPage = appState.ui.currentIndex + 1; // Para mostrar (1-based)
+    
+    const prevBtn = document.getElementById('prev-page-btn');
+    const nextBtn = document.getElementById('next-page-btn');
+    const pageInfo = document.getElementById('page-info');
+
+    if (pageInfo) pageInfo.textContent = `Página ${currentPage} de ${totalPages}`;
+    if (prevBtn) prevBtn.disabled = (currentPage === 1);
+    if (nextBtn) nextBtn.disabled = (currentPage === totalPages || totalPages === 0);
+    
+    // Ocultar paginación si no hay resultados o solo hay 1 página
+    const container = document.getElementById('pagination-controls');
+    if (container) {
+        container.style.display = (totalPages <= 1) ? 'none' : 'flex';
+    }
 }
 
 function handleGlobalClick(event) {
@@ -797,17 +1083,14 @@ function handleGlobalClick(event) {
     }
 }
 
-// 🆕 HERO CON PRECARGA DE IMÁGENES
 function preloadHeroImages(movieIds) {
     movieIds.forEach((movieId) => {
         const movieData = appState.content.movies[movieId];
         if (!movieData) return;
-
         const imagesToPreload = [
             { type: 'banner', url: movieData.banner },
             { type: 'poster', url: movieData.poster }
         ];
-
         imagesToPreload.forEach(({ type, url }) => {
             if (!url) return;
             const img = new Image();
@@ -823,7 +1106,7 @@ function preloadHeroImages(movieIds) {
 function setupHero() {
     clearInterval(appState.ui.heroInterval);
     if (!DOM.heroSection) return;
-    DOM.heroSection.innerHTML = `<div class="hero-content"><h1 id="hero-title"></h1><p id="hero-synopsis"></p><div class="hero-buttons"></div></div>`;
+    DOM.heroSection.innerHTML = `<div class="hero-content"><h1 id="hero-title"></h1><p id="hero-synopsis"></p><div class="hero-buttons"></div></div><div class="guirnalda-container"></div>`;
     
     const allMoviesArray = Object.entries(appState.content.movies);
     allMoviesArray.sort((a, b) => b[1].tr - a[1].tr);
@@ -883,11 +1166,24 @@ function changeHeroMovie(movieId) {
             watchlistButtonHTML = `<button class="${buttonClass}" data-content-id="${movieId}" title="Añadir a Mi Lista"><i class="fas ${iconClass}"></i></button>`;
         }
 
-        heroContent.querySelector('.hero-buttons').innerHTML = `
-            <button class="btn btn-play" onclick="openPlayerModal('${movieId}', '${movieData.title.replace(/'/g, "\\'")}')"><i class="fas fa-play"></i> Ver Ahora</button>
-            <button class="btn btn-info" onclick="openDetailsModal('${movieId}', 'movie')">Más Información</button>
-            ${watchlistButtonHTML}
-        `;
+        const playButton = document.createElement('button');
+        playButton.className = 'btn btn-play';
+        playButton.innerHTML = '<i class="fas fa-play"></i> Ver Ahora';
+        playButton.onclick = async () => { // 🆕 Carga bajo demanda
+            const player = await getPlayerModule();
+            player.openPlayerModal(movieId, movieData.title.replace(/'/g, "\\'"));
+        };
+
+        const infoButton = document.createElement('button');
+        infoButton.className = 'btn btn-info';
+        infoButton.textContent = 'Más Información';
+        infoButton.onclick = () => openDetailsModal(movieId, 'movie');
+
+        const heroButtons = heroContent.querySelector('.hero-buttons');
+        heroButtons.innerHTML = watchlistButtonHTML; // Limpia y añade watchlist
+        heroButtons.prepend(infoButton); // Añade info
+        heroButtons.prepend(playButton); // Añade play al principio
+
         heroContent.classList.remove('hero-fading');
         appState.hero.isTransitioning = false;
     }, 300);
@@ -898,7 +1194,6 @@ function generateCarousels() {
     container.innerHTML = '';
 
     createCarouselSection('Películas Nuevas', appState.content.movies);
-
     createCarouselSection('Series Nuevas', appState.content.series);
 }
 
@@ -916,30 +1211,16 @@ function createCarouselSection(title, dataSource) {
     const track = document.createElement('div');
     track.classList.add('carousel-track');
 
-    // ▼▼▼▼▼ INICIO DE LA CORRECCIÓN ▼▼▼▼▼
-    // Antes, esto creaba un <div> manual sin onclick.
-    // Ahora, usa la función createMovieCardElement que SÍ tiene el onclick.
     Object.entries(dataSource)
         .sort((a, b) => b[1].tr - a[1].tr)
-        .slice(0, 15) // número de elementos a mostrar
+        .slice(0, 8)
         .forEach(([id, item]) => {
-            
-            // 1. Determinar el tipo (movie o series)
             const type = title.includes('Serie') ? 'series' : 'movie';
-            
-            // 2. Usar la función que SÍ crea la tarjeta con el onclick
-            // Pasamos 'true' para el lazy loading
-            const card = createMovieCardElement(id, item, type, 'carousel', true);
-            
+            // Pasamos lazy=false porque el carrusel carga pocas imágenes (8) 
+            // y queremos que se vean nítidas cuanto antes.
+            const card = createMovieCardElement(id, item, type, 'carousel', false);
             track.appendChild(card);
-            
-            // 3. Asegurarse de que el lazy loader observe la imagen dentro de la tarjeta
-            const img = card.querySelector('img[data-src]');
-            if (img) {
-                lazyLoader.observe(img);
-            }
         });
-    // ▲▲▲▲▲ FIN DE LA CORRECCIÓN ▲▲▲▲▲
 
     section.appendChild(track);
     DOM.carouselContainer.appendChild(section);
@@ -985,7 +1266,6 @@ function displaySearchResults(results) {
         gridEl.style.display = 'grid';
         results.forEach(([id, item]) => {
             const type = appState.content.series[id] ? 'series' : 'movie';
-            // 🔧 CAMBIO: lazy = false para que las imágenes carguen inmediatamente en búsqueda
             gridEl.appendChild(createMovieCardElement(id, item, type, 'grid', false));
         });
     } else {
@@ -998,6 +1278,7 @@ function displaySearchResults(results) {
 
 function generateContinueWatchingCarousel(snapshot) {
     const user = auth.currentUser;
+    // Eliminamos si ya existe para no duplicar
     const existingCarousel = document.getElementById('continue-watching-carousel');
     if (existingCarousel) existingCarousel.remove();
 
@@ -1043,12 +1324,15 @@ function generateContinueWatchingCarousel(snapshot) {
     if (itemsToDisplay.length > 0) {
         const carouselEl = document.createElement('div');
         carouselEl.id = 'continue-watching-carousel';
-        carouselEl.className = 'carousel';
+        // Heredará automáticamente el estilo de fondo crema (.carousel)
+        carouselEl.className = 'carousel'; 
         carouselEl.innerHTML = `<h3 class="carousel-title">Continuar Viendo</h3><div class="carousel-track"></div>`;
         const track = carouselEl.querySelector('.carousel-track');
         itemsToDisplay.forEach(itemData => {
             track.appendChild(createContinueWatchingCard(itemData));
         });
+        
+        // Insertamos el carrusel al principio
         DOM.carouselContainer.prepend(carouselEl);
     }
 }
@@ -1056,7 +1340,10 @@ function generateContinueWatchingCarousel(snapshot) {
 function createContinueWatchingCard(itemData) {
     const card = document.createElement('div');
     card.className = 'continue-watching-card';
-    card.onclick = () => openPlayerToEpisode(itemData.contentId, itemData.season, itemData.episodeIndexToOpen);
+    card.onclick = async () => { // 🆕 Carga bajo demanda
+        const player = await getPlayerModule();
+        player.openPlayerToEpisode(itemData.contentId, itemData.season, itemData.episodeIndexToOpen);
+    };
     card.innerHTML = `
         <img src="${itemData.thumbnail}" class="cw-card-thumbnail" alt="">
         <div class="cw-card-overlay"></div>
@@ -1069,111 +1356,17 @@ function createContinueWatchingCard(itemData) {
     return card;
 }
 
-function setupRouletteLogic() {
-    const spinButton = DOM.rouletteModal.querySelector('#spin-roulette-btn');
-    if (!DOM.rouletteModal || !spinButton) return;
-    
-    let selectedMovie = null;
-
-    const loadRouletteMovies = () => {
-        const rouletteTrack = DOM.rouletteModal.querySelector('#roulette-carousel-track');
-        if (!rouletteTrack) return;
-        rouletteTrack.classList.remove('is-spinning');
-        spinButton.disabled = false;
-        rouletteTrack.style.transition = 'none';
-        rouletteTrack.innerHTML = '';
-
-        if (!appState.content.movies || Object.keys(appState.content.movies).length < 15) {
-            rouletteTrack.innerHTML = `<p>No hay suficientes películas.</p>`;
-            spinButton.disabled = true;
-            return;
-        }
-
-        const allMovieIds = Object.keys(appState.content.movies);
-        const moviesForRoulette = Array.from({ length: 50 }, () => {
-            const randomIndex = Math.floor(Math.random() * allMovieIds.length);
-            return { id: allMovieIds[randomIndex], data: appState.content.movies[allMovieIds[randomIndex]] };
-        });
-        const finalPickIndex = Math.floor(Math.random() * (moviesForRoulette.length - 10)) + 5;
-        selectedMovie = moviesForRoulette[finalPickIndex];
-
-        moviesForRoulette.forEach((movie, index) => {
-        // 🔧 CAMBIO: lazy = false para que las imágenes carguen inmediatamente en la ruleta
-        const card = createMovieCardElement(movie.id, movie.data, 'movie', 'roulette', false);
-        if (index === finalPickIndex) {
-            card.dataset.winner = 'true';
-        }
-        rouletteTrack.appendChild(card);
-    });
-        
-        setTimeout(() => {
-            const wrapperWidth = rouletteTrack.parentElement.offsetWidth;
-            const card = rouletteTrack.querySelector('.movie-card');
-            if (!card) return;
-            const cardTotalWidth = card.offsetWidth + (parseFloat(getComputedStyle(card).marginLeft) * 2);
-            const initialOffset = (wrapperWidth / 2) - (cardTotalWidth / 2);
-            rouletteTrack.style.transform = `translateX(${initialOffset}px)`;
-        }, 100);
-    };
-
-    spinButton.addEventListener('click', () => {
-        if (!selectedMovie) return;
-        spinButton.disabled = true;
-        const rouletteTrack = DOM.rouletteModal.querySelector('#roulette-carousel-track');
-        rouletteTrack.classList.add('is-spinning');
-
-        const winnerCard = rouletteTrack.querySelector('[data-winner="true"]');
-        if (!winnerCard) return;
-
-        const wrapperWidth = rouletteTrack.parentElement.offsetWidth;
-        const targetPosition = (wrapperWidth / 2) - winnerCard.offsetLeft - (winnerCard.offsetWidth / 2);
-        const randomJitter = Math.floor(Math.random() * (winnerCard.offsetWidth / 4)) - (winnerCard.offsetWidth / 8);
-        const finalPosition = targetPosition + randomJitter;
-        
-        rouletteTrack.style.transition = 'transform 6s cubic-bezier(0.1, 0, 0.2, 1)';
-        rouletteTrack.style.transform = `translateX(${finalPosition}px)`;
-
-        rouletteTrack.addEventListener('transitionend', () => {
-            rouletteTrack.classList.remove('is-spinning');
-            setTimeout(() => {
-                closeRouletteModal();
-                openDetailsModal(selectedMovie.id, 'movie');
-            }, 500);
-        }, { once: true });
-    });
-    
-    window.loadRouletteMovies = loadRouletteMovies;
-}
-
-function openRouletteModal() {
-    if (!appState.content.movies) return;
-    if (DOM.rouletteModal) {
-        document.body.classList.add('modal-open');
-        DOM.rouletteModal.classList.add('show');
-        if (window.loadRouletteMovies) window.loadRouletteMovies();
-    }
-}
-
-function closeRouletteModal() {
-    if (DOM.rouletteModal) DOM.rouletteModal.classList.remove('show');
-    if (!document.querySelector('.modal.show')) {
-        document.body.classList.remove('modal-open');
-    }
-}
-
 // ===========================================================
-// 5. MODALES (GENERAL, DETALLES, REPRODUCTOR)
+// 5. MODALES (GENERAL, DETALLES)
 // ===========================================================
 function closeAllModals() {
     document.querySelectorAll('.modal.show').forEach(modal => {
         modal.classList.remove('show');
         const iframe = modal.querySelector('iframe');
-        if (iframe) iframe.src = ''; // detiene cualquier video
+        if (iframe) iframe.src = '';
     });
     document.body.classList.remove('modal-open');
 }
-
-let lastFocusedElement = null;
 
 async function openDetailsModal(id, type, triggerElement = null) {
     try {
@@ -1187,7 +1380,6 @@ async function openDetailsModal(id, type, triggerElement = null) {
         const detailsSynopsis = document.getElementById('details-synopsis');
         const detailsButtons = document.getElementById('details-buttons');
 
-        // Obtener datos base
         const data = type === 'movie'
             ? appState.content.movies[id]
             : appState.content.series[id];
@@ -1197,10 +1389,7 @@ async function openDetailsModal(id, type, triggerElement = null) {
             return;
         }
 
-        // Limpieza previa
         detailsButtons.innerHTML = '';
-
-        // Imagen, título, año, géneros, sinopsis
         detailsPoster.src = data.poster || '';
         
         if (data.banner && data.banner.trim() !== '') {
@@ -1215,60 +1404,47 @@ async function openDetailsModal(id, type, triggerElement = null) {
         detailsGenres.textContent = data.genres || '';
         detailsSynopsis.textContent = data.synopsis || 'Sin descripción disponible.';
 
-        // ====== BOTONES PRINCIPALES ======
-        
-        // 1. Declarar listBtn fuera del if para que exista en el scope
         let listBtn = null; 
-
-        // 2. Crear el botón de Mi Lista, pero NO AÑADIRLO (NO appendChild)
         const user = auth.currentUser;
         if (user) {
             const isInList = appState.user.watchlist.has(id);
-            listBtn = document.createElement('button'); // Asignar a la variable de fuera
+            listBtn = document.createElement('button');
             listBtn.className = `btn btn-watchlist ${isInList ? 'in-list' : ''}`;
-            listBtn.dataset.contentId = id; // <-- ¡¡AQUÍ ESTÁ LA LÍNEA QUE FALTABA!!
-            
+            listBtn.dataset.contentId = id;
             listBtn.innerHTML = `<i class="fas ${isInList ? 'fa-check' : 'fa-plus'}"></i>`; 
-            
-            // CORREGIDO: La función solo necesita el botón como argumento
             listBtn.addEventListener('click', () => handleWatchlistClick(listBtn));
         }
 
-        // 3. Añadir "Ver ahora" (siempre primero)
         const playBtn = document.createElement('button');
         playBtn.className = 'btn btn-play';
         playBtn.innerHTML = `<i class="fas fa-play"></i> Ver ahora`;
-        playBtn.addEventListener('click', () => {
+        playBtn.addEventListener('click', async () => { // 🆕 Carga bajo demanda
             closeAllModals();
+            const player = await getPlayerModule();
             if (type === 'movie') {
-                openPlayerModal(id, data.title); 
+                player.openPlayerModal(id, data.title); 
             } else {
-                openSeriesPlayer(id, false);
+                player.openSeriesPlayer(id, false);
             }
         });
         detailsButtons.appendChild(playBtn);
 
-        // 4. Añadir "Ver Temporadas" (solo si es serie Y tiene MÁS DE 1 temporada)
         if (type === 'series') {
-            // Contamos cuántas temporadas tiene la serie
             const seriesEpisodes = appState.content.seriesEpisodes[id] || {};
             const seasonCount = Object.keys(seriesEpisodes).length;
-
-            // Solo mostramos el botón si hay más de una temporada
             if (seasonCount > 1) { 
                 const infoBtn = document.createElement('button');
                 infoBtn.className = 'btn btn-info';
                 infoBtn.innerHTML = `<i class="fas fa-tv"></i> Temporadas`;
-                infoBtn.addEventListener('click', () => {
+                infoBtn.addEventListener('click', async () => { // 🆕 Carga bajo demanda
                     closeAllModals();
-                    // Forzamos la cuadrícula de temporadas
-                    openSeriesPlayer(id, true);
+                    const player = await getPlayerModule();
+                    player.openSeriesPlayer(id, true);
                 });
                 detailsButtons.appendChild(infoBtn);
             }
         }
 
-        // 5. Añadir "Episodio Aleatorio" (si es serie y random)
         if (
             type === 'series' &&
             appState.content.seriesEpisodes[id] &&
@@ -1277,20 +1453,20 @@ async function openDetailsModal(id, type, triggerElement = null) {
             const randomBtn = document.createElement('button');
             randomBtn.className = 'btn btn-random'; 
             randomBtn.innerHTML = `🎲 Aleatorio`;
-            randomBtn.addEventListener('click', () => playRandomEpisode(id));
+            randomBtn.addEventListener('click', async () => { // 🆕 Carga bajo demanda
+                const player = await getPlayerModule();
+                player.playRandomEpisode(id)
+            });
             detailsButtons.appendChild(randomBtn);
         }
 
-        // 6. Añadir "Mi Lista" al final de todo
         if (listBtn) {
             detailsButtons.appendChild(listBtn);
         }
 
-        // Mostrar modal
         modal.classList.add('show');
         document.body.classList.add('modal-open');
 
-        // Cerrar modal (botón X o fondo)
         const closeBtn = modal.querySelector('.close-btn');
         if (closeBtn) {
             closeBtn.onclick = () => {
@@ -1304,299 +1480,13 @@ async function openDetailsModal(id, type, triggerElement = null) {
     }
 }
 
-function playRandomEpisode(seriesId) {
-    const episodesData = appState.content.seriesEpisodes[seriesId];
-    if (!episodesData) {
-        ErrorHandler.show('content', 'No hay episodios disponibles para esta serie.');
-        return;
-    }
-
-    // 1. Combinar todos los episodios de todas las temporadas
-    const allEpisodes = Object.entries(episodesData).flatMap(([seasonKey, episodes]) =>
-        // Mapeamos cada episodio y guardamos su 'seasonKey' (ej: "T1") y su 'index' (ej: 0, 1, 2)
-        episodes.map((ep, index) => ({
-            ...ep,
-            season: seasonKey,
-            index: index
-        }))
-    );
-
-    if (allEpisodes.length === 0) {
-        ErrorHandler.show('content', 'No se encontraron episodios registrados.');
-        return;
-    }
-
-    // 2. Elegir uno completamente al azar
-    const randomEpisode = allEpisodes[Math.floor(Math.random() * allEpisodes.length)];
-
-    // 3. Llamar a la función correcta para reproducir el episodio
-    // Esta es la función que usa "Continuar Viendo" y es la correcta para esto.
-    if (typeof openPlayerToEpisode === 'function') {
-        console.log(`Reproduciendo aleatorio: Serie ${seriesId}, Temporada ${randomEpisode.season}, Índice ${randomEpisode.index}`);
-        
-        // Cierra el modal de detalles ANTES de abrir el reproductor
-        closeAllModals(); 
-        
-        // Llama a la función que abre el reproductor en el episodio exacto
-        openPlayerToEpisode(seriesId, randomEpisode.season, randomEpisode.index);
-    } else {
-        // Fallback por si la función no existiera (aunque sí existe en tu script)
-        console.warn('openPlayerToEpisode no definida, usando renderEpisodePlayer');
-        renderEpisodePlayer(seriesId, randomEpisode.season, randomEpisode.index);
-    }
-}
-
-// 🎥 Abrir directamente un episodio aleatorio sin pasar por selección
-function openSeriesEpisode(seriesId, seasonNumber, episodeNumber) {
-    const series = appState.content.series[seriesId];
-    const episodesData = appState.content.seriesEpisodes[seriesId];
-
-    if (!series || !episodesData) {
-        ErrorHandler.show('content', 'No se pudieron cargar los episodios de la serie.');
-        return;
-    }
-
-    const targetSeason = episodesData[seasonNumber];
-    if (!targetSeason) {
-        ErrorHandler.show('content', `No existe la temporada ${seasonNumber} en esta serie.`);
-        return;
-    }
-
-    // Buscar episodio aunque el campo tenga distinto nombre o formato
-    const episode = targetSeason.find(ep => {
-        const epNum =
-            ep.number ||
-            ep.episodeNumber ||
-            ep.episode ||
-            ep.capitulo ||
-            ep.ep ||
-            ep.idEpisodio ||
-            ep.id ||
-            1;
-        return Number(epNum) === Number(episodeNumber);
-    });
-
-    if (!episode) {
-        console.warn(`⚠️ Episodio no encontrado — Temporada ${seasonNumber}, Episodio ${episodeNumber}`);
-        console.log('Datos de temporada:', targetSeason);
-        ErrorHandler.show('content', 'Episodio no encontrado.');
-        return;
-    }
-
-    // Cerrar cualquier modal abierto antes de reproducir
-    closeAllModals();
-
-    // 🔹 Abrir directamente el reproductor del episodio si existe
-    if (typeof openSeriesPlayerModal === 'function') {
-        openSeriesPlayerModal(seriesId, seasonNumber, episodeNumber);
-        return;
-    }
-
-    if (typeof openSeriesPlayer === 'function') {
-        openSeriesPlayer(seriesId, seasonNumber, episodeNumber);
-        return;
-    }
-
-    // 🧩 Si no existe ninguna función, mostrar por consola (modo debug)
-    console.log(`▶️ Reproducir episodio aleatorio:
-        Serie: ${series.title}
-        Temporada: ${seasonNumber}
-        Episodio: ${episodeNumber}
-        Título: ${episode.title || '(sin título)'}
-    `);
-}
-
 // ===========================================================
-// REPRODUCTOR DE PELÍCULAS CON SELECCIÓN DE IDIOMA
-// ===========================================================
-
-/**
- * Abre el modal del reproductor de películas con soporte para múltiples idiomas
- * @param {string} movieId - ID único de la película (ej: "superman-2025")
- * @param {string} movieTitle - Título de la película para mostrar
- */
-function openPlayerModal(movieId, movieTitle) {
-    closeAllModals();
-    addToHistoryIfLoggedIn(movieId, 'movie');
-
-    // 🎬 OBTENER DATOS DE LA PELÍCULA
-    const movieData = appState.content.movies[movieId];
-    if (!movieData) {
-        console.error(`Película no encontrada: ${movieId}`);
-        ErrorHandler.show(ErrorHandler.types.CONTENT, 'No se pudo cargar la película.');
-        return;
-    }
-
-    // 🌐 VERIFICAR DISPONIBILIDAD DE IDIOMAS
-    const hasSpanish = !!(movieData.videoId_es && movieData.videoId_es.trim());
-    const hasEnglish = !!(movieData.videoId_en && movieData.videoId_en.trim());
-    const hasMultipleLangs = hasSpanish && hasEnglish;
-    
-    // 🎯 DETERMINAR IDIOMA Y VIDEO INICIAL
-    let defaultLang, initialVideoId;
-
-    if (hasEnglish) {
-        defaultLang = 'en';
-        initialVideoId = movieData.videoId_en;
-    } else if (hasSpanish) {
-        defaultLang = 'es';
-        initialVideoId = movieData.videoId_es
-    } else {
-        defaultLang = 'default';
-        initialVideoId = movieId;
-        console.warn(`Película ${movieId} no tiene videoId_es ni videoId_en, usando ID como videoId`);
-    }
-
-    // 🎥 CONFIGURAR IFRAME DEL REPRODUCTOR
-    const iframe = DOM.cinemaModal.querySelector('iframe');
-    if (!iframe) {
-        console.error('Iframe del reproductor no encontrado');
-        return;
-    }
-    
-    iframe.src = `https://drive.google.com/file/d/${initialVideoId}/preview`;
-
-    // 📝 ACTUALIZAR TÍTULO
-    const titleElement = DOM.cinemaModal.querySelector('#cinema-title');
-    if (titleElement) {
-        titleElement.textContent = movieTitle || movieData.title || "Película";
-    }
-
-    // 🎛️ CONFIGURAR CONTROLES (Idioma + Mi Lista)
-    const cinemaControls = DOM.cinemaModal.querySelector('.cinema-controls');
-    
-    if (cinemaControls) {
-        let controlsHTML = '';
-
-        // Botón de "Mi Lista" (siempre visible si hay usuario)
-        const user = auth.currentUser;
-        if (user) {
-            const isInList = appState.user.watchlist.has(movieId);
-            const iconClass = isInList ? 'fa-check' : 'fa-plus';
-            const buttonClass = isInList ? 'btn-watchlist in-list' : 'btn-watchlist';
-            controlsHTML += `
-                <button class="${buttonClass}" data-content-id="${movieId}">
-                    <i class="fas ${iconClass}"></i> Mi Lista
-                </button>
-            `;
-        }
-
-        // Controles de idioma (solo si hay múltiples idiomas)
-        if (hasMultipleLangs) {
-            controlsHTML += `
-                <div class="lang-controls-movie">
-                    <button class="lang-btn-movie ${defaultLang === 'en' ? 'active' : ''}" 
-                            data-lang="en" 
-                            data-movie-id="${movieId}"
-                            ${!hasEnglish ? 'disabled' : ''}>
-                        Original
-                    </button>
-                    <button class="lang-btn-movie ${defaultLang === 'es' ? 'active' : ''}" 
-                            data-lang="es" 
-                            data-movie-id="${movieId}"
-                            ${!hasSpanish ? 'disabled' : ''}>
-                        Español
-                    </button>
-                </div>
-            `;
-        }
-
-        cinemaControls.innerHTML = controlsHTML;
-
-        // 🔄 EVENTOS PARA CAMBIAR IDIOMA
-        if (hasMultipleLangs) {
-            cinemaControls.querySelectorAll('.lang-btn-movie').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const selectedLang = this.dataset.lang;
-                    const targetMovieId = this.dataset.movieId;
-                    const targetMovieData = appState.content.movies[targetMovieId];
-                    
-                    if (!targetMovieData) {
-                        console.error('Datos de película no encontrados al cambiar idioma');
-                        return;
-                    }
-
-                    // Determinar el videoId según el idioma seleccionado
-                    let newVideoId;
-                    if (selectedLang === 'es' && targetMovieData.videoId_es) {
-                        newVideoId = targetMovieData.videoId_es;
-                    } else if (selectedLang === 'en' && targetMovieData.videoId_en) {
-                        newVideoId = targetMovieData.videoId_en;
-                    } else {
-                        // Fallback: usar ID de película si no hay videoId específico
-                        newVideoId = targetMovieId;
-                        console.warn(`VideoId para idioma ${selectedLang} no encontrado, usando ID de película`);
-                    }
-
-                    // Cambiar el video en el iframe
-                    const iframe = DOM.cinemaModal.querySelector('iframe');
-                    if (iframe) {
-                        iframe.src = `https://drive.google.com/file/d/${newVideoId}/preview`;
-                    }
-
-                    // Actualizar botones activos
-                    cinemaControls.querySelectorAll('.lang-btn-movie').forEach(b => 
-                        b.classList.remove('active')
-                    );
-                    this.classList.add('active');
-
-                    // Log para debugging
-                    console.log(`Idioma cambiado a: ${selectedLang}, VideoID: ${newVideoId}`);
-                });
-            });
-        }
-    }
-
-    // 📺 MOSTRAR MODAL
-    DOM.cinemaModal.classList.add('show');
-    document.body.classList.add('modal-open');
-
-    // Log para debugging
-    console.log('Película abierta:', {
-        id: movieId,
-        title: movieTitle,
-        hasSpanish,
-        hasEnglish,
-        defaultLang,
-        videoId: initialVideoId
-    });
-}
-
-
-// ===========================================================
-// FUNCIÓN AUXILIAR: Actualizar botón de watchlist en el reproductor
-// ===========================================================
-
-/**
- * Actualiza el estado visual del botón de watchlist
- * @param {string} movieId - ID de la película
- * @param {boolean} isInList - Si la película está en la lista
- */
-function updateWatchlistButtonInPlayer(movieId, isInList) {
-    const cinemaControls = DOM.cinemaModal.querySelector('.cinema-controls');
-    if (!cinemaControls) return;
-
-    const watchlistBtn = cinemaControls.querySelector(`.btn-watchlist[data-content-id="${movieId}"]`);
-    if (!watchlistBtn) return;
-
-    if (isInList) {
-        watchlistBtn.classList.add('in-list');
-        watchlistBtn.innerHTML = '<i class="fas fa-check"></i> En Mi Lista';
-    } else {
-        watchlistBtn.classList.remove('in-list');
-        watchlistBtn.innerHTML = '<i class="fas fa-plus"></i> Mi Lista';
-    }
-}
-
-// ===========================================================
-// 6. AUTENTICACIÓN Y DATOS DE USUARIO (🆕 CON ERROR HANDLER)
+// 6. AUTENTICACIÓN Y DATOS DE USUARIO
 // ===========================================================
 function setupAuthListeners() {
-    // Asigna la función para abrir el modal de autenticación a los botones del encabezado.
     if (DOM.loginBtnHeader) DOM.loginBtnHeader.addEventListener('click', () => openAuthModal(true));
     if (DOM.registerBtnHeader) DOM.registerBtnHeader.addEventListener('click', () => openAuthModal(false));
 
-    // Configura el enlace para cambiar entre el formulario de inicio de sesión y el de registro.
     if (DOM.switchAuthModeLink) {
         DOM.switchAuthModeLink.addEventListener('click', (e) => {
             e.preventDefault();
@@ -1605,7 +1495,6 @@ function setupAuthListeners() {
         });
     }
 
-    // Gestiona el envío del formulario de registro.
     if (DOM.registerForm) {
         DOM.registerForm.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -1619,7 +1508,6 @@ function setupAuthListeners() {
         });
     }
 
-    // Gestiona el envío del formulario de inicio de sesión.
     if (DOM.loginForm) {
         DOM.loginForm.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -1631,10 +1519,8 @@ function setupAuthListeners() {
         });
     }
 
-    // Listener principal de Firebase: se activa cuando un usuario inicia o cierra sesión.
     auth.onAuthStateChanged(updateUIAfterAuthStateChange);
 
-    // Gestiona los clics en los botones de eliminar del historial.
     if (DOM.historyContainer) {
         DOM.historyContainer.addEventListener('click', (event) => {
             const removeButton = event.target.closest('.btn-remove-history');
@@ -1650,7 +1536,6 @@ function setupAuthListeners() {
         });
     }
 
-    // Listener para el nuevo botón de "Cerrar Sesión" en el hub de perfil móvil.
     const logoutBtnHub = document.getElementById('logout-btn-hub');
     if (logoutBtnHub) {
         logoutBtnHub.addEventListener('click', (e) => {
@@ -1685,6 +1570,9 @@ function updateUIAfterAuthStateChange(user) {
         });
 
         setupRealtimeHistoryListener(user);
+        
+        // 🆕 Carga el módulo de perfil/menú en background si el usuario inicia sesión
+        getProfileModule();
 
     } else {
         loggedInElements.forEach(el => el && (el.style.display = 'none'));
@@ -1772,7 +1660,6 @@ function handleWatchlistClick(button) {
     }
 }
 
-// 🆕 CON ERROR HANDLER
 async function addToWatchlist(contentId) {
     const user = auth.currentUser;
     if (!user) return;
@@ -1836,7 +1723,6 @@ function displayMyListView() {
         const data = allContent[contentId];
         if (data) {
             const type = appState.content.series[contentId] ? 'series' : 'movie';
-            // 🔧 CAMBIO: lazy = false para cargar inmediatamente
             myListGrid.appendChild(createMovieCardElement(contentId, data, type, 'grid', false));
         }
     });
@@ -1867,7 +1753,6 @@ function renderHistory() {
                 source: 'history',
                 season: item.season
             };
-            // 🔧 CAMBIO: lazy = false para cargar inmediatamente
             const card = createMovieCardElement(item.contentId, item, item.type, 'grid', false, options);
             
             const removeButton = document.createElement('button');
@@ -1908,321 +1793,7 @@ function setupRealtimeHistoryListener(user) {
 }
 
 // ===========================================================
-// 7. LÓGICA DEL REPRODUCTOR DE SERIES
-// ===========================================================
-function commitAndClearPendingSave() {
-    if (appState.player.pendingHistorySave) {
-        addToHistoryIfLoggedIn(
-            appState.player.pendingHistorySave.contentId,
-            appState.player.pendingHistorySave.type,
-            appState.player.pendingHistorySave.episodeInfo
-        );
-        appState.player.pendingHistorySave = null;
-    }
-}
-
-function closeSeriesPlayerModal() {
-    clearTimeout(appState.player.episodeOpenTimer);
-    commitAndClearPendingSave();
-
-    DOM.seriesPlayerModal.classList.remove('show', 'season-grid-view', 'player-layout-view');
-    document.body.classList.remove('modal-open');
-    const iframe = DOM.seriesPlayerModal.querySelector('iframe');
-    if (iframe) iframe.src = '';
-    
-    appState.player.activeSeriesId = null; 
-}
-
-async function openSeriesPlayer(seriesId, forceSeasonGrid = false) {
-    closeAllModals();
-    const seriesInfo = appState.content.series[seriesId];
-    if (!seriesInfo) return;
-
-    document.body.classList.add('modal-open');
-    DOM.seriesPlayerModal.classList.add('show');
-    DOM.seriesPlayerModal.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;"><div class="spinner"></div></div>`;
-
-    const seriesEpisodes = appState.content.seriesEpisodes[seriesId] || {};
-    const seasons = Object.keys(seriesEpisodes);
-
-    if (forceSeasonGrid && seasons.length > 1) {
-        renderSeasonGrid(seriesId);
-        return;
-    }
-
-    if (seasons.length === 0) {
-        DOM.seriesPlayerModal.innerHTML = `<button class="close-btn" onclick="closeSeriesPlayerModal()">&times;</button><p>No hay episodios disponibles.</p>`;
-        return;
-    }
-
-    const user = auth.currentUser;
-    let lastWatched = null;
-
-    if (user) {
-        const historySnapshot = await db.ref(`users/${user.uid}/history`).orderByChild('viewedAt').once('value');
-        if (historySnapshot.exists()) {
-            let userHistoryForThisSeries = [];
-            historySnapshot.forEach(child => {
-                const item = child.val();
-                if (item.type === 'series' && item.contentId === seriesId) {
-                    userHistoryForThisSeries.push(item);
-                }
-            });
-            if (userHistoryForThisSeries.length > 0) {
-                lastWatched = userHistoryForThisSeries.pop();
-            }
-        }
-    }
-
-    if (lastWatched) {
-        renderEpisodePlayer(seriesId, lastWatched.season, lastWatched.lastEpisode);
-    } else {
-        const seasonsMapped = seasons.map(k => {
-            const numMatch = String(k).replace(/\D/g, '');
-            const num = numMatch ? parseInt(numMatch, 10) : 0;
-            return { key: k, num };
-        }).sort((a, b) => a.num - b.num);
-
-        const firstSeasonKey = seasonsMapped.length > 0 ? seasonsMapped[0].key : seasons[0];
-        renderEpisodePlayer(seriesId, firstSeasonKey, 0);
-    }
-}
-
-function renderSeasonGrid(seriesId) {
-    const seriesInfo = appState.content.series[seriesId];
-    DOM.seriesPlayerModal.className = 'modal show season-grid-view';
-    
-    DOM.seriesPlayerModal.innerHTML = `
-        <button class="close-btn" onclick="closeSeriesPlayerModal()">&times;</button>
-        <div class="season-grid-container">
-            <h2 class="player-title">${seriesInfo.title}</h2>
-            <div id="season-grid" class="season-grid"></div>
-        </div>
-    `;
-    populateSeasonGrid(seriesId);
-    appState.player.activeSeriesId = null;
-}
-
-function populateSeasonGrid(seriesId) {
-    const container = DOM.seriesPlayerModal.querySelector('#season-grid');
-    const data = appState.content.seriesEpisodes[seriesId];
-    const seriesInfo = appState.content.series[seriesId];
-    if (!container || !data) return;
-
-    container.innerHTML = '';
-
-    const seasonKeys = Object.keys(data);
-    const seasonsMapped = seasonKeys.map(k => {
-        const numMatch = String(k).replace(/\D/g, '');
-        const num = numMatch ? parseInt(numMatch, 10) : 0;
-        return { key: k, num };
-    }).sort((a, b) => a.num - b.num);
-
-    const seasonCount = seasonsMapped.length;
-    let columns = (seasonCount <= 5) ? seasonCount : Math.ceil(seasonCount / 2);
-    container.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
-
-    seasonsMapped.forEach(({ key: seasonKey, num: seasonNum }) => {
-        const episodes = Array.isArray(data[seasonKey]) ? data[seasonKey] : Object.values(data[seasonKey] || {});
-        const posterUrl = appState.content.seasonPosters[seriesId]?.[seasonKey] || seriesInfo.poster || '';
-        const totalEpisodes = episodes.length;
-
-        const lastWatchedIndex = loadProgress(seriesId, seasonKey);
-        const watchedEpisodes = lastWatchedIndex > 0 ? lastWatchedIndex + 1 : 0;
-        const progressPercent = totalEpisodes > 0 ? Math.round((watchedEpisodes / totalEpisodes) * 100) : 0;
-
-        let progressHTML = '';
-        if (progressPercent > 0 && progressPercent < 100) {
-            progressHTML = `
-                <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progressPercent}">
-                    <div style="width: ${progressPercent}%"></div>
-                </div>
-            `;
-        } else if (progressPercent === 100) {
-            progressHTML = `
-                <div class="progress-bar complete" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
-                    <div style="width: 100%"></div>
-                </div>
-            `;
-        }
-
-        const card = document.createElement('div');
-        card.className = 'season-poster-card';
-        card.onclick = () => renderEpisodePlayer(seriesId, seasonKey);
-
-        card.innerHTML = `
-            <img src="${posterUrl}" alt="Temporada ${seasonNum}">
-            <div class="overlay">
-                <h3>Temporada ${seasonNum}</h3>
-                <p>${totalEpisodes} episodios</p>
-            </div>
-            ${progressHTML}
-        `;
-
-        container.appendChild(card);
-    });
-}
-
-async function renderEpisodePlayer(seriesId, seasonNum, startAtIndex = null) {
-    appState.player.activeSeriesId = seriesId;
-    const savedEpisodeIndex = loadProgress(seriesId, seasonNum);
-    const initialEpisodeIndex = startAtIndex !== null ? startAtIndex : savedEpisodeIndex;
-    appState.player.state[seriesId] = { season: seasonNum, episodeIndex: initialEpisodeIndex, lang: 'en' };
-    
-    const firstEpisode = appState.content.seriesEpisodes[seriesId]?.[seasonNum]?.[0];
-    const hasLangOptions = firstEpisode?.videoId_es?.trim();
-    let langControlsHTML = hasLangOptions ? `<div class="lang-controls"><button class="lang-btn active" data-lang="en">Original</button><button class="lang-btn" data-lang="es">Español</button></div>` : '';
-    
-    const seasonsCount = Object.keys(appState.content.seriesEpisodes[seriesId]).length;
-    const backButtonHTML = seasonsCount > 1 ? `<button class="player-back-link" onclick="renderSeasonGrid('${seriesId}')"><i class="fas fa-arrow-left"></i> Temporadas</button>` : '';
-
-    DOM.seriesPlayerModal.className = 'modal show player-layout-view';
-    DOM.seriesPlayerModal.innerHTML = `
-        <button class="close-btn" onclick="closeSeriesPlayerModal()">&times;</button>
-        <div class="player-layout-container">
-            <div class="player-container">
-                <h2 id="cinema-title-${seriesId}" class="player-title"></h2>
-                <div class="screen"><iframe id="video-frame-${seriesId}" src="" allowfullscreen></iframe></div>
-                <div class="pagination-controls">
-                    <button class="episode-nav-btn" id="prev-btn-${seriesId}"><i class="fas fa-chevron-left"></i> Anterior</button>
-                    ${langControlsHTML}
-                    <button class="episode-nav-btn" id="next-btn-${seriesId}">Siguiente <i class="fas fa-chevron-right"></i></button>
-                </div>
-            </div>
-            <div class="episode-sidebar">
-                <div class="sidebar-header"> ${backButtonHTML} <h2>Episodios</h2> </div>
-                <div id="episode-list-${seriesId}" class="episode-list-container"></div>
-            </div>
-        </div>
-    `;
-
-    DOM.seriesPlayerModal.querySelector(`#prev-btn-${seriesId}`).onclick = () => navigateEpisode(seriesId, -1);
-    DOM.seriesPlayerModal.querySelector(`#next-btn-${seriesId}`).onclick = () => navigateEpisode(seriesId, 1);
-    DOM.seriesPlayerModal.querySelectorAll(`.lang-btn`).forEach(btn => {
-        btn.onclick = () => changeLanguage(seriesId, btn.dataset.lang);
-    });
-    
-    populateEpisodeList(seriesId, seasonNum);
-    openEpisode(seriesId, seasonNum, initialEpisodeIndex);
-}
-
-function populateEpisodeList(seriesId, seasonNum) {
-    const container = DOM.seriesPlayerModal.querySelector(`#episode-list-${seriesId}`);
-    const episodes = appState.content.seriesEpisodes[seriesId]?.[seasonNum];
-    if (!container || !episodes) return;
-    container.innerHTML = '';
-
-    episodes.sort((a, b) => a.episodeNumber - b.episodeNumber).forEach((episode, index) => {
-        const card = document.createElement('div');
-        card.className = 'episode-card';
-        card.id = `episode-card-${seriesId}-${seasonNum}-${index}`;
-        card.onclick = () => openEpisode(seriesId, seasonNum, index);
-
-        card.innerHTML = `
-            <img src="${episode.thumbnail || ''}" alt="${episode.title || ''}" class="episode-card-thumb" loading="lazy">
-            <div class="episode-card-info">
-                <h3>${episode.episodeNumber || index + 1}. ${episode.title || ''}</h3>
-                <p class="episode-description">${episode.description || ''}</p>
-            </div>`;
-            
-        container.appendChild(card);
-
-        let hoverTimer;
-        card.addEventListener('mouseenter', () => { hoverTimer = setTimeout(() => { card.classList.add('expanded'); }, 1000); });
-        card.addEventListener('mouseleave', () => { clearTimeout(hoverTimer); card.classList.remove('expanded'); });
-    });
-}
-
-function openEpisode(seriesId, season, newEpisodeIndex) {
-    const episode = appState.content.seriesEpisodes[seriesId]?.[season]?.[newEpisodeIndex];
-    if (!episode) return;
-    
-    clearTimeout(appState.player.episodeOpenTimer);
-    appState.player.pendingHistorySave = null;
-
-    appState.player.episodeOpenTimer = setTimeout(() => {
-        appState.player.pendingHistorySave = {
-            contentId: seriesId,
-            type: 'series',
-            episodeInfo: { season: season, index: newEpisodeIndex, title: episode.title || '' }
-        };
-    }, 20000); 
-
-    DOM.seriesPlayerModal.querySelectorAll(`.episode-card.active`).forEach(c => c.classList.remove('active'));
-    const activeCard = DOM.seriesPlayerModal.querySelector(`#episode-card-${seriesId}-${season}-${newEpisodeIndex}`);
-    if (activeCard) {
-        activeCard.classList.add('active');
-        activeCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-    
-    appState.player.state[seriesId] = { ...appState.player.state[seriesId], season, episodeIndex: newEpisodeIndex };
-    saveProgress(seriesId);
-    
-    const iframe = DOM.seriesPlayerModal.querySelector(`#video-frame-${seriesId}`);
-    const lang = appState.player.state[seriesId]?.lang || 'es';
-    
-    let videoId;
-    if (lang === 'en' && episode.videoId_en) {
-        videoId = episode.videoId_en;
-    } else if (lang === 'es' && episode.videoId_es) {
-        videoId = episode.videoId_es;
-    } else {
-        videoId = episode.videoId;
-    }
-
-    iframe.src = videoId ? `https://drive.google.com/file/d/${videoId}/preview` : '';
-    
-    const episodeNumber = episode.episodeNumber || newEpisodeIndex + 1;
-    DOM.seriesPlayerModal.querySelector(`#cinema-title-${seriesId}`).textContent = `T${String(season).replace('T', '')} E${episodeNumber} - ${episode.title || ''}`;
-    DOM.seriesPlayerModal.querySelectorAll(`.lang-btn`).forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.lang === lang);
-    });
-    
-    updateNavButtons(seriesId, season, newEpisodeIndex);
-}
-
-function navigateEpisode(seriesId, direction) {
-    commitAndClearPendingSave();
-
-    const { season, episodeIndex } = appState.player.state[seriesId];
-    const newIndex = episodeIndex + direction;
-    const seasonEpisodes = appState.content.seriesEpisodes[seriesId][season];
-
-    if (newIndex >= 0 && newIndex < seasonEpisodes.length) {
-        openEpisode(seriesId, season, newIndex);
-    }
-}
-
-function updateNavButtons(seriesId, season, episodeIndex) {
-    const totalEpisodes = appState.content.seriesEpisodes[seriesId][season].length;
-    DOM.seriesPlayerModal.querySelector(`#prev-btn-${seriesId}`).disabled = (episodeIndex === 0);
-    DOM.seriesPlayerModal.querySelector(`#next-btn-${seriesId}`).disabled = (episodeIndex === totalEpisodes - 1);
-}
-
-function changeLanguage(seriesId, lang) {
-    appState.player.state[seriesId].lang = lang;
-    const { season, episodeIndex } = appState.player.state[seriesId];
-    openEpisode(seriesId, season, episodeIndex);
-}
-
-function saveProgress(seriesId) {
-    try {
-        let allProgress = JSON.parse(localStorage.getItem('seriesProgress')) || {};
-        if (!allProgress[seriesId]) allProgress[seriesId] = {};
-        allProgress[seriesId][appState.player.state[seriesId].season] = appState.player.state[seriesId].episodeIndex;
-        localStorage.setItem('seriesProgress', JSON.stringify(allProgress));
-    } catch (e) { console.error("Error al guardar progreso:", e); }
-}
-
-function loadProgress(seriesId, seasonNum) {
-    try {
-        const allProgress = JSON.parse(localStorage.getItem('seriesProgress'));
-        return allProgress?.[seriesId]?.[seasonNum] || 0;
-    } catch (e) { return 0; }
-}
-
-// ===========================================================
-// 8. MODAL DE CONFIRMACIÓN
+// 7. MODAL DE CONFIRMACIÓN
 // ===========================================================
 document.addEventListener('DOMContentLoaded', () => {
     if (DOM.confirmDeleteBtn && DOM.cancelDeleteBtn && DOM.confirmationModal) {
@@ -2262,24 +1833,28 @@ function openConfirmationModal(title, message, onConfirm) {
 }
 
 // ===========================================================
-// 9. FUNCIONES DE UTILIDAD Y HELPERS
+// 8. FUNCIONES DE UTILIDAD Y HELPERS
 // ===========================================================
 function createMovieCardElement(id, data, type, layout = 'carousel', lazy = false, options = {}) {
     const card = document.createElement('div');
+    // Agregamos la clase base.
     card.className = `movie-card ${layout === 'carousel' ? 'carousel-card' : ''}`;
     card.dataset.contentId = id;
 
+    // Evento de clic
     card.onclick = (e) => {
-        if (e.target.closest('.btn-watchlist') || e.target.closest('.btn-remove-history')) {
-            return;
-        }
+        if (e.target.closest('.btn-watchlist') || e.target.closest('.btn-remove-history')) return;
         if (options.source === 'history' && type === 'series' && options.season) {
-            openSeriesPlayerDirectlyToSeason(id, options.season);
+            (async () => {
+                const player = await getPlayerModule();
+                player.openSeriesPlayerDirectlyToSeason(id, options.season);
+            })();
         } else {
             openDetailsModal(id, type);
         }
     };
     
+    // Botón de Watchlist
     let watchlistBtnHTML = '';
     if(auth.currentUser && options.source !== 'history'){
         const isInList = appState.user.watchlist.has(id);
@@ -2288,37 +1863,40 @@ function createMovieCardElement(id, data, type, layout = 'carousel', lazy = fals
         watchlistBtnHTML = `<button class="btn-watchlist ${inListClass}" data-content-id="${id}"><i class="fas ${icon}"></i></button>`;
     }
 
-    // 🆕 USO DE LAZY LOADING
-    const imgHTML = lazy 
-        ? `<img data-src="${data.poster}" alt="${data.title}" data-width="200" data-height="300">`
-        : `<img src="${data.poster}" alt="${data.title}">`;
+    // --- LÓGICA DE IMAGEN ---
+    const img = new Image();
+    
+    // Cuando la imagen esté LISTA:
+    img.onload = () => {
+        const imgContainer = card.querySelector('.img-container-placeholder');
+        if(imgContainer) {
+             // 🚨 CAMBIO AQUÍ: Borramos el bloque 'if (lazy)...'
+             // Como ya estamos dentro de 'onload', la imagen YA EXISTE. 
+             // No necesitamos difuminarla ni marcarla como pendiente.
+             
+             imgContainer.replaceWith(img); // Ponemos la imagen nítida directamente
+        }
+        
+        // Hacemos visible la tarjeta
+        card.classList.add('img-loaded');
+    };
 
+    img.onerror = () => {
+        card.style.display = 'none'; 
+        console.warn(`Imagen rota para: ${data.title}`);
+    };
+
+    // Iniciamos la carga
+    img.src = data.poster; 
+    img.alt = data.title;
+
+    // HTML Inicial (Placeholder invisible)
     card.innerHTML = `
-        ${imgHTML}
+        <div class="img-container-placeholder"></div>
         ${watchlistBtnHTML}
     `;
 
     return card;
-}
-
-function openSeriesPlayerDirectlyToSeason(seriesId, seasonNum) {
-    const seriesInfo = appState.content.series[seriesId];
-    if (!seriesInfo) return;
-
-    closeAllModals();
-    document.body.classList.add('modal-open');
-    DOM.seriesPlayerModal.classList.add('show');
-    
-    renderEpisodePlayer(seriesId, seasonNum);
-}
-
-function openPlayerToEpisode(seriesId, seasonNum, episodeIndex) {
-    const seriesInfo = appState.content.series[seriesId];
-    if (!seriesInfo) return;
-    closeAllModals();
-    document.body.classList.add('modal-open');
-    DOM.seriesPlayerModal.classList.add('show');
-    renderEpisodePlayer(seriesId, seasonNum, episodeIndex);
 }
 
 function shuffleArray(array) {
@@ -2328,215 +1906,8 @@ function shuffleArray(array) {
     }
 }
 
-// 🆕 CON LAZY LOADING
-function loadMoreContent(type) {
-    if (appState.flags.isLoadingMore || appState.ui.currentIndex >= appState.ui.contentToDisplay.length) return;
-    
-    appState.flags.isLoadingMore = true;
-    const gridEl = DOM.gridContainer.querySelector('.grid');
-    const nextIndex = Math.min(appState.ui.currentIndex + ITEMS_PER_LOAD, appState.ui.contentToDisplay.length);
-    for (let i = appState.ui.currentIndex; i < nextIndex; i++) {
-        const [id, item] = appState.ui.contentToDisplay[i];
-        gridEl.appendChild(createMovieCardElement(id, item, type, 'grid', true));
-    }
-    
-    // 🆕 RE-OBSERVAR NUEVAS IMÁGENES
-    lazyLoader.observeImages();
-    
-    appState.ui.currentIndex = nextIndex;
-    appState.flags.isLoadingMore = false;
-}
-
 // ===========================================================
-// 10. PERFIL Y AJUSTES DE USUARIO
-// ===========================================================
-function setupUserDropdown() {
-    if (DOM.userGreetingBtn && DOM.userMenuDropdown) {
-        DOM.userGreetingBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            DOM.userMenuDropdown.classList.toggle('show');
-        });
-
-        DOM.userMenuDropdown.addEventListener('click', (e) => {
-            const link = e.target.closest('a[data-action]');
-            if (!link) return;
-            
-            e.preventDefault();
-            const action = link.dataset.action;
-
-            if (action === 'logout') {
-                auth.signOut();
-            } else if (action === 'profile' || action === 'settings') {
-                document.querySelectorAll('.main-nav a, .mobile-nav a').forEach(l => l.classList.remove('active'));
-                switchView(action);
-            }
-            
-            DOM.userMenuDropdown.classList.remove('show');
-        });
-
-        document.addEventListener('click', (e) => {
-            if (!DOM.userMenuDropdown.contains(e.target) && !DOM.userGreetingBtn.contains(e.target)) {
-                DOM.userMenuDropdown.classList.remove('show');
-            }
-        });
-    }
-}
-
-function renderProfile() {
-    const user = auth.currentUser;
-    if (!user) {
-        switchView('all');
-        return;
-    }
-
-    DOM.profileUsername.textContent = user.displayName || 'Usuario';
-    DOM.profileEmail.textContent = user.email;
-
-    // ✅ ¡LÍNEA AÑADIDA!
-    // Llamamos a la función que calcula y muestra las estadísticas.
-    calculateAndDisplayUserStats(); 
-
-    const tabs = document.querySelectorAll('.profile-tab');
-    const tabContents = document.querySelectorAll('.profile-tab-content');
-
-    tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            tabs.forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-
-            const tabName = tab.dataset.tab;
-            tabContents.forEach(content => {
-                content.classList.toggle('active', content.id === `${tabName}-tab`);
-            });
-        });
-    });
-
-    if (tabs.length > 0) {
-        tabs[0].click();
-    }
-}
-
-function renderSettings() {
-    const user = auth.currentUser;
-    if (!user) {
-        switchView('all');
-        return;
-    }
-
-    DOM.settingsUsernameInput.value = user.displayName || '';
-
-    DOM.updateUsernameBtn.onclick = async () => {
-        const newUsername = DOM.settingsUsernameInput.value.trim();
-        if (newUsername && newUsername !== user.displayName) {
-            try {
-                await user.updateProfile({ displayName: newUsername });
-                db.ref(`users/${user.uid}/profile/displayName`).set(newUsername);
-                showFeedbackMessage('Nombre de usuario actualizado correctamente.', 'success');
-                DOM.userGreetingBtn.textContent = `Hola, ${newUsername}`;
-            } catch (error) {
-                console.error("Error al actualizar nombre:", error);
-                showFeedbackMessage(`Error: ${error.message}`, 'error');
-            }
-        } else {
-            showFeedbackMessage('Por favor, ingresa un nombre válido y diferente.', 'error');
-        }
-    };
-
-    DOM.updatePasswordBtn.onclick = async () => {
-        const newPassword = DOM.settingsPasswordInput.value;
-        if (newPassword.length >= 6) {
-            try {
-                await user.updatePassword(newPassword);
-                showFeedbackMessage('Contraseña actualizada correctamente.', 'success');
-                DOM.settingsPasswordInput.value = '';
-            } catch (error) {
-                console.error("Error al actualizar contraseña:", error);
-                showFeedbackMessage(`Error: ${error.message}`, 'error');
-            }
-        } else {
-            showFeedbackMessage('La contraseña debe tener al menos 6 caracteres.', 'error');
-        }
-    };
-}
-
-function showFeedbackMessage(message, type) {
-    const feedbackElement = document.getElementById('settings-feedback');
-    feedbackElement.textContent = message;
-    feedbackElement.className = `feedback-message ${type}`;
-    feedbackElement.style.display = 'block';
-    
-    setTimeout(() => {
-        feedbackElement.style.display = 'none';
-        feedbackElement.textContent = '';
-        feedbackElement.className = 'feedback-message';
-    }, 5000);
-}
-
-async function calculateAndDisplayUserStats() {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    const [historySnapshot] = await Promise.all([
-        db.ref(`users/${user.uid}/history`).once('value'),
-
-    ]);
-
-    if (!historySnapshot.exists()) {
-        document.querySelector('.stats-container').innerHTML = `<p class="empty-message">Aún no tienes actividad para mostrar estadísticas.</p>`;
-        return;
-    }
-
-    const history = historySnapshot.val();
-
-    let moviesWatched = 0;
-    const seriesWatched = new Set();
-    let genreCounts = {};
-    let totalItemsInHistory = 0;
-
-    for (const item of Object.values(history)) {
-        totalItemsInHistory++;
-        if (item.type === 'movie') {
-            moviesWatched++;
-        } else if (item.type === 'series') {
-            seriesWatched.add(item.contentId);
-        }
-
-        const content = appState.content.movies[item.contentId] || appState.content.series[item.contentId];
-        if (content && content.genres) {
-            content.genres.split(';').forEach(genreStr => {
-                const genre = genreStr.trim();
-                if (genre) {
-                    genreCounts[genre] = (genreCounts[genre] || 0) + 1;
-                }
-            });
-        }
-    }
-
-    document.getElementById('stat-movies-watched').textContent = moviesWatched;
-    document.getElementById('stat-series-watched').textContent = seriesWatched.size;
-    document.getElementById('stat-total-items').textContent = totalItemsInHistory;
-
-    const genreStatsContainer = document.getElementById('genre-stats-container');
-    genreStatsContainer.innerHTML = '';
-    const sortedGenres = Object.entries(genreCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
-    const maxCount = sortedGenres.length > 0 ? sortedGenres[0][1] : 0;
-
-    sortedGenres.forEach(([genre, count]) => {
-        const percentage = maxCount > 0 ? (count / maxCount) * 100 : 0;
-        const barHtml = `
-            <div class="genre-stat-bar">
-                <span class="genre-label">${genre}</span>
-                <div class="genre-progress">
-                    <div class="genre-progress-fill" style="width: ${percentage}%;"></div>
-                </div>
-                <span class="genre-count">${count}</span>
-            </div>`;
-        genreStatsContainer.insertAdjacentHTML('beforeend', barHtml);
-    });
-}
-
-// ===========================================================
-// 🎯 EXPORTAR PARA USO GLOBAL
+// 10. 🎯 EXPORTAR PARA USO GLOBAL (Solo funciones principales)
 // ===========================================================
 window.ErrorHandler = ErrorHandler;
 window.cacheManager = cacheManager;
@@ -2551,3 +1922,37 @@ window.showCacheStats = () => {
     console.table(stats);
     return stats;
 };
+
+// ===========================================================
+// GESTIÓN DE VISIBILIDAD (OPTIMIZADA PARA GPU)
+// ===========================================================
+function setupPageVisibilityHandler() {
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            // 💤 EL USUARIO SE FUE: MODO AHORRO TOTAL
+            
+            // 1. Detener carrusel del Hero
+            clearInterval(appState.ui.heroInterval);
+            
+            // 2. Añadir clase para pausar CSS (Luces, brillos, transiciones)
+            document.body.classList.add('tab-inactive');
+            
+        } else {
+            // ⚡ EL USUARIO VOLVIÓ: REINICIO SUAVE
+            
+            // 1. Quitar la pausa CSS
+            document.body.classList.remove('tab-inactive');
+            
+            // 2. NO forzar el Hero inmediatamente. Esperar 1 segundo.
+            // Esto da tiempo al navegador a recuperar texturas sin bloquearse.
+            setTimeout(() => {
+                startHeroInterval();
+                
+                // Pequeño truco sutil para despertar el renderizado sin ser agresivo
+                if (DOM.heroSection) {
+                    DOM.heroSection.style.transform = 'translateZ(0)'; 
+                }
+            }, 1000); 
+        }
+    });
+}
