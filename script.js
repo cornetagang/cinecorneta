@@ -504,7 +504,7 @@ const DOM = {
     menuOverlay: document.getElementById('menu-overlay')
 };
 
-const API_URL = 'https://script.google.com/macros/s/AKfycby2Jr0KETsnw97TQLRygS9AHjpsPcjbmJXfXkJ-4WjCfOmbtsk9a7hOR0IC80vm0DMz/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbx8g8lWN67cwLf8NrYMg_CTDgxkXCdQDE5sMP_HxaBuHoMe9QntdWKKeMhohZu7rUmZ/exec';
 const ITEMS_PER_LOAD = window.innerWidth < 1600 ? 25 : 24;
 
 const firebaseConfig = {
@@ -1956,3 +1956,4 @@ function setupPageVisibilityHandler() {
         }
     });
 }
+
