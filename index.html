@@ -1,18 +1,17 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cine Corneta</title>
-    <link rel="icon" type="image/png" href="https://res.cloudinary.com/djhgmmdjx/image/upload/v1759209689/u71QEFc_bet4rv.png">
+    <link id="app-icon" rel="icon" type="image/png" href="https://res.cloudinary.com/djhgmmdjx/image/upload/v1759209689/u71QEFc_bet4rv.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/style.css">
 </head>
-<body class="halloween-theme">
+<body class="">
 
     <div id="preloader">
         <div class="spinner"></div>
@@ -23,8 +22,9 @@
             <div class="header-container">
                 <div class="header-left">
                     <div class="logo">
-                        <img src="https://res.cloudinary.com/djhgmmdjx/image/upload/v1759209688/vgJjqSM_oicebo.png" alt="Cine Corneta Logo" loading="lazy">
+                        <img id="app-logo" src="https://res.cloudinary.com/djhgmmdjx/image/upload/v1759209688/vgJjqSM_oicebo.png" alt="Cine Corneta Logo" loading="lazy">
                     </div>
+
                     <nav class="main-nav">
                         <ul>
                             <li><a href="#" class="active" data-filter="all">Inicio</a></li>
@@ -225,7 +225,7 @@
     <div id="roulette-modal" class="modal">
         <div class="roulette-modal-content">
             <button class="close-btn">&times;</button>
-            <h2>Ruleta de Películas</h2>
+            <h2>Película al Azar</h2>
             <div class="roulette-carousel-wrapper">
                 <div id="roulette-carousel-track" class="roulette-carousel-track"></div>
                 <div class="roulette-selector"></div>
@@ -295,6 +295,6 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="script.js?v=2"></script>
+    <script src="script.js?v=2" type="module" defer></script>
 </body>
 </html>
