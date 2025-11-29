@@ -31,6 +31,11 @@
                             <li><a href="#" data-filter="movie">Películas</a></li>
                             <li><a href="#" data-filter="series">Series</a></li>
                             <li><a href="#" data-filter="roulette">Ruleta</a></li>
+                            <li>
+                                <a href="#" data-filter="ucm" class="ucm-nav-btn" aria-label="Marvel">
+                                    <img src="https://res.cloudinary.com/djhgmmdjx/image/upload/v1764042765/Marvel_Logo2_1_fpxh0r.svg" alt="Marvel">
+                                </a>
+                            </li>
                             <li id="my-list-nav-link" style="display: none;"><a href="#" data-filter="my-list">Mi Lista</a></li>
                             <li id="history-nav-link" style="display: none;"><a href="#" data-filter="history">Historial</a></li>
                         </ul>
@@ -63,7 +68,7 @@
                         <a href="#" id="login-btn-header" class="btn btn-login">Ingresar</a>
                         <a href="#" id="register-btn-header" class="btn btn-register">Registrarse</a>
                     </div>
-                    </div>
+                </div>
             </div>
         </header>
 
@@ -76,8 +81,34 @@
 
             <div id="full-grid-container" style="display: none;">
                 <div class="filter-controls" id="filter-controls">
-                    <select id="genre-filter"></select>
-                    <select id="sort-by"></select>
+                    
+                    <select id="genre-filter" style="display: none !important;"></select>
+                    
+                    <div class="custom-dropdown" id="genre-dropdown-visual">
+                        <div class="dropdown-trigger" id="genre-trigger">
+                            <span id="genre-text">Todos</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                        <div class="dropdown-menu" id="genre-menu-list">
+                            </div>
+                    </div>
+                    
+                    <select id="sort-by" style="display: none !important;"></select>
+                    
+                    <div class="custom-dropdown" id="sort-dropdown-visual">
+                        <div class="dropdown-trigger" id="sort-trigger">
+                            <span id="sort-text">Recientes</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                        <div class="dropdown-menu" id="sort-menu-list">
+                            </div>
+                    </div>
+
+                    <div id="ucm-sort-buttons" style="display: none;">
+                        <button class="sort-btn active" data-sort="release">Orden de Salida</button>
+                        <button class="sort-btn" data-sort="chronological">Orden Cronológico</button>
+                    </div>
+
                 </div>
                 <div class="grid"></div>
             </div>
@@ -281,6 +312,10 @@
         </a>
         <a href="#" class="nav-link roulette-btn" data-filter="roulette" aria-label="Ruleta">
             <img src="https://res.cloudinary.com/djhgmmdjx/image/upload/v1759456737/Ruletaaaaaaaaaaaaaaaa_ipprhm.png" alt="Icono de Ruleta" class="nav-icon-img">
+        </a>
+        <a href="#" class="nav-link" data-filter="ucm" aria-label="Marvel">
+            <i class="fas fa-shield-alt"></i>
+            <span>Marvel</span>
         </a>
         <a href="#" class="nav-link" data-filter="series" aria-label="Series">
             <i class="fas fa-tv"></i>
