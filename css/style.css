@@ -2007,6 +2007,7 @@ body.modal-open { overflow: hidden; }
     display: none;
 }
 
+
 /* 2. Visible solo en Móvil */
 @media (max-width: 992px) {
     .mobile-roulette-btn {
@@ -2031,6 +2032,16 @@ body.modal-open { overflow: hidden; }
         transition: all 0.3s ease;
     }
 
+    .tema-navidad .mobile-roulette-btn img {
+        content: url(https://res.cloudinary.com/djhgmmdjx/image/upload/v1764391185/image_wzosqj.png);
+        width: 45px;
+        height: 45px;
+        object-fit: contain;
+        filter: brightness(0) invert(1); 
+        opacity: 0.8;
+        transition: all 0.3s ease;
+    }
+
     /* Efecto al tocar/hover */
     .mobile-roulette-btn:active {
         transform: scale(0.9);
@@ -2042,22 +2053,9 @@ body.modal-open { overflow: hidden; }
         transform: rotate(180deg); /* Pequeña animación de giro al clickar */
     }
 
-    /* 3. COMPORTAMIENTO CON EL BUSCADOR */
-    /* El header usa Flexbox, así que esto funciona automático:
-       Cuando el #search-input crece, empuja o encoge a sus vecinos.
-       Aseguramos que la ruleta no se aplaste. */
     .mobile-roulette-btn {
         flex-shrink: 0; /* No permitimos que se aplaste */
     }
-    
-    /* Opcional: Si quieres que desaparezca al buscar para dar más espacio */
-    /* Descomenta esto si prefieres que se oculte al escribir: */
-    /*
-    #search-container:focus-within ~ .mobile-roulette-btn, 
-    .header-right:has(#search-input:focus) .mobile-roulette-btn {
-        display: none;
-    }
-    */
 }
 
 /* ================================== */
