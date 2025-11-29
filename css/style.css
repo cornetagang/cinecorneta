@@ -93,7 +93,7 @@ body.modal-open { overflow: hidden; }
 
 .btn-login {
     background: transparent;
-    color: var(--text-light);
+    color: #c51111;
     border: 2px solid var(--text-muted);
 }
 
@@ -2234,6 +2234,420 @@ body.tab-inactive iframe {
     opacity: 0 !important;
 }
 
+/* --- BOTONES DE ORDENAMIENTO UCM --- */
+#ucm-sort-buttons {
+    display: none; /* Se controla con JS */
+    gap: 10px;
+    align-items: center;
+}
+
+.sort-btn {
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: var(--text-muted);
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.sort-btn:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: var(--text-light);
+    transform: translateY(-2px);
+}
+
+/* Estado Activo (Rojo Marvel) */
+.sort-btn.active {
+    background-color: var(--primary-red);
+    border-color: var(--primary-red);
+    color: white;
+    box-shadow: 0 2px 8px rgba(229, 9, 20, 0.4);
+}
+
+/* Ajuste Móvil */
+@media (max-width: 768px) {
+    #ucm-sort-buttons {
+        width: 100%;
+        justify-content: space-between;
+    }
+    .sort-btn {
+        flex: 1; /* Que ocupen mitad y mitad */
+        text-align: center;
+    }
+}
+
+/* ================================== */
+/* BOTÓN INTELIGENTE UCM (MARVEL)     */
+/* ================================== */
+
+/* 1. Estado APAGADO (Por defecto) */
+.ucm-nav-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 8px;
+    height: 35px;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); /* Transición suave */
+}
+
+/* La imagen apagada (Opcional: un poco gris o transparente) */
+.ucm-nav-btn img {
+    height: 21px;
+    width: auto;
+    object-fit: contain;
+    opacity: 0.6;          /* Un poco transparente */
+    filter: grayscale(100%); /* Blanco y negro para que se vea realmente "apagado" */
+    transition: all 0.3s ease;
+}
+
+/* 2. Estado HOVER (Al pasar el mouse: Rojo Sólido) */
+.ucm-nav-btn:hover {
+    background-color: #ec1c24 !important; /* Rojo Marvel Sólido */
+    border-color: #ec1c24 !important;
+    box-shadow: 0 0 20px rgba(236, 28, 36, 0.7); 
+}
+
+/* Aseguramos que el logo se vea brillante sobre el rojo */
+.ucm-nav-btn:hover img {
+    opacity: 1;
+    filter: grayscale(0%) brightness(1.2) drop-shadow(0 2px 4px rgba(0,0,0,0.5)); 
+}
+
+/* 3. Estado ENCENDIDO (Clase .active agregada por JS) */
+.ucm-nav-btn.active {
+    background-color: #ec1c24 !important; /* ROJO MARVEL PURO */
+    box-shadow: 0 0 15px rgba(236, 28, 36, 0.6); /* Resplandor de luz roja */
+    border-color: #ec1c24;
+}
+
+.ucm-nav-btn.active img {
+    opacity: 1;
+    filter: grayscale(0%) brightness(1.1); /* Totalmente visible y brillante */
+    transform: scale(1.05); /* Ligeramente más grande */
+}
+
+/* ======================================================= */
+/* 🎨 SECCIÓN DE CONTROLES Y FILTROS (LIMPIEZA TOTAL)      */
+/* ======================================================= */
+
+.filter-controls {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 20px;
+    padding: 0 4vw 20px 4vw;
+    margin-top: 30px;
+    flex-wrap: wrap; /* Para que se adapte en móviles */
+}
+
+/* ------------------------------------------------------- */
+/* 1. ESTILO PARA EL SELECT NATIVO (Usado en "Ordenar por")*/
+/* ------------------------------------------------------- */
+.filter-controls select {
+    /* Apariencia Base */
+    background-color: rgba(20, 20, 20, 0.95);
+    color: var(--text-light);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    
+    /* Bordes y Forma */
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 30px;
+    padding: 10px 35px 10px 20px; /* Espacio para la flecha */
+    
+    /* Quitar estilo feo del navegador */
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    outline: none;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    transition: all 0.3s ease;
+    
+    /* Flechita personalizada */
+    background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+    background-repeat: no-repeat;
+    background-position: right 15px top 50%;
+    background-size: 10px auto;
+    min-width: 180px;
+}
+
+.filter-controls select:hover {
+    border-color: white;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.filter-controls select:focus {
+    border-color: var(--primary-red);
+}
+
+/* Opciones internas (Soporte limitado en navegadores) */
+.filter-controls select option {
+    background-color: #1a1a1a;
+    color: white;
+    padding: 10px;
+}
+
+/* ------------------------------------------------------- */
+/* 2. NUEVO MENÚ PERSONALIZADO (Usado en "Fases UCM")      */
+/* ------------------------------------------------------- */
+.custom-dropdown {
+    position: relative;
+    width: 240px; /* Un poco más ancho para títulos largos */
+    font-family: 'Montserrat', sans-serif;
+    z-index: 100;
+}
+
+/* El botón que se ve (Trigger) */
+.dropdown-trigger {
+    background-color: rgba(20, 20, 20, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: var(--text-light);
+    padding: 10px 20px;
+    border-radius: 30px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.95rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+.dropdown-trigger:hover {
+    border-color: white;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.custom-dropdown.open .dropdown-trigger {
+    border-color: var(--primary-red);
+    box-shadow: 0 0 15px rgba(229, 9, 20, 0.3);
+    background-color: #000;
+}
+
+.dropdown-trigger i {
+    font-size: 0.8rem;
+    transition: transform 0.3s ease;
+}
+
+.custom-dropdown.open .dropdown-trigger i {
+    transform: rotate(180deg);
+}
+
+/* La lista desplegable */
+.dropdown-menu {
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 0;
+    width: 100%;
+    background-color: #141414;
+    border: 1px solid var(--primary-red);
+    border-radius: 12px;
+    overflow: hidden;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    max-height: 60vh; /* Altura máxima antes de scroll */
+    overflow-y: auto;
+}
+
+.custom-dropdown.open .dropdown-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+/* Títulos de Grupo (Saga del Infinito, etc.) */
+.dropdown-group-title {
+    background-color: #080808; 
+    color: var(--primary-red); 
+    font-size: 0.75rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    padding: 12px 10px;
+    text-align: center;
+    border-bottom: 1px solid rgba(229, 9, 20, 0.3);
+    
+    /* 🔥 CAMBIO: Ahora es interactivo */
+    cursor: pointer; 
+    user-select: none;
+    transition: background-color 0.3s ease;
+}
+
+/* Efecto Hover para indicar que se puede clicar */
+.dropdown-group-title:hover {
+    background-color: rgba(229, 9, 20, 0.15); /* Brillo rojo suave */
+}
+
+/* Ajuste específico para cuando hay LOGO */
+.dropdown-group-title.has-logo {
+    background-color: #080808; 
+    padding: 6px 0; 
+    line-height: 0; 
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+}
+
+/* Hover también para los que tienen logo */
+.dropdown-group-title.has-logo:hover {
+    background-color: #1a0505; /* Un tono rojizo muy oscuro */
+}
+
+/* Items seleccionables (Fase 1, etc.) */
+.dropdown-item {
+    padding: 14px 15px;
+    color: #e6e3db;
+    font-size: 0.95rem;
+    text-align: center; /* Centrado perfecto */
+    cursor: pointer;
+    transition: background 0.2s;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+
+.dropdown-item:hover {
+    background-color: rgba(229, 9, 20, 0.2);
+    color: white;
+}
+
+.dropdown-item.selected {
+    background-color: var(--primary-red);
+    color: white;
+    font-weight: bold;
+}
+
+/* Scrollbar del menú */
+.dropdown-menu::-webkit-scrollbar { width: 5px; }
+.dropdown-menu::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+.dropdown-menu::-webkit-scrollbar-thumb:hover { background: var(--primary-red); }
+
+/* ------------------------------------------------------- */
+/* 3. BOTONES DE ORDEN (Solo UCM)                          */
+/* ------------------------------------------------------- */
+#ucm-sort-buttons {
+    display: none;
+    gap: 10px;
+}
+
+.sort-btn {
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: var(--text-muted);
+    padding: 10px 20px;
+    border-radius: 30px;
+    cursor: pointer;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+}
+
+.sort-btn:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: var(--text-light);
+    transform: translateY(-2px);
+}
+
+.sort-btn.active {
+    background-color: var(--primary-red);
+    border-color: var(--primary-red);
+    color: white;
+    box-shadow: 0 4px 12px rgba(229, 9, 20, 0.4);
+}
+
+/* ------------------------------------------------------- */
+/* 4. ADAPTACIÓN MÓVIL                                     */
+/* ------------------------------------------------------- */
+@media (max-width: 768px) {
+    .filter-controls {
+        flex-direction: column; /* Uno debajo del otro */
+        align-items: stretch;   /* Ancho completo */
+        gap: 15px;
+    }
+
+    .filter-controls select, 
+    .custom-dropdown, 
+    .dropdown-trigger {
+        width: 100%;
+        min-width: 0;
+    }
+
+    #ucm-sort-buttons {
+        justify-content: space-between;
+        width: 100%;
+    }
+    
+    .sort-btn {
+        flex: 1; /* Botones ocupan mitad y mitad */
+        text-align: center;
+    }
+}
+
+/* ================================== */
+/* OCULTAR SCROLLBAR EN MENÚS         */
+/* ================================== */
+
+/* Para Chrome, Safari y Edge */
+.dropdown-menu::-webkit-scrollbar {
+    display: none;
+}
+
+/* Para Firefox */
+.dropdown-menu {
+    scrollbar-width: none; 
+    -ms-overflow-style: none;  /* IE and Edge */
+}
+
+/* En style.css */
+#genre-text, #sort-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 170px; /* Ajusta esto si quieres */
+    display: block;
+}
+
+/* LOGOS SVG DENTRO DEL MENÚ */
+.dropdown-group-logo {
+    width: 90%;           
+    max-width: 240px;     /* Permitimos que sea más ancho */
+    
+    height: auto;         
+    
+    /* 🔥 CAMBIO CLAVE: Aumentamos la altura permitida */
+    /* Antes era 45px, ahora 65px para que se vea GRANDE y legible */
+    max-height: 65px;     
+    
+    display: block;
+    margin: 0 auto;       
+    object-fit: contain;  /* Asegura que no se recorte */
+    
+    filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.1)); /* Brillo sutil */
+    pointer-events: none; 
+}
+
+/* Ajuste específico para cuando hay LOGO */
+.dropdown-group-title.has-logo {
+    background-color: #080808; /* Fondo negro */
+    
+    /* 🔥 CAMBIO CLAVE: Reducimos el padding drásticamente */
+    padding: 6px 0; 
+    
+    /* Eliminamos altura de línea extraña que a veces meten los navegadores */
+    line-height: 0; 
+    
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+}
+
 /* Ajuste específico para tu tema Navideño */
 .tema-navidad .loading-text {
     color: var(--christmas-cream); /* Color crema/hueso */
@@ -2872,4 +3286,47 @@ body.tab-inactive iframe {
     margin-top: auto;   /* Empuja la paginación al final del contenedor */
     padding-bottom: 40px;
     padding-top: 20px;
+}
+
+/* ======================================================= */
+/* 🎄 AJUSTE LOGO MARVEL (ROJO -> BLANCO) EN NAVIDAD       */
+/* ======================================================= */
+
+/* 1. Estado INACTIVO (Por defecto) */
+/* Forzamos que se muestre tu PNG ROJO en lugar del SVG normal */
+.tema-navidad .ucm-nav-btn img {
+    content: url('https://res.cloudinary.com/djhgmmdjx/image/upload/v1764388721/image_bjyjzz.png');
+    
+    /* Ajustes de tamaño y limpieza */
+    height: 24px; /* Ajuste fino para que cuadre con el texto */
+    width: auto;
+    object-fit: contain;
+    
+    /* Quitamos los filtros de "apagado" del tema normal para que se vea el rojo vivo */
+    opacity: 1 !important;
+    filter: drop-shadow(0 2px 2px rgba(0,0,0,0.1)) !important; /* Sombra suave */
+    transition: all 0.3s ease;
+}
+
+/* Aseguramos que el botón no tenga fondo rojo cuando está inactivo */
+.tema-navidad .ucm-nav-btn {
+    background-color: transparent !important;
+    border: 1px solid transparent !important;
+    box-shadow: none !important;
+}
+
+/* 2. Estado ACTIVO o HOVER (Seleccionado) */
+/* El botón se vuelve ROJO */
+.tema-navidad .ucm-nav-btn:hover,
+.tema-navidad .ucm-nav-btn.active {
+    background-color: var(--christmas-red) !important;
+    border: 1px solid var(--christmas-red) !important;
+    box-shadow: 0 4px 15px rgba(163, 20, 20, 0.4) !important;
+}
+
+/* 3. MAGIA: Convertir el Logo Rojo a BLANCO puro */
+/* Usamos filtros para "quemar" el color rojo a blanco cuando el fondo es rojo */
+.tema-navidad .ucm-nav-btn:hover img,
+.tema-navidad .ucm-nav-btn.active img {
+    filter: brightness(0) invert(1) drop-shadow(0 0 5px rgba(255,255,255,0.5)) !important;
 }
