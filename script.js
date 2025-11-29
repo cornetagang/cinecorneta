@@ -733,16 +733,24 @@ async function refreshDataInBackground() {
 // 3. NAVEGACIÓN Y MANEJO DE VISTAS
 // ===========================================================
 function setupNavigation() {
-    const navContainers = document.querySelectorAll('.main-nav ul, .mobile-nav ul, .bottom-nav, #profile-hub-container');
-    navContainers.forEach(container => container.addEventListener('click', handleFilterClick));
+    // 🔥 FIX: Agregamos '.header-right' a la lista para que detecte el clic en la Ruleta del móvil
+    const navContainers = document.querySelectorAll('.main-nav ul, .mobile-nav ul, .bottom-nav, #profile-hub-container, .header-right');
     
+    // Asigna el evento a cada contenedor (Delegación de eventos)
+    navContainers.forEach(container => {
+        if (container) { // Chequeo de seguridad por si alguno no existe
+            container.addEventListener('click', handleFilterClick);
+        }
+    });
+    
+    // Lógica del menú hamburguesa (Móvil)
     const openMenu = () => { 
-        DOM.mobileNavPanel.classList.add('is-open'); 
-        DOM.menuOverlay.classList.add('active'); 
+        if (DOM.mobileNavPanel) DOM.mobileNavPanel.classList.add('is-open'); 
+        if (DOM.menuOverlay) DOM.menuOverlay.classList.add('active'); 
     };
     const closeMenu = () => { 
-        DOM.mobileNavPanel.classList.remove('is-open'); 
-        DOM.menuOverlay.classList.remove('active'); 
+        if (DOM.mobileNavPanel) DOM.mobileNavPanel.classList.remove('is-open'); 
+        if (DOM.menuOverlay) DOM.menuOverlay.classList.remove('active'); 
     };
 
     if (DOM.hamburgerBtn) DOM.hamburgerBtn.addEventListener('click', openMenu);
