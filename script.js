@@ -1075,64 +1075,87 @@ async function applyAndDisplayFilters(type) {
                 return faseNum === selectedFilterValue || faseRaw === selectedFilterValue;
             });
         } else {
-            content = content.filter(([id, item]) => item.genres?.toLowerCase().includes(selectedFilterValue.toLowerCase()));
+            // Filtro de géneros (Seguro contra mayúsculas)
+            content = content.filter(([id, item]) => 
+                String(item.genres || '').toLowerCase().includes(selectedFilterValue.toLowerCase())
+            );
         }
     }
 
     // ============================================================
-    // 🔥 5. LÓGICA DE DESGLOSE TEMPORADAS (MAGIA PURA)
+    // 5. ORDENAMIENTO (BLINDADO)
     // ============================================================
-    // Solo se activa si es UCM y estás en "Orden Cronológico"
+    content.sort((a, b) => {
+        const aData = a[1];
+        const bData = b[1];
+
+        // Helpers para limpiar datos antes de comparar
+        const getTitle = (item) => String(item.title || '').toLowerCase().trim();
+        const getYear = (item) => Number(item.year) || 0;
+        const getChrono = (item) => Number(item.cronologia) || 999;
+
+        switch (sortByValue) {
+            // --- LÓGICA UCM ---
+            case 'chronological':
+                return getChrono(aData) - getChrono(bData);
+            
+            case 'release': 
+                const yearDiff = getYear(aData) - getYear(bData);
+                if (yearDiff === 0) return getChrono(aData) - getChrono(bData);
+                return yearDiff;
+
+            // --- LÓGICA PELÍCULAS / SERIES ---
+            case 'recent': 
+                // Intenta usar 'tr' (timestamp), si no existe, usa ID (orden de agregado) o Año
+                if (bData.tr && aData.tr) return bData.tr - aData.tr;
+                return getYear(bData) - getYear(aData); // Fallback: Año descendente
+
+            case 'title-asc':
+                return getTitle(aData).localeCompare(getTitle(bData));
+
+            case 'title-desc':
+                return getTitle(bData).localeCompare(getTitle(aData));
+
+            case 'year-desc':
+                return getYear(bData) - getYear(aData);
+
+            case 'year-asc':
+                return getYear(aData) - getYear(bData);
+
+            default: 
+                // Por defecto, lo más nuevo primero
+                return getYear(bData) - getYear(aData);
+        }
+    });
+
+    // --- LÓGICA DE DESGLOSE TEMPORADAS (Solo UCM Cronológico) ---
     if (type === 'ucm' && sortByValue === 'chronological') {
         const expandedContent = [];
-
         content.forEach(([id, item]) => {
-            // Detecta si la columna 'cronologiaMulti' tiene datos
             const multiChrono = item.cronologiaMulti || item.cronologia_multi; 
-
             if (multiChrono) {
-                // 1. Temporada 1 (Original)
                 const t1 = { ...item }; 
                 t1.title = `${item.title} (T1)`;
                 expandedContent.push([id, t1]); 
 
-                // 2. Temporada 2 (Clonada con nuevo tiempo)
                 const extraChronos = String(multiChrono).split(',').map(c => c.trim());
-                
                 extraChronos.forEach((chronoVal, index) => {
                     const seasonNum = index + 2;
                     const tNext = { ...item };
-                    tNext.title = `${item.title} (T${seasonNum})`; // Loki (T2)
-                    tNext.cronologia = chronoVal; // Aquí asignamos el 46 o 47
-                    
-                    // Truco: Usamos el mismo ID para que abra la misma serie
+                    tNext.title = `${item.title} (T${seasonNum})`;
+                    tNext.cronologia = chronoVal; 
                     expandedContent.push([id, tNext]); 
                 });
-
             } else {
                 expandedContent.push([id, item]);
             }
         });
+        // Volvemos a ordenar porque los clones se añadieron al final
+        expandedContent.sort((a, b) => (Number(a[1].cronologia)||999) - (Number(b[1].cronologia)||999));
         content = expandedContent;
     }
-
-    // 6. Ordenar datos
-    content.sort((a, b) => {
-        const aData = a[1], bData = b[1];
-        switch (sortByValue) {
-            case 'chronological':
-                return (Number(aData.cronologia) || 999) - (Number(bData.cronologia) || 999);
-            
-            case 'release': 
-                const yearDiff = (aData.year || 0) - (bData.year || 0);
-                if (yearDiff === 0) return (Number(aData.cronologia) || 999) - (Number(bData.cronologia) || 999);
-                return yearDiff;
-
-            default: return bData.tr - aData.tr;
-        }
-    });
     
-    // 7. Renderizar
+    // 6. Renderizar
     appState.ui.contentToDisplay = content;
     appState.ui.currentIndex = 0; 
     setupPaginationControls();
