@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL (MODULAR)
-// Versión: 3.0.0 (Optimizada)
+// Versión: 5.0.0 (Optimizada)
 // ===========================================================
 
 // ===========================================================
@@ -1033,7 +1033,7 @@ function populateFilters(type) {
 }
 
 async function applyAndDisplayFilters(type) {
-    // 1. Selección de Fuente
+    // 1. Selección de Fuente de Datos
     let sourceData;
     if (type === 'movie') sourceData = appState.content.movies;
     else if (type === 'series') sourceData = appState.content.series;
@@ -1042,7 +1042,7 @@ async function applyAndDisplayFilters(type) {
     const gridEl = DOM.gridContainer.querySelector('.grid');
     if (!gridEl || !sourceData) return;
 
-    // 2. Detectar Criterio
+    // 2. Detectar Criterio de Ordenamiento
     let sortByValue;
     const selectedFilterValue = DOM.genreFilter.value;
 
@@ -1059,6 +1059,9 @@ async function applyAndDisplayFilters(type) {
             <div class="loading-text">Cargando...</div>
         </div>`;
 
+    // --- CONVERTIR A ARRAY ---
+    // Tu API ya devuelve los datos invertidos (Fila 100, Fila 99... Fila 1)
+    // Así que 'content' NACE ordenado por "Recientes".
     let content = Object.entries(sourceData);
 
     // 4. Filtrar datos (Fases / Géneros)
@@ -1075,7 +1078,6 @@ async function applyAndDisplayFilters(type) {
                 return faseNum === selectedFilterValue || faseRaw === selectedFilterValue;
             });
         } else {
-            // Filtro de géneros (Seguro contra mayúsculas)
             content = content.filter(([id, item]) => 
                 String(item.genres || '').toLowerCase().includes(selectedFilterValue.toLowerCase())
             );
@@ -1083,79 +1085,77 @@ async function applyAndDisplayFilters(type) {
     }
 
     // ============================================================
-    // 5. ORDENAMIENTO (BLINDADO)
+    // 5. ORDENAMIENTO (CORREGIDO PARA TU API)
     // ============================================================
-    content.sort((a, b) => {
-        const aData = a[1];
-        const bData = b[1];
+    
+    // Helper para limpiar texto (quita tildes y mayúsculas)
+    const cleanStr = (str) => String(str || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
-        // Helpers para limpiar datos antes de comparar
-        const getTitle = (item) => String(item.title || '').toLowerCase().trim();
-        const getYear = (item) => Number(item.year) || 0;
-        const getChrono = (item) => Number(item.cronologia) || 999;
+    if (sortByValue === 'recent') {
+        // 🔥 MODO RECIENTES: NO HACER NADA.
+        // Tu API ya manda los datos invertidos (del último agregado al primero).
+        // Cualquier sort o reverse aquí rompería ese orden perfecto.
+        
+    } else {
+        // OTROS MODOS: Aquí sí ordenamos
+        content.sort((a, b) => {
+            const aData = a[1];
+            const bData = b[1];
 
-        switch (sortByValue) {
-            // --- LÓGICA UCM ---
-            case 'chronological':
-                return getChrono(aData) - getChrono(bData);
-            
-            case 'release': 
-                const yearDiff = getYear(aData) - getYear(bData);
-                if (yearDiff === 0) return getChrono(aData) - getChrono(bData);
-                return yearDiff;
+            switch (sortByValue) {
+                // UCM
+                case 'chronological':
+                    return (Number(aData.cronologia)||999) - (Number(bData.cronologia)||999);
+                
+                case 'release': 
+                    const yearDiff = (Number(aData.year)||0) - (Number(bData.year)||0);
+                    if (yearDiff === 0) return (Number(aData.cronologia)||999) - (Number(bData.cronologia)||999);
+                    return yearDiff;
 
-            // --- LÓGICA PELÍCULAS / SERIES ---
-            case 'recent': 
-                // Intenta usar 'tr' (timestamp), si no existe, usa ID (orden de agregado) o Año
-                if (bData.tr && aData.tr) return bData.tr - aData.tr;
-                return getYear(bData) - getYear(aData); // Fallback: Año descendente
+                // GENERAL
+                case 'title-asc': // A - Z
+                    return cleanStr(aData.title).localeCompare(cleanStr(bData.title));
 
-            case 'title-asc':
-                return getTitle(aData).localeCompare(getTitle(bData));
+                case 'title-desc': // Z - A
+                    return cleanStr(bData.title).localeCompare(cleanStr(aData.title));
 
-            case 'title-desc':
-                return getTitle(bData).localeCompare(getTitle(aData));
+                case 'year-desc': // 2024 -> 1990
+                    return (Number(bData.year)||0) - (Number(aData.year)||0);
 
-            case 'year-desc':
-                return getYear(bData) - getYear(aData);
+                case 'year-asc': // 1990 -> 2024
+                    return (Number(aData.year)||0) - (Number(bData.year)||0);
 
-            case 'year-asc':
-                return getYear(aData) - getYear(bData);
+                default: 
+                    return 0;
+            }
+        });
+    }
 
-            default: 
-                // Por defecto, lo más nuevo primero
-                return getYear(bData) - getYear(aData);
-        }
-    });
-
-    // --- LÓGICA DE DESGLOSE TEMPORADAS (Solo UCM Cronológico) ---
+    // ============================================================
+    // 6. LÓGICA DE DESGLOSE UCM (TEMPORADAS)
+    // ============================================================
     if (type === 'ucm' && sortByValue === 'chronological') {
         const expandedContent = [];
         content.forEach(([id, item]) => {
+            // Buscamos cronologiaMulti o cronologia_multi (soporte doble)
             const multiChrono = item.cronologiaMulti || item.cronologia_multi; 
+            
             if (multiChrono) {
-                const t1 = { ...item }; 
-                t1.title = `${item.title} (T1)`;
+                const t1 = { ...item }; t1.title = `${item.title} (T1)`;
                 expandedContent.push([id, t1]); 
-
-                const extraChronos = String(multiChrono).split(',').map(c => c.trim());
-                extraChronos.forEach((chronoVal, index) => {
-                    const seasonNum = index + 2;
-                    const tNext = { ...item };
-                    tNext.title = `${item.title} (T${seasonNum})`;
+                
+                String(multiChrono).split(',').map(c => c.trim()).forEach((chronoVal, index) => {
+                    const tNext = { ...item }; tNext.title = `${item.title} (T${index + 2})`;
                     tNext.cronologia = chronoVal; 
                     expandedContent.push([id, tNext]); 
                 });
-            } else {
-                expandedContent.push([id, item]);
-            }
+            } else { expandedContent.push([id, item]); }
         });
-        // Volvemos a ordenar porque los clones se añadieron al final
         expandedContent.sort((a, b) => (Number(a[1].cronologia)||999) - (Number(b[1].cronologia)||999));
         content = expandedContent;
     }
     
-    // 6. Renderizar
+    // 7. Renderizar
     appState.ui.contentToDisplay = content;
     appState.ui.currentIndex = 0; 
     setupPaginationControls();
