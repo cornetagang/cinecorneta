@@ -1803,7 +1803,14 @@ body.modal-open { overflow: hidden; }
     .filter-controls { flex-direction: column; gap: 15px; padding: 0 15px 20px 15px; }
     .filter-controls select { width: 100%; font-size: 1rem; padding: 12px 16px; }
 
-    #profile-container, #settings-container { padding: 20px 0; }
+    #profile-container, 
+    #settings-container {
+        position: relative !important;   /* Necesario para que el z-index funcione */
+        z-index: 100 !important;         /* Asegura que flote sobre el fondo */
+        min-height: 50vh;                /* Evita que colapse si tarda en cargar */
+        width: 100%;
+        margin-top: 20px;
+    }
     .profile-header-wrapper { padding: 20px 15px; margin: 0; border-radius: 0; }
     .profile-main-info { flex-direction: column; text-align: center; gap: 15px; }
     .profile-avatar-placeholder { font-size: 60px; width: 80px; height: 80px; }
@@ -2004,26 +2011,27 @@ body.modal-open { overflow: hidden; }
 }
 
 /* ================================== */
-/* BOTÓN RULETA EN HEADER (MÓVIL)     */
+/* BOTÓN RULETA EN HEADER (SOLO MÓVIL) */
 /* ================================== */
 
-/* 1. Por defecto oculto (Escritorio) */
+/* 1. Por defecto OCULTO en PC (Escritorio) */
 .mobile-roulette-btn {
-    display: none;
+    display: none; /* <--- ESTO LO QUITA DE LA PC */
 }
 
-
-/* 2. Visible solo en Móvil */
+/* 2. Visible SOLO en Móvil (Pantallas menores a 992px) */
 @media (max-width: 992px) {
     .mobile-roulette-btn {
-        display: flex;
+        display: flex; /* <--- AQUÍ SE ACTIVA PARA MÓVIL */
         align-items: center;
         justify-content: center;
         width: 38px;
         height: 38px;
-        margin-right: 5px; /* Espacio con el buscador */
+        margin-right: 5px;
         border-radius: 50%;
         transition: transform 0.3s ease, opacity 0.3s ease;
+        flex-shrink: 0;
+        cursor: pointer;
     }
 
     .mobile-roulette-btn img {
@@ -2034,16 +2042,17 @@ body.modal-open { overflow: hidden; }
         transition: all 0.3s ease;
     }
 
+    /* Estilo específico para Navidad en Móvil */
     .tema-navidad .mobile-roulette-btn img {
         content: url(https://res.cloudinary.com/djhgmmdjx/image/upload/v1764391185/image_wzosqj.png);
         width: 45px;
         height: 45px;
         object-fit: contain;
-        opacity: 0.8;
-        transition: all 0.3s ease;
+        opacity: 0.9;
+        filter: drop-shadow(0 0 2px var(--christmas-gold));
     }
 
-    /* Efecto al tocar/hover */
+    /* Efectos al tocar */
     .mobile-roulette-btn:active {
         transform: scale(0.9);
         background-color: rgba(255, 255, 255, 0.15);
@@ -2051,12 +2060,31 @@ body.modal-open { overflow: hidden; }
     
     .mobile-roulette-btn:active img {
         opacity: 1;
-        transform: rotate(180deg); /* Pequeña animación de giro al clickar */
+        transform: rotate(180deg);
     }
+}
 
-    .mobile-roulette-btn {
-        flex-shrink: 0; /* No permitimos que se aplaste */
-    }
+/* --- MODALES Y PANELES (Actualizado) --- */
+.tema-navidad .modal-content,
+.tema-navidad .details-panel,
+.tema-navidad .auth-modal-content,
+.tema-navidad .settings-form-wrapper,
+.tema-navidad .profile-header-wrapper,  /* <--- Agregado */
+.tema-navidad .stat-card {              /* <--- Agregado */
+    background: rgba(15, 20, 28, 0.95); /* Fondo oscuro pero visible */
+    border: 1px solid rgba(218, 184, 128, 0.3); /* Borde dorado sutil */
+    box-shadow: 0 0 30px rgba(0,0,0,0.8);
+    backdrop-filter: blur(10px);
+    color: var(--christmas-cream); /* Asegura que el texto se vea */
+}
+
+/* Asegurar que las pestañas del perfil se vean */
+.tema-navidad .profile-tab {
+    color: var(--christmas-gold);
+}
+.tema-navidad .profile-tab.active {
+    color: var(--christmas-red);
+    border-bottom-color: var(--christmas-red);
 }
 
 /* ================================== */
@@ -2103,58 +2131,6 @@ body.modal-open { overflow: hidden; }
         flex-shrink: 0; /* Evita que el botón '+' se encoja */
         order: 4; /* Va al final */
     }
-}
-
-/* ================================== */
-/* VISTA DE HUB DE PERFIL (MÓVIL)     */
-/* ================================== */
-#profile-hub-container {
-    padding: 30px 15px;
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-.profile-hub-header {
-    text-align: center;
-    margin-bottom: 20px;
-}
-.profile-hub-header h2 {
-    font-size: 2rem;
-    margin: 0 0 5px 0;
-}
-.profile-hub-header p {
-    font-size: 1.1rem;
-    color: var(--text-muted);
-    margin: 0;
-}
-.profile-hub-menu-item {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    background-color: var(--panel-dark);
-    color: var(--text-light);
-    text-decoration: none;
-    padding: 20px;
-    border-radius: 8px;
-    font-size: 1.1rem;
-    font-weight: bold;
-    transition: background-color 0.2s, transform 0.2s;
-}
-.profile-hub-menu-item:hover {
-    background-color: #222;
-    transform: translateX(5px);
-}
-.profile-hub-menu-item i {
-    font-size: 1.5rem;
-    color: var(--primary-red);
-    width: 30px;
-    text-align: center;
-}
-.profile-hub-menu-item.logout {
-    color: #ff9a9a;
-}
-.profile-hub-menu-item.logout i {
-    color: #ff9a9a;
 }
 
 /* ================================== */
@@ -2835,6 +2811,21 @@ body.tab-inactive iframe {
         transform: scale(1.05);
         text-shadow: 0 0 25px rgba(218, 184, 128, 0.9); /* Brillo intenso al latir */
     }
+}
+
+/* ================================== */
+/* FIX: MENÚ ENCIMA DE LAS LUCES      */
+/* ================================== */
+
+/* Las luces tienen nivel 2000, así que ponemos el menú en 3000 */
+.user-menu-dropdown {
+    z-index: 3000 !important; 
+}
+
+/* También aseguramos que el botón "Hola, DuckMalone" quede encima */
+.user-greeting-btn {
+    position: relative;
+    z-index: 3000 !important;
 }
 
 /* ================================== */
