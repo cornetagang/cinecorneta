@@ -1,21 +1,17 @@
 // ===========================================================
-// MÓDULO DEL REPRODUCTOR (CORREGIDO PARA UCM)
+// MÓDULO DEL REPRODUCTOR (CON LOGS Y SEGURIDAD)
 // ===========================================================
+
+import { logError } from './logger.js'; // Importamos el logger
 
 let shared; // Dependencias compartidas
 
-// ===========================================================
 // 1. INICIALIZACIÓN
-// ===========================================================
 export function initPlayer(dependencies) {
     shared = dependencies;
 }
 
-// ===========================================================
 // 2. HELPERS (BUSCADOR UNIVERSAL)
-// ===========================================================
-
-// 🔥 FUNCIÓN CLAVE: Busca la serie donde sea que esté (Series o UCM)
 function getSeriesData(seriesId) {
     return shared.appState.content.series[seriesId] || 
            (shared.appState.content.ucm ? shared.appState.content.ucm[seriesId] : null);
@@ -28,7 +24,9 @@ function saveProgress(seriesId) {
         const currentState = shared.appState.player.state[seriesId];
         allProgress[seriesId][currentState.season] = currentState.episodeIndex;
         localStorage.setItem('seriesProgress', JSON.stringify(allProgress));
-    } catch (e) {}
+    } catch (e) {
+        logError(e, 'Player: Save Progress', 'warning');
+    }
 }
 
 function loadProgress(seriesId, seasonNum) {
@@ -38,17 +36,18 @@ function loadProgress(seriesId, seasonNum) {
     } catch (e) { return 0; }
 }
 
-// ===========================================================
 // 3. GESTIÓN DEL MODAL DE SERIES
-// ===========================================================
-
 export function commitAndClearPendingSave() {
     if (shared.appState.player.pendingHistorySave) {
-        shared.addToHistoryIfLoggedIn(
-            shared.appState.player.pendingHistorySave.contentId,
-            shared.appState.player.pendingHistorySave.type,
-            shared.appState.player.pendingHistorySave.episodeInfo
-        );
+        try {
+            shared.addToHistoryIfLoggedIn(
+                shared.appState.player.pendingHistorySave.contentId,
+                shared.appState.player.pendingHistorySave.type,
+                shared.appState.player.pendingHistorySave.episodeInfo
+            );
+        } catch (e) {
+            logError(e, 'Player: History Commit');
+        }
         shared.appState.player.pendingHistorySave = null;
     }
 }
@@ -64,82 +63,87 @@ export function closeSeriesPlayerModal() {
 }
 
 export async function openSeriesPlayer(seriesId, forceSeasonGrid = false) {
-    shared.closeAllModals();
-    
-    // 🔥 CORRECCIÓN: Usamos el buscador universal
-    const seriesInfo = getSeriesData(seriesId); 
-    
-    if (!seriesInfo) {
-        console.error("Serie no encontrada:", seriesId);
-        return;
-    }
+    try {
+        shared.closeAllModals();
+        
+        const seriesInfo = getSeriesData(seriesId); 
+        
+        if (!seriesInfo) {
+            logError(`Serie ID no encontrado: ${seriesId}`, 'Player: Open Series', 'warning');
+            shared.ErrorHandler.show(shared.ErrorHandler.types.CONTENT, 'No se encontró la serie.');
+            return;
+        }
 
-    document.body.classList.add('modal-open');
-    shared.DOM.seriesPlayerModal.classList.add('show');
-    
-    shared.DOM.seriesPlayerModal.innerHTML = `
-        <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">
-            <div class="spinner"></div>
-        </div>`;
-
-    const seriesEpisodes = shared.appState.content.seriesEpisodes[seriesId] || {};
-    const seasons = Object.keys(seriesEpisodes);
-
-    if (forceSeasonGrid && seasons.length > 1) {
-        renderSeasonGrid(seriesId);
-        return;
-    }
-
-    if (seasons.length === 0) {
+        document.body.classList.add('modal-open');
+        shared.DOM.seriesPlayerModal.classList.add('show');
+        
         shared.DOM.seriesPlayerModal.innerHTML = `
-            <button class="close-btn">&times;</button>
-            <div style="text-align:center; padding: 20px; color: white;">
-                <h2>${seriesInfo.title}</h2>
-                <p>No hay episodios disponibles por el momento.</p>
+            <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">
+                <div class="spinner"></div>
             </div>`;
-        shared.DOM.seriesPlayerModal.querySelector('.close-btn').onclick = closeSeriesPlayerModal;
-        return;
-    }
 
-    const user = shared.auth.currentUser;
-    let lastWatched = null;
+        const seriesEpisodes = shared.appState.content.seriesEpisodes[seriesId] || {};
+        const seasons = Object.keys(seriesEpisodes);
 
-    if (user) {
-        const historySnapshot = await shared.db.ref(`users/${user.uid}/history`).orderByChild('viewedAt').once('value');
-        if (historySnapshot.exists()) {
-            let userHistoryForThisSeries = [];
-            historySnapshot.forEach(child => {
-                const item = child.val();
-                if (item.type === 'series' && item.contentId === seriesId) {
-                    userHistoryForThisSeries.push(item);
+        if (forceSeasonGrid && seasons.length > 1) {
+            renderSeasonGrid(seriesId);
+            return;
+        }
+
+        if (seasons.length === 0) {
+            shared.DOM.seriesPlayerModal.innerHTML = `
+                <button class="close-btn">&times;</button>
+                <div style="text-align:center; padding: 20px; color: white;">
+                    <h2>${seriesInfo.title}</h2>
+                    <p>No hay episodios disponibles por el momento.</p>
+                </div>`;
+            shared.DOM.seriesPlayerModal.querySelector('.close-btn').onclick = closeSeriesPlayerModal;
+            return;
+        }
+
+        const user = shared.auth.currentUser;
+        let lastWatched = null;
+
+        if (user) {
+            try {
+                const historySnapshot = await shared.db.ref(`users/${user.uid}/history`).orderByChild('viewedAt').once('value');
+                if (historySnapshot.exists()) {
+                    let userHistoryForThisSeries = [];
+                    historySnapshot.forEach(child => {
+                        const item = child.val();
+                        if (item.type === 'series' && item.contentId === seriesId) {
+                            userHistoryForThisSeries.push(item);
+                        }
+                    });
+                    if (userHistoryForThisSeries.length > 0) {
+                        lastWatched = userHistoryForThisSeries.pop();
+                    }
                 }
-            });
-            if (userHistoryForThisSeries.length > 0) {
-                lastWatched = userHistoryForThisSeries.pop();
+            } catch (dbError) {
+                logError(dbError, 'Player: Fetch History');
             }
         }
-    }
 
-    if (lastWatched) {
-        renderEpisodePlayer(seriesId, lastWatched.season, lastWatched.lastEpisode);
-    } else {
-        const seasonsMapped = seasons.map(k => {
-            const numMatch = String(k).replace(/\D/g, '');
-            const num = numMatch ? parseInt(numMatch, 10) : 0;
-            return { key: k, num };
-        }).sort((a, b) => a.num - b.num);
+        if (lastWatched) {
+            renderEpisodePlayer(seriesId, lastWatched.season, lastWatched.lastEpisode);
+        } else {
+            const seasonsMapped = seasons.map(k => {
+                const numMatch = String(k).replace(/\D/g, '');
+                const num = numMatch ? parseInt(numMatch, 10) : 0;
+                return { key: k, num };
+            }).sort((a, b) => a.num - b.num);
 
-        const firstSeasonKey = seasonsMapped.length > 0 ? seasonsMapped[0].key : seasons[0];
-        renderEpisodePlayer(seriesId, firstSeasonKey, 0);
+            const firstSeasonKey = seasonsMapped.length > 0 ? seasonsMapped[0].key : seasons[0];
+            renderEpisodePlayer(seriesId, firstSeasonKey, 0);
+        }
+    } catch (error) {
+        logError(error, 'Player: Critical Crash');
+        shared.ErrorHandler.show('unknown', 'Error al abrir el reproductor de series.');
     }
 }
 
-// ===========================================================
 // 4. VISTA DE GRILLA DE TEMPORADAS
-// ===========================================================
-
 function renderSeasonGrid(seriesId) {
-    // 🔥 CORRECCIÓN: Usamos getSeriesData
     const seriesInfo = getSeriesData(seriesId); 
     if (!seriesInfo) return;
 
@@ -161,8 +165,6 @@ function renderSeasonGrid(seriesId) {
 function populateSeasonGrid(seriesId) {
     const container = shared.DOM.seriesPlayerModal.querySelector('#season-grid');
     const data = shared.appState.content.seriesEpisodes[seriesId];
-    
-    // 🔥 CORRECCIÓN: Usamos getSeriesData
     const seriesInfo = getSeriesData(seriesId);
     
     if (!container || !data) return;
@@ -211,66 +213,68 @@ function populateSeasonGrid(seriesId) {
     });
 }
 
-// ===========================================================
 // 5. REPRODUCTOR DE EPISODIOS
-// ===========================================================
-
 async function renderEpisodePlayer(seriesId, seasonNum, startAtIndex = null) {
-    shared.appState.player.activeSeriesId = seriesId;
-    const savedEpisodeIndex = loadProgress(seriesId, seasonNum);
-    const initialEpisodeIndex = startAtIndex !== null ? startAtIndex : savedEpisodeIndex;
-    
-    shared.appState.player.state[seriesId] = { season: seasonNum, episodeIndex: initialEpisodeIndex, lang: 'en' };
-    
-    const firstEpisode = shared.appState.content.seriesEpisodes[seriesId]?.[seasonNum]?.[0];
-    const hasLangOptions = firstEpisode?.videoId_es?.trim();
-    
-    let langControlsHTML = hasLangOptions 
-        ? `<div class="lang-controls">
-             <button class="lang-btn active" data-lang="en">Original</button>
-             <button class="lang-btn" data-lang="es">Español</button>
-           </div>` 
-        : '';
-    
-    const seasonsCount = Object.keys(shared.appState.content.seriesEpisodes[seriesId] || {}).length;
-    const backButtonHTML = seasonsCount > 1 
-        ? `<button class="player-back-link back-to-seasons"><i class="fas fa-arrow-left"></i> Temporadas</button>` 
-        : '';
+    try {
+        shared.appState.player.activeSeriesId = seriesId;
+        const savedEpisodeIndex = loadProgress(seriesId, seasonNum);
+        const initialEpisodeIndex = startAtIndex !== null ? startAtIndex : savedEpisodeIndex;
+        
+        shared.appState.player.state[seriesId] = { season: seasonNum, episodeIndex: initialEpisodeIndex, lang: 'en' };
+        
+        const firstEpisode = shared.appState.content.seriesEpisodes[seriesId]?.[seasonNum]?.[0];
+        const hasLangOptions = firstEpisode?.videoId_es?.trim();
+        
+        let langControlsHTML = hasLangOptions 
+            ? `<div class="lang-controls">
+                 <button class="lang-btn active" data-lang="en">Original</button>
+                 <button class="lang-btn" data-lang="es">Español</button>
+               </div>` 
+            : '';
+        
+        const seasonsCount = Object.keys(shared.appState.content.seriesEpisodes[seriesId] || {}).length;
+        const backButtonHTML = seasonsCount > 1 
+            ? `<button class="player-back-link back-to-seasons"><i class="fas fa-arrow-left"></i> Temporadas</button>` 
+            : '';
 
-    shared.DOM.seriesPlayerModal.className = 'modal show player-layout-view';
-    
-    shared.DOM.seriesPlayerModal.innerHTML = `
-        <button class="close-btn">&times;</button>
-        <div class="player-layout-container">
-            <div class="player-container">
-                <h2 id="cinema-title-${seriesId}" class="player-title"></h2>
-                <div class="screen"><iframe id="video-frame-${seriesId}" src="" allowfullscreen></iframe></div>
-                <div class="pagination-controls">
-                    <button class="episode-nav-btn" id="prev-btn-${seriesId}"><i class="fas fa-chevron-left"></i> Anterior</button>
-                    ${langControlsHTML}
-                    <button class="episode-nav-btn" id="next-btn-${seriesId}">Siguiente <i class="fas fa-chevron-right"></i></button>
+        shared.DOM.seriesPlayerModal.className = 'modal show player-layout-view';
+        
+        shared.DOM.seriesPlayerModal.innerHTML = `
+            <button class="close-btn">&times;</button>
+            <div class="player-layout-container">
+                <div class="player-container">
+                    <h2 id="cinema-title-${seriesId}" class="player-title"></h2>
+                    <div class="screen"><iframe id="video-frame-${seriesId}" src="" allowfullscreen></iframe></div>
+                    <div class="pagination-controls">
+                        <button class="episode-nav-btn" id="prev-btn-${seriesId}"><i class="fas fa-chevron-left"></i> Anterior</button>
+                        ${langControlsHTML}
+                        <button class="episode-nav-btn" id="next-btn-${seriesId}">Siguiente <i class="fas fa-chevron-right"></i></button>
+                    </div>
+                </div>
+                <div class="episode-sidebar">
+                    <div class="sidebar-header"> ${backButtonHTML} <h2>Episodios</h2> </div>
+                    <div id="episode-list-${seriesId}" class="episode-list-container"></div>
                 </div>
             </div>
-            <div class="episode-sidebar">
-                <div class="sidebar-header"> ${backButtonHTML} <h2>Episodios</h2> </div>
-                <div id="episode-list-${seriesId}" class="episode-list-container"></div>
-            </div>
-        </div>
-    `;
+        `;
 
-    shared.DOM.seriesPlayerModal.querySelector('.close-btn').onclick = closeSeriesPlayerModal;
-    shared.DOM.seriesPlayerModal.querySelector(`#prev-btn-${seriesId}`).onclick = () => navigateEpisode(seriesId, -1);
-    shared.DOM.seriesPlayerModal.querySelector(`#next-btn-${seriesId}`).onclick = () => navigateEpisode(seriesId, 1);
-    
-    shared.DOM.seriesPlayerModal.querySelectorAll(`.lang-btn`).forEach(btn => {
-        btn.onclick = () => changeLanguage(seriesId, btn.dataset.lang);
-    });
-    
-    const backButton = shared.DOM.seriesPlayerModal.querySelector('.player-back-link.back-to-seasons');
-    if (backButton) backButton.onclick = () => renderSeasonGrid(seriesId);
-    
-    populateEpisodeList(seriesId, seasonNum);
-    openEpisode(seriesId, seasonNum, initialEpisodeIndex);
+        shared.DOM.seriesPlayerModal.querySelector('.close-btn').onclick = closeSeriesPlayerModal;
+        shared.DOM.seriesPlayerModal.querySelector(`#prev-btn-${seriesId}`).onclick = () => navigateEpisode(seriesId, -1);
+        shared.DOM.seriesPlayerModal.querySelector(`#next-btn-${seriesId}`).onclick = () => navigateEpisode(seriesId, 1);
+        
+        shared.DOM.seriesPlayerModal.querySelectorAll(`.lang-btn`).forEach(btn => {
+            btn.onclick = () => changeLanguage(seriesId, btn.dataset.lang);
+        });
+        
+        const backButton = shared.DOM.seriesPlayerModal.querySelector('.player-back-link.back-to-seasons');
+        if (backButton) backButton.onclick = () => renderSeasonGrid(seriesId);
+        
+        populateEpisodeList(seriesId, seasonNum);
+        openEpisode(seriesId, seasonNum, initialEpisodeIndex);
+    } catch (e) {
+        logError(e, 'Player: Render Episode');
+        shared.ErrorHandler.show('content', 'Error al cargar el episodio.');
+    }
 }
 
 function populateEpisodeList(seriesId, seasonNum) {
@@ -293,10 +297,6 @@ function populateEpisodeList(seriesId, seasonNum) {
                 <p class="episode-description">${episode.description || ''}</p>
             </div>`;
         container.appendChild(card);
-
-        let hoverTimer;
-        card.addEventListener('mouseenter', () => { hoverTimer = setTimeout(() => { card.classList.add('expanded'); }, 1000); });
-        card.addEventListener('mouseleave', () => { clearTimeout(hoverTimer); card.classList.remove('expanded'); });
     });
 }
 
@@ -310,7 +310,7 @@ function openEpisode(seriesId, season, newEpisodeIndex) {
     shared.appState.player.episodeOpenTimer = setTimeout(() => {
         shared.appState.player.pendingHistorySave = {
             contentId: seriesId,
-            type: 'series', // Guardamos siempre como 'series' en el historial
+            type: 'series',
             episodeInfo: { season: season, index: newEpisodeIndex, title: episode.title || '' }
         };
     }, 20000); 
@@ -333,10 +333,11 @@ function openEpisode(seriesId, season, newEpisodeIndex) {
     else if (lang === 'es' && episode.videoId_es) videoId = episode.videoId_es;
     else videoId = episode.videoId;
 
-    iframe.src = videoId ? `https://drive.google.com/file/d/${videoId}/preview` : '';
+    if (iframe) iframe.src = videoId ? `https://drive.google.com/file/d/${videoId}/preview` : '';
     
     const episodeNumber = episode.episodeNumber || newEpisodeIndex + 1;
-    shared.DOM.seriesPlayerModal.querySelector(`#cinema-title-${seriesId}`).textContent = `T${String(season).replace('T', '')} E${episodeNumber} - ${episode.title || ''}`;
+    const titleEl = shared.DOM.seriesPlayerModal.querySelector(`#cinema-title-${seriesId}`);
+    if(titleEl) titleEl.textContent = `T${String(season).replace('T', '')} E${episodeNumber} - ${episode.title || ''}`;
     
     shared.DOM.seriesPlayerModal.querySelectorAll(`.lang-btn`).forEach(btn => {
         btn.classList.toggle('active', btn.dataset.lang === lang);
@@ -357,8 +358,11 @@ function navigateEpisode(seriesId, direction) {
 
 function updateNavButtons(seriesId, season, episodeIndex) {
     const totalEpisodes = shared.appState.content.seriesEpisodes[seriesId][season].length;
-    shared.DOM.seriesPlayerModal.querySelector(`#prev-btn-${seriesId}`).disabled = (episodeIndex === 0);
-    shared.DOM.seriesPlayerModal.querySelector(`#next-btn-${seriesId}`).disabled = (episodeIndex === totalEpisodes - 1);
+    const prevBtn = shared.DOM.seriesPlayerModal.querySelector(`#prev-btn-${seriesId}`);
+    const nextBtn = shared.DOM.seriesPlayerModal.querySelector(`#next-btn-${seriesId}`);
+    
+    if(prevBtn) prevBtn.disabled = (episodeIndex === 0);
+    if(nextBtn) nextBtn.disabled = (episodeIndex === totalEpisodes - 1);
 }
 
 function changeLanguage(seriesId, lang) {
@@ -367,102 +371,101 @@ function changeLanguage(seriesId, lang) {
     openEpisode(seriesId, season, episodeIndex);
 }
 
-// ===========================================================
 // 6. REPRODUCTOR DE PELÍCULAS
-// ===========================================================
-
 export function openPlayerModal(movieId, movieTitle) {
-    shared.closeAllModals();
-    shared.addToHistoryIfLoggedIn(movieId, 'movie');
+    try {
+        shared.closeAllModals();
+        shared.addToHistoryIfLoggedIn(movieId, 'movie');
 
-    // 🔥 CORRECCIÓN: Búsqueda Universal para películas
-    const movieData = shared.appState.content.movies[movieId] || 
-                      (shared.appState.content.ucm ? shared.appState.content.ucm[movieId] : null);
+        // Búsqueda Universal para películas (incluye UCM)
+        const movieData = shared.appState.content.movies[movieId] || 
+                          (shared.appState.content.ucm ? shared.appState.content.ucm[movieId] : null);
 
-    if (!movieData) {
-        console.error(`Película no encontrada: ${movieId}`);
-        shared.ErrorHandler.show(shared.ErrorHandler.types.CONTENT, 'No se pudo cargar la película.');
-        return;
-    }
-
-    const hasSpanish = !!(movieData.videoId_es && movieData.videoId_es.trim());
-    const hasEnglish = !!(movieData.videoId_en && movieData.videoId_en.trim());
-    const hasMultipleLangs = hasSpanish && hasEnglish;
-    
-    let defaultLang, initialVideoId;
-
-    if (hasEnglish) {
-        defaultLang = 'en';
-        initialVideoId = movieData.videoId_en;
-    } else if (hasSpanish) {
-        defaultLang = 'es';
-        initialVideoId = movieData.videoId_es
-    } else {
-        defaultLang = 'default';
-        initialVideoId = movieId; // Fallback al ID si no hay campos específicos
-    }
-
-    const iframe = shared.DOM.cinemaModal.querySelector('iframe');
-    if (!iframe) return;
-    
-    iframe.src = `https://drive.google.com/file/d/${initialVideoId}/preview`;
-
-    const titleElement = shared.DOM.cinemaModal.querySelector('#cinema-title');
-    if (titleElement) titleElement.textContent = movieTitle || movieData.title || "Película";
-
-    const cinemaControls = shared.DOM.cinemaModal.querySelector('.cinema-controls');
-    if (cinemaControls) {
-        let controlsHTML = '';
-        const user = shared.auth.currentUser;
-        if (user) {
-            const isInList = shared.appState.user.watchlist.has(movieId);
-            const iconClass = isInList ? 'fa-check' : 'fa-plus';
-            const buttonClass = isInList ? 'btn-watchlist in-list' : 'btn-watchlist';
-            controlsHTML += `<button class="${buttonClass}" data-content-id="${movieId}"><i class="fas ${iconClass}"></i> Mi Lista</button>`;
+        if (!movieData) {
+            logError(`Película no encontrada: ${movieId}`, 'Player: Open Movie', 'warning');
+            shared.ErrorHandler.show(shared.ErrorHandler.types.CONTENT, 'No se pudo cargar la película.');
+            return;
         }
 
-        if (hasMultipleLangs) {
-            controlsHTML += `
-                <div class="lang-controls-movie">
-                    <button class="lang-btn-movie ${defaultLang === 'en' ? 'active' : ''}" data-lang="en" data-movie-id="${movieId}" ${!hasEnglish ? 'disabled' : ''}>Original</button>
-                    <button class="lang-btn-movie ${defaultLang === 'es' ? 'active' : ''}" data-lang="es" data-movie-id="${movieId}" ${!hasSpanish ? 'disabled' : ''}>Español</button>
-                </div>`;
+        const hasSpanish = !!(movieData.videoId_es && movieData.videoId_es.trim());
+        const hasEnglish = !!(movieData.videoId_en && movieData.videoId_en.trim());
+        const hasMultipleLangs = hasSpanish && hasEnglish;
+        
+        let defaultLang, initialVideoId;
+
+        if (hasEnglish) {
+            defaultLang = 'en';
+            initialVideoId = movieData.videoId_en;
+        } else if (hasSpanish) {
+            defaultLang = 'es';
+            initialVideoId = movieData.videoId_es
+        } else {
+            defaultLang = 'default';
+            initialVideoId = movieId; 
         }
-        cinemaControls.innerHTML = controlsHTML;
 
-        if (hasMultipleLangs) {
-            cinemaControls.querySelectorAll('.lang-btn-movie').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const selectedLang = this.dataset.lang;
-                    const targetMovieId = this.dataset.movieId;
-                    
-                    const targetMovieData = shared.appState.content.movies[targetMovieId] || 
-                                            (shared.appState.content.ucm ? shared.appState.content.ucm[targetMovieId] : null);
-                    if (!targetMovieData) return;
+        const iframe = shared.DOM.cinemaModal.querySelector('iframe');
+        if (!iframe) return;
+        
+        iframe.src = `https://drive.google.com/file/d/${initialVideoId}/preview`;
 
-                    let newVideoId;
-                    if (selectedLang === 'es' && targetMovieData.videoId_es) newVideoId = targetMovieData.videoId_es;
-                    else if (selectedLang === 'en' && targetMovieData.videoId_en) newVideoId = targetMovieData.videoId_en;
-                    else newVideoId = targetMovieId;
+        const titleElement = shared.DOM.cinemaModal.querySelector('#cinema-title');
+        if (titleElement) titleElement.textContent = movieTitle || movieData.title || "Película";
 
-                    const iframe = shared.DOM.cinemaModal.querySelector('iframe');
-                    if (iframe) iframe.src = `https://drive.google.com/file/d/${newVideoId}/preview`;
+        const cinemaControls = shared.DOM.cinemaModal.querySelector('.cinema-controls');
+        if (cinemaControls) {
+            let controlsHTML = '';
+            const user = shared.auth.currentUser;
+            if (user) {
+                const isInList = shared.appState.user.watchlist.has(movieId);
+                const iconClass = isInList ? 'fa-check' : 'fa-plus';
+                const buttonClass = isInList ? 'btn-watchlist in-list' : 'btn-watchlist';
+                controlsHTML += `<button class="${buttonClass}" data-content-id="${movieId}"><i class="fas ${iconClass}"></i> Mi Lista</button>`;
+            }
 
-                    cinemaControls.querySelectorAll('.lang-btn-movie').forEach(b => b.classList.remove('active'));
-                    this.classList.add('active');
+            if (hasMultipleLangs) {
+                controlsHTML += `
+                    <div class="lang-controls-movie">
+                        <button class="lang-btn-movie ${defaultLang === 'en' ? 'active' : ''}" data-lang="en" data-movie-id="${movieId}" ${!hasEnglish ? 'disabled' : ''}>Original</button>
+                        <button class="lang-btn-movie ${defaultLang === 'es' ? 'active' : ''}" data-lang="es" data-movie-id="${movieId}" ${!hasSpanish ? 'disabled' : ''}>Español</button>
+                    </div>`;
+            }
+            cinemaControls.innerHTML = controlsHTML;
+
+            if (hasMultipleLangs) {
+                cinemaControls.querySelectorAll('.lang-btn-movie').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const selectedLang = this.dataset.lang;
+                        const targetMovieId = this.dataset.movieId;
+                        
+                        const targetMovieData = shared.appState.content.movies[targetMovieId] || 
+                                                (shared.appState.content.ucm ? shared.appState.content.ucm[targetMovieId] : null);
+                        if (!targetMovieData) return;
+
+                        let newVideoId;
+                        if (selectedLang === 'es' && targetMovieData.videoId_es) newVideoId = targetMovieData.videoId_es;
+                        else if (selectedLang === 'en' && targetMovieData.videoId_en) newVideoId = targetMovieData.videoId_en;
+                        else newVideoId = targetMovieId;
+
+                        const iframe = shared.DOM.cinemaModal.querySelector('iframe');
+                        if (iframe) iframe.src = `https://drive.google.com/file/d/${newVideoId}/preview`;
+
+                        cinemaControls.querySelectorAll('.lang-btn-movie').forEach(b => b.classList.remove('active'));
+                        this.classList.add('active');
+                    });
                 });
-            });
+            }
         }
-    }
 
-    shared.DOM.cinemaModal.classList.add('show');
-    document.body.classList.add('modal-open');
+        shared.DOM.cinemaModal.classList.add('show');
+        document.body.classList.add('modal-open');
+    } catch (e) {
+        logError(e, 'Player: Open Modal');
+        shared.ErrorHandler.show('unknown', 'Error al abrir el reproductor.');
+    }
 }
 
-// ===========================================================
 // 7. FUNCIONES PÚBLICAS AUXILIARES
-// ===========================================================
-
 export function playRandomEpisode(seriesId) {
     const episodesData = shared.appState.content.seriesEpisodes[seriesId];
     if (!episodesData) {
@@ -487,7 +490,6 @@ export function playRandomEpisode(seriesId) {
 }
 
 export function openSeriesPlayerDirectlyToSeason(seriesId, seasonNum) {
-    // 🔥 CORRECCIÓN: Usamos getSeriesData
     const seriesInfo = getSeriesData(seriesId); 
     if (!seriesInfo) return;
 
@@ -499,7 +501,6 @@ export function openSeriesPlayerDirectlyToSeason(seriesId, seasonNum) {
 }
 
 export function openPlayerToEpisode(seriesId, seasonNum, episodeIndex) {
-    // 🔥 CORRECCIÓN: Usamos getSeriesData
     const seriesInfo = getSeriesData(seriesId);
     if (!seriesInfo) return;
     
