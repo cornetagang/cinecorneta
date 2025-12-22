@@ -23,12 +23,12 @@ async function getPlayerModule() {
 
 async function getProfileModule() {
     if (profileModule) return profileModule;
-    const module = await import('./profile.js');
+    // 🔥 CAMBIO AQUÍ: Agregamos ?v=3 al final para obligar a recargar
+    const module = await import('./profile.js?v=3'); 
     module.initProfile({
         appState, DOM, auth, db, switchView
     });
     profileModule = module;
-    // Llama a la configuración del menú desplegable tan pronto como se cargue el módulo
     module.setupUserDropdown();
     return module;
 }
@@ -44,7 +44,7 @@ async function getRouletteModule() {
 }
 
 // ===========================================================
-// 🆕 NUEVOS SISTEMAS - GESTIÓN DE ERRORES
+// SISTEMA CENTRALIZADO DE GESTIÓN DE ERRORES
 // ===========================================================
 const ErrorHandler = {
     types: {
@@ -63,10 +63,32 @@ const ErrorHandler = {
         unknown: 'Ocurrió un error inesperado. Intenta nuevamente.'
     },
 
+    /**
+     * Muestra una notificación visual y registra el error en el sistema de logs.
+     * @param {string} type - Tipo de error (usar ErrorHandler.types).
+     * @param {string|null} customMessage - Mensaje opcional para sobrescribir el default.
+     * @param {number} duration - Duración en ms antes de ocultarse (default 5000).
+     */
     show(type, customMessage = null, duration = 5000) {
         const message = customMessage || this.messages[type];
         
+        // -----------------------------------------------------
+        // 1. REGISTRO EN EL LOGGER (FIREBASE)
+        // -----------------------------------------------------
+        // Esto envía el reporte a tu base de datos para que puedas verlo remotamente
+        if (typeof logError === 'function') {
+            logError(message, `UI Notification: ${type.toUpperCase()}`, 'warning');
+        } else {
+            console.warn('[ErrorHandler] logError no está definido. Solo se mostrará en consola.');
+            console.error(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        // -----------------------------------------------------
+        // 2. MOSTRAR NOTIFICACIÓN VISUAL (HTML/CSS)
+        // -----------------------------------------------------
         let notification = document.getElementById('error-notification');
+        
+        // Si no existe el elemento HTML, lo creamos al vuelo
         if (!notification) {
             notification = document.createElement('div');
             notification.id = 'error-notification';
@@ -88,16 +110,21 @@ const ErrorHandler = {
             <button class="close-notification">&times;</button>
         `;
 
-        notification.classList.add('show', `type-${type}`);
+        // Añadir clases para animación y color
+        notification.className = 'error-notification show'; // Reset de clases base
+        notification.classList.add(`type-${type}`);
 
-        const timeoutId = setTimeout(() => this.hide(), duration);
+        // Configurar el temporizador para ocultar
+        // Limpiamos cualquier timer anterior para evitar conflictos si salen errores seguidos
+        if (this.currentTimeout) clearTimeout(this.currentTimeout);
+        
+        this.currentTimeout = setTimeout(() => this.hide(), duration);
 
+        // Configurar botón de cierre manual
         notification.querySelector('.close-notification').onclick = () => {
-            clearTimeout(timeoutId);
+            clearTimeout(this.currentTimeout);
             this.hide();
         };
-
-        console.error(`[${type.toUpperCase()}]`, message);
     },
 
     hide() {
@@ -105,12 +132,21 @@ const ErrorHandler = {
         if (notification) notification.classList.remove('show');
     },
 
+    /**
+     * Wrapper para operaciones de Firebase. Captura errores, los loguea y notifica al usuario.
+     */
     async firebaseOperation(operation, type = this.types.DATABASE) {
         try {
             return await operation();
         } catch (error) {
+            // Logueamos el error crudo con todo el stack trace
+            if (typeof logError === 'function') {
+                logError(error, 'Firebase Operation', 'error');
+            }
+
             console.error('Firebase Error:', error);
             
+            // Decidimos qué mostrar al usuario según el código de error
             if (error.code === 'PERMISSION_DENIED') {
                 this.show(this.types.AUTH, 'No tienes permiso para realizar esta acción.');
             } else if (error.code === 'NETWORK_ERROR') {
@@ -119,63 +155,36 @@ const ErrorHandler = {
                 this.show(type);
             }
             
-            throw error;
+            throw error; // Relanzamos para que la función que llamó sepa que falló
         }
     },
 
+    /**
+     * Wrapper para operaciones Fetch (API).
+     */
     async fetchOperation(url, options = {}) {
         try {
             const response = await fetch(url, options);
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             return await response.json();
         } catch (error) {
+            // Logueamos el error crudo
+            if (typeof logError === 'function') {
+                logError(error, `Fetch: ${url}`, 'error');
+            }
+
             console.error('Fetch Error:', error);
+            
             if (error.name === 'TypeError') {
+                // TypeError en fetch suele ser error de red (offline/DNS)
                 this.show(this.types.NETWORK);
             } else {
-                this.show(this.types.CONTENT);
+                this.show(this.types.CONTENT, 'Error al obtener datos del servidor.');
             }
             throw error;
         }
     }
 };
-
-// Inyectar estilos de notificaciones
-if (!document.getElementById('error-notification-styles')) {
-    const errorStyles = document.createElement('style');
-    errorStyles.id = 'error-notification-styles';
-    errorStyles.textContent = `
-        .error-notification {
-            position: fixed; top: 80px; right: 20px;
-            background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
-            color: white; padding: 18px 24px; border-radius: 12px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-            display: flex; align-items: center; gap: 15px; z-index: 10000;
-            min-width: 320px; max-width: 450px;
-            transform: translateX(500px); opacity: 0;
-            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-            border-left: 4px solid var(--primary-red);
-        }
-        .error-notification.show { transform: translateX(0); opacity: 1; }
-        .error-notification i { font-size: 1.5rem; color: var(--primary-red); flex-shrink: 0; }
-        .error-notification span { flex-grow: 1; font-size: 0.95rem; line-height: 1.4; }
-        .error-notification .close-notification {
-            background: transparent; border: none; color: #999;
-            font-size: 1.3rem; cursor: pointer; padding: 0;
-            width: 24px; height: 24px; display: flex;
-            align-items: center; justify-content: center;
-            transition: color 0.2s; flex-shrink: 0;
-        }
-        .error-notification .close-notification:hover { color: white; }
-        @media (max-width: 768px) {
-            .error-notification {
-                top: auto; bottom: 20px; right: 10px; left: 10px;
-                min-width: auto; max-width: none;
-            }
-        }
-    `;
-    document.head.appendChild(errorStyles);
-}
 
 // ===========================================================
 // 🆕 SISTEMA DE CACHÉ AVANZADO
@@ -758,17 +767,16 @@ function setupNavigation() {
     if (DOM.menuOverlay) DOM.menuOverlay.addEventListener('click', closeMenu);
 }
 
-async function handleFilterClick(event) { // 🆕 Convertida en 'async'
+async function handleFilterClick(event) { 
     const link = event.target.closest('a');
     if (!link) return;
     event.preventDefault();
-
     DOM.mobileNavPanel?.classList.remove('is-open');
     DOM.menuOverlay?.classList.remove('active');
+    if (DOM.userMenuDropdown) DOM.userMenuDropdown.classList.remove('show');
     
     const filter = link.dataset.filter;
-    
-    // 🆕 CARGA BAJO DEMANDA DE RULETA
+
     if (filter === 'roulette') {
         const roulette = await getRouletteModule();
         roulette.openRouletteModal();
@@ -776,58 +784,152 @@ async function handleFilterClick(event) { // 🆕 Convertida en 'async'
     }
 
     if (link.classList.contains('active') && !['history', 'my-list'].includes(filter)) return;
-
-    document.querySelectorAll('.main-nav a, .mobile-nav a, .bottom-nav a').forEach(l => l.classList.remove('active'));
+    document.querySelectorAll('a[data-filter]').forEach(l => l.classList.remove('active'));
     document.querySelectorAll(`a[data-filter="${filter}"]`).forEach(l => l.classList.add('active'));
     
     DOM.searchInput.value = '';
     switchView(filter);
 }
 
-async function switchView(filter) { // 🆕 Convertida en 'async'
-    [
-        DOM.heroSection, DOM.carouselContainer, DOM.gridContainer,
-        DOM.myListContainer, DOM.historyContainer, DOM.profileContainer,
-        DOM.settingsContainer, document.getElementById('profile-hub-container')
-    ].forEach(container => {
-        if (container) container.style.display = 'none';
+// ===========================================================
+// FUNCIÓN SWITCHVIEW ROBUSTA (A PRUEBA DE FALLOS)
+// ===========================================================
+async function switchView(filter) {
+
+    // 1. Ocultar TODOS los contenedores
+    const containers = [
+        document.getElementById('hero-section'),
+        document.getElementById('carousel-container'),
+        document.getElementById('full-grid-container'),
+        document.getElementById('my-list-container'),
+        document.getElementById('history-container'),
+        document.getElementById('profile-container'),
+        document.getElementById('settings-container'),
+        document.getElementById('profile-hub-container')
+    ];
+
+    containers.forEach(el => {
+        if (el) el.style.display = 'none';
     });
 
-    if (DOM.filterControls) DOM.filterControls.style.display = 'none';
+    const filterControls = document.getElementById('filter-controls');
+    if (filterControls) filterControls.style.display = 'none';
 
+    // ============================================================
+    // 2. CONTROL DE VISTAS
+    // ============================================================
+
+    // 🏠 Vista principal
     if (filter === 'all') {
-        if(DOM.heroSection) DOM.heroSection.style.display = 'flex';
-        if(DOM.carouselContainer) DOM.carouselContainer.style.display = 'block';
-    } else if (filter === 'movie' || filter === 'series' || filter === 'ucm') {
-        if (DOM.gridContainer) DOM.gridContainer.style.display = 'block';
-        if (DOM.filterControls) DOM.filterControls.style.display = 'flex';
+        const hero = document.getElementById('hero-section');
+        const carousel = document.getElementById('carousel-container');
+        if (hero) hero.style.display = 'flex';
+        if (carousel) carousel.style.display = 'block';
+        return;
+    }
+
+    // 🎬 Películas, Series, UCM
+    if (filter === 'movie' || filter === 'series' || filter === 'ucm') {
+        const grid = document.getElementById('full-grid-container');
+        if (grid) grid.style.display = 'block';
+        if (filterControls) filterControls.style.display = 'flex';
+
         populateFilters(filter);
         applyAndDisplayFilters(filter);
-    } else if (filter === 'my-list') {
-        if (DOM.myListContainer) { DOM.myListContainer.style.display = 'block'; displayMyListView(); }
-    } else if (filter === 'history') {
-        if (DOM.historyContainer) { DOM.historyContainer.style.display = 'block'; renderHistory(); }
-    } else if (filter === 'profile-hub') {
+        return;
+    }
+
+    // ⭐ Mi Lista
+    if (filter === 'my-list') {
+        const listContainer = document.getElementById('my-list-container');
+        if (listContainer) {
+            listContainer.style.display = 'block';
+            displayMyListView();
+        }
+        return;
+    }
+
+    // ⏳ Historial
+    if (filter === 'history') {
+        const historyContainer = document.getElementById('history-container');
+        if (historyContainer) {
+            historyContainer.style.display = 'block';
+            renderHistory();
+        }
+        return;
+    }
+
+    // 📱 Hub de perfil en móviles
+    if (filter === 'profile-hub') {
         const hubContainer = document.getElementById('profile-hub-container');
         if (hubContainer) {
             hubContainer.style.display = 'block';
             const user = auth.currentUser;
             if (user) {
                 const emailEl = document.getElementById('profile-hub-email');
-                if(emailEl) emailEl.textContent = user.email;
+                if (emailEl) emailEl.textContent = user.email;
             }
         }
-    } else if (filter === 'profile') {
-        // 🆕 CARGA BAJO DEMANDA DE PERFIL
-        const profile = await getProfileModule();
-        if (DOM.profileContainer) { DOM.profileContainer.style.display = 'block'; profile.renderProfile(); }
-    } else if (filter === 'settings') {
-        // 🆕 CARGA BAJO DEMANDA DE AJUSTES
-        const profile = await getProfileModule();
-        if (DOM.settingsContainer) { DOM.settingsContainer.style.display = 'block'; profile.renderSettings(); }
+        return;
     }
 
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // 👤 Mi Perfil (vista completa)
+    if (filter === 'profile') {
+        const profileContainer = document.getElementById('profile-container');
+
+        if (profileContainer) {
+            profileContainer.style.display = 'block';
+            profileContainer.style.position = 'relative';
+            profileContainer.style.zIndex = '100';
+
+            try {
+                const profile = await getProfileModule();
+
+                // Reparar referencias DOM
+                DOM.profileUsername = document.getElementById('profile-username');
+                DOM.profileEmail = document.getElementById('profile-email');
+
+                profile.renderProfile();
+            } catch (e) {
+                console.error("Error cargando perfil:", e);
+            }
+        } else {
+            console.error("No se encuentra el div 'profile-container'");
+        }
+        return;
+    }
+
+    // ⚙️ AJUSTES DE CUENTA
+    if (filter === 'settings') {
+        const settingsContainer = document.getElementById('settings-container');
+
+        if (settingsContainer) {
+            settingsContainer.style.display = 'block';
+            settingsContainer.style.position = 'relative';
+            settingsContainer.style.zIndex = '100';
+
+            try {
+                const profile = await getProfileModule();
+
+                // Reparar referencias DOM
+                DOM.settingsUsernameInput  = document.getElementById('settings-username-input');
+                DOM.updateUsernameBtn      = document.getElementById('update-username-btn');
+                DOM.settingsPasswordInput  = document.getElementById('settings-password-input');
+                DOM.updatePasswordBtn      = document.getElementById('update-password-btn');
+                DOM.settingsFeedback       = document.getElementById('settings-feedback');
+
+                profile.renderSettings();
+            } catch (e) {
+                console.error("Error cargando ajustes:", e);
+            }
+        } else {
+            console.error("No se encontró 'settings-container'");
+        }
+        return;
+    }
+
+    // Si llega aquí, es vista desconocida
+    console.warn("Vista desconocida:", filter);
 }
 
 function populateFilters(type) {
