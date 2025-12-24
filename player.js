@@ -1,22 +1,41 @@
 // ===========================================================
-// MÓDULO DEL REPRODUCTOR (CON LOGS Y SEGURIDAD)
+// MÓDULO DEL REPRODUCTOR (V2 - SOPORTE MULTI-SAGA)
 // ===========================================================
 
-import { logError } from './logger.js'; // Importamos el logger
+import { logError } from './logger.js'; 
 
-let shared; // Dependencias compartidas
+let shared; 
 
 // 1. INICIALIZACIÓN
 export function initPlayer(dependencies) {
     shared = dependencies;
 }
 
-// 2. HELPERS (BUSCADOR UNIVERSAL)
-function getSeriesData(seriesId) {
-    return shared.appState.content.series[seriesId] || 
-           (shared.appState.content.ucm ? shared.appState.content.ucm[seriesId] : null);
+// 🔥 NUEVO: BUSCADOR INTELIGENTE EN TODAS LAS SAGAS
+// Esta función busca el ID en Pelis, Series, Marvel, StarWars, HP, etc.
+function findContentData(id) {
+    const content = shared.appState.content;
+
+    // 1. Buscar en listas principales
+    if (content.movies && content.movies[id]) return content.movies[id];
+    if (content.series && content.series[id]) return content.series[id];
+    
+    // 2. Buscar en UCM (Legacy)
+    if (content.ucm && content.ucm[id]) return content.ucm[id];
+
+    // 3. 🔥 BUSCAR EN SAGAS DINÁMICAS (Star Wars, HP, etc.)
+    if (content.sagas) {
+        for (const sagaKey in content.sagas) {
+            const sagaData = content.sagas[sagaKey];
+            if (sagaData && sagaData[id]) {
+                return sagaData[id];
+            }
+        }
+    }
+    return null;
 }
 
+// 2. HELPERS
 function saveProgress(seriesId) {
     try {
         let allProgress = JSON.parse(localStorage.getItem('seriesProgress')) || {};
@@ -66,11 +85,12 @@ export async function openSeriesPlayer(seriesId, forceSeasonGrid = false) {
     try {
         shared.closeAllModals();
         
-        const seriesInfo = getSeriesData(seriesId); 
+        // 🔥 USAMOS EL BUSCADOR INTELIGENTE
+        const seriesInfo = findContentData(seriesId); 
         
         if (!seriesInfo) {
-            logError(`Serie ID no encontrado: ${seriesId}`, 'Player: Open Series', 'warning');
-            shared.ErrorHandler.show(shared.ErrorHandler.types.CONTENT, 'No se encontró la serie.');
+            console.warn(`Serie ID no encontrado: ${seriesId}`);
+            shared.ErrorHandler.show('content', 'No se encontró la serie.');
             return;
         }
 
@@ -144,7 +164,7 @@ export async function openSeriesPlayer(seriesId, forceSeasonGrid = false) {
 
 // 4. VISTA DE GRILLA DE TEMPORADAS
 function renderSeasonGrid(seriesId) {
-    const seriesInfo = getSeriesData(seriesId); 
+    const seriesInfo = findContentData(seriesId); 
     if (!seriesInfo) return;
 
     shared.DOM.seriesPlayerModal.className = 'modal show season-grid-view';
@@ -165,7 +185,7 @@ function renderSeasonGrid(seriesId) {
 function populateSeasonGrid(seriesId) {
     const container = shared.DOM.seriesPlayerModal.querySelector('#season-grid');
     const data = shared.appState.content.seriesEpisodes[seriesId];
-    const seriesInfo = getSeriesData(seriesId);
+    const seriesInfo = findContentData(seriesId);
     
     if (!container || !data) return;
 
@@ -371,15 +391,14 @@ function changeLanguage(seriesId, lang) {
     openEpisode(seriesId, season, episodeIndex);
 }
 
-// 6. REPRODUCTOR DE PELÍCULAS
+// 6. REPRODUCTOR DE PELÍCULAS (ACTUALIZADO)
 export function openPlayerModal(movieId, movieTitle) {
     try {
         shared.closeAllModals();
         shared.addToHistoryIfLoggedIn(movieId, 'movie');
 
-        // Búsqueda Universal para películas (incluye UCM)
-        const movieData = shared.appState.content.movies[movieId] || 
-                          (shared.appState.content.ucm ? shared.appState.content.ucm[movieId] : null);
+        // 🔥 USAMOS EL BUSCADOR INTELIGENTE
+        const movieData = findContentData(movieId);
 
         if (!movieData) {
             logError(`Película no encontrada: ${movieId}`, 'Player: Open Movie', 'warning');
@@ -401,7 +420,7 @@ export function openPlayerModal(movieId, movieTitle) {
             initialVideoId = movieData.videoId_es
         } else {
             defaultLang = 'default';
-            initialVideoId = movieId; 
+            initialVideoId = movieId; // Algunos IDs son directamente el videoID
         }
 
         const iframe = shared.DOM.cinemaModal.querySelector('iframe');
@@ -438,8 +457,9 @@ export function openPlayerModal(movieId, movieTitle) {
                         const selectedLang = this.dataset.lang;
                         const targetMovieId = this.dataset.movieId;
                         
-                        const targetMovieData = shared.appState.content.movies[targetMovieId] || 
-                                                (shared.appState.content.ucm ? shared.appState.content.ucm[targetMovieId] : null);
+                        // 🔥 USAMOS EL BUSCADOR INTELIGENTE TAMBIÉN AQUÍ
+                        const targetMovieData = findContentData(targetMovieId);
+                        
                         if (!targetMovieData) return;
 
                         let newVideoId;
@@ -490,7 +510,7 @@ export function playRandomEpisode(seriesId) {
 }
 
 export function openSeriesPlayerDirectlyToSeason(seriesId, seasonNum) {
-    const seriesInfo = getSeriesData(seriesId); 
+    const seriesInfo = findContentData(seriesId); 
     if (!seriesInfo) return;
 
     shared.closeAllModals();
@@ -501,7 +521,7 @@ export function openSeriesPlayerDirectlyToSeason(seriesId, seasonNum) {
 }
 
 export function openPlayerToEpisode(seriesId, seasonNum, episodeIndex) {
-    const seriesInfo = getSeriesData(seriesId);
+    const seriesInfo = findContentData(seriesId);
     if (!seriesInfo) return;
     
     shared.closeAllModals();
