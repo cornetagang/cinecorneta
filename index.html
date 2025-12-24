@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -31,12 +30,9 @@
                             <li><a href="#" class="active" data-filter="all">Inicio</a></li>
                             <li><a href="#" data-filter="movie">Películas</a></li>
                             <li><a href="#" data-filter="series">Series</a></li>
+                            <li><a href="#" data-filter="sagas">Universos</a></li>
                             <li><a href="#" data-filter="roulette">Ruleta</a></li>
-                            <li>
-                                <a href="#" data-filter="ucm" class="ucm-nav-btn" aria-label="Marvel">
-                                    <img src="https://res.cloudinary.com/djhgmmdjx/image/upload/v1764042765/Marvel_Logo2_1_fpxh0r.svg" alt="Marvel">
-                                </a>
-                            </li>
+                            
                             <li id="my-list-nav-link" style="display: none;"><a href="#" data-filter="my-list">Mi Lista</a></li>
                             <li id="history-nav-link" style="display: none;"><a href="#" data-filter="history">Historial</a></li>
                         </ul>
@@ -88,6 +84,10 @@
             <div id="full-grid-container" style="display: none;">
                 <div class="filter-controls" id="filter-controls">
                     
+                    <button id="back-to-sagas-btn" class="sort-btn back-saga-btn" style="display: none;">
+                        <i class="fas fa-arrow-left"></i> Universos
+                    </button>
+
                     <select id="genre-filter" style="display: none !important;"></select>
                     
                     <div class="custom-dropdown" id="genre-dropdown-visual">
@@ -127,6 +127,13 @@
             <div id="history-container" style="display: none;">
                 <div class="content-header"><h2>Historial de Reproducción</h2></div>
                 <div id="history-grid" class="grid"></div>
+            </div>
+
+            <div id="sagas-hub-container" style="display: none;">
+                <div class="content-header">
+                    <h1 class="main-title"></h1>
+                </div>
+                <div class="sagas-grid" id="sagas-grid-dynamic"></div>
             </div>
 
             <div id="profile-hub-container" class="content-container" style="display: none;">
@@ -317,8 +324,9 @@
             <span>Películas</span>
         </a>
         
-        <a href="#" class="nav-link ucm-link" data-filter="ucm" aria-label="Marvel">
-            <img src="https://res.cloudinary.com/djhgmmdjx/image/upload/v1764042765/Marvel_Logo2_1_fpxh0r.svg" alt="Marvel" class="nav-icon-img nav-marvel-logo">
+        <a href="#" class="nav-link" data-filter="sagas" aria-label="Sagas">
+            <i class="fas fa-layer-group"></i>
+            <span>Universos</span>
         </a>
 
         <a href="#" class="nav-link" data-filter="series" aria-label="Series">
@@ -334,6 +342,6 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="script.js?v=3" type="module" defer></script>
+    <script src="script.js?v=6" type="module" defer></script>
 </body>
 </html>
