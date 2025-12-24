@@ -2814,6 +2814,117 @@ body.tab-inactive iframe {
 }
 
 /* ================================== */
+/* VISTA DE SAGAS (DINÁMICA + BANNERS) */
+/* ================================== */
+.sagas-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 30px;
+    padding: 40px 4vw;
+    margin-top: 20px;
+}
+
+.saga-card {
+    position: relative;
+    width: 350px;
+    height: 200px;
+    background-color: #080808; /* Fondo negro por defecto */
+    border-radius: 15px;
+    
+    /* Configuración del Banner */
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    
+    /* Variable dinámica para el borde */
+    --hover-color: #ffffff; 
+    border: 3px solid #333; 
+    
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+/* CAPA OSCURA (OVERLAY) */
+/* Esto oscurece el banner un poco para que el logo resalte */
+.saga-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.7));
+    z-index: 1;
+    transition: background 0.3s ease;
+}
+
+.saga-logo {
+    width: 70%;
+    height: auto;
+    object-fit: contain;
+    transition: transform 0.3s ease, filter 0.3s ease;
+    z-index: 2; /* El logo va ENCIMA de la capa oscura */
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+}
+
+/* --- EFECTOS HOVER --- */
+.saga-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    border-color: var(--hover-color);
+    /* Resplandor del color de la saga */
+    box-shadow: 0 0 35px var(--hover-color);
+}
+
+/* Al pasar el mouse, aclaramos un poco el fondo para ver mejor el banner */
+.saga-card:hover::after {
+    background: linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.4));
+}
+
+.saga-card:hover .saga-logo {
+    transform: scale(1.1);
+    filter: drop-shadow(0 0 10px var(--hover-color));
+}
+
+/* Ajuste Móvil */
+@media (max-width: 768px) {
+    .saga-card {
+        width: 100%;
+        height: 160px;
+    }
+}
+
+/* ================================== */
+/* BOTÓN VOLVER A SAGAS               */
+/* ================================== */
+.back-saga-btn {
+    display: flex; /* Para alinear icono y texto */
+    align-items: center;
+    gap: 8px;
+    margin-right: 15px; /* Separarlo de los filtros */
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.4); /* Borde un poco más brillante */
+}
+
+.back-saga-btn:hover {
+    background-color: var(--primary-red);
+    border-color: var(--primary-red);
+    color: white;
+}
+
+/* En móvil, que ocupe todo el ancho para ser fácil de tocar */
+@media (max-width: 768px) {
+    .back-saga-btn {
+        width: 100%;
+        justify-content: center;
+        margin-right: 0;
+        margin-bottom: 10px; /* Espacio antes de los filtros */
+    }
+}
+
+/* ================================== */
 /* FIX: MENÚ ENCIMA DE LAS LUCES      */
 /* ================================== */
 
