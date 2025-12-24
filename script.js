@@ -3,6 +3,8 @@
 // Versión: 5.0.0 (Optimizada)
 // ===========================================================
 
+import { logError } from './logger.js';
+
 // ===========================================================
 // 🆕 CARGADOR DE MÓDULOS (Code Splitting)
 // ===========================================================
@@ -23,7 +25,6 @@ async function getPlayerModule() {
 
 async function getProfileModule() {
     if (profileModule) return profileModule;
-    // 🔥 CAMBIO AQUÍ: Agregamos ?v=3 al final para obligar a recargar
     const module = await import('./profile.js?v=3'); 
     module.initProfile({
         appState, DOM, auth, db, switchView
@@ -423,13 +424,11 @@ const appState = {
     content: {
         movies: {},
         series: {},
-        ucm: {},
+        sagas: {},       // 🔥 AQUÍ se guardarán UCM, StarWars, HarryPotter, etc. automáticamente
+        sagasList: [],   // Lista de botones (orden, logos, colores)
         seriesEpisodes: {},
         seasonPosters: {},
-        metadata: {
-            movies: {},
-            series: {}
-        }
+        metadata: { movies: {}, series: {} }
     },
     ui: {
         heroMovieIds: [],
@@ -553,115 +552,68 @@ function preloadImage(url) {
 
 async function fetchInitialDataWithCache() {
     const startLoadTime = Date.now();
-    
-    // 1. Función interna para procesar y asignar datos al estado
+
+    // Función para procesar los datos principales
     const processData = (data) => {
         appState.content.movies = data.allMovies || {};
         appState.content.series = data.series || {};
-        appState.content.ucm = data.ucm || {}; // <--- IMPORTANTE: Asegúrate de que esto esté aquí
         appState.content.seriesEpisodes = data.episodes || {};
         appState.content.seasonPosters = data.posters || {};
+        
+        // Procesamos la lista de sagas
+        appState.content.sagasList = Object.values(data.sagas_list || {});
+        
+        // 🔥 MAGIA DINÁMICA: Asignamos el contenido de cada saga a su ID
+        // Si data.ucm existe, se guarda en appState.content.sagas.ucm
+        if (appState.content.sagasList.length > 0) {
+            appState.content.sagasList.forEach(saga => {
+                if (data[saga.id]) {
+                    appState.content.sagas[saga.id] = data[saga.id];
+                }
+            });
+        }
     };
 
-    // 2. Lógica de Renderizado + PRECARGA INTELIGENTE DE IMÁGENES
+    // Función de renderizado (Igual que antes)
     const setupAndShow = async (movieMeta, seriesMeta) => {
         appState.content.metadata.movies = movieMeta || {};
         appState.content.metadata.series = seriesMeta || {};
 
-        // A. Generamos HTML y Listeners
         setupHero();
         generateCarousels();
-        
         setupEventListeners();
         setupNavigation();
         setupAuthListeners();
         setupSearch();
         setupPageVisibilityHandler();
 
-        // Detectamos qué filtro está activo (Inicio, Pelis o Series)
         const activeFilter = document.querySelector('.main-nav a.active, .mobile-nav a.active')?.dataset.filter || 'all';
         
-        // Si es Grid (Pelis/Series/UCM), aplicamos filtro y paginación
-        if (activeFilter === 'movie' || activeFilter === 'series' || activeFilter === 'ucm') {
+        // Verificamos si el filtro activo es una de nuestras sagas dinámicas
+        const isSaga = appState.content.sagas[activeFilter];
+
+        if (['movie', 'series'].includes(activeFilter) || isSaga) {
             applyAndDisplayFilters(activeFilter);
+        } else if (activeFilter === 'sagas') {
+            switchView('sagas');
         }
 
-        // ============================================================
-        // 🚀 FASE DE PRECARGA DE IMÁGENES
-        // ============================================================
-        
-        const imagesToPreload = [];
-
-        // 1. SIEMPRE precargar el Hero (Banner gigante)
-        if (appState.ui.heroMovieIds.length > 0) {
-            const firstHeroId = appState.ui.heroMovieIds[0];
-            const movieData = appState.content.movies[firstHeroId];
-            if (movieData) {
-                const isMobile = window.innerWidth < 992;
-                const heroImgUrl = isMobile ? movieData.poster : movieData.banner;
-                imagesToPreload.push(heroImgUrl);
-            }
-        }
-
-        // 2. Precargar contenido según la vista
-        if (activeFilter === 'all') {
-            // Si estamos en INICIO: Precargar los carruseles (aprox los primeros 10 de cada uno)
-            const topMovies = Object.values(appState.content.movies)
-                .sort((a, b) => b.tr - a.tr).slice(0, 8).map(m => m.poster);
-            const topSeries = Object.values(appState.content.series)
-                .sort((a, b) => b.tr - a.tr).slice(0, 8).map(s => s.poster);
-            
-            imagesToPreload.push(...topMovies, ...topSeries);
-
-        } else if (activeFilter === 'movie' || activeFilter === 'series' || activeFilter === 'ucm') {
-            // Si estamos en GRID: Precargar la PRIMERA PÁGINA
-            if (appState.ui.contentToDisplay && appState.ui.contentToDisplay.length > 0) {
-                const firstPageItems = appState.ui.contentToDisplay.slice(0, ITEMS_PER_LOAD);
-                const pagePosters = firstPageItems.map(([id, item]) => item.poster);
-                imagesToPreload.push(...pagePosters);
-            }
-        }
-
-        // 3. Ejecutar la precarga masiva
-        const imagePromises = imagesToPreload.map(url => preloadImage(url));
-        
-        // 4. Esperar (con límite de seguridad de 5s)
-        const minLoadTime = 800; // Estético
-        const maxWaitTime = new Promise(resolve => setTimeout(resolve, 5000));
-
-        try {
-            await Promise.race([
-                Promise.all(imagePromises), 
-                maxWaitTime
-            ]);
-            console.log(`✓ Precargadas ${imagesToPreload.length} imágenes críticas.`);
-        } catch (e) { 
-            console.warn("La precarga de imágenes tardó demasiado, mostrando web de todos modos."); 
-        }
-
-        // ============================================================
-
-        // B. Calculamos tiempo estético restante
+        // TRANSICIÓN DE ENTRADA
         const timeElapsed = Date.now() - startLoadTime;
-        const remainingTime = Math.max(0, minLoadTime - timeElapsed);
+        const remainingTime = Math.max(0, 800 - timeElapsed);
         await new Promise(r => setTimeout(r, remainingTime));
 
-        // C. Transición de entrada
         requestAnimationFrame(() => {
             if (DOM.pageWrapper) DOM.pageWrapper.style.display = 'block';
-            
             setTimeout(() => {
                 if (DOM.pageWrapper) DOM.pageWrapper.classList.add('visible'); 
                 if (DOM.preloader) DOM.preloader.classList.add('fade-out');
             }, 50);
-
-            setTimeout(() => {
-                if(DOM.preloader) DOM.preloader.remove();
-            }, 800); 
+            setTimeout(() => { if(DOM.preloader) DOM.preloader.remove(); }, 800); 
         });
     };
 
-    // --- OBTENCIÓN DE DATOS (CACHÉ VS RED) ---
+    // --- CARGA DE DATOS ---
     const cachedContent = cacheManager.get(cacheManager.keys.content);
     const cachedMetadata = cacheManager.get(cacheManager.keys.metadata);
 
@@ -671,32 +623,50 @@ async function fetchInitialDataWithCache() {
         await setupAndShow(cachedMetadata?.movies, cachedMetadata?.series);
         refreshDataInBackground(); 
         
-        // Cargar historial si hay usuario
+        // Historial
         const user = auth.currentUser;
         if (user) {
             db.ref(`users/${user.uid}/history`).orderByChild('viewedAt').once('value', snapshot => {
-                if (snapshot.exists()) {
-                    generateContinueWatchingCarousel(snapshot);
-                }
+                if (snapshot.exists()) generateContinueWatchingCarousel(snapshot);
             });
         }
     } else {
         try {
-            console.log('⟳ Descargando base de datos...');
+            console.log('⟳ Descargando base de datos inteligente...');
             
-            // 🔥 AQUÍ ESTABA EL ERROR: Asegúrate de tener 'ucmData' en la lista de la izquierda
-            const [series, episodes, allMovies, posters, ucmData, movieMeta, seriesMeta] = await Promise.all([
+            // 1. CARGA INICIAL: Estructura base + LISTA DE SAGAS
+            const [series, episodes, allMovies, posters, sagasListData, movieMeta, seriesMeta] = await Promise.all([
                 ErrorHandler.fetchOperation(`${API_URL}?data=series`),
                 ErrorHandler.fetchOperation(`${API_URL}?data=episodes`),
                 ErrorHandler.fetchOperation(`${API_URL}?data=allMovies&order=desc`),
                 ErrorHandler.fetchOperation(`${API_URL}?data=PostersTemporadas`),
-                ErrorHandler.fetchOperation(`${API_URL}?data=ucm`), // <--- Esta petición llena la variable ucmData
+                ErrorHandler.fetchOperation(`${API_URL}?data=sagas_list`), // Pedimos la lista primero
                 db.ref('movie_metadata').once('value').then(s => s.val() || {}),
                 db.ref('series_metadata').once('value').then(s => s.val() || {})
             ]);
 
-            // 🔥 Ahora sí podemos usar 'ucmData' aquí sin que de error
-            const freshContent = { allMovies, series, episodes, posters, ucm: ucmData };
+            // 2. CARGA DINÁMICA DE SAGAS
+            // Usamos la lista descargada para saber qué más pedir
+            const sagasArray = Object.values(sagasListData || {});
+            const sagasRequests = sagasArray.map(saga => 
+                ErrorHandler.fetchOperation(`${API_URL}?data=${saga.id}`)
+                .then(data => ({ id: saga.id, data: data })) // Retornamos ID y datos juntos
+            );
+
+            // Esperamos a que lleguen todas las sagas
+            const sagasResults = await Promise.all(sagasRequests);
+
+            // 3. ARMADO DEL PAQUETE FINAL
+            const freshContent = { 
+                allMovies, series, episodes, posters, 
+                sagas_list: sagasListData 
+            };
+
+            // Inyectamos cada saga en el paquete content
+            sagasResults.forEach(item => {
+                freshContent[item.id] = item.data;
+            });
+            
             const freshMetadata = { movies: movieMeta, series: seriesMeta };
 
             processData(freshContent);
@@ -705,12 +675,11 @@ async function fetchInitialDataWithCache() {
 
             await setupAndShow(freshMetadata.movies, freshMetadata.series);
             
+            // Historial
             const user = auth.currentUser;
             if (user) {
                 db.ref(`users/${user.uid}/history`).orderByChild('viewedAt').once('value', snapshot => {
-                    if (snapshot.exists()) {
-                        generateContinueWatchingCarousel(snapshot);
-                    }
+                    if (snapshot.exists()) generateContinueWatchingCarousel(snapshot);
                 });
             }
 
@@ -723,18 +692,35 @@ async function fetchInitialDataWithCache() {
 
 async function refreshDataInBackground() {
     try {
-        // 🔥 AQUÍ TAMBIÉN: Agregamos 'ucmData' en la izquierda y la petición 'ucm' en la derecha
-        const [series, episodes, allMovies, posters, ucmData] = await Promise.all([
+        // 1. Pedimos datos base + lista de sagas
+        const [series, episodes, allMovies, posters, sagasListData] = await Promise.all([
             ErrorHandler.fetchOperation(`${API_URL}?data=series`),
             ErrorHandler.fetchOperation(`${API_URL}?data=episodes`),
             ErrorHandler.fetchOperation(`${API_URL}?data=allMovies&order=desc`),
             ErrorHandler.fetchOperation(`${API_URL}?data=PostersTemporadas`),
-            ErrorHandler.fetchOperation(`${API_URL}?data=ucm`)
+            ErrorHandler.fetchOperation(`${API_URL}?data=sagas_list`)
         ]);
-        
-        const freshContent = { allMovies, series, episodes, posters, ucm: ucmData };
+
+        // 2. Pedimos las sagas dinámicamente
+        const sagasArray = Object.values(sagasListData || {});
+        const sagasRequests = sagasArray.map(saga => 
+            ErrorHandler.fetchOperation(`${API_URL}?data=${saga.id}`)
+            .then(data => ({ id: saga.id, data: data }))
+        );
+
+        const sagasResults = await Promise.all(sagasRequests);
+
+        const freshContent = { 
+            allMovies, series, episodes, posters, 
+            sagas_list: sagasListData 
+        };
+
+        sagasResults.forEach(item => {
+            freshContent[item.id] = item.data;
+        });
+
         cacheManager.set(cacheManager.keys.content, freshContent);
-        console.log('✓ Caché actualizada en segundo plano');
+        console.log('✓ Caché actualizada en segundo plano (Sagas Dinámicas)');
     } catch (e) { console.warn('No se pudo actualizar background', e); }
 }
 
@@ -792,11 +778,10 @@ async function handleFilterClick(event) {
 }
 
 // ===========================================================
-// FUNCIÓN SWITCHVIEW ROBUSTA (A PRUEBA DE FALLOS)
+// FUNCIÓN SWITCHVIEW (LIMPIA Y CORREGIDA)
 // ===========================================================
 async function switchView(filter) {
-
-    // 1. Ocultar TODOS los contenedores
+    // 1. Ocultar todos los contenedores
     const containers = [
         document.getElementById('hero-section'),
         document.getElementById('carousel-container'),
@@ -805,7 +790,8 @@ async function switchView(filter) {
         document.getElementById('history-container'),
         document.getElementById('profile-container'),
         document.getElementById('settings-container'),
-        document.getElementById('profile-hub-container')
+        document.getElementById('profile-hub-container'),
+        document.getElementById('sagas-hub-container')
     ];
 
     containers.forEach(el => {
@@ -815,11 +801,41 @@ async function switchView(filter) {
     const filterControls = document.getElementById('filter-controls');
     if (filterControls) filterControls.style.display = 'none';
 
+    // 2. Lógica del Botón "Volver a Sagas"
+    const backBtn = document.getElementById('back-to-sagas-btn');
+    
+    // Verificamos si estamos DENTRO de una saga (ej: harrypotter)
+    // Usamos el objeto sagas para confirmar
+    const isDynamicSaga = appState.content.sagas && appState.content.sagas[filter];
+
+    if (backBtn) {
+        if (isDynamicSaga) {
+            backBtn.style.display = 'flex';
+            // Clonamos para limpiar eventos anteriores
+            const newBtn = backBtn.cloneNode(true);
+            backBtn.parentNode.replaceChild(newBtn, backBtn);
+            
+            newBtn.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Efecto visual en el menú
+                document.querySelectorAll('.main-nav a').forEach(a => a.classList.remove('active'));
+                const sagasNav = document.querySelector('a[data-filter="sagas"]');
+                if (sagasNav) sagasNav.classList.add('active');
+                
+                switchView('sagas'); // Volver al Hub
+            };
+        } else {
+            backBtn.style.display = 'none';
+        }
+    }
+
     // ============================================================
-    // 2. CONTROL DE VISTAS
+    // 3. SELECCIÓN DE VISTA
     // ============================================================
 
-    // 🏠 Vista principal
+    // CASO: INICIO
     if (filter === 'all') {
         const hero = document.getElementById('hero-section');
         const carousel = document.getElementById('carousel-container');
@@ -828,8 +844,18 @@ async function switchView(filter) {
         return;
     }
 
-    // 🎬 Películas, Series, UCM
-    if (filter === 'movie' || filter === 'series' || filter === 'ucm') {
+    // CASO: HUB DE SAGAS (Logos Grandes)
+    if (filter === 'sagas') {
+        const hub = document.getElementById('sagas-hub-container');
+        if (hub) {
+            hub.style.display = 'block';
+            renderSagasHub(); // Función que pinta los botones negros
+        }
+        return;
+    }
+
+    // CASO: GRILLA DE CONTENIDO (Pelis, Series O Sagas Específicas)
+    if (filter === 'movie' || filter === 'series' || isDynamicSaga) {
         const grid = document.getElementById('full-grid-container');
         if (grid) grid.style.display = 'block';
         if (filterControls) filterControls.style.display = 'flex';
@@ -839,7 +865,7 @@ async function switchView(filter) {
         return;
     }
 
-    // ⭐ Mi Lista
+    // CASO: MI LISTA
     if (filter === 'my-list') {
         const listContainer = document.getElementById('my-list-container');
         if (listContainer) {
@@ -849,7 +875,7 @@ async function switchView(filter) {
         return;
     }
 
-    // ⏳ Historial
+    // CASO: HISTORIAL
     if (filter === 'history') {
         const historyContainer = document.getElementById('history-container');
         if (historyContainer) {
@@ -859,405 +885,296 @@ async function switchView(filter) {
         return;
     }
 
-    // 📱 Hub de perfil en móviles
-    if (filter === 'profile-hub') {
-        const hubContainer = document.getElementById('profile-hub-container');
-        if (hubContainer) {
-            hubContainer.style.display = 'block';
-            const user = auth.currentUser;
-            if (user) {
-                const emailEl = document.getElementById('profile-hub-email');
-                if (emailEl) emailEl.textContent = user.email;
-            }
+    // OTROS CASOS (Perfil, Ajustes, Búsqueda)
+    if (filter === 'profile-hub' || filter === 'profile' || filter === 'settings') {
+        const containerMap = {
+            'profile-hub': 'profile-hub-container',
+            'profile': 'profile-container',
+            'settings': 'settings-container'
+        };
+        const container = document.getElementById(containerMap[filter]);
+        if (container) {
+            container.style.display = 'block';
+            if (filter === 'profile') getProfileModule().then(m => m.renderProfile());
+            if (filter === 'settings') getProfileModule().then(m => m.renderSettings());
         }
         return;
     }
 
-    // 👤 Mi Perfil (vista completa)
-    if (filter === 'profile') {
-        const profileContainer = document.getElementById('profile-container');
-
-        if (profileContainer) {
-            profileContainer.style.display = 'block';
-            profileContainer.style.position = 'relative';
-            profileContainer.style.zIndex = '100';
-
-            try {
-                const profile = await getProfileModule();
-
-                // Reparar referencias DOM
-                DOM.profileUsername = document.getElementById('profile-username');
-                DOM.profileEmail = document.getElementById('profile-email');
-
-                profile.renderProfile();
-            } catch (e) {
-                console.error("Error cargando perfil:", e);
-            }
-        } else {
-            console.error("No se encuentra el div 'profile-container'");
-        }
+    if (filter === 'search') {
+        const grid = document.getElementById('full-grid-container');
+        if(grid) grid.style.display = 'block';
         return;
     }
-
-    // ⚙️ AJUSTES DE CUENTA
-    if (filter === 'settings') {
-        const settingsContainer = document.getElementById('settings-container');
-
-        if (settingsContainer) {
-            settingsContainer.style.display = 'block';
-            settingsContainer.style.position = 'relative';
-            settingsContainer.style.zIndex = '100';
-
-            try {
-                const profile = await getProfileModule();
-
-                // Reparar referencias DOM
-                DOM.settingsUsernameInput  = document.getElementById('settings-username-input');
-                DOM.updateUsernameBtn      = document.getElementById('update-username-btn');
-                DOM.settingsPasswordInput  = document.getElementById('settings-password-input');
-                DOM.updatePasswordBtn      = document.getElementById('update-password-btn');
-                DOM.settingsFeedback       = document.getElementById('settings-feedback');
-
-                profile.renderSettings();
-            } catch (e) {
-                console.error("Error cargando ajustes:", e);
-            }
-        } else {
-            console.error("No se encontró 'settings-container'");
-        }
-        return;
-    }
-
-    // Si llega aquí, es vista desconocida
-    console.warn("Vista desconocida:", filter);
 }
 
 function populateFilters(type) {
     let sourceData;
     if (type === 'movie') sourceData = appState.content.movies;
     else if (type === 'series') sourceData = appState.content.series;
-    else if (type === 'ucm') sourceData = appState.content.ucm;
+    else sourceData = appState.content.sagas[type];
 
     if (!DOM.genreFilter || !DOM.sortBy || !sourceData) return;
 
-    // Referencias DOM
     const genreVisual = document.getElementById('genre-dropdown-visual');
-    const genreList = document.getElementById('genre-menu-list');
-    const genreTrigger = document.getElementById('genre-trigger');
     const sortVisual = document.getElementById('sort-dropdown-visual');
-    const sortList = document.getElementById('sort-menu-list');
-    const sortTrigger = document.getElementById('sort-trigger');
+    const ucmButtons = document.getElementById('ucm-sort-buttons');
+    const controlsContainer = document.getElementById('filter-controls');
+    
+    if (controlsContainer) controlsContainer.style.display = 'flex';
 
-    if (!genreList || !genreVisual) return;
+    // CONFIGURACIÓN VISIBILIDAD
+    const sagaConfig = appState.content.sagasList.find(s => s.id === type);
+    const mode = String(sagaConfig ? (sagaConfig.filters || 'si') : 'si').toLowerCase().trim();
 
-    // Control Visibilidad
-    if (type === 'ucm') {
+    // Reset
+    if (genreVisual) genreVisual.style.display = 'block';
+    
+    // CASO "NO"
+    if (mode === 'no') {
+        if (genreVisual) genreVisual.style.display = 'none';
         if (sortVisual) sortVisual.style.display = 'none';
-        if (DOM.ucmSortButtonsContainer) DOM.ucmSortButtonsContainer.style.display = 'flex';
-        if (DOM.ucmSortButtons) {
-            DOM.ucmSortButtons.forEach(btn => {
-                btn.onclick = (e) => {
-                    DOM.ucmSortButtons.forEach(b => b.classList.remove('active'));
-                    e.target.classList.add('active');
-                    applyAndDisplayFilters('ucm');
-                };
-            });
-        }
-    } else {
-        if (sortVisual) sortVisual.style.display = 'block';
-        if (DOM.ucmSortButtonsContainer) DOM.ucmSortButtonsContainer.style.display = 'none';
+        if (ucmButtons) ucmButtons.style.display = 'none';
+        return; 
     }
 
-    // Función Auxiliar
+    // CASO "BOTONES"
+    if (mode === 'botones') {
+        if (genreVisual) genreVisual.style.display = 'none';
+        DOM.genreFilter.value = 'all'; 
+    }
+
+    // GENERAR MENÚS
+    const genreList = document.getElementById('genre-menu-list');
+    const sortList = document.getElementById('sort-menu-list');
+    
     const createItem = (value, label, menuType, isGroup = false, imgUrl = null) => {
         const div = document.createElement('div');
+        div.className = isGroup ? 'dropdown-group-title' : 'dropdown-item';
         
-        if (isGroup) {
-            div.className = 'dropdown-group-title';
-            if (imgUrl) {
-                div.innerHTML = `<img src="${imgUrl}" class="dropdown-group-logo" alt="${label}">`;
-                div.classList.add('has-logo');
-            } else {
-                div.textContent = label;
-            }
+        if (isGroup && imgUrl) {
+            div.innerHTML = `<img src="${imgUrl}" class="dropdown-group-logo" alt="${label}">`;
+            div.classList.add('has-logo');
         } else {
-            div.className = 'dropdown-item';
             div.textContent = label;
         }
 
-        if (!isGroup || (isGroup && value)) {
-            div.onclick = () => {
-                if (menuType === 'genre') {
-                    const liveGenreText = document.getElementById('genre-text');
-                    if (liveGenreText) liveGenreText.textContent = imgUrl ? label : (div.textContent || label);
-                    
-                    DOM.genreFilter.value = value; 
-                    genreVisual.classList.remove('open');
-                } else {
-                    const liveSortText = document.getElementById('sort-text');
-                    if (liveSortText) liveSortText.textContent = label;
-                    DOM.sortBy.value = value;
-                    if (sortVisual) sortVisual.classList.remove('open');
-                }
-                
-                const parentList = menuType === 'genre' ? genreList : sortList;
-                if (parentList) {
-                    parentList.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('selected'));
-                    if (!isGroup) div.classList.add('selected');
-                }
-                
-                applyAndDisplayFilters(type);
-            };
-        }
+        if (isGroup && value) div.style.cursor = "pointer";
+
+        div.onclick = (e) => {
+            e.stopPropagation(); 
+            if (menuType === 'genre') {
+                document.getElementById('genre-text').textContent = label; 
+                DOM.genreFilter.value = value; 
+                genreVisual.classList.remove('open');
+            } else {
+                document.getElementById('sort-text').textContent = label;
+                DOM.sortBy.value = value;
+                if (sortVisual) sortVisual.classList.remove('open');
+            }
+            applyAndDisplayFilters(type);
+        };
         return div;
     };
 
-    genreList.innerHTML = '';
-    DOM.genreFilter.innerHTML = `<option value="all">Todos</option>`; 
+    if (mode !== 'botones') {
+        genreList.innerHTML = '';
+        DOM.genreFilter.innerHTML = `<option value="all">Todos</option>`; 
+    }
 
-    if (type === 'ucm') {
-        const fasesRaw = Object.values(sourceData)
-            .map(item => String(item.fase || '').trim())
-            .filter(f => f !== '' && f !== 'undefined' && f !== 'null');
-        const fasesDisponibles = new Set(fasesRaw);
+    // --- MARVEL / STAR WARS ---
+    if (type === 'ucm' || type === 'starwars') {
+        if (mode !== 'botones' && type === 'ucm') {
+            const fasesRaw = Object.values(sourceData).map(item => String(item.fase || '').trim()).filter(Boolean);
+            const fasesDisponibles = new Set(fasesRaw);
+            
+            genreList.appendChild(createItem('all', 'Todas las Fases', 'genre'));
+            
+            const estructuraSagas = [
+                { 
+                    id: 'saga_infinity', 
+                    titulo: "Saga del Infinito", 
+                    img: "https://res.cloudinary.com/djhgmmdjx/image/upload/v1764056286/InfinitySaga2_t3ixis.svg",
+                    fases: ['1', '2', '3'] 
+                },
+                { 
+                    id: 'saga_multiverse', 
+                    titulo: "Saga del Multiverso", 
+                    img: "https://res.cloudinary.com/djhgmmdjx/image/upload/v1764056259/MultiverseSaga2_waggse.svg",
+                    fases: ['4', '5', '6'] 
+                }
+            ];
+            
+            estructuraSagas.forEach(saga => {
+                 // 1. Crear el elemento visual (Imagen)
+                 genreList.appendChild(createItem(saga.id, saga.titulo, 'genre', true, saga.img));
+                 
+                 // 🔥 FIX CRUCIAL: Agregar la opción al SELECT oculto para que funcione el filtro
+                 DOM.genreFilter.innerHTML += `<option value="${saga.id}">${saga.titulo}</option>`;
 
-        genreList.appendChild(createItem('all', 'Todas las Fases', 'genre'));
-
-        const estructuraSagas = [
-            { 
-                id: 'saga_infinity', 
-                titulo: "Saga del Infinito", 
-                img: "https://res.cloudinary.com/djhgmmdjx/image/upload/v1764056286/InfinitySaga2_t3ixis.svg",
-                fases: ['1', '2', '3'] 
-            },
-            { 
-                id: 'saga_multiverse', 
-                titulo: "Saga del Multiverso", 
-                img: "https://res.cloudinary.com/djhgmmdjx/image/upload/v1764056259/MultiverseSaga2_waggse.svg",
-                fases: ['4', '5', '6'] 
-            },
-            { 
-                id: 'saga_mutant', 
-                titulo: "Otros Universos", 
-                img: null,
-                fases: ['98', '99'] 
-            }
-        ];
-
-        estructuraSagas.forEach(saga => {
-            const fasesEnGrupo = saga.fases.filter(f => fasesDisponibles.has(f));
-            if (fasesEnGrupo.length > 0) {
-                // 1. Crear el elemento visual del grupo
-                genreList.appendChild(createItem(saga.id, saga.titulo, 'genre', true, saga.img));
-                
-                // 🔥 FIX CRÍTICO: REGISTRAR LA SAGA EN EL SELECT OCULTO
-                // Sin esto, DOM.genreFilter.value = 'saga_infinity' no funciona
-                DOM.genreFilter.innerHTML += `<option value="${saga.id}">${saga.titulo}</option>`;
-
-                fasesEnGrupo.forEach(faseNum => {
-                    let label = `Fase ${faseNum}`;
-                    if (faseNum === '98') label = 'Deadpool (2016)';
-                    if (faseNum === '99') label = 'Deadpool 2 (2018)';
-                    
-                    genreList.appendChild(createItem(faseNum, label, 'genre'));
-                    DOM.genreFilter.innerHTML += `<option value="${faseNum}">${label}</option>`;
-                });
-            }
-        });
-        
-        const todasLasDefinidas = new Set(estructuraSagas.flatMap(s => s.fases));
-        const huerfanas = [...fasesDisponibles].filter(f => !todasLasDefinidas.has(f));
-        if (huerfanas.length > 0) {
-            genreList.appendChild(createItem(null, "Otras Fases", 'genre', true));
-            huerfanas.sort().forEach(f => {
-                genreList.appendChild(createItem(f, `Fase ${f}`, 'genre'));
-                DOM.genreFilter.innerHTML += `<option value="${f}">Fase ${f}</option>`;
+                 // 2. Crear las fases hijas
+                 saga.fases.forEach(f => { 
+                     if(fasesDisponibles.has(f)) {
+                         genreList.appendChild(createItem(f, `Fase ${f}`, 'genre'));
+                         DOM.genreFilter.innerHTML += `<option value="${f}">Fase ${f}</option>`;
+                     }
+                 });
             });
+            document.getElementById('genre-text').textContent = "Todas las Fases";
         }
+        else if (mode !== 'botones' && type === 'starwars') {
+             genreList.appendChild(createItem('all', 'Toda la Galaxia', 'genre'));
+             const eras = [{ id: 'republic', label: 'La República' }, { id: 'empire', label: 'El Imperio' }];
+             eras.forEach(e => {
+                 genreList.appendChild(createItem(e.id, e.label, 'genre'));
+                 DOM.genreFilter.innerHTML += `<option value="${e.id}">${e.label}</option>`;
+             });
+             document.getElementById('genre-text').textContent = "Toda la Galaxia";
+        }
+
+        if (sortVisual) sortVisual.style.display = 'none';
+        if (ucmButtons) ucmButtons.style.display = 'flex';
         
-        const currentText = document.getElementById('genre-text');
-        if(currentText) currentText.textContent = "Todas las Fases";
-
     } else {
-        // MODO NORMAL
-        const genres = new Set(Object.values(sourceData).flatMap(item => item.genres ? String(item.genres).split(';').map(g => g.trim()).filter(Boolean) : []));
-        genreList.appendChild(createItem('all', 'Todos los géneros', 'genre'));
-        Array.from(genres).sort().forEach(genre => {
-            genreList.appendChild(createItem(genre, genre, 'genre'));
-            DOM.genreFilter.innerHTML += `<option value="${genre}">${genre}</option>`;
-        });
-        const currentText = document.getElementById('genre-text');
-        if(currentText) currentText.textContent = "Todos los géneros";
-    }
+        // GÉNERICO
+        if (mode !== 'botones') {
+            const genres = new Set(Object.values(sourceData).flatMap(i => i.genres ? String(i.genres).split(';') : []));
+            genreList.appendChild(createItem('all', 'Todos', 'genre'));
+            Array.from(genres).forEach(g => {
+                const gTrim = g.trim();
+                if(gTrim) {
+                    genreList.appendChild(createItem(gTrim, gTrim, 'genre'));
+                    DOM.genreFilter.innerHTML += `<option value="${gTrim}">${gTrim}</option>`;
+                }
+            });
+            document.getElementById('genre-text').textContent = "Todos";
+        }
 
-    // ORDENAR
-    if (type !== 'ucm' && sortList) {
+        if (sortVisual) sortVisual.style.display = 'block';
+        if (ucmButtons) ucmButtons.style.display = 'none';
+        
         sortList.innerHTML = '';
-        DOM.sortBy.innerHTML = '';
-        const sortOptions = [
-            { val: 'recent', label: 'Recientes' },
-            { val: 'title-asc', label: 'Título (A - Z)' },
-            { val: 'title-desc', label: 'Título (Z - A)' },
-            { val: 'year-desc', label: 'Año (Descendente)' },
-            { val: 'year-asc', label: 'Año (Ascendente)' }
-        ];
-        sortOptions.forEach(opt => {
-            sortList.appendChild(createItem(opt.val, opt.label, 'sort'));
-            DOM.sortBy.innerHTML += `<option value="${opt.val}">${opt.label}</option>`;
+        const sortOptions = [{val:'recent', label:'Recientes'}, {val:'year-asc', label:'Año (Asc)'}, {val:'title-asc', label:'A-Z'}];
+        sortOptions.forEach(o => {
+            sortList.appendChild(createItem(o.val, o.label, 'sort'));
+            DOM.sortBy.innerHTML += `<option value="${o.val}">${o.label}</option>`;
         });
-        const currentSortText = document.getElementById('sort-text');
-        if(currentSortText) currentSortText.textContent = 'Recientes';
     }
-
-    // EVENTOS
-    if (genreTrigger) {
-        const newGenreTrigger = genreTrigger.cloneNode(true);
-        genreTrigger.parentNode.replaceChild(newGenreTrigger, genreTrigger);
-        newGenreTrigger.onclick = (e) => {
-            e.stopPropagation();
-            if (sortVisual) sortVisual.classList.remove('open');
-            genreVisual.classList.toggle('open');
-        };
-    }
-    if (sortTrigger && type !== 'ucm') {
-        const newSortTrigger = sortTrigger.cloneNode(true);
-        sortTrigger.parentNode.replaceChild(newSortTrigger, sortTrigger);
-        newSortTrigger.onclick = (e) => {
-            e.stopPropagation();
-            if (genreVisual) genreVisual.classList.remove('open');
-            sortVisual.classList.toggle('open');
-        };
-    }
-    document.onclick = (e) => {
-        if (genreVisual && !genreVisual.contains(e.target)) genreVisual.classList.remove('open');
-        if (sortVisual && !sortVisual.contains(e.target)) sortVisual.classList.remove('open');
+    
+    // Configurar eventos
+    const configDropdown = (trigger, visual) => {
+        const newTrigger = trigger.cloneNode(true);
+        trigger.parentNode.replaceChild(newTrigger, trigger);
+        newTrigger.onclick = (e) => { e.stopPropagation(); visual.classList.toggle('open'); };
     };
+    if(document.getElementById('genre-trigger')) configDropdown(document.getElementById('genre-trigger'), genreVisual);
+    if(document.getElementById('sort-trigger')) configDropdown(document.getElementById('sort-trigger'), sortVisual);
+    
+    if(DOM.ucmSortButtons) DOM.ucmSortButtons.forEach(btn => {
+        btn.onclick = (e) => {
+            DOM.ucmSortButtons.forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            applyAndDisplayFilters(type);
+        };
+    });
 }
 
 async function applyAndDisplayFilters(type) {
-    // 1. Selección de Fuente de Datos
     let sourceData;
     if (type === 'movie') sourceData = appState.content.movies;
     else if (type === 'series') sourceData = appState.content.series;
-    else if (type === 'ucm') sourceData = appState.content.ucm;
+    else sourceData = appState.content.sagas[type]; 
 
     const gridEl = DOM.gridContainer.querySelector('.grid');
     if (!gridEl || !sourceData) return;
 
-    // 2. Detectar Criterio de Ordenamiento
+    // Config Excel
+    const sagaConfig = appState.content.sagasList.find(s => s.id === type);
+    const mode = String(sagaConfig ? (sagaConfig.filters || 'si') : 'si').toLowerCase().trim();
+    const filtersDisabled = (mode === 'no');
+
+    // Determinar Orden
     let sortByValue;
-    const selectedFilterValue = DOM.genreFilter.value;
-
-    if (type === 'ucm') {
-        const activeBtn = document.querySelector('.sort-btn.active');
-        sortByValue = activeBtn ? activeBtn.dataset.sort : 'release';
+    if (filtersDisabled) {
+        sortByValue = 'release'; 
     } else {
-        sortByValue = DOM.sortBy.value;
-    }
-
-    // 3. Texto de Carga
-    gridEl.innerHTML = `
-        <div style="width: 100%; height: 60vh; display: flex; justify-content: center; align-items: center; grid-column: 1 / -1;">
-            <div class="loading-text">Cargando...</div>
-        </div>`;
-
-    // --- CONVERTIR A ARRAY ---
-    // Tu API ya devuelve los datos invertidos (Fila 100, Fila 99... Fila 1)
-    // Así que 'content' NACE ordenado por "Recientes".
-    let content = Object.entries(sourceData);
-
-    // 4. Filtrar datos (Fases / Géneros)
-    if (selectedFilterValue !== 'all') {
-        if (type === 'ucm') {
-            content = content.filter(([id, item]) => {
-                const faseRaw = String(item.fase || '').trim();
-                const faseNum = faseRaw.replace(/\D/g, ''); 
-
-                if (selectedFilterValue === 'saga_infinity') return ['1', '2', '3'].includes(faseNum);
-                if (selectedFilterValue === 'saga_multiverse') return ['4', '5', '6'].includes(faseNum);
-                if (selectedFilterValue === 'saga_mutant') return ['98', '99'].includes(faseNum);
-                
-                return faseNum === selectedFilterValue || faseRaw === selectedFilterValue;
-            });
+        if (type === 'ucm' || type === 'starwars') {
+            const activeBtn = document.querySelector('.sort-btn.active');
+            sortByValue = activeBtn ? activeBtn.dataset.sort : 'release';
         } else {
-            content = content.filter(([id, item]) => 
-                String(item.genres || '').toLowerCase().includes(selectedFilterValue.toLowerCase())
-            );
+            sortByValue = DOM.sortBy.value;
         }
     }
 
-    // ============================================================
-    // 5. ORDENAMIENTO (CORREGIDO PARA TU API)
-    // ============================================================
-    
-    // Helper para limpiar texto (quita tildes y mayúsculas)
-    const cleanStr = (str) => String(str || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    gridEl.innerHTML = `<div style="width:100%;height:60vh;display:flex;justify-content:center;align-items:center;grid-column:1/-1;"><p class="loading-text">Cargando...</p></div>`;
 
-    if (sortByValue === 'recent') {
-        // 🔥 MODO RECIENTES: NO HACER NADA.
-        // Tu API ya manda los datos invertidos (del último agregado al primero).
-        // Cualquier sort o reverse aquí rompería ese orden perfecto.
+    let content = Object.entries(sourceData);
+
+    // 🔥 FIX ORDEN: Invertimos para que coincida con las filas del Excel (1, 2, 3...)
+    // Si te salen al revés (Endgame primero), BORRA ESTA LÍNEA.
+    content.reverse(); 
+
+    // FILTRADO
+    if (!filtersDisabled && mode !== 'botones' && DOM.genreFilter.value !== 'all') {
+        const filterVal = DOM.genreFilter.value.toLowerCase().trim(); 
         
+        content = content.filter(([id, item]) => {
+            if (type === 'ucm') {
+                const fase = String(item.fase || '').trim();
+                
+                if (filterVal === 'saga_infinity') return ['1','2','3'].includes(fase);
+                if (filterVal === 'saga_multiverse') return ['4','5','6'].includes(fase);
+                
+                return fase === filterVal;
+            }
+            return String(item.genres || '').toLowerCase().includes(filterVal);
+        });
+    }
+
+    // ORDENAMIENTO
+    if (sortByValue === 'recent') {
+        content.reverse(); 
     } else {
-        // OTROS MODOS: Aquí sí ordenamos
         content.sort((a, b) => {
             const aData = a[1];
             const bData = b[1];
 
-            switch (sortByValue) {
-                // UCM
-                case 'chronological':
-                    return (Number(aData.cronologia)||999) - (Number(bData.cronologia)||999);
-                
-                case 'release': 
-                    const yearDiff = (Number(aData.year)||0) - (Number(bData.year)||0);
-                    if (yearDiff === 0) return (Number(aData.cronologia)||999) - (Number(bData.cronologia)||999);
-                    return yearDiff;
+            if (sortByValue === 'release') return 0;
 
-                // GENERAL
-                case 'title-asc': // A - Z
-                    return cleanStr(aData.title).localeCompare(cleanStr(bData.title));
-
-                case 'title-desc': // Z - A
-                    return cleanStr(bData.title).localeCompare(cleanStr(aData.title));
-
-                case 'year-desc': // 2024 -> 1990
-                    return (Number(bData.year)||0) - (Number(aData.year)||0);
-
-                case 'year-asc': // 1990 -> 2024
-                    return (Number(aData.year)||0) - (Number(bData.year)||0);
-
-                default: 
-                    return 0;
+            if (sortByValue === 'chronological') {
+                return (Number(aData.cronologia) || 9999) - (Number(bData.cronologia) || 9999);
             }
+            if (sortByValue === 'year-asc') {
+                return (Number(aData.year) || 9999) - (Number(bData.year) || 9999);
+            }
+            if (sortByValue === 'title-asc') {
+                return (aData.title || '').localeCompare(bData.title || '');
+            }
+            return 0;
         });
     }
 
-    // ============================================================
-    // 6. LÓGICA DE DESGLOSE UCM (TEMPORADAS)
-    // ============================================================
-    if (type === 'ucm' && sortByValue === 'chronological') {
+    // Expansión Temporadas
+    if ((type === 'ucm' || type === 'starwars') && sortByValue === 'chronological') {
         const expandedContent = [];
         content.forEach(([id, item]) => {
-            // Buscamos cronologiaMulti o cronologia_multi (soporte doble)
             const multiChrono = item.cronologiaMulti || item.cronologia_multi; 
-            
             if (multiChrono) {
-                const t1 = { ...item }; t1.title = `${item.title} (T1)`;
+                const t1 = { ...item, title: `${item.title} (T1)` };
                 expandedContent.push([id, t1]); 
-                
                 String(multiChrono).split(',').map(c => c.trim()).forEach((chronoVal, index) => {
-                    const tNext = { ...item }; tNext.title = `${item.title} (T${index + 2})`;
-                    tNext.cronologia = chronoVal; 
+                    const tNext = { ...item, title: `${item.title} (T${index + 2})`, cronologia: chronoVal };
                     expandedContent.push([id, tNext]); 
                 });
-            } else { expandedContent.push([id, item]); }
+            } else { 
+                expandedContent.push([id, item]); 
+            }
         });
         expandedContent.sort((a, b) => (Number(a[1].cronologia)||999) - (Number(b[1].cronologia)||999));
         content = expandedContent;
     }
-    
-    // 7. Renderizar
+
+    // Render
     appState.ui.contentToDisplay = content;
     appState.ui.currentIndex = 0; 
     setupPaginationControls();
@@ -1265,9 +1182,7 @@ async function applyAndDisplayFilters(type) {
     const firstPageItems = content.slice(0, ITEMS_PER_LOAD);
     const imagePromises = firstPageItems.map(([id, item]) => preloadImage(item.poster));
 
-    try {
-        await Promise.race([Promise.all(imagePromises), new Promise(r => setTimeout(r, 2000))]);
-    } catch (e) {}
+    try { await Promise.race([Promise.all(imagePromises), new Promise(r => setTimeout(r, 1000))]); } catch (e) {}
 
     renderCurrentPage();
 }
@@ -1745,34 +1660,37 @@ async function openDetailsModal(id, type, triggerElement = null) {
     try {
         const modal = DOM.detailsModal;
         const panel = modal.querySelector('.details-panel'); 
-        
-        const detailsPoster = document.getElementById('details-poster-img');
-        const detailsTitle = document.getElementById('details-title');
-        const detailsYear = document.getElementById('details-year');
-        const detailsGenres = document.getElementById('details-genres');
-        const detailsSynopsis = document.getElementById('details-synopsis');
         const detailsButtons = document.getElementById('details-buttons');
 
         // =========================================================
-        // 1. CORRECCIÓN DE BÚSQUEDA DE DATOS (Soporte UCM)
+        // 🔥 BÚSQUEDA INTELIGENTE UNIVERSAL
         // =========================================================
-        let data;
-        
-        // Primero intentamos buscar según el tipo que nos llega
-        if (type === 'movie') data = appState.content.movies[id];
-        else if (type === 'series') data = appState.content.series[id];
-        else if (type === 'ucm') data = appState.content.ucm ? appState.content.ucm[id] : undefined;
+        let data = null;
 
-        // 🔥 FIX CRÍTICO: Si no se encontró, buscamos OBLIGATORIAMENTE en UCM
-        // Esto arregla el error cuando la grilla dice que es "movie" pero la data vive en "ucm"
-        if (!data && appState.content.ucm && appState.content.ucm[id]) {
-            data = appState.content.ucm[id];
+        // 1. Buscar en listas estándar
+        if (appState.content.movies[id]) { 
+            data = appState.content.movies[id]; type = 'movie'; 
+        }
+        else if (appState.content.series[id]) { 
+            data = appState.content.series[id]; type = 'series'; 
+        }
+        else if (appState.content.ucm && appState.content.ucm[id]) { 
+            data = appState.content.ucm[id]; 
+            type = (data.type === 'series' || appState.content.seriesEpisodes[id]) ? 'series' : 'movie';
         }
 
-        // Fallback final: Buscar en cualquier lado si aun no aparece
-        if (!data) {
-            if (appState.content.movies[id]) { data = appState.content.movies[id]; type = 'movie'; }
-            else if (appState.content.series[id]) { data = appState.content.series[id]; type = 'series'; }
+        // 2. 🔥 BUSCAR EN SAGAS DINÁMICAS (Harry Potter, Star Wars, etc.)
+        if (!data && appState.content.sagas) {
+            // Recorremos cada saga (ej: 'harrypotter', 'starwars')
+            for (const sagaKey in appState.content.sagas) {
+                const sagaData = appState.content.sagas[sagaKey];
+                if (sagaData && sagaData[id]) {
+                    data = sagaData[id];
+                    // Si el Excel tiene columna 'type', lo usamos. Si no, asumimos movie.
+                    type = (data.type === 'series' || appState.content.seriesEpisodes[id]) ? 'series' : 'movie';
+                    break; // Encontrado, dejamos de buscar
+                }
+            }
         }
 
         if (!data) {
@@ -1781,108 +1699,79 @@ async function openDetailsModal(id, type, triggerElement = null) {
         }
 
         // =========================================================
-        // 2. DETERMINAR SI ES CONTENIDO DE SERIE O PELÍCULA
+        // RENDERIZADO
         // =========================================================
-        // Verificamos si es serie explícitamente O si es del UCM marcado como serie O si tiene episodios
-        const isSeriesContent = type === 'series' || 
-                                (data.type === 'series') || 
-                                (appState.content.seriesEpisodes[id]);
-
-        detailsButtons.innerHTML = '';
-        detailsPoster.src = data.poster || '';
+        const isSeries = (type === 'series');
         
-        if (data.banner && data.banner.trim() !== '') {
+        // Textos e Imagen
+        document.getElementById('details-title').textContent = data.title || '';
+        document.getElementById('details-year').textContent = data.year ? `(${data.year})` : '';
+        document.getElementById('details-genres').textContent = data.genres || '';
+        document.getElementById('details-synopsis').textContent = data.synopsis || 'Sin descripción.';
+        document.getElementById('details-poster-img').src = data.poster || '';
+
+        // Fondo (Banner)
+        if (data.banner && data.banner.length > 5) {
             panel.style.backgroundImage = `url(${data.banner})`;
         } else {
             panel.style.backgroundImage = 'none';
-            panel.style.backgroundColor = '#181818';
-        }
-        
-        detailsTitle.textContent = data.title || 'Sin título';
-        detailsYear.textContent = data.year ? `(${data.year})` : '';
-        detailsGenres.textContent = data.genres || '';
-        detailsSynopsis.textContent = data.synopsis || 'Sin descripción disponible.';
-
-        // 3. Botón Mi Lista (Watchlist)
-        let listBtn = null; 
-        const user = auth.currentUser;
-        if (user) {
-            const isInList = appState.user.watchlist.has(id);
-            listBtn = document.createElement('button');
-            listBtn.className = `btn btn-watchlist ${isInList ? 'in-list' : ''}`;
-            listBtn.dataset.contentId = id;
-            listBtn.innerHTML = `<i class="fas ${isInList ? 'fa-check' : 'fa-plus'}"></i>`; 
-            listBtn.addEventListener('click', () => handleWatchlistClick(listBtn));
+            panel.style.backgroundColor = '#1a1a1a';
         }
 
-        // 4. Botón Ver Ahora (Play)
+        // Botones
+        detailsButtons.innerHTML = '';
+
+        // 1. Botón PLAY
         const playBtn = document.createElement('button');
         playBtn.className = 'btn btn-play';
         playBtn.innerHTML = `<i class="fas fa-play"></i> Ver ahora`;
-        playBtn.addEventListener('click', async () => { 
+        playBtn.onclick = async () => {
             closeAllModals();
             const player = await getPlayerModule();
-            
-            if (isSeriesContent) {
-                // Si es serie (o serie de Marvel), abrir Player de Series
-                player.openSeriesPlayer(id, false);
-            } else {
-                // Si es película (o peli de Marvel), abrir Player de Películas
-                // Pasamos el título para que aparezca en el reproductor
-                player.openPlayerModal(id, data.title); 
-            }
-        });
+            if (isSeries) player.openSeriesPlayer(id);
+            else player.openPlayerModal(id, data.title);
+        };
         detailsButtons.appendChild(playBtn);
 
-        // 5. Botones específicos de Series (Temporadas y Aleatorio)
-        if (isSeriesContent) {
-            const seriesEpisodes = appState.content.seriesEpisodes[id] || {};
-            const seasonCount = Object.keys(seriesEpisodes).length;
-            
-            // Botón "Temporadas" si hay más de una
-            if (seasonCount > 1) { 
+        // 2. Botón Temporadas (Solo Series)
+        if (isSeries) {
+            const episodes = appState.content.seriesEpisodes[id] || {};
+            if (Object.keys(episodes).length > 0) {
                 const infoBtn = document.createElement('button');
                 infoBtn.className = 'btn btn-info';
-                infoBtn.innerHTML = `<i class="fas fa-tv"></i> Temporadas`;
-                infoBtn.addEventListener('click', async () => { 
+                infoBtn.innerHTML = `<i class="fas fa-list"></i> Temporadas`;
+                infoBtn.onclick = async () => {
                     closeAllModals();
                     const player = await getPlayerModule();
-                    player.openSeriesPlayer(id, true);
-                });
+                    player.openSeriesPlayer(id, true); // true = forzar vista de temporadas
+                };
                 detailsButtons.appendChild(infoBtn);
-            }
-
-            // Botón "Aleatorio"
-            if (data.random?.toLowerCase() === 'sí') {
-                const randomBtn = document.createElement('button');
-                randomBtn.className = 'btn btn-random'; 
-                randomBtn.innerHTML = `🎲 Aleatorio`;
-                randomBtn.addEventListener('click', async () => { 
-                    const player = await getPlayerModule();
-                    player.playRandomEpisode(id)
-                });
-                detailsButtons.appendChild(randomBtn);
             }
         }
 
-        // Agregar botón de lista al final
-        if (listBtn) {
+        // 3. Botón Mi Lista
+        if (auth.currentUser) {
+            const listBtn = document.createElement('button');
+            const inList = appState.user.watchlist.has(id);
+            listBtn.className = `btn btn-watchlist ${inList ? 'in-list' : ''}`;
+            listBtn.innerHTML = `<i class="fas ${inList ? 'fa-check' : 'fa-plus'}"></i>`;
+            listBtn.onclick = () => handleWatchlistClick(listBtn);
+            // Truco para dataset
+            listBtn.setAttribute('data-content-id', id); 
             detailsButtons.appendChild(listBtn);
         }
 
+        // Mostrar Modal
         modal.classList.add('show');
         document.body.classList.add('modal-open');
 
+        // Configurar cerrar
         const closeBtn = modal.querySelector('.close-btn');
-        if (closeBtn) {
-            closeBtn.onclick = () => {
-                modal.classList.remove('show');
-                document.body.classList.remove('modal-open');
-            };
-        }
-    } catch (error) {
-        console.error('Error en openDetailsModal:', error);
-        ErrorHandler.show('content', 'Ocurrió un error al abrir los detalles.');
+        if(closeBtn) closeBtn.onclick = closeAllModals;
+
+    } catch (e) {
+        console.error(e);
+        if(typeof logError === 'function') logError(e, 'Open Details');
     }
 }
 
@@ -2368,5 +2257,55 @@ function setupPageVisibilityHandler() {
                 }
             }, 1000); 
         }
+    });
+}
+
+// ===========================================================
+// 🔥 RENDERIZADO DE HUB SAGAS (CON BANNERS)
+// ===========================================================
+function renderSagasHub() {
+    const container = document.getElementById('sagas-grid-dynamic');
+    if (!container) return;
+    
+    // Obtenemos la lista y la ordenamos por la columna 'order'
+    // Aseguramos que sea un array
+    const sagas = Array.isArray(appState.content.sagasList) 
+        ? appState.content.sagasList 
+        : Object.values(appState.content.sagasList || {});
+
+    // Ordenar (si el campo order está vacío, lo manda al final)
+    sagas.sort((a, b) => (Number(a.order) || 99) - (Number(b.order) || 99));
+
+    container.innerHTML = '';
+
+    if (sagas.length === 0) {
+        container.innerHTML = '<p class="loading-text" style="font-size:1.5rem">Cargando sagas...</p>';
+        return;
+    }
+
+    sagas.forEach(saga => {
+        const card = document.createElement('div');
+        card.className = 'saga-card';
+        card.dataset.saga = saga.id;
+        
+        // Color y Banner
+        const color = saga.color || '#ffffff';
+        card.style.setProperty('--hover-color', color);
+
+        if (saga.banner && saga.banner.trim() !== "") {
+            card.style.backgroundImage = `url('${saga.banner}')`;
+        }
+
+        // Clic
+        card.onclick = () => {
+            switchView(saga.id); 
+        };
+
+        // 🔥 SIN FILTROS RAROS: Se verá el dorado original
+        card.innerHTML = `
+            <img src="${saga.logo}" alt="${saga.title}" class="saga-logo">
+        `;
+
+        container.appendChild(card);
     });
 }
