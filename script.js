@@ -2279,7 +2279,7 @@ function renderSagasHub() {
     container.innerHTML = '';
 
     if (sagas.length === 0) {
-        container.innerHTML = '<p class="loading-text" style="font-size:1.5rem">Cargando sagas...</p>';
+        container.innerHTML = '<p class="loading-text" style="font-size:1.5rem">Cargando...</p>';
         return;
     }
 
@@ -2309,3 +2309,4 @@ function renderSagasHub() {
         container.appendChild(card);
     });
 }
+
