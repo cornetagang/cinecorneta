@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL (MODULAR)
-// Versión: 5.0.0 (Optimizada)
+// Versión: 5.2.0 (Optimizada)
 // ===========================================================
 
 import { logError } from './logger.js';
@@ -553,7 +553,43 @@ function preloadImage(url) {
 async function fetchInitialDataWithCache() {
     const startLoadTime = Date.now();
 
-    // Función para procesar los datos principales
+    // =========================================================================
+    // 📡 SISTEMA DE ACTUALIZACIÓN EN TIEMPO REAL (ADMIN MODE)
+    // =========================================================================
+    // Escucha la señal de Firebase 'last_update'. Si cambia, borra caché y recarga.
+    if (typeof db !== 'undefined') {
+        const updatesRef = db.ref('system_metadata/last_update');
+        updatesRef.on('value', (snapshot) => {
+            const serverLastUpdate = snapshot.val();
+            const localLastUpdate = localStorage.getItem('local_last_update');
+
+            // Caso 1: Hay una versión más nueva en el servidor -> ACTUALIZAR TODO
+            if (serverLastUpdate && localLastUpdate && serverLastUpdate > localLastUpdate) {
+                console.log('🔄 ADMIN: Nueva versión detectada. Actualizando caché...');
+                
+                // 1. Actualizamos la fecha local
+                localStorage.setItem('local_last_update', serverLastUpdate);
+                
+                // 2. Borramos la caché vieja
+                if (window.cacheManager) {
+                    window.cacheManager.clearAll();
+                } else {
+                    localStorage.clear();
+                }
+                
+                // 3. Recargamos la página para todos los usuarios conectados
+                window.location.reload();
+            } 
+            // Caso 2: Primera vez que entramos o no hay fecha local -> SINCRONIZAR
+            else if (serverLastUpdate && !localLastUpdate) {
+                localStorage.setItem('local_last_update', serverLastUpdate);
+            }
+        });
+    }
+
+    // =========================================================================
+    // ⚙️ FUNCIONES INTERNAS DE PROCESAMIENTO
+    // =========================================================================
     const processData = (data) => {
         appState.content.movies = data.allMovies || {};
         appState.content.series = data.series || {};
@@ -563,8 +599,7 @@ async function fetchInitialDataWithCache() {
         // Procesamos la lista de sagas
         appState.content.sagasList = Object.values(data.sagas_list || {});
         
-        // 🔥 MAGIA DINÁMICA: Asignamos el contenido de cada saga a su ID
-        // Si data.ucm existe, se guarda en appState.content.sagas.ucm
+        // Asignamos el contenido de cada saga a su ID dinámicamente
         if (appState.content.sagasList.length > 0) {
             appState.content.sagasList.forEach(saga => {
                 if (data[saga.id]) {
@@ -574,7 +609,6 @@ async function fetchInitialDataWithCache() {
         }
     };
 
-    // Función de renderizado (Igual que antes)
     const setupAndShow = async (movieMeta, seriesMeta) => {
         appState.content.metadata.movies = movieMeta || {};
         appState.content.metadata.series = seriesMeta || {};
@@ -587,9 +621,8 @@ async function fetchInitialDataWithCache() {
         setupSearch();
         setupPageVisibilityHandler();
 
+        // Determinar qué vista mostrar según la URL o navegación
         const activeFilter = document.querySelector('.main-nav a.active, .mobile-nav a.active')?.dataset.filter || 'all';
-        
-        // Verificamos si el filtro activo es una de nuestras sagas dinámicas
         const isSaga = appState.content.sagas[activeFilter];
 
         if (['movie', 'series'].includes(activeFilter) || isSaga) {
@@ -598,7 +631,7 @@ async function fetchInitialDataWithCache() {
             switchView('sagas');
         }
 
-        // TRANSICIÓN DE ENTRADA
+        // Transición de entrada suave (fade in)
         const timeElapsed = Date.now() - startLoadTime;
         const remainingTime = Math.max(0, 800 - timeElapsed);
         await new Promise(r => setTimeout(r, remainingTime));
@@ -613,26 +646,31 @@ async function fetchInitialDataWithCache() {
         });
     };
 
-    // --- CARGA DE DATOS ---
+    // =========================================================================
+    // 🚀 LÓGICA DE CARGA: CACHÉ VS INTERNET
+    // =========================================================================
     const cachedContent = cacheManager.get(cacheManager.keys.content);
     const cachedMetadata = cacheManager.get(cacheManager.keys.metadata);
 
+    // --- OPCIÓN A: USAR CACHÉ (Rápido) ---
     if (cachedContent) {
         console.log('✓ Iniciando desde caché...');
         processData(cachedContent);
         await setupAndShow(cachedMetadata?.movies, cachedMetadata?.series);
-        refreshDataInBackground(); 
+        refreshDataInBackground(); // Actualiza silenciosamente por si acaso
         
-        // Historial
+        // Cargar Historial "Continuar Viendo" si hay usuario
         const user = auth.currentUser;
         if (user) {
             db.ref(`users/${user.uid}/history`).orderByChild('viewedAt').once('value', snapshot => {
                 if (snapshot.exists()) generateContinueWatchingCarousel(snapshot);
             });
         }
-    } else {
+    } 
+    // --- OPCIÓN B: DESCARGAR DE INTERNET (Primera vez o caché borrada) ---
+    else {
         try {
-            console.log('⟳ Descargando base de datos inteligente...');
+            console.log('⟳ Descargando base de datos completa...');
             
             // 1. CARGA INICIAL: Estructura base + LISTA DE SAGAS
             const [series, episodes, allMovies, posters, sagasListData, movieMeta, seriesMeta] = await Promise.all([
@@ -640,20 +678,18 @@ async function fetchInitialDataWithCache() {
                 ErrorHandler.fetchOperation(`${API_URL}?data=episodes`),
                 ErrorHandler.fetchOperation(`${API_URL}?data=allMovies&order=desc`),
                 ErrorHandler.fetchOperation(`${API_URL}?data=PostersTemporadas`),
-                ErrorHandler.fetchOperation(`${API_URL}?data=sagas_list`), // Pedimos la lista primero
+                ErrorHandler.fetchOperation(`${API_URL}?data=sagas_list`),
                 db.ref('movie_metadata').once('value').then(s => s.val() || {}),
                 db.ref('series_metadata').once('value').then(s => s.val() || {})
             ]);
 
-            // 2. CARGA DINÁMICA DE SAGAS
-            // Usamos la lista descargada para saber qué más pedir
+            // 2. CARGA DINÁMICA DE SAGAS (Una petición por cada saga en la lista)
             const sagasArray = Object.values(sagasListData || {});
             const sagasRequests = sagasArray.map(saga => 
                 ErrorHandler.fetchOperation(`${API_URL}?data=${saga.id}`)
-                .then(data => ({ id: saga.id, data: data })) // Retornamos ID y datos juntos
+                .then(data => ({ id: saga.id, data: data }))
             );
 
-            // Esperamos a que lleguen todas las sagas
             const sagasResults = await Promise.all(sagasRequests);
 
             // 3. ARMADO DEL PAQUETE FINAL
@@ -662,20 +698,23 @@ async function fetchInitialDataWithCache() {
                 sagas_list: sagasListData 
             };
 
-            // Inyectamos cada saga en el paquete content
+            // Inyectamos cada saga descargada
             sagasResults.forEach(item => {
                 freshContent[item.id] = item.data;
             });
             
             const freshMetadata = { movies: movieMeta, series: seriesMeta };
 
+            // 4. GUARDAR EN CACHÉ Y RENDERIZAR
             processData(freshContent);
             cacheManager.set(cacheManager.keys.content, freshContent);
             cacheManager.set(cacheManager.keys.metadata, freshMetadata);
+            
+            // 🔥 Guardamos la fecha actual como referencia inicial para el actualizador
+            localStorage.setItem('local_last_update', Date.now());
 
             await setupAndShow(freshMetadata.movies, freshMetadata.series);
             
-            // Historial
             const user = auth.currentUser;
             if (user) {
                 db.ref(`users/${user.uid}/history`).orderByChild('viewedAt').once('value', snapshot => {
@@ -684,8 +723,12 @@ async function fetchInitialDataWithCache() {
             }
 
         } catch (error) {
-            console.error('✗ Error crítico:', error);
-            if (DOM.preloader) DOM.preloader.innerHTML = `<div style="text-align: center; color: white;"><p>Error de conexión</p><button onclick="location.reload()" class="btn-primary">Reintentar</button></div>`;
+            console.error('✗ Error crítico en carga inicial:', error);
+            if (DOM.preloader) DOM.preloader.innerHTML = `
+                <div style="text-align: center; color: white;">
+                    <p>Error de conexión</p>
+                    <button onclick="location.reload()" class="btn-primary" style="margin-top:10px;">Reintentar</button>
+                </div>`;
         }
     }
 }
@@ -923,14 +966,14 @@ function populateFilters(type) {
     
     if (controlsContainer) controlsContainer.style.display = 'flex';
 
-    // CONFIGURACIÓN VISIBILIDAD
+    // CONFIGURACIÓN VISIBILIDAD SEGÚN EL EXCEL (Columna filters: si, no, botones)
     const sagaConfig = appState.content.sagasList.find(s => s.id === type);
     const mode = String(sagaConfig ? (sagaConfig.filters || 'si') : 'si').toLowerCase().trim();
 
-    // Reset
+    // Reset visual
     if (genreVisual) genreVisual.style.display = 'block';
     
-    // CASO "NO"
+    // CASO "NO": Ocultar todo
     if (mode === 'no') {
         if (genreVisual) genreVisual.style.display = 'none';
         if (sortVisual) sortVisual.style.display = 'none';
@@ -938,16 +981,17 @@ function populateFilters(type) {
         return; 
     }
 
-    // CASO "BOTONES"
+    // CASO "BOTONES": Ocultar dropdown de género visualmente pero mantener lógica
     if (mode === 'botones') {
         if (genreVisual) genreVisual.style.display = 'none';
         DOM.genreFilter.value = 'all'; 
     }
 
-    // GENERAR MENÚS
+    // GENERAR MENÚS (Limpieza inicial)
     const genreList = document.getElementById('genre-menu-list');
     const sortList = document.getElementById('sort-menu-list');
     
+    // Función auxiliar para crear items del menú
     const createItem = (value, label, menuType, isGroup = false, imgUrl = null) => {
         const div = document.createElement('div');
         div.className = isGroup ? 'dropdown-group-title' : 'dropdown-item';
@@ -966,7 +1010,7 @@ function populateFilters(type) {
             if (menuType === 'genre') {
                 document.getElementById('genre-text').textContent = label; 
                 DOM.genreFilter.value = value; 
-                genreVisual.classList.remove('open');
+                if (genreVisual) genreVisual.classList.remove('open');
             } else {
                 document.getElementById('sort-text').textContent = label;
                 DOM.sortBy.value = value;
@@ -982,7 +1026,9 @@ function populateFilters(type) {
         DOM.genreFilter.innerHTML = `<option value="all">Todos</option>`; 
     }
 
-    // --- MARVEL / STAR WARS ---
+    // =================================================================
+    // LÓGICA ESPECÍFICA: MARVEL Y STAR WARS (No tocamos esto)
+    // =================================================================
     if (type === 'ucm' || type === 'starwars') {
         if (mode !== 'botones' && type === 'ucm') {
             const fasesRaw = Object.values(sourceData).map(item => String(item.fase || '').trim()).filter(Boolean);
@@ -1006,13 +1052,8 @@ function populateFilters(type) {
             ];
             
             estructuraSagas.forEach(saga => {
-                 // 1. Crear el elemento visual (Imagen)
                  genreList.appendChild(createItem(saga.id, saga.titulo, 'genre', true, saga.img));
-                 
-                 // 🔥 FIX CRUCIAL: Agregar la opción al SELECT oculto para que funcione el filtro
                  DOM.genreFilter.innerHTML += `<option value="${saga.id}">${saga.titulo}</option>`;
-
-                 // 2. Crear las fases hijas
                  saga.fases.forEach(f => { 
                      if(fasesDisponibles.has(f)) {
                          genreList.appendChild(createItem(f, `Fase ${f}`, 'genre'));
@@ -1036,7 +1077,9 @@ function populateFilters(type) {
         if (ucmButtons) ucmButtons.style.display = 'flex';
         
     } else {
-        // GÉNERICO
+        // =================================================================
+        // LÓGICA GENÉRICA: PELÍCULAS, SERIES Y OTRAS SAGAS (¡Aquí está lo nuevo!)
+        // =================================================================
         if (mode !== 'botones') {
             const genres = new Set(Object.values(sourceData).flatMap(i => i.genres ? String(i.genres).split(';') : []));
             genreList.appendChild(createItem('all', 'Todos', 'genre'));
@@ -1054,15 +1097,25 @@ function populateFilters(type) {
         if (ucmButtons) ucmButtons.style.display = 'none';
         
         sortList.innerHTML = '';
-        const sortOptions = [{val:'recent', label:'Recientes'}, {val:'year-asc', label:'Año (Asc)'}, {val:'title-asc', label:'A-Z'}];
+        
+        // 🔥 ACTUALIZADO: LISTA COMPLETA DE OPCIONES
+        const sortOptions = [
+            {val:'recent', label:'Recientes'},
+            {val:'year-desc', label:'Año (Des)'},    // Nuevo: 2024 -> 1990
+            {val:'year-asc', label:'Año (Asc)'},     // Nuevo: 1990 -> 2024
+            {val:'title-asc', label:'Título (A-Z)'}, // Renombrado
+            {val:'title-desc', label:'Título (Z-A)'} // Nuevo
+        ];
+
         sortOptions.forEach(o => {
             sortList.appendChild(createItem(o.val, o.label, 'sort'));
             DOM.sortBy.innerHTML += `<option value="${o.val}">${o.label}</option>`;
         });
     }
     
-    // Configurar eventos
+    // Configurar eventos de apertura/cierre de menús
     const configDropdown = (trigger, visual) => {
+        if (!trigger) return;
         const newTrigger = trigger.cloneNode(true);
         trigger.parentNode.replaceChild(newTrigger, trigger);
         newTrigger.onclick = (e) => { e.stopPropagation(); visual.classList.toggle('open'); };
@@ -1106,34 +1159,35 @@ async function applyAndDisplayFilters(type) {
         }
     }
 
+    // Loader
     gridEl.innerHTML = `<div style="width:100%;height:60vh;display:flex;justify-content:center;align-items:center;grid-column:1/-1;"><p class="loading-text">Cargando...</p></div>`;
 
     let content = Object.entries(sourceData);
 
-    // 🔥 FIX ORDEN: Invertimos para que coincida con las filas del Excel (1, 2, 3...)
-    // Si te salen al revés (Endgame primero), BORRA ESTA LÍNEA.
+    // Ajuste de orden inicial para coincidir con Excel (Recientes al final -> Recientes arriba)
     content.reverse(); 
 
-    // FILTRADO
+    // FILTRADO POR GÉNERO / FASE
     if (!filtersDisabled && mode !== 'botones' && DOM.genreFilter.value !== 'all') {
         const filterVal = DOM.genreFilter.value.toLowerCase().trim(); 
         
         content = content.filter(([id, item]) => {
             if (type === 'ucm') {
                 const fase = String(item.fase || '').trim();
-                
                 if (filterVal === 'saga_infinity') return ['1','2','3'].includes(fase);
                 if (filterVal === 'saga_multiverse') return ['4','5','6'].includes(fase);
-                
                 return fase === filterVal;
             }
             return String(item.genres || '').toLowerCase().includes(filterVal);
         });
     }
 
-    // ORDENAMIENTO
+    // =================================================================
+    // 🔥 LÓGICA DE ORDENAMIENTO ACTUALIZADA
+    // =================================================================
     if (sortByValue === 'recent') {
-        content.reverse(); 
+        // Como ya hicimos content.reverse() arriba, 'recent' es el estado natural
+        // No necesitamos hacer nada extra aquí.
     } else {
         content.sort((a, b) => {
             const aData = a[1];
@@ -1141,20 +1195,38 @@ async function applyAndDisplayFilters(type) {
 
             if (sortByValue === 'release') return 0;
 
+            // Cronología (Marvel/Star Wars)
             if (sortByValue === 'chronological') {
                 return (Number(aData.cronologia) || 9999) - (Number(bData.cronologia) || 9999);
             }
+
+            // NUEVOS FILTROS (Películas / Series / Sagas normales)
+            
+            // Año Ascendente (1980... 2024)
             if (sortByValue === 'year-asc') {
                 return (Number(aData.year) || 9999) - (Number(bData.year) || 9999);
             }
+
+            // Año Descendente (2024... 1980)
+            if (sortByValue === 'year-desc') {
+                return (Number(bData.year) || 0) - (Number(aData.year) || 0);
+            }
+
+            // Título A-Z
             if (sortByValue === 'title-asc') {
                 return (aData.title || '').localeCompare(bData.title || '');
             }
+
+            // Título Z-A
+            if (sortByValue === 'title-desc') {
+                return (bData.title || '').localeCompare(aData.title || '');
+            }
+
             return 0;
         });
     }
 
-    // Expansión Temporadas
+    // EXPANSIÓN DE TEMPORADAS (Solo UCM/Star Wars en modo cronológico)
     if ((type === 'ucm' || type === 'starwars') && sortByValue === 'chronological') {
         const expandedContent = [];
         content.forEach(([id, item]) => {
@@ -1170,11 +1242,12 @@ async function applyAndDisplayFilters(type) {
                 expandedContent.push([id, item]); 
             }
         });
+        // Reordenar tras expandir
         expandedContent.sort((a, b) => (Number(a[1].cronologia)||999) - (Number(b[1].cronologia)||999));
         content = expandedContent;
     }
 
-    // Render
+    // RENDERIZADO (Paginación y Grid)
     appState.ui.contentToDisplay = content;
     appState.ui.currentIndex = 0; 
     setupPaginationControls();
@@ -2279,7 +2352,7 @@ function renderSagasHub() {
     container.innerHTML = '';
 
     if (sagas.length === 0) {
-        container.innerHTML = '<p class="loading-text" style="font-size:1.5rem">Cargando...</p>';
+        container.innerHTML = '<p class="loading-text" style="font-size:1.5rem">Cargando sagas...</p>';
         return;
     }
 
@@ -2310,3 +2383,27 @@ function renderSagasHub() {
     });
 }
 
+// ===========================================================
+// 10. 🎯 EXPORTAR PARA USO GLOBAL
+// ===========================================================
+window.ErrorHandler = ErrorHandler;
+window.cacheManager = cacheManager;
+window.lazyLoader = lazyLoader;
+
+// 🔥 NUEVO: Función para el botón Maestro del Admin
+window.adminForceUpdate = () => {
+    console.log('👑 ADMIN: Forzando actualización de datos...');
+    
+    // 1. Borrar toda la caché local
+    if (window.cacheManager) {
+        window.cacheManager.clearAll();
+    } else {
+        localStorage.clear();
+    }
+
+    // 2. Recargar la página para traer datos frescos de Google Script
+    // El setTimeout es solo para que veas el efecto visual del botón un momento
+    setTimeout(() => {
+        location.reload(); 
+    }, 500);
+};
