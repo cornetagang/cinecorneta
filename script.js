@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL (MODULAR)
-// Versión: 5.2.4 (Optimizada)
+// Versión: 5.2.5 (Optimizada)
 // ===========================================================
 
 import { logError } from './logger.js';
@@ -448,7 +448,8 @@ const appState = {
         historyUpdateDebounceTimer: null
     },
     flags: {
-        isLoadingMore: false
+        isLoadingMore: false,
+        pendingUpdate: false
     },
     hero: {
         preloadedImages: new Map(),
@@ -554,33 +555,49 @@ async function fetchInitialDataWithCache() {
     const startLoadTime = Date.now();
 
     // =========================================================================
-    // 📡 SISTEMA DE ACTUALIZACIÓN EN TIEMPO REAL (ADMIN MODE)
+    // 📡 SISTEMA DE ACTUALIZACIÓN INTELIGENTE (NO INTERRUMPIR)
     // =========================================================================
-    // Escucha la señal de Firebase 'last_update'. Si cambia, borra caché y recarga.
     if (typeof db !== 'undefined') {
         const updatesRef = db.ref('system_metadata/last_update');
         updatesRef.on('value', (snapshot) => {
             const serverLastUpdate = snapshot.val();
             const localLastUpdate = localStorage.getItem('local_last_update');
 
-            // Caso 1: Hay una versión más nueva en el servidor -> ACTUALIZAR TODO
+            // Caso 1: Hay una versión más nueva en el servidor
             if (serverLastUpdate && localLastUpdate && serverLastUpdate > localLastUpdate) {
-                console.log('🔄 ADMIN: Nueva versión detectada. Actualizando caché...');
-                
-                // 1. Actualizamos la fecha local
-                localStorage.setItem('local_last_update', serverLastUpdate);
-                
-                // 2. Borramos la caché vieja
-                if (window.cacheManager) {
-                    window.cacheManager.clearAll();
+                console.log('🔄 ADMIN: Nueva versión detectada.');
+
+                // 1. ¿Hay alguien viendo algo? (Modal abierto)
+                const isWatching = document.body.classList.contains('modal-open');
+
+                if (isWatching) {
+                    // A: NO INTERRUMPIR. Bajamos datos en silencio y esperamos.
+                    console.log('🎬 Usuario ocupado. Actualizando caché en segundo plano...');
+                    appState.flags.pendingUpdate = true;
+                    
+                    // Actualizamos la fecha local para que no vuelva a saltar el loop
+                    localStorage.setItem('local_last_update', serverLastUpdate);
+                    
+                    // Llamamos a la función que baja los datos en silencio (sin recargar)
+                    refreshDataInBackground(); 
+                    
+                    // Opcional: Mostrar un aviso discreto que no moleste
+                    ErrorHandler.show('info', 'Actualización descargada. Se aplicará al cerrar el reproductor.', 4000);
+
                 } else {
-                    localStorage.clear();
+                    // B: NO HAY NADIE VIENDO. Actualizamos normal (inmediato).
+                    console.log('🚀 Aplicando actualización inmediata...');
+                    localStorage.setItem('local_last_update', serverLastUpdate);
+                    
+                    if (window.cacheManager) {
+                        window.cacheManager.clearAll();
+                    } else {
+                        localStorage.clear();
+                    }
+                    window.location.reload();
                 }
-                
-                // 3. Recargamos la página para todos los usuarios conectados
-                window.location.reload();
             } 
-            // Caso 2: Primera vez que entramos o no hay fecha local -> SINCRONIZAR
+            // Caso 2: Sincronización inicial
             else if (serverLastUpdate && !localLastUpdate) {
                 localStorage.setItem('local_last_update', serverLastUpdate);
             }
@@ -1721,12 +1738,28 @@ function createContinueWatchingCard(itemData) {
 // 5. MODALES (GENERAL, DETALLES)
 // ===========================================================
 function closeAllModals() {
+    // 1. Cerrar todos los modales visualmente
     document.querySelectorAll('.modal.show').forEach(modal => {
         modal.classList.remove('show');
         const iframe = modal.querySelector('iframe');
-        if (iframe) iframe.src = '';
+        if (iframe) iframe.src = ''; // Detener video
     });
     document.body.classList.remove('modal-open');
+
+    // 2. Limpieza específica del reproductor de series
+    if (typeof shared !== 'undefined' && shared.appState && shared.appState.player) {
+         shared.appState.player.activeSeriesId = null;
+    }
+
+    // 🔥 3. NUEVO: Si había una actualización pendiente, recargamos AHORA
+    if (appState.flags.pendingUpdate) {
+        console.log('🔄 Aplicando actualización pendiente tras cerrar modal...');
+        
+        // Pequeño delay para que la animación de cierre se vea fluida antes de recargar
+        setTimeout(() => {
+            window.location.reload();
+        }, 300);
+    }
 }
 
 async function openDetailsModal(id, type, triggerElement = null) {
