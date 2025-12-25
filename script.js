@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL (MODULAR)
-// Versión: 5.2.5 (Optimizada)
+// Versión: 5.2.6 (Optimizada)
 // ===========================================================
 
 import { logError } from './logger.js';
@@ -555,50 +555,54 @@ async function fetchInitialDataWithCache() {
     const startLoadTime = Date.now();
 
     // =========================================================================
-    // 📡 SISTEMA DE ACTUALIZACIÓN INTELIGENTE (NO INTERRUMPIR)
+    // 📡 SISTEMA DE ACTUALIZACIÓN INTELIGENTE (FIXED)
     // =========================================================================
     if (typeof db !== 'undefined') {
         const updatesRef = db.ref('system_metadata/last_update');
         updatesRef.on('value', (snapshot) => {
-            const serverLastUpdate = snapshot.val();
-            const localLastUpdate = localStorage.getItem('local_last_update');
+            // 1. Aseguramos que sean números para evitar errores de texto
+            const serverLastUpdate = Number(snapshot.val()); 
+            const localRaw = localStorage.getItem('local_last_update');
+            const localLastUpdate = localRaw ? Number(localRaw) : 0;
 
-            // Caso 1: Hay una versión más nueva en el servidor
-            if (serverLastUpdate && localLastUpdate && serverLastUpdate > localLastUpdate) {
+            console.log(`📡 Señal: Server(${serverLastUpdate}) vs Local(${localLastUpdate})`);
+
+            // Caso: Nueva versión detectada
+            if (serverLastUpdate > localLastUpdate) {
                 console.log('🔄 ADMIN: Nueva versión detectada.');
 
-                // 1. ¿Hay alguien viendo algo? (Modal abierto)
                 const isWatching = document.body.classList.contains('modal-open');
 
                 if (isWatching) {
-                    // A: NO INTERRUMPIR. Bajamos datos en silencio y esperamos.
-                    console.log('🎬 Usuario ocupado. Actualizando caché en segundo plano...');
+                    // A: SI ESTÁ VIENDO ALGO -> Actualizar en silencio (Segundo plano)
+                    console.log('🎬 Usuario ocupado. Actualizando en segundo plano...');
                     appState.flags.pendingUpdate = true;
                     
-                    // Actualizamos la fecha local para que no vuelva a saltar el loop
+                    // Guardamos la fecha YA para que no vuelva a intentar actualizarse en bucle
                     localStorage.setItem('local_last_update', serverLastUpdate);
-                    
-                    // Llamamos a la función que baja los datos en silencio (sin recargar)
                     refreshDataInBackground(); 
                     
-                    // Opcional: Mostrar un aviso discreto que no moleste
-                    ErrorHandler.show('info', 'Actualización descargada. Se aplicará al cerrar el reproductor.', 4000);
-
                 } else {
-                    // B: NO HAY NADIE VIENDO. Actualizamos normal (inmediato).
+                    // B: SI ESTÁ LIBRE -> Recarga inmediata
                     console.log('🚀 Aplicando actualización inmediata...');
-                    localStorage.setItem('local_last_update', serverLastUpdate);
                     
+                    // 🔥 PASO IMPORTANTE CORREGIDO:
+                    // 1. Primero borramos todo
                     if (window.cacheManager) {
                         window.cacheManager.clearAll();
                     } else {
                         localStorage.clear();
                     }
+                    
+                    // 2. Y LUEGO (muy importante) guardamos la nueva fecha
+                    // Así al reiniciar, el teléfono sabe que ya tiene la última versión
+                    localStorage.setItem('local_last_update', serverLastUpdate);
+
                     window.location.reload();
                 }
             } 
-            // Caso 2: Sincronización inicial
-            else if (serverLastUpdate && !localLastUpdate) {
+            // Caso: Primera vez que entramos (Sincronización inicial)
+            else if (serverLastUpdate && localLastUpdate === 0) {
                 localStorage.setItem('local_last_update', serverLastUpdate);
             }
         });
