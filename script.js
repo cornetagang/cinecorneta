@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL (MODULAR)
-// Versión: 5.2.0 (Optimizada)
+// Versión: 5.2.1 (Optimizada)
 // ===========================================================
 
 import { logError } from './logger.js';
@@ -1852,9 +1852,11 @@ async function openDetailsModal(id, type, triggerElement = null) {
 // 6. AUTENTICACIÓN Y DATOS DE USUARIO
 // ===========================================================
 function setupAuthListeners() {
+    // 1. Botones de Ingreso/Registro del Header
     if (DOM.loginBtnHeader) DOM.loginBtnHeader.addEventListener('click', () => openAuthModal(true));
     if (DOM.registerBtnHeader) DOM.registerBtnHeader.addEventListener('click', () => openAuthModal(false));
 
+    // 2. Link para cambiar entre Login/Registro en el modal
     if (DOM.switchAuthModeLink) {
         DOM.switchAuthModeLink.addEventListener('click', (e) => {
             e.preventDefault();
@@ -1863,6 +1865,7 @@ function setupAuthListeners() {
         });
     }
 
+    // 3. Manejo del Formulario de Registro
     if (DOM.registerForm) {
         DOM.registerForm.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -1876,6 +1879,7 @@ function setupAuthListeners() {
         });
     }
 
+    // 4. Manejo del Formulario de Login
     if (DOM.loginForm) {
         DOM.loginForm.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -1887,8 +1891,10 @@ function setupAuthListeners() {
         });
     }
 
+    // 5. Listener global de estado (Login/Logout detectado por Firebase)
     auth.onAuthStateChanged(updateUIAfterAuthStateChange);
 
+    // 6. Eliminar items del historial
     if (DOM.historyContainer) {
         DOM.historyContainer.addEventListener('click', (event) => {
             const removeButton = event.target.closest('.btn-remove-history');
@@ -1904,12 +1910,40 @@ function setupAuthListeners() {
         });
     }
 
+    // =========================================================
+    // 🛑 LOGICA DE CERRAR SESIÓN (CORREGIDA Y UNIFICADA)
+    // =========================================================
+    
+    // Función auxiliar para cerrar sesión limpia
+    const performLogout = (e) => {
+        e.preventDefault();
+        e.stopPropagation(); // Evita que otros scripts interfieran
+        console.log("Cerrando sesión...");
+        
+        auth.signOut().then(() => {
+            // Forzamos recarga para limpiar variables de memoria y caché visual
+            window.location.reload(); 
+        }).catch((error) => {
+            console.error("Error al salir:", error);
+            ErrorHandler.show('auth', 'Error al cerrar sesión.');
+        });
+    };
+
+    // A. Botón en el Menú Desplegable (Header)
+    const logoutBtnHeader = document.getElementById('logout-btn');
+    if (logoutBtnHeader) {
+        // Clonamos el nodo para eliminar listeners viejos (del profile.js) que puedan estar fallando
+        const newBtn = logoutBtnHeader.cloneNode(true);
+        logoutBtnHeader.parentNode.replaceChild(newBtn, logoutBtnHeader);
+        newBtn.addEventListener('click', performLogout);
+    }
+
+    // B. Botón en el Hub de Perfil (Móvil)
     const logoutBtnHub = document.getElementById('logout-btn-hub');
     if (logoutBtnHub) {
-        logoutBtnHub.addEventListener('click', (e) => {
-            e.preventDefault();
-            auth.signOut();
-        });
+        const newBtnHub = logoutBtnHub.cloneNode(true);
+        logoutBtnHub.parentNode.replaceChild(newBtnHub, logoutBtnHub);
+        newBtnHub.addEventListener('click', performLogout);
     }
 }
 
@@ -1928,23 +1962,36 @@ function updateUIAfterAuthStateChange(user) {
     const loggedOutElements = [DOM.authButtons];
 
     if (user) {
+        // 1. Mostrar elementos de usuario logueado
         loggedInElements.forEach(el => el && (el.style.display = 'flex'));
         loggedOutElements.forEach(el => el && (el.style.display = 'none'));
+        
+        // 2. Actualizar saludo
         const userName = user.displayName || user.email.split('@')[0];
         if (DOM.userGreetingBtn) DOM.userGreetingBtn.textContent = `Hola, ${userName}`;
         
+        // 3. Cargar lista y perfil
         db.ref(`users/${user.uid}/watchlist`).once('value', snapshot => {
             appState.user.watchlist = snapshot.exists() ? new Set(Object.keys(snapshot.val())) : new Set();
         });
 
         setupRealtimeHistoryListener(user);
-        
-        // 🆕 Carga el módulo de perfil/menú en background si el usuario inicia sesión
         getProfileModule();
 
+        // 🔥 FIX CLAVE: Forzar redirección a INICIO al entrar
+        // Esto evita la pantalla vacía al cerrar el modal de login
+        document.querySelectorAll('.main-nav a, .mobile-nav a').forEach(l => l.classList.remove('active'));
+        document.querySelectorAll('a[data-filter="all"]').forEach(l => l.classList.add('active'));
+        
+        // Muestra el Hero y los Carruseles
+        switchView('all'); 
+
     } else {
+        // 1. Ocultar elementos de usuario
         loggedInElements.forEach(el => el && (el.style.display = 'none'));
         loggedOutElements.forEach(el => el && (el.style.display = 'flex'));
+        
+        // 2. Limpiar datos en memoria
         appState.user.watchlist.clear();
         
         if (appState.user.historyListenerRef) {
@@ -1954,12 +2001,10 @@ function updateUIAfterAuthStateChange(user) {
         
         const continueWatchingCarousel = document.getElementById('continue-watching-carousel');
         if (continueWatchingCarousel) continueWatchingCarousel.remove();
-    }
-    
-    const activeFilter = document.querySelector('.main-nav a.active, .mobile-nav a.active')?.dataset.filter;
-    if (!user && (activeFilter === 'my-list' || activeFilter === 'history')) {
+
+        // 🔥 FIX: Si por alguna razón no se recargó la página, forzamos la vista de Inicio
         document.querySelectorAll('.main-nav a, .mobile-nav a').forEach(l => l.classList.remove('active'));
-        document.querySelectorAll(`a[data-filter="all"]`).forEach(l => l.classList.add('active'));
+        document.querySelectorAll('a[data-filter="all"]').forEach(l => l.classList.add('active'));
         switchView('all');
     }
 }
