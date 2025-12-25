@@ -108,15 +108,75 @@ export function renderSettings() {
             return;
         }
 
-        // Elementos
+        // Elementos existentes
         const userInput = document.getElementById('settings-username-input');
         const updateNameBtn = document.getElementById('update-username-btn');
         const passInput = document.getElementById('settings-password-input');
         const updatePassBtn = document.getElementById('update-password-btn');
+        
+        // Contenedor principal para inyectar la zona admin
+        const settingsWrapper = document.querySelector('.settings-form-wrapper');
 
         if (userInput) userInput.value = user.displayName || '';
 
-        // ----- FIX: NO cloneNode ------
+        // ===========================================================
+        // 🔒 ZONA ADMIN (NUEVO)
+        // ===========================================================
+        // Poner aquí TU correo de administrador exacto
+        const ADMIN_EMAILS = ['baquezadat@gmail.com']; 
+        
+        // Eliminamos si ya existe para no duplicar al re-renderizar
+        const existingAdminZone = document.getElementById('admin-zone');
+        if (existingAdminZone) existingAdminZone.remove();
+
+        if (ADMIN_EMAILS.includes(user.email) && settingsWrapper) {
+            const adminZone = document.createElement('div');
+            adminZone.id = 'admin-zone';
+            adminZone.className = 'settings-group danger-zone'; // Usamos estilos existentes
+            adminZone.style.borderColor = '#ffd700'; // Dorado para destacar
+            adminZone.style.backgroundColor = 'rgba(255, 215, 0, 0.05)';
+
+            adminZone.innerHTML = `
+                <h3 style="color: #ffd700; display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-crown"></i> Panel de Administrador
+                </h3>
+                <p>Este botón borrará la memoria caché y forzará una descarga fresca de datos desde Google Sheets.</p>
+                <button id="admin-force-update-btn" class="btn-primary" style="background: #ffd700; color: #000; width: 100%;">
+                    <i class="fas fa-sync-alt spin-hover"></i> ACTUALIZAR TODO AHORA
+                </button>
+            `;
+
+            settingsWrapper.appendChild(adminZone);
+
+            // Lógica del Botón Maestro
+            document.getElementById('admin-force-update-btn').onclick = async function() {
+                const btn = this;
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Actualizando...';
+
+                try {
+                    // 1. Opcional: Avisar a Firebase que hubo update (útil para futuro)
+                    await shared.db.ref('system_metadata/last_update').set(Date.now());
+
+                    // 2. Llamar a la función global de limpieza (definida en script.js)
+                    if (window.adminForceUpdate) {
+                        window.adminForceUpdate();
+                    } else {
+                        // Fallback por si la función no está expuesta
+                        localStorage.clear();
+                        location.reload();
+                    }
+                } catch (error) {
+                    console.error(error);
+                    btn.disabled = false;
+                    btn.innerHTML = 'Error. Reintentar.';
+                }
+            };
+        }
+        // ===========================================================
+        // FIN ZONA ADMIN
+        // ===========================================================
+
         // Actualizar nombre
         if (updateNameBtn) {
             updateNameBtn.onclick = async () => {
