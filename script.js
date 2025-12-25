@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL (MODULAR)
-// Versión: 5.2.8 (Optimizada)
+// Versión: 5.2.9 (Optimizada)
 // ===========================================================
 
 import { logError } from './logger.js';
@@ -537,6 +537,24 @@ const db = firebase.database();
 // 2. INICIO Y CARGA DE DATOS (🆕 MEJORADO CON CACHÉ)
 // ===========================================================
 document.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('force_update')) {
+        const preloader = document.getElementById('preloader');
+        if (preloader) {
+            // Reemplazamos el spinner simple por un mensaje informativo
+            preloader.innerHTML = `
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+                    <div class="spinner" style="margin-bottom: 20px;"></div>
+                    <h2 class="loading-text" style="font-size: 2rem; color: var(--text-light); margin: 0;">REFRESCANDO CONTENIDO</h2>
+                    <p style="color: var(--text-muted); margin-top: 10px; font-size: 1.1rem;">Aplicando la última versión...</p>
+                </div>
+            `;
+        }
+        // Limpiamos la URL para que si el usuario recarga manual después, no salga el mensaje
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, newUrl);
+    }
+
     updateThemeAssets();
     fetchInitialDataWithCache();
 });
