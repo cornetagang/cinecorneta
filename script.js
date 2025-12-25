@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL (MODULAR)
-// Versión: 5.2.9 (Optimizada)
+// Versión: 5.3.0 (Optimizada)
 // ===========================================================
 
 import { logError } from './logger.js';
@@ -1213,9 +1213,6 @@ async function applyAndDisplayFilters(type) {
 
     let content = Object.entries(sourceData);
 
-    // Ajuste de orden inicial para coincidir con Excel (Recientes al final -> Recientes arriba)
-    content.reverse(); 
-
     // FILTRADO POR GÉNERO / FASE
     if (!filtersDisabled && mode !== 'botones' && DOM.genreFilter.value !== 'all') {
         const filterVal = DOM.genreFilter.value.toLowerCase().trim(); 
@@ -1232,11 +1229,11 @@ async function applyAndDisplayFilters(type) {
     }
 
     // =================================================================
-    // 🔥 LÓGICA DE ORDENAMIENTO ACTUALIZADA
+    // LÓGICA DE ORDENAMIENTO
     // =================================================================
     if (sortByValue === 'recent') {
-        // Como ya hicimos content.reverse() arriba, 'recent' es el estado natural
-        // No necesitamos hacer nada extra aquí.
+        // "Recientes" usa el orden natural que viene de la API.
+        // Como la API manda order=desc (fila 106, 105, ...), aquí ya está correcto.
     } else {
         content.sort((a, b) => {
             const aData = a[1];
@@ -1249,8 +1246,6 @@ async function applyAndDisplayFilters(type) {
                 return (Number(aData.cronologia) || 9999) - (Number(bData.cronologia) || 9999);
             }
 
-            // NUEVOS FILTROS (Películas / Series / Sagas normales)
-            
             // Año Ascendente (1980... 2024)
             if (sortByValue === 'year-asc') {
                 return (Number(aData.year) || 9999) - (Number(bData.year) || 9999);
