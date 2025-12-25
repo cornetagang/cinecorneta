@@ -1852,7 +1852,7 @@ async function openDetailsModal(id, type, triggerElement = null) {
 // 6. AUTENTICACIÓN Y DATOS DE USUARIO
 // ===========================================================
 function setupAuthListeners() {
-    // 1. Botones de Ingreso/Registro del Header
+    // 1. Botones de Ingreso/Registro del Header (PC)
     if (DOM.loginBtnHeader) DOM.loginBtnHeader.addEventListener('click', () => openAuthModal(true));
     if (DOM.registerBtnHeader) DOM.registerBtnHeader.addEventListener('click', () => openAuthModal(false));
 
@@ -1891,7 +1891,7 @@ function setupAuthListeners() {
         });
     }
 
-    // 5. Listener global de estado (Login/Logout detectado por Firebase)
+    // 5. Listener global de estado
     auth.onAuthStateChanged(updateUIAfterAuthStateChange);
 
     // 6. Eliminar items del historial
@@ -1903,42 +1903,34 @@ function setupAuthListeners() {
                 const entryKey = removeButton.dataset.key;
                 openConfirmationModal(
                     'Eliminar del Historial',
-                    '¿Estás seguro de que quieres eliminar este item de tu historial? Esta acción no se puede deshacer.',
+                    '¿Estás seguro de que quieres eliminar este item de tu historial?',
                     () => removeFromHistory(entryKey)
                 );
             }
         });
     }
 
-    // =========================================================
-    // 🛑 LOGICA DE CERRAR SESIÓN (CORREGIDA Y UNIFICADA)
-    // =========================================================
-    
-    // Función auxiliar para cerrar sesión limpia
-    const performLogout = (e) => {
-        e.preventDefault();
-        e.stopPropagation(); // Evita que otros scripts interfieran
-        console.log("Cerrando sesión...");
-        
-        auth.signOut().then(() => {
-            // Forzamos recarga para limpiar variables de memoria y caché visual
-            window.location.reload(); 
-        }).catch((error) => {
-            console.error("Error al salir:", error);
-            ErrorHandler.show('auth', 'Error al cerrar sesión.');
+    // 🔥 NUEVO: Lógica del botón "Iniciar Sesión" en el perfil móvil
+    const hubLoginBtn = document.getElementById('login-btn-hub');
+    if (hubLoginBtn) {
+        hubLoginBtn.addEventListener('click', () => {
+             openAuthModal(true); // Abre el modal de login
         });
+    }
+
+    // LÓGICA DE CERRAR SESIÓN
+    const performLogout = (e) => {
+        e.preventDefault(); e.stopPropagation();
+        auth.signOut().then(() => window.location.reload());
     };
 
-    // A. Botón en el Menú Desplegable (Header)
     const logoutBtnHeader = document.getElementById('logout-btn');
     if (logoutBtnHeader) {
-        // Clonamos el nodo para eliminar listeners viejos (del profile.js) que puedan estar fallando
         const newBtn = logoutBtnHeader.cloneNode(true);
         logoutBtnHeader.parentNode.replaceChild(newBtn, logoutBtnHeader);
         newBtn.addEventListener('click', performLogout);
     }
 
-    // B. Botón en el Hub de Perfil (Móvil)
     const logoutBtnHub = document.getElementById('logout-btn-hub');
     if (logoutBtnHub) {
         const newBtnHub = logoutBtnHub.cloneNode(true);
@@ -1961,16 +1953,24 @@ function updateUIAfterAuthStateChange(user) {
     const loggedInElements = [DOM.userProfileContainer, DOM.myListNavLink, DOM.historyNavLink, DOM.myListNavLinkMobile, DOM.historyNavLinkMobile];
     const loggedOutElements = [DOM.authButtons];
 
+    // Referencias a los nuevos bloques del perfil móvil
+    const hubLoggedIn = document.getElementById('hub-logged-in-content');
+    const hubGuest = document.getElementById('hub-guest-content');
+    const hubEmail = document.getElementById('profile-hub-email');
+
     if (user) {
-        // 1. Mostrar elementos de usuario logueado
+        // --- USUARIO CONECTADO ---
         loggedInElements.forEach(el => el && (el.style.display = 'flex'));
         loggedOutElements.forEach(el => el && (el.style.display = 'none'));
         
-        // 2. Actualizar saludo
         const userName = user.displayName || user.email.split('@')[0];
         if (DOM.userGreetingBtn) DOM.userGreetingBtn.textContent = `Hola, ${userName}`;
         
-        // 3. Cargar lista y perfil
+        // 🔥 Mostrar menú de usuario en móvil
+        if (hubLoggedIn) hubLoggedIn.style.display = 'block';
+        if (hubGuest) hubGuest.style.display = 'none';
+        if (hubEmail) hubEmail.textContent = user.email;
+
         db.ref(`users/${user.uid}/watchlist`).once('value', snapshot => {
             appState.user.watchlist = snapshot.exists() ? new Set(Object.keys(snapshot.val())) : new Set();
         });
@@ -1978,20 +1978,21 @@ function updateUIAfterAuthStateChange(user) {
         setupRealtimeHistoryListener(user);
         getProfileModule();
 
-        // 🔥 FIX CLAVE: Forzar redirección a INICIO al entrar
-        // Esto evita la pantalla vacía al cerrar el modal de login
+        // Redirección forzada al inicio para evitar pantallas vacías
         document.querySelectorAll('.main-nav a, .mobile-nav a').forEach(l => l.classList.remove('active'));
         document.querySelectorAll('a[data-filter="all"]').forEach(l => l.classList.add('active'));
-        
-        // Muestra el Hero y los Carruseles
         switchView('all'); 
 
     } else {
-        // 1. Ocultar elementos de usuario
+        // --- USUARIO DESCONECTADO (INVITADO) ---
         loggedInElements.forEach(el => el && (el.style.display = 'none'));
         loggedOutElements.forEach(el => el && (el.style.display = 'flex'));
         
-        // 2. Limpiar datos en memoria
+        // 🔥 Mostrar menú de invitado en móvil
+        if (hubLoggedIn) hubLoggedIn.style.display = 'none';
+        if (hubGuest) hubGuest.style.display = 'block';
+        if (hubEmail) hubEmail.textContent = 'Visitante';
+        
         appState.user.watchlist.clear();
         
         if (appState.user.historyListenerRef) {
@@ -2002,7 +2003,6 @@ function updateUIAfterAuthStateChange(user) {
         const continueWatchingCarousel = document.getElementById('continue-watching-carousel');
         if (continueWatchingCarousel) continueWatchingCarousel.remove();
 
-        // 🔥 FIX: Si por alguna razón no se recargó la página, forzamos la vista de Inicio
         document.querySelectorAll('.main-nav a, .mobile-nav a').forEach(l => l.classList.remove('active'));
         document.querySelectorAll('a[data-filter="all"]').forEach(l => l.classList.add('active'));
         switchView('all');
