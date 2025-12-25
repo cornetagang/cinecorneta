@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL (MODULAR)
-// Versión: 5.2.6 (Optimizada)
+// Versión: 5.2.8 (Optimizada)
 // ===========================================================
 
 import { logError } from './logger.js';
@@ -555,50 +555,58 @@ async function fetchInitialDataWithCache() {
     const startLoadTime = Date.now();
 
     // =========================================================================
-    // 📡 SISTEMA DE ACTUALIZACIÓN INTELIGENTE (FIXED)
+    // 📡 SISTEMA DE ACTUALIZACIÓN INTELIGENTE (FIXED & MOBILE READY)
     // =========================================================================
     if (typeof db !== 'undefined') {
         const updatesRef = db.ref('system_metadata/last_update');
         updatesRef.on('value', (snapshot) => {
-            // 1. Aseguramos que sean números para evitar errores de texto
+            // 1. Aseguramos que sean números para evitar errores de comparación
             const serverLastUpdate = Number(snapshot.val()); 
             const localRaw = localStorage.getItem('local_last_update');
             const localLastUpdate = localRaw ? Number(localRaw) : 0;
 
             console.log(`📡 Señal: Server(${serverLastUpdate}) vs Local(${localLastUpdate})`);
 
-            // Caso: Nueva versión detectada
+            // Caso: Nueva versión detectada en el servidor
             if (serverLastUpdate > localLastUpdate) {
                 console.log('🔄 ADMIN: Nueva versión detectada.');
 
+                // Detectamos si hay un modal abierto (Usuario viendo algo)
                 const isWatching = document.body.classList.contains('modal-open');
 
                 if (isWatching) {
                     // A: SI ESTÁ VIENDO ALGO -> Actualizar en silencio (Segundo plano)
-                    console.log('🎬 Usuario ocupado. Actualizando en segundo plano...');
-                    appState.flags.pendingUpdate = true;
+                    console.log('🎬 Usuario ocupado. Programando recarga en localStorage...');
                     
-                    // Guardamos la fecha YA para que no vuelva a intentar actualizarse en bucle
+                    // 1. Guardamos la "orden" de recargar en el disco (localStorage)
+                    // Esto sobrevive aunque el navegador mate el proceso en segundo plano
+                    localStorage.setItem('pending_reload', 'true');
+                    
+                    // 2. Actualizamos la fecha YA para que no vuelva a intentar actualizarse en bucle
                     localStorage.setItem('local_last_update', serverLastUpdate);
+                    
+                    // 3. Bajamos la data nueva "por debajo" sin molestar
                     refreshDataInBackground(); 
                     
                 } else {
-                    // B: SI ESTÁ LIBRE -> Recarga inmediata
+                    // B: SI ESTÁ LIBRE -> Recarga inmediata (Hard Reload)
                     console.log('🚀 Aplicando actualización inmediata...');
                     
-                    // 🔥 PASO IMPORTANTE CORREGIDO:
-                    // 1. Primero borramos todo
+                    // 1. Primero borramos todo (Caché vieja)
                     if (window.cacheManager) {
                         window.cacheManager.clearAll();
                     } else {
                         localStorage.clear();
                     }
                     
-                    // 2. Y LUEGO (muy importante) guardamos la nueva fecha
-                    // Así al reiniciar, el teléfono sabe que ya tiene la última versión
+                    // 2. Y LUEGO guardamos la nueva fecha (para que al volver sepa que está al día)
                     localStorage.setItem('local_last_update', serverLastUpdate);
 
-                    window.location.reload();
+                    // 3. 🔥 EL TRUCO DEL HARD RELOAD EN MÓVIL
+                    // Forzamos una navegación a una URL "nueva" agregando la hora actual
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('force_update', Date.now());
+                    window.location.href = url.toString();
                 }
             } 
             // Caso: Primera vez que entramos (Sincronización inicial)
@@ -731,8 +739,10 @@ async function fetchInitialDataWithCache() {
             cacheManager.set(cacheManager.keys.content, freshContent);
             cacheManager.set(cacheManager.keys.metadata, freshMetadata);
             
-            // 🔥 Guardamos la fecha actual como referencia inicial para el actualizador
-            localStorage.setItem('local_last_update', Date.now());
+            // 🔥 Guardamos la fecha actual como referencia inicial si no existía
+            if (!localStorage.getItem('local_last_update')) {
+                localStorage.setItem('local_last_update', Date.now());
+            }
 
             await setupAndShow(freshMetadata.movies, freshMetadata.series);
             
@@ -1746,22 +1756,31 @@ function closeAllModals() {
     document.querySelectorAll('.modal.show').forEach(modal => {
         modal.classList.remove('show');
         const iframe = modal.querySelector('iframe');
-        if (iframe) iframe.src = ''; // Detener video
+        if (iframe) iframe.src = '';
     });
     document.body.classList.remove('modal-open');
 
-    // 2. Limpieza específica del reproductor de series
     if (typeof shared !== 'undefined' && shared.appState && shared.appState.player) {
          shared.appState.player.activeSeriesId = null;
     }
 
-    // 🔥 3. NUEVO: Si había una actualización pendiente, recargamos AHORA
-    if (appState.flags.pendingUpdate) {
-        console.log('🔄 Aplicando actualización pendiente tras cerrar modal...');
+    // 🔥 FIX MÓVIL: Leemos la bandera desde localStorage (Disco)
+    // Así funciona aunque el navegador haya limpiado la RAM durante la película
+    if (localStorage.getItem('pending_reload') === 'true') {
+        console.log('🔄 Ejecutando actualización pendiente desde disco...');
         
-        // Pequeño delay para que la animación de cierre se vea fluida antes de recargar
+        // Borramos la marca para no entrar en bucle
+        localStorage.removeItem('pending_reload');
+
+        // Borramos caché vieja para asegurar datos frescos
+        if (window.cacheManager) window.cacheManager.clearAll();
+        else localStorage.clear();
+        
+        // Pequeño delay visual y RECARGA FORZADA
         setTimeout(() => {
-            window.location.reload();
+            const url = new URL(window.location.href);
+            url.searchParams.set('force_update', Date.now());
+            window.location.href = url.toString();
         }, 300);
     }
 }
