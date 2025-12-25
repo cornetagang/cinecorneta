@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL (MODULAR)
-// Versión: 5.2.1 (Optimizada)
+// Versión: 5.2.4 (Optimizada)
 // ===========================================================
 
 import { logError } from './logger.js';
@@ -1958,6 +1958,12 @@ function updateUIAfterAuthStateChange(user) {
     const hubGuest = document.getElementById('hub-guest-content');
     const hubEmail = document.getElementById('profile-hub-email');
 
+    // 🔥 FIX VISUAL: Selector correcto para limpiar la barra inferior móvil (.bottom-nav .nav-link)
+    const resetNavigationActiveState = () => {
+        document.querySelectorAll('.main-nav a, .bottom-nav .nav-link').forEach(l => l.classList.remove('active'));
+        document.querySelectorAll('a[data-filter="all"]').forEach(l => l.classList.add('active'));
+    };
+
     if (user) {
         // --- USUARIO CONECTADO ---
         loggedInElements.forEach(el => el && (el.style.display = 'flex'));
@@ -1966,7 +1972,7 @@ function updateUIAfterAuthStateChange(user) {
         const userName = user.displayName || user.email.split('@')[0];
         if (DOM.userGreetingBtn) DOM.userGreetingBtn.textContent = `Hola, ${userName}`;
         
-        // 🔥 Mostrar menú de usuario en móvil
+        // Mostrar menú de usuario en móvil
         if (hubLoggedIn) hubLoggedIn.style.display = 'block';
         if (hubGuest) hubGuest.style.display = 'none';
         if (hubEmail) hubEmail.textContent = user.email;
@@ -1978,9 +1984,8 @@ function updateUIAfterAuthStateChange(user) {
         setupRealtimeHistoryListener(user);
         getProfileModule();
 
-        // Redirección forzada al inicio para evitar pantallas vacías
-        document.querySelectorAll('.main-nav a, .mobile-nav a').forEach(l => l.classList.remove('active'));
-        document.querySelectorAll('a[data-filter="all"]').forEach(l => l.classList.add('active'));
+        // Redirección forzada al inicio y corrección visual del botón
+        resetNavigationActiveState(); // <--- Aquí aplicamos el fix
         switchView('all'); 
 
     } else {
@@ -1988,7 +1993,7 @@ function updateUIAfterAuthStateChange(user) {
         loggedInElements.forEach(el => el && (el.style.display = 'none'));
         loggedOutElements.forEach(el => el && (el.style.display = 'flex'));
         
-        // 🔥 Mostrar menú de invitado en móvil
+        // Mostrar menú de invitado en móvil
         if (hubLoggedIn) hubLoggedIn.style.display = 'none';
         if (hubGuest) hubGuest.style.display = 'block';
         if (hubEmail) hubEmail.textContent = 'Visitante';
@@ -2003,8 +2008,8 @@ function updateUIAfterAuthStateChange(user) {
         const continueWatchingCarousel = document.getElementById('continue-watching-carousel');
         if (continueWatchingCarousel) continueWatchingCarousel.remove();
 
-        document.querySelectorAll('.main-nav a, .mobile-nav a').forEach(l => l.classList.remove('active'));
-        document.querySelectorAll('a[data-filter="all"]').forEach(l => l.classList.add('active'));
+        // Redirección forzada al inicio y corrección visual del botón
+        resetNavigationActiveState(); // <--- Aquí aplicamos el fix
         switchView('all');
     }
 }
