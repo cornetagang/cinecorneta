@@ -1015,14 +1015,14 @@ function populateFilters(type) {
     
     if (controlsContainer) controlsContainer.style.display = 'flex';
 
-    // CONFIGURACIÓN VISIBILIDAD SEGÚN EL EXCEL (Columna filters: si, no, botones)
+    // Configuración desde Excel
     const sagaConfig = appState.content.sagasList.find(s => s.id === type);
     const mode = String(sagaConfig ? (sagaConfig.filters || 'si') : 'si').toLowerCase().trim();
 
     // Reset visual
     if (genreVisual) genreVisual.style.display = 'block';
     
-    // CASO "NO": Ocultar todo
+    // CASO "NO"
     if (mode === 'no') {
         if (genreVisual) genreVisual.style.display = 'none';
         if (sortVisual) sortVisual.style.display = 'none';
@@ -1030,17 +1030,16 @@ function populateFilters(type) {
         return; 
     }
 
-    // CASO "BOTONES": Ocultar dropdown de género visualmente pero mantener lógica
+    // CASO "BOTONES"
     if (mode === 'botones') {
         if (genreVisual) genreVisual.style.display = 'none';
         DOM.genreFilter.value = 'all'; 
     }
 
-    // GENERAR MENÚS (Limpieza inicial)
+    // Limpieza de menús
     const genreList = document.getElementById('genre-menu-list');
     const sortList = document.getElementById('sort-menu-list');
     
-    // Función auxiliar para crear items del menú
     const createItem = (value, label, menuType, isGroup = false, imgUrl = null) => {
         const div = document.createElement('div');
         div.className = isGroup ? 'dropdown-group-title' : 'dropdown-item';
@@ -1075,10 +1074,10 @@ function populateFilters(type) {
         DOM.genreFilter.innerHTML = `<option value="all">Todos</option>`; 
     }
 
-    // =================================================================
-    // LÓGICA ESPECÍFICA: MARVEL Y STAR WARS (No tocamos esto)
-    // =================================================================
-    if (type === 'ucm' || type === 'starwars') {
+    // LÓGICA MARVEL, STAR WARS Y HARRY POTTER
+    // 🔥 AQUÍ ACTIVAMOS LOS BOTONES PARA HARRY POTTER
+    if (type === 'ucm' || type === 'starwars' || type === 'harrypotter') {
+
         if (mode !== 'botones' && type === 'ucm') {
             const fasesRaw = Object.values(sourceData).map(item => String(item.fase || '').trim()).filter(Boolean);
             const fasesDisponibles = new Set(fasesRaw);
@@ -1121,14 +1120,23 @@ function populateFilters(type) {
              });
              document.getElementById('genre-text').textContent = "Toda la Galaxia";
         }
+        // 🔥 LÓGICA VISUAL HARRY POTTER
+        else if (mode !== 'botones' && type === 'harrypotter') {
+             genreList.appendChild(createItem('all', 'Mundo Mágico', 'genre'));
+             genreList.appendChild(createItem('Harry Potter', 'Saga Original', 'genre'));
+             genreList.appendChild(createItem('Animales Fantásticos', 'Animales Fantásticos', 'genre'));
+             
+             DOM.genreFilter.innerHTML += `<option value="Harry Potter">Saga Original</option>`;
+             DOM.genreFilter.innerHTML += `<option value="Animales Fantásticos">Animales Fantásticos</option>`;
+
+             document.getElementById('genre-text').textContent = "Mundo Mágico";
+        }
 
         if (sortVisual) sortVisual.style.display = 'none';
         if (ucmButtons) ucmButtons.style.display = 'flex';
         
     } else {
-        // =================================================================
-        // LÓGICA GENÉRICA: PELÍCULAS, SERIES Y OTRAS SAGAS (¡Aquí está lo nuevo!)
-        // =================================================================
+        // LÓGICA GENÉRICA
         if (mode !== 'botones') {
             const genres = new Set(Object.values(sourceData).flatMap(i => i.genres ? String(i.genres).split(';') : []));
             genreList.appendChild(createItem('all', 'Todos', 'genre'));
@@ -1147,13 +1155,12 @@ function populateFilters(type) {
         
         sortList.innerHTML = '';
         
-        // 🔥 ACTUALIZADO: LISTA COMPLETA DE OPCIONES
         const sortOptions = [
             {val:'recent', label:'Recientes'},
-            {val:'year-desc', label:'Año (Des)'},    // Nuevo: 2024 -> 1990
-            {val:'year-asc', label:'Año (Asc)'},     // Nuevo: 1990 -> 2024
-            {val:'title-asc', label:'Título (A-Z)'}, // Renombrado
-            {val:'title-desc', label:'Título (Z-A)'} // Nuevo
+            {val:'year-desc', label:'Año (Des)'},
+            {val:'year-asc', label:'Año (Asc)'},
+            {val:'title-asc', label:'Título (A-Z)'},
+            {val:'title-desc', label:'Título (Z-A)'}
         ];
 
         sortOptions.forEach(o => {
@@ -1162,7 +1169,6 @@ function populateFilters(type) {
         });
     }
     
-    // Configurar eventos de apertura/cierre de menús
     const configDropdown = (trigger, visual) => {
         if (!trigger) return;
         const newTrigger = trigger.cloneNode(true);
@@ -1190,17 +1196,17 @@ async function applyAndDisplayFilters(type) {
     const gridEl = DOM.gridContainer.querySelector('.grid');
     if (!gridEl || !sourceData) return;
 
-    // Config Excel
+    // Configuración desde Excel
     const sagaConfig = appState.content.sagasList.find(s => s.id === type);
     const mode = String(sagaConfig ? (sagaConfig.filters || 'si') : 'si').toLowerCase().trim();
     const filtersDisabled = (mode === 'no');
 
-    // Determinar Orden
+    // Determinar qué criterio de orden usar
     let sortByValue;
     if (filtersDisabled) {
         sortByValue = 'release'; 
     } else {
-        if (type === 'ucm' || type === 'starwars') {
+        if (type === 'ucm' || type === 'starwars' || type === 'harrypotter') {
             const activeBtn = document.querySelector('.sort-btn.active');
             sortByValue = activeBtn ? activeBtn.dataset.sort : 'release';
         } else {
@@ -1208,12 +1214,16 @@ async function applyAndDisplayFilters(type) {
         }
     }
 
-    // Loader
     gridEl.innerHTML = `<div style="width:100%;height:60vh;display:flex;justify-content:center;align-items:center;grid-column:1/-1;"><p class="loading-text">Cargando...</p></div>`;
 
     let content = Object.entries(sourceData);
 
-    // FILTRADO POR GÉNERO / FASE
+    // 🔥 HACK MAESTRO: Guardamos el índice original de llegada (que viene al revés)
+    content.forEach((item, index) => {
+        item[1]._originalIndex = index;
+    });
+
+    // 1. FILTRADO
     if (!filtersDisabled && mode !== 'botones' && DOM.genreFilter.value !== 'all') {
         const filterVal = DOM.genreFilter.value.toLowerCase().trim(); 
         
@@ -1224,54 +1234,59 @@ async function applyAndDisplayFilters(type) {
                 if (filterVal === 'saga_multiverse') return ['4','5','6'].includes(fase);
                 return fase === filterVal;
             }
+            if (type === 'harrypotter') {
+                return String(item.genres || '').toLowerCase().includes(filterVal) ||
+                       String(item.title || '').toLowerCase().includes(filterVal);
+            }
             return String(item.genres || '').toLowerCase().includes(filterVal);
         });
     }
 
-    // =================================================================
-    // LÓGICA DE ORDENAMIENTO
-    // =================================================================
-    if (sortByValue === 'recent') {
-        // "Recientes" usa el orden natural que viene de la API.
-        // Como la API manda order=desc (fila 106, 105, ...), aquí ya está correcto.
-    } else {
-        content.sort((a, b) => {
-            const aData = a[1];
-            const bData = b[1];
+    // 2. LÓGICA DE ORDENAMIENTO (CORREGIDA PARA QUE SALGAN BIEN)
+    content.sort((a, b) => {
+        const aData = a[1];
+        const bData = b[1];
 
-            if (sortByValue === 'release') return 0;
+        // 🔥 ORDEN DE SALIDA (EXCEL LITERAL: DE ARRIBA A ABAJO)
+        // Como la API los manda al revés (abajo a arriba), aquí los invertimos.
+        if (sortByValue === 'release') {
+            // b - a = Invierte el orden de llegada
+            return bData._originalIndex - aData._originalIndex;
+        }
 
-            // Cronología (Marvel/Star Wars)
-            if (sortByValue === 'chronological') {
-                return (Number(aData.cronologia) || 9999) - (Number(bData.cronologia) || 9999);
-            }
+        // 🔥 RECIENTES (Tal cual llegan de la API)
+        // La API ya los manda "Recientes primero", así que mantenemos ese orden.
+        if (sortByValue === 'recent') {
+            return aData._originalIndex - bData._originalIndex;
+        }
 
-            // Año Ascendente (1980... 2024)
-            if (sortByValue === 'year-asc') {
-                return (Number(aData.year) || 9999) - (Number(bData.year) || 9999);
-            }
+        // Cronología Interna (Historia)
+        if (sortByValue === 'chronological') {
+            return (Number(aData.cronologia) || 9999) - (Number(bData.cronologia) || 9999);
+        }
 
-            // Año Descendente (2024... 1980)
-            if (sortByValue === 'year-desc') {
-                return (Number(bData.year) || 0) - (Number(aData.year) || 0);
-            }
+        // Año Ascendente
+        if (sortByValue === 'year-asc') {
+            return (Number(aData.year) || 9999) - (Number(bData.year) || 9999);
+        }
+        // Año Descendente
+        if (sortByValue === 'year-desc') {
+            return (Number(bData.year) || 0) - (Number(aData.year) || 0);
+        }
+        // Título A-Z
+        if (sortByValue === 'title-asc') {
+            return (aData.title || '').localeCompare(bData.title || '');
+        }
+        // Título Z-A
+        if (sortByValue === 'title-desc') {
+            return (bData.title || '').localeCompare(aData.title || '');
+        }
 
-            // Título A-Z
-            if (sortByValue === 'title-asc') {
-                return (aData.title || '').localeCompare(bData.title || '');
-            }
+        return 0;
+    });
 
-            // Título Z-A
-            if (sortByValue === 'title-desc') {
-                return (bData.title || '').localeCompare(aData.title || '');
-            }
-
-            return 0;
-        });
-    }
-
-    // EXPANSIÓN DE TEMPORADAS (Solo UCM/Star Wars en modo cronológico)
-    if ((type === 'ucm' || type === 'starwars') && sortByValue === 'chronological') {
+    // 3. EXPANSIÓN DE TEMPORADAS
+    if ((type === 'ucm' || type === 'starwars' || type === 'harrypotter') && sortByValue === 'chronological') {
         const expandedContent = [];
         content.forEach(([id, item]) => {
             const multiChrono = item.cronologiaMulti || item.cronologia_multi; 
@@ -1286,12 +1301,11 @@ async function applyAndDisplayFilters(type) {
                 expandedContent.push([id, item]); 
             }
         });
-        // Reordenar tras expandir
         expandedContent.sort((a, b) => (Number(a[1].cronologia)||999) - (Number(b[1].cronologia)||999));
         content = expandedContent;
     }
 
-    // RENDERIZADO (Paginación y Grid)
+    // 4. RENDERIZADO FINAL
     appState.ui.contentToDisplay = content;
     appState.ui.currentIndex = 0; 
     setupPaginationControls();
