@@ -148,8 +148,49 @@ body.modal-open { overflow: hidden; }
 /* ================================== */
 /* CONTENIDO PRINCIPAL Y TARJETAS     */
 /* ================================== */
-.hero-section { width: 100%; height: 70vh; position: relative; padding: 0 4vw; background-size: cover; background-position: center top; display: flex; align-items: center; }
-.hero-section::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to right, rgba(20,20,20,1) 10%, rgba(20,20,20,0.8) 40%, rgba(20,20,20,0) 65%, rgba(20,20,20,1) 100%), linear-gradient(to top, rgba(20,20,20,1) 0%, rgba(20,20,20,0) 20%); }
+.hero-section { 
+    width: 100%; 
+    height: 70vh; /* Un poco más alto para que la imagen respire */
+    min-height: 550px; 
+    
+    position: relative; 
+    padding: 0 4vw; 
+    
+    background-size: cover; 
+    
+    /* 🔥 EL CAMBIO CLAVE DE POSICIÓN: */
+    /* 50% (Horizontal) | 15% (Vertical) */
+    /* Esto enfoca la parte SUPERIOR (donde están las cabezas),
+       evitando cortar frentes como la de Paprika. */
+    background-position: 50% 15%; 
+    
+    display: flex; 
+    align-items: center; 
+}
+
+/* 🔥 EL DEGRADADO INVISIBLE (DOBLE CAPA) */
+.hero-section::after { 
+    content: ''; 
+    position: absolute; 
+    inset: 0; 
+    z-index: 1;
+    
+    /* Usamos DOS degradados combinados para borrar el corte */
+    background: 
+        /* 1. Degradado vertical (Desde abajo hacia arriba) para borrar el corte del suelo */
+        linear-gradient(to top, 
+            #141414 5%,          /* Negro sólido abajo del todo */
+            rgba(20,20,20,0.8) 20%, 
+            rgba(20,20,20,0) 60% /* Transparente al subir */
+        ),
+        
+        /* 2. Degradado horizontal (Desde la izquierda) para que se lea el texto */
+        linear-gradient(to right, 
+            rgba(20,20,20,0.9) 0%, 
+            rgba(20,20,20,0.6) 30%, 
+            rgba(20,20,20,0) 70% /* Totalmente limpio a la derecha */
+        );
+}
 .hero-content { z-index: 2; transition: opacity 0.5s ease-in-out; max-width: 45%; }
 .hero-content h1 { font-family: 'Bebas Neue', sans-serif; font-size: clamp(2.5rem, 4vw, 3.5rem); margin: 0 0 20px 0; text-shadow: 0 4px 10px black; }
 .hero-content p { font-size: 1.1rem; line-height: 1.6; max-width: 600px; text-shadow: 0 2px 5px black; }
@@ -2859,4 +2900,34 @@ body.tab-inactive iframe {
     margin-top: auto;   /* Empuja la paginación al final del contenedor */
     padding-bottom: 40px;
     padding-top: 20px;
+}
+
+/* ================================== */
+/* ETIQUETA NUEVO EPISODIO (BADGE)    */
+/* ================================== */
+.new-episode-badge {
+    position: absolute;
+    top: 8px;       /* Separación del borde superior */
+    left: 8px;      /* Separación del borde izquierdo */
+    z-index: 20;
+    
+    background: linear-gradient(45deg, #E50914, #ff4b55); /* Rojo degradado moderno */
+    color: white;
+    
+    padding: 4px 10px;
+    border-radius: 4px;  /* Bordes redondeados suaves */
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    
+    box-shadow: 0 2px 6px rgba(0,0,0,0.6); /* Sombra para que flote */
+    pointer-events: none;
+    transition: transform 0.3s ease;
+}
+
+/* Pequeño efecto al pasar el mouse por la tarjeta */
+.movie-card:hover .new-episode-badge {
+    transform: scale(1.05);
 }
