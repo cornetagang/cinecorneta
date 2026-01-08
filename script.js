@@ -1265,20 +1265,52 @@ async function applyAndDisplayFilters(type) {
         });
     }
 
-    // 3. ORDENAMIENTO
+    // 3. ORDENAMIENTO JERÁRQUICO (SERIES Y PELIS)
     content.sort((a, b) => {
-        const aData = a[1];
-        const bData = b[1];
+        const idA = a[0]; const idB = b[0];
+        const aData = a[1]; const bData = b[1];
 
-        if (sortByValue === 'release') return bData._originalIndex - aData._originalIndex;
-        if (sortByValue === 'recent') return aData._originalIndex - bData._originalIndex;
+        // Verificamos si es contenido "ESTRENO" (Por fecha de agregado)
+        // Esto aplica tanto a Series como a Películas
+        const aIsNew = isDateRecent(aData.date_added);
+        const bIsNew = isDateRecent(bData.date_added);
+
+        // Solo aplicamos lógica especial si el orden es RECIENTE o DEFECTO
+        if (sortByValue === 'recent' || sortByValue === 'release') {
+
+            // --- NIVEL 1: ESTRENOS (SERIES O PELIS) ---
+            if (aIsNew && !bIsNew) return -1; // A sube
+            if (!aIsNew && bIsNew) return 1;  // B sube
+            
+            // Si ambos son Estrenos, desempatamos por Ranking (tr)
+            if (aIsNew && bIsNew) {
+                return (Number(bData.tr) || 0) - (Number(aData.tr) || 0);
+            }
+
+            // --- NIVEL 2: NUEVOS CAPÍTULOS (SOLO SERIES) ---
+            if (type === 'series') {
+                const aHasNewEp = hasRecentEpisodes(idA);
+                const bHasNewEp = hasRecentEpisodes(idB);
+
+                if (aHasNewEp && !bHasNewEp) return -1;
+                if (!aHasNewEp && bHasNewEp) return 1;
+
+                if (aHasNewEp && bHasNewEp) {
+                    return (Number(bData.tr) || 0) - (Number(aData.tr) || 0);
+                }
+            }
+        }
+
+        // --- NIVEL 3: EL RESTO (RANKING SIEMPRE) ---
+        // Si el usuario elige "Año" o "Alfabetico", se ignora lo de arriba y cae aquí abajo
         if (sortByValue === 'chronological') return (Number(aData.cronologia) || 9999) - (Number(bData.cronologia) || 9999);
         if (sortByValue === 'year-asc') return (Number(aData.year) || 9999) - (Number(bData.year) || 9999);
         if (sortByValue === 'year-desc') return (Number(bData.year) || 0) - (Number(aData.year) || 0);
         if (sortByValue === 'title-asc') return (aData.title || '').localeCompare(bData.title || '');
         if (sortByValue === 'title-desc') return (bData.title || '').localeCompare(aData.title || '');
 
-        return 0;
+        // Por defecto (y para Nivel 3): RANKING (tr)
+        return (Number(bData.tr) || 0) - (Number(aData.tr) || 0);
     });
 
     // 4. EXPANSIÓN TEMPORADAS
@@ -1618,24 +1650,49 @@ function createCarouselSection(title, dataSource) {
     const section = document.createElement('section');
     section.classList.add('carousel');
 
+    // --- ESTAS ERAN LAS LÍNEAS QUE FALTABAN ---
     const titleEl = document.createElement('h2');
     titleEl.classList.add('carousel-title');
     titleEl.textContent = title;
     section.appendChild(titleEl);
+    // ------------------------------------------
 
     const track = document.createElement('div');
     track.classList.add('carousel-track');
 
-    Object.entries(dataSource)
-        .sort((a, b) => b[1].tr - a[1].tr)
-        .slice(0, 8)
-        .forEach(([id, item]) => {
-            const type = title.includes('Serie') ? 'series' : 'movie';
-            // Pasamos lazy=false porque el carrusel carga pocas imágenes (8) 
-            // y queremos que se vean nítidas cuanto antes.
-            const card = createMovieCardElement(id, item, type, 'carousel', false);
-            track.appendChild(card);
-        });
+    let entries = Object.entries(dataSource);
+
+    // ORDENAMIENTO (CON ESTRENOS DE PELIS Y SERIES)
+    entries.sort((a, b) => {
+        const idA = a[0]; const idB = b[0];
+        const aData = a[1]; const bData = b[1];
+        
+        // 1. Prioridad: ESTRENO (Aplica a Series y Pelis)
+        // Busca si tiene fecha reciente en la columna 'date_added' del Excel
+        const aIsNew = isDateRecent(aData.date_added);
+        const bIsNew = isDateRecent(bData.date_added);
+
+        if (aIsNew && !bIsNew) return -1;
+        if (!aIsNew && bIsNew) return 1;
+        
+        // 2. Si es SERIE, chequeamos Episodios Nuevos
+        if (title.toLowerCase().includes('serie')) {
+            const aHasNewEp = hasRecentEpisodes(idA);
+            const bHasNewEp = hasRecentEpisodes(idB);
+
+            if (aHasNewEp && !bHasNewEp) return -1;
+            if (!aHasNewEp && bHasNewEp) return 1;
+        }
+
+        // 3. Desempate final: RANKING (tr)
+        return (Number(bData.tr) || 0) - (Number(aData.tr) || 0);
+    });
+
+    entries.slice(0, 8).forEach(([id, item]) => {
+        const type = title.includes('Serie') ? 'series' : 'movie';
+        const card = createMovieCardElement(id, item, type, 'carousel', false);
+        track.appendChild(card);
+    });
 
     section.appendChild(track);
     DOM.carouselContainer.appendChild(section);
@@ -2351,19 +2408,109 @@ function openConfirmationModal(title, message, onConfirm) {
     document.body.classList.add('modal-open');
 }
 
-// ===========================================================
-// 8. FUNCIONES DE UTILIDAD Y HELPERS
-// ===========================================================
+// Obtiene el timestamp (fecha en números) del episodio más reciente
+function getLatestSeriesDate(seriesId) {
+    const allEpisodes = appState.content.seriesEpisodes[seriesId];
+    if (!allEpisodes) return 0;
+
+    let flatEpisodes = [];
+    if (Array.isArray(allEpisodes)) {
+        flatEpisodes = allEpisodes;
+    } else {
+        flatEpisodes = Object.values(allEpisodes).flat();
+    }
+
+    // Buscamos la fecha más alta (la más reciente)
+    let maxDate = 0;
+    const now = new Date();
+    const DAYS_THRESHOLD = 5; // Mismo umbral que usas para la etiqueta
+
+    flatEpisodes.forEach(ep => {
+        if (!ep.releaseDate) return;
+        const rDate = new Date(ep.releaseDate);
+        if (isNaN(rDate.getTime())) return;
+
+        // Solo nos importan fechas que estén dentro del rango de "Novedad"
+        // Si es muy vieja, la ignoramos (devuelve 0)
+        const diffTime = now - rDate;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        // Si es reciente (menos de 5 días) Y es mayor que la que ya teníamos
+        if (diffDays <= DAYS_THRESHOLD && diffDays >= 0 && rDate.getTime() > maxDate) {
+            maxDate = rDate.getTime();
+        }
+    });
+
+    return maxDate;
+}
+
+function isDateRecent(dateString) {
+    if (!dateString) return false;
+    // Intenta convertir la fecha (acepta YYYY-MM-DD)
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return false; // Si está vacía o mal escrita, devuelve falso
+    
+    const now = new Date();
+    const diffTime = now - date;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    // Configuración: 5 días de vigencia
+    return diffDays <= 5 && diffDays >= 0; 
+}
+
+// -----------------------------------------------------------
+// 1. FUNCIÓN AUXILIAR: Detecta fechas recientes en episodios
+// -----------------------------------------------------------
+// Verifica si una serie tiene algún episodio reciente
+function hasRecentEpisodes(seriesId) {
+    // CORRECCIÓN: Eliminado 'shared.'
+    const allEpisodes = appState.content.seriesEpisodes[seriesId];
+    if (!allEpisodes) return false;
+
+    let flatEpisodes = [];
+    if (Array.isArray(allEpisodes)) {
+        flatEpisodes = allEpisodes;
+    } else {
+        flatEpisodes = Object.values(allEpisodes).flat();
+    }
+
+    return flatEpisodes.some(ep => isDateRecent(ep.releaseDate));
+}
+
+// -----------------------------------------------------------
+// 2. FUNCIÓN DE CREACIÓN DE TARJETAS (ACTUALIZADA)
+// -----------------------------------------------------------
 function createMovieCardElement(id, data, type, layout = 'carousel', lazy = false, options = {}) {
     const card = document.createElement('div');
     card.className = `movie-card ${layout === 'carousel' ? 'carousel-card' : ''}`;
     card.dataset.contentId = id;
 
+    let ribbonHTML = '';
+    
+    // Chequeo de fecha de agregado (sirve para Series y Pelis)
+    const isNewContent = isDateRecent(data.date_added);
+
+    if (type === 'series') {
+        const hasNewEp = hasRecentEpisodes(id);
+
+        if (isNewContent) {
+            // SERIE NUEVA
+            ribbonHTML = `<div class="new-episode-badge" style="background: linear-gradient(45deg, #00C9FF, #92FE9D); color: #000; text-shadow:none;">ESTRENO</div>`;
+        } else if (hasNewEp) {
+            // NUEVO CAPÍTULO
+            ribbonHTML = `<div class="new-episode-badge">NUEVO CAP</div>`;
+        }
+    } 
+    else if (type === 'movie') {
+        if (isNewContent) {
+            // PELÍCULA NUEVA 🔥
+            ribbonHTML = `<div class="new-episode-badge" style="background: linear-gradient(45deg, #00C9FF, #92FE9D); color: #000; text-shadow:none;">ESTRENO</div>`;
+        }
+    }
+
     card.onclick = (e) => {
         if (e.target.closest('.btn-watchlist') || e.target.closest('.btn-remove-history')) return;
         
-        // Si es una serie clonada (T2, T3...) abrimos directamente esa temporada
-        // Detectamos si el título termina en (TX)
         const seasonMatch = data.title.match(/\(T(\d+)\)$/);
         if (seasonMatch) {
             const seasonNum = seasonMatch[1];
@@ -2389,15 +2536,10 @@ function createMovieCardElement(id, data, type, layout = 'carousel', lazy = fals
         watchlistBtnHTML = `<button class="btn-watchlist ${inListClass}" data-content-id="${id}"><i class="fas ${icon}"></i></button>`;
     }
 
-    // --- LÓGICA DE IMAGEN (MEJORADA PARA TEMPORADAS) ---
     let imageUrl = data.poster;
-
-    // Si es una serie clonada en la vista cronológica (Ej: Loki (T2))
-    // intentamos buscar su póster específico en seasonPosters
     const seasonMatch = data.title.match(/\(T(\d+)\)$/);
     if (seasonMatch && appState.content.seasonPosters[id]) {
         const seasonNum = seasonMatch[1];
-        // Buscamos si existe póster para esa temporada
         if (appState.content.seasonPosters[id][seasonNum]) {
             imageUrl = appState.content.seasonPosters[id][seasonNum];
         }
@@ -2409,16 +2551,17 @@ function createMovieCardElement(id, data, type, layout = 'carousel', lazy = fals
         if(imgContainer) imgContainer.replaceWith(img);
         card.classList.add('img-loaded');
     };
-
     img.onerror = () => {
-        card.style.display = 'none'; 
+        card.classList.add('img-error');
         console.warn(`Imagen rota para: ${data.title}`);
     };
 
     img.src = imageUrl; 
     img.alt = data.title;
 
+    // Aquí inyectamos el 'ribbonHTML' antes de la imagen
     card.innerHTML = `
+        ${ribbonHTML}
         <div class="img-container-placeholder"></div>
         ${watchlistBtnHTML}
     `;
