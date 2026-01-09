@@ -2905,29 +2905,68 @@ body.tab-inactive iframe {
 /* ================================== */
 /* ETIQUETA NUEVO EPISODIO (BADGE)    */
 /* ================================== */
-.new-episode-badge {
+/* === 🔥 NUEVO SISTEMA DE ETIQUETAS APILABLES === */
+
+/* 1. El contenedor que posiciona las etiquetas en la esquina */
+.badges-container {
     position: absolute;
-    top: 8px;       /* Separación del borde superior */
-    left: 8px;      /* Separación del borde izquierdo */
+    top: 8px;
+    left: 8px;
     z-index: 20;
-    
-    background: linear-gradient(45deg, #E50914, #ff4b55); /* Rojo degradado moderno */
-    color: white;
+    display: flex;
+    flex-direction: column; /* Esto hace que se pongan una debajo de otra */
+    gap: 5px; /* Espacio entre etiquetas */
+    pointer-events: none;
+}
+
+/* 2. La apariencia de la etiqueta individual */
+.new-episode-badge {
+    /* Ya no usamos position absolute aquí, lo maneja el padre */
+    position: relative; 
     
     padding: 4px 10px;
-    border-radius: 4px;  /* Bordes redondeados suaves */
+    border-radius: 4px;
     font-family: 'Montserrat', sans-serif;
     font-size: 0.7rem;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    
-    box-shadow: 0 2px 6px rgba(0,0,0,0.6); /* Sombra para que flote */
-    pointer-events: none;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+    width: fit-content; /* Para que no se estire */
     transition: transform 0.3s ease;
 }
 
 /* Pequeño efecto al pasar el mouse por la tarjeta */
 .movie-card:hover .new-episode-badge {
     transform: scale(1.05);
+}
+
+/* Colores de Etiquetas */
+.badge-estreno { background: linear-gradient(45deg, #00C9FF, #92FE9D); color: #000; text-shadow: none; }
+.badge-season  { background: linear-gradient(45deg, #8E2DE2, #4A00E0); color: #fff; }
+.badge-episode { background: #E50914; color: #fff; }
+
+.movie-card:hover .badges-container {
+    transform: scale(1.05);
+}
+
+/* Estilo Temporada Bloqueada */
+.season-poster-card.locked {
+    filter: grayscale(100%);
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.season-poster-card.locked::before {
+    content: '\f023'; /* Icono candado FontAwesome */
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 3rem;
+    color: rgba(255,255,255,0.6);
+    z-index: 5;
+    text-shadow: 0 4px 10px rgba(0,0,0,0.8);
 }
