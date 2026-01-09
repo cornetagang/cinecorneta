@@ -2461,9 +2461,22 @@ function isDateRecent(dateString) {
 // -----------------------------------------------------------
 // 1. FUNCIÓN AUXILIAR: Detecta fechas recientes en episodios
 // -----------------------------------------------------------
+// Verifica si una serie tiene alguna TEMPORADA reciente desde la hoja PostersTemporadas
+function hasRecentSeasonFromPosters(seriesId) {
+    // ⚠️ AQUÍ NO USAMOS 'shared.', USAMOS DIRECTAMENTE 'appState'
+    const posters = appState.content.seasonPosters[seriesId];
+    if (!posters) return false;
+
+    return Object.values(posters).some(seasonData => {
+        // Soporte para formato antiguo (solo URL) y nuevo (Objeto con fecha)
+        const date = (typeof seasonData === 'object') ? seasonData.date_added : null;
+        return isDateRecent(date);
+    });
+}
+
 // Verifica si una serie tiene algún episodio reciente
 function hasRecentEpisodes(seriesId) {
-    // CORRECCIÓN: Eliminado 'shared.'
+    // ⚠️ CORRECCIÓN: Quitamos 'shared.' aquí
     const allEpisodes = appState.content.seriesEpisodes[seriesId];
     if (!allEpisodes) return false;
 
@@ -2485,27 +2498,41 @@ function createMovieCardElement(id, data, type, layout = 'carousel', lazy = fals
     card.className = `movie-card ${layout === 'carousel' ? 'carousel-card' : ''}`;
     card.dataset.contentId = id;
 
-    let ribbonHTML = '';
+    let badgesAccumulator = ''; // Usamos esto para juntar varias etiquetas
     
-    // Chequeo de fecha de agregado (sirve para Series y Pelis)
     const isNewContent = isDateRecent(data.date_added);
 
     if (type === 'series') {
+        const hasNewSeason = hasRecentSeasonFromPosters(id);
         const hasNewEp = hasRecentEpisodes(id);
 
+        // 1. ¿Es Estreno?
         if (isNewContent) {
-            // SERIE NUEVA
-            ribbonHTML = `<div class="new-episode-badge" style="background: linear-gradient(45deg, #00C9FF, #92FE9D); color: #000; text-shadow:none;">ESTRENO</div>`;
-        } else if (hasNewEp) {
-            // NUEVO CAPÍTULO
-            ribbonHTML = `<div class="new-episode-badge">NUEVO CAP</div>`;
+            badgesAccumulator += `<div class="new-episode-badge badge-estreno">ESTRENO</div>`;
+        }
+
+        // 2. ¿Tiene Nueva Temporada? (Ahora se agrega DEBAJO, no reemplaza)
+        if (hasNewSeason) {
+            badgesAccumulator += `<div class="new-episode-badge badge-season">NUEVA TEMP</div>`;
+        }
+
+        // 3. ¿Tiene Nuevo Cap? 
+        // Lógica opcional: Si ya mostramos "Nueva Temp", quizás "Nuevo Cap" sea redundante.
+        // Pero si quieres que salga también, quita la parte de "&& !hasNewSeason"
+        if (hasNewEp && !hasNewSeason) {
+            badgesAccumulator += `<div class="new-episode-badge badge-episode">NUEVO CAP</div>`;
         }
     } 
     else if (type === 'movie') {
         if (isNewContent) {
-            // PELÍCULA NUEVA 🔥
-            ribbonHTML = `<div class="new-episode-badge" style="background: linear-gradient(45deg, #00C9FF, #92FE9D); color: #000; text-shadow:none;">ESTRENO</div>`;
+            badgesAccumulator += `<div class="new-episode-badge badge-estreno">ESTRENO</div>`;
         }
+    }
+
+    // Si hay alguna etiqueta, la envolvemos en el contenedor nuevo
+    let ribbonHTML = '';
+    if (badgesAccumulator !== '') {
+        ribbonHTML = `<div class="badges-container">${badgesAccumulator}</div>`;
     }
 
     card.onclick = (e) => {
@@ -2701,4 +2728,3 @@ window.adminForceUpdate = () => {
         location.reload(); 
     }, 500);
 };
-
