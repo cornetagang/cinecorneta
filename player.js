@@ -184,50 +184,79 @@ function renderSeasonGrid(seriesId) {
 
 function populateSeasonGrid(seriesId) {
     const container = shared.DOM.seriesPlayerModal.querySelector('#season-grid');
-    const data = shared.appState.content.seriesEpisodes[seriesId];
-    const seriesInfo = findContentData(seriesId);
     
-    if (!container || !data) return;
+    // Obtenemos datos usando 'shared'
+    const episodesData = shared.appState.content.seriesEpisodes[seriesId] || {};
+    const postersData = shared.appState.content.seasonPosters[seriesId] || {};
+    const seriesInfo = shared.appState.content.series[seriesId]; // Ojo: usa findContentData si lo tienes definido en player.js
+    
+    if (!container) return;
 
     container.innerHTML = '';
 
-    const seasonKeys = Object.keys(data);
-    const seasonsMapped = seasonKeys.map(k => {
+    // 1. Unir temporadas de Episodios + Temporadas de Posters
+    const episodeSeasons = Object.keys(episodesData);
+    const posterSeasons = Object.keys(postersData);
+    const allSeasons = [...new Set([...episodeSeasons, ...posterSeasons])];
+
+    const seasonsMapped = allSeasons.map(k => {
         const numMatch = String(k).replace(/\D/g, '');
         const num = numMatch ? parseInt(numMatch, 10) : 0;
         return { key: k, num };
     }).sort((a, b) => a.num - b.num);
 
+    // Ajustar columnas
     let columns = (seasonsMapped.length <= 5) ? seasonsMapped.length : Math.ceil(seasonsMapped.length / 2);
     container.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
 
     seasonsMapped.forEach(({ key: seasonKey, num: seasonNum }) => {
-        const episodes = Array.isArray(data[seasonKey]) ? data[seasonKey] : Object.values(data[seasonKey] || {});
-        const posterUrl = shared.appState.content.seasonPosters[seriesId]?.[seasonKey] || seriesInfo.poster || '';
+        const rawEpisodes = episodesData[seasonKey];
+        const episodes = rawEpisodes ? (Array.isArray(rawEpisodes) ? rawEpisodes : Object.values(rawEpisodes)) : [];
+        
+        // Datos del Poster (URL, fecha, estado)
+        let posterUrl = seriesInfo.poster || '';
+        let seasonStatus = ''; 
+
+        const posterEntry = postersData[seasonKey];
+        if (posterEntry) {
+            if (typeof posterEntry === 'object') {
+                posterUrl = posterEntry.poster || posterUrl;
+                seasonStatus = String(posterEntry.estado || '').toLowerCase().trim();
+            } else {
+                posterUrl = posterEntry;
+            }
+        }
+        
         const totalEpisodes = episodes.length;
 
-        const lastWatchedIndex = loadProgress(seriesId, seasonKey);
-        const watchedEpisodes = lastWatchedIndex > 0 ? lastWatchedIndex + 1 : 0;
-        const progressPercent = totalEpisodes > 0 ? Math.round((watchedEpisodes / totalEpisodes) * 100) : 0;
+        // 🔥 BLOQUEO: Si dice "proximamente" O si no hay episodios cargados
+        const isManuallyLocked = (seasonStatus === 'proximamente' || seasonStatus === 'locked');
+        const isEmpty = (totalEpisodes === 0);
+        const isLocked = isManuallyLocked || (isEmpty && seasonStatus !== 'disponible');
 
-        let progressHTML = '';
-        if (progressPercent > 0 && progressPercent < 100) {
-            progressHTML = `<div class="progress-bar"><div style="width: ${progressPercent}%"></div></div>`;
-        } else if (progressPercent === 100) {
-            progressHTML = `<div class="progress-bar complete"><div style="width: 100%"></div></div>`;
-        }
-
+        // Renderizado de la tarjeta
         const card = document.createElement('div');
-        card.className = 'season-poster-card';
-        card.onclick = () => renderEpisodePlayer(seriesId, seasonKey);
+        card.className = `season-poster-card ${isLocked ? 'locked' : ''}`;
+        
+        card.onclick = () => {
+            if (isLocked) {
+                shared.ErrorHandler.show('content', 'Temporada no disponible aún.');
+            } else {
+                // Asegúrate de que esta función esté disponible en el ámbito
+                // Si da error, usa window.renderEpisodePlayer o expórtala
+                // En tu estructura actual, está definida abajo en este mismo archivo, así que está bien.
+                renderEpisodePlayer(seriesId, seasonKey);
+            }
+        };
+
+        const overlayText = isLocked ? 'PRÓXIMAMENTE' : `${totalEpisodes} episodios`;
 
         card.innerHTML = `
             <img src="${posterUrl}" alt="Temporada ${seasonNum}">
             <div class="overlay">
                 <h3>Temporada ${seasonNum}</h3>
-                <p>${totalEpisodes} episodios</p>
+                <p>${overlayText}</p>
             </div>
-            ${progressHTML}
         `;
         container.appendChild(card);
     });
