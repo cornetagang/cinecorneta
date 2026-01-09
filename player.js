@@ -85,7 +85,6 @@ export async function openSeriesPlayer(seriesId, forceSeasonGrid = false) {
     try {
         shared.closeAllModals();
         
-        // 🔥 USAMOS EL BUSCADOR INTELIGENTE
         const seriesInfo = findContentData(seriesId); 
         
         if (!seriesInfo) {
@@ -102,60 +101,83 @@ export async function openSeriesPlayer(seriesId, forceSeasonGrid = false) {
                 <div class="spinner"></div>
             </div>`;
 
+        // === 🔥 LÓGICA DE SALTO DE BLOQUEO ===
         const seriesEpisodes = shared.appState.content.seriesEpisodes[seriesId] || {};
-        const seasons = Object.keys(seriesEpisodes);
+        const postersData = shared.appState.content.seasonPosters[seriesId] || {};
+        
+        // 1. Obtenemos TODAS las temporadas (Episodios + Posters) y las ordenamos
+        const allSeasonsKeys = [...new Set([...Object.keys(seriesEpisodes), ...Object.keys(postersData)])];
+        
+        const seasonsMapped = allSeasonsKeys.map(k => {
+            const numMatch = String(k).replace(/\D/g, '');
+            const num = numMatch ? parseInt(numMatch, 10) : 0;
+            return { key: k, num };
+        }).sort((a, b) => a.num - b.num);
 
-        if (forceSeasonGrid && seasons.length > 1) {
+        // 2. Si forzamos grilla, mostramos grilla directamente
+        if (forceSeasonGrid && seasonsMapped.length > 1) {
             renderSeasonGrid(seriesId);
             return;
         }
 
-        if (seasons.length === 0) {
-            shared.DOM.seriesPlayerModal.innerHTML = `
-                <button class="close-btn">&times;</button>
-                <div style="text-align:center; padding: 20px; color: white;">
-                    <h2>${seriesInfo.title}</h2>
-                    <p>No hay episodios disponibles por el momento.</p>
-                </div>`;
-            shared.DOM.seriesPlayerModal.querySelector('.close-btn').onclick = closeSeriesPlayerModal;
-            return;
-        }
+        // 3. BUSCAMOS LA PRIMERA TEMPORADA DESBLOQUEADA
+        let targetSeasonKey = null;
 
-        const user = shared.auth.currentUser;
-        let lastWatched = null;
+        for (const s of seasonsMapped) {
+            const seasonKey = s.key;
+            
+            // Verificamos estado en PostersTemporadas
+            const posterEntry = postersData[seasonKey];
+            let seasonStatus = '';
+            if (posterEntry && typeof posterEntry === 'object') {
+                seasonStatus = String(posterEntry.estado || '').toLowerCase().trim();
+            }
 
-        if (user) {
-            try {
-                const historySnapshot = await shared.db.ref(`users/${user.uid}/history`).orderByChild('viewedAt').once('value');
-                if (historySnapshot.exists()) {
-                    let userHistoryForThisSeries = [];
-                    historySnapshot.forEach(child => {
-                        const item = child.val();
-                        if (item.type === 'series' && item.contentId === seriesId) {
-                            userHistoryForThisSeries.push(item);
-                        }
-                    });
-                    if (userHistoryForThisSeries.length > 0) {
-                        lastWatched = userHistoryForThisSeries.pop();
-                    }
-                }
-            } catch (dbError) {
-                logError(dbError, 'Player: Fetch History');
+            // Verificamos si tiene episodios reales
+            const eps = seriesEpisodes[seasonKey];
+            const hasEpisodes = eps && (Array.isArray(eps) ? eps.length > 0 : Object.keys(eps).length > 0);
+
+            // Condición de Bloqueo (Igual que en la grilla)
+            const isManuallyLocked = (seasonStatus === 'proximamente' || seasonStatus === 'locked');
+            const isLocked = isManuallyLocked || (!hasEpisodes && seasonStatus !== 'disponible');
+
+            // Si NO está bloqueada, ¡esta es la elegida!
+            if (!isLocked) {
+                targetSeasonKey = seasonKey;
+                break; // Rompemos el ciclo, ya encontramos la primera visible
             }
         }
 
-        if (lastWatched) {
-            renderEpisodePlayer(seriesId, lastWatched.season, lastWatched.lastEpisode);
-        } else {
-            const seasonsMapped = seasons.map(k => {
-                const numMatch = String(k).replace(/\D/g, '');
-                const num = numMatch ? parseInt(numMatch, 10) : 0;
-                return { key: k, num };
-            }).sort((a, b) => a.num - b.num);
+        // 4. RESULTADO
+        if (targetSeasonKey) {
+            // Reproducimos la temporada encontrada (puede ser la 3 si la 1 y 2 están bloqueadas)
+            // Chequeamos historial primero por si el usuario ya iba avanzado en ESA temporada
+            const user = shared.auth.currentUser;
+            let lastWatchedEpisode = 0;
 
-            const firstSeasonKey = seasonsMapped.length > 0 ? seasonsMapped[0].key : seasons[0];
-            renderEpisodePlayer(seriesId, firstSeasonKey, 0);
+            if (user) {
+                // Pequeña lógica para recuperar donde quedó
+                const savedIndex = loadProgress(seriesId, targetSeasonKey);
+                if (savedIndex > 0) lastWatchedEpisode = savedIndex;
+            }
+
+            renderEpisodePlayer(seriesId, targetSeasonKey, lastWatchedEpisode);
+        } else {
+            // Si llegamos aquí, es que TODO está bloqueado o no hay nada
+            if (seasonsMapped.length > 0) {
+                 // Si hay temporadas pero todas bloqueadas, mostramos la grilla para que vea los candados
+                renderSeasonGrid(seriesId);
+            } else {
+                shared.DOM.seriesPlayerModal.innerHTML = `
+                    <button class="close-btn">&times;</button>
+                    <div style="text-align:center; padding: 20px; color: white;">
+                        <h2>${seriesInfo.title}</h2>
+                        <p>Próximamente disponible.</p>
+                    </div>`;
+                shared.DOM.seriesPlayerModal.querySelector('.close-btn').onclick = closeSeriesPlayerModal;
+            }
         }
+
     } catch (error) {
         logError(error, 'Player: Critical Crash');
         shared.ErrorHandler.show('unknown', 'Error al abrir el reproductor de series.');
