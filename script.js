@@ -525,7 +525,7 @@ const DOM = {
     menuOverlay: document.getElementById('menu-overlay')
 };
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbx8g8lWN67cwLf8NrYMg_CTDgxkXCdQDE5sMP_HxaBuHoMe9QntdWKKeMhohZu7rUmZ/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxsC8vcvWrCMjx6ryUTLi0UDgU0eMy2oBijsiNCABCcS9LRKHQnUse4gxRSrL-1etNS/exec';
 const ITEMS_PER_LOAD = window.innerWidth < 1600 ? 25 : 24;
 
 const firebaseConfig = {
@@ -2701,3 +2701,4 @@ window.adminForceUpdate = () => {
         location.reload(); 
     }, 500);
 };
+
