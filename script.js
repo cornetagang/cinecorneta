@@ -1015,45 +1015,57 @@ function populateFilters(type) {
     else if (type === 'series') sourceData = appState.content.series;
     else sourceData = appState.content.sagas[type];
 
-    if (!DOM.genreFilter || !DOM.sortBy || !sourceData) return;
-
-    // Referencias visuales
-    const genreVisual = document.getElementById('genre-dropdown-visual');
-    const sortVisual = document.getElementById('sort-dropdown-visual');
-    const langVisual = document.getElementById('lang-dropdown-visual'); // <--- NUEVO
-    const ucmButtons = document.getElementById('ucm-sort-buttons');
-    const controlsContainer = document.getElementById('filter-controls');
+    // 1. LEER CONFIGURACIÓN DEL EXCEL (Modular)
+    const sagaConfig = appState.content.sagasList.find(s => s.id === type) || {};
     
+    // Configuraciones por defecto (si no es saga, asumimos comportamiento estándar)
+    const confGenres = (sagaConfig.genres_filter || 'si').toLowerCase().trim(); // fases, sagas, eras, si, no
+    const confSortBtn = (sagaConfig.sort_buttons || 'no').toLowerCase().trim(); // si, no
+    const confLang   = (sagaConfig.lang_filter || 'si').toLowerCase().trim();   // si, no
+
+    // Elementos del DOM
+    const genreVisual = document.getElementById('genre-dropdown-visual');
+    const sortVisual  = document.getElementById('sort-dropdown-visual');
+    const langVisual  = document.getElementById('lang-dropdown-visual');
+    const ucmButtons  = document.getElementById('ucm-sort-buttons');
+    
+    const genreList = document.getElementById('genre-menu-list');
+    const sortList  = document.getElementById('sort-menu-list');
+    const langList  = document.getElementById('lang-menu-list');
+
+    const controlsContainer = document.getElementById('filter-controls');
     if (controlsContainer) controlsContainer.style.display = 'flex';
 
-    const sagaConfig = appState.content.sagasList.find(s => s.id === type);
-    const mode = String(sagaConfig ? (sagaConfig.filters || 'si') : 'si').toLowerCase().trim();
-
-    // Reset visual
-    if (genreVisual) genreVisual.style.display = 'block';
-    if (langVisual) langVisual.style.display = 'block'; // <--- NUEVO
-
-    // CASO "NO" (Ocultar todo)
-    if (mode === 'no') {
-        if (genreVisual) genreVisual.style.display = 'none';
-        if (sortVisual) sortVisual.style.display = 'none';
-        if (langVisual) langVisual.style.display = 'none'; // <--- NUEVO
-        if (ucmButtons) ucmButtons.style.display = 'none';
-        return; 
-    }
-
-    // CASO "BOTONES"
-    if (mode === 'botones') {
-        if (genreVisual) genreVisual.style.display = 'none';
-        if (langVisual) langVisual.style.display = 'none'; // <--- NUEVO
-        DOM.genreFilter.value = 'all'; 
-    }
-
-    // Limpieza de menús
-    const genreList = document.getElementById('genre-menu-list');
-    const sortList = document.getElementById('sort-menu-list');
-    const langList = document.getElementById('lang-menu-list'); // <--- NUEVO
+    // 2. VISIBILIDAD DE CONTROLES (Según Excel)
     
+    // A. Filtro de Géneros / Fases / Sagas
+    if (genreVisual) genreVisual.style.display = (confGenres !== 'no') ? 'block' : 'none';
+
+    // B. Botones de Cronología (El reemplazo del Sort tradicional)
+    if (ucmButtons) {
+        ucmButtons.style.display = (confSortBtn === 'si') ? 'flex' : 'none';
+        // Si activamos botones, ocultamos el dropdown de sort tradicional
+        if (sortVisual) sortVisual.style.display = (confSortBtn === 'si') ? 'none' : 'block';
+        
+        // Activar lógica de clic en botones
+        if (DOM.ucmSortButtons) {
+            DOM.ucmSortButtons.forEach(btn => {
+                btn.onclick = (e) => {
+                    DOM.ucmSortButtons.forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                    applyAndDisplayFilters(type);
+                };
+            });
+        }
+    } else {
+        if (sortVisual) sortVisual.style.display = 'block';
+    }
+
+    // C. Filtro de Idioma
+    if (langVisual) langVisual.style.display = (confLang === 'si') ? 'block' : 'none';
+
+
+    // 3. GENERADOR DE ITEMS (Helper)
     const createItem = (value, label, menuType, isGroup = false, imgUrl = null) => {
         const div = document.createElement('div');
         div.className = isGroup ? 'dropdown-group-title' : 'dropdown-item';
@@ -1065,6 +1077,7 @@ function populateFilters(type) {
             div.textContent = label;
         }
 
+        // Si es grupo con valor (ej: Saga del Infinito), es clicable
         if (isGroup && value) div.style.cursor = "pointer";
 
         div.onclick = (e) => {
@@ -1073,7 +1086,7 @@ function populateFilters(type) {
                 document.getElementById('genre-text').textContent = label; 
                 DOM.genreFilter.value = value; 
                 if (genreVisual) genreVisual.classList.remove('open');
-            } else if (menuType === 'lang') { // <--- LÓGICA IDIOMA
+            } else if (menuType === 'lang') {
                 document.getElementById('lang-text').textContent = label;
                 DOM.langFilter.value = value;
                 if (langVisual) langVisual.classList.remove('open');
@@ -1087,50 +1100,64 @@ function populateFilters(type) {
         return div;
     };
 
-    if (mode !== 'botones') {
-        // 1. GÉNEROS
+
+    // 4. POPULAR LISTA DE GÉNEROS (Lógica Modular)
+    if (confGenres !== 'no') {
         genreList.innerHTML = '';
         DOM.genreFilter.innerHTML = `<option value="all">Todos</option>`; 
         
-        // Lógica UCM / StarWars / Harry Potter
-        if (type === 'ucm') {
-            const fasesRaw = Object.values(sourceData).map(item => String(item.fase || '').trim()).filter(Boolean);
-            const fasesDisponibles = new Set(fasesRaw);
+        // CASO: FASES (Tipo Marvel)
+        if (confGenres === 'fases') {
             genreList.appendChild(createItem('all', 'Todas las Fases', 'genre'));
+            document.getElementById('genre-text').textContent = "Todas las Fases";
+            
+            // Fases hardcodeadas o dinámicas, aquí uso tu estructura UCM
             const estructuraSagas = [
                 { id: 'saga_infinity', titulo: "Saga del Infinito", img: "https://res.cloudinary.com/djhgmmdjx/image/upload/v1764056286/InfinitySaga2_t3ixis.svg", fases: ['1', '2', '3'] },
                 { id: 'saga_multiverse', titulo: "Saga del Multiverso", img: "https://res.cloudinary.com/djhgmmdjx/image/upload/v1764056259/MultiverseSaga2_waggse.svg", fases: ['4', '5', '6'] }
             ];
+
+            const fasesDisponibles = new Set(Object.values(sourceData).map(i => String(i.fase || '').trim()).filter(Boolean));
+
             estructuraSagas.forEach(saga => {
-                 genreList.appendChild(createItem(saga.id, saga.titulo, 'genre', true, saga.img));
-                 DOM.genreFilter.innerHTML += `<option value="${saga.id}">${saga.titulo}</option>`;
-                 saga.fases.forEach(f => { 
-                     if(fasesDisponibles.has(f)) {
-                         genreList.appendChild(createItem(f, `Fase ${f}`, 'genre'));
-                         DOM.genreFilter.innerHTML += `<option value="${f}">Fase ${f}</option>`;
-                     }
-                 });
+                genreList.appendChild(createItem(saga.id, saga.titulo, 'genre', true, saga.img));
+                DOM.genreFilter.innerHTML += `<option value="${saga.id}">${saga.titulo}</option>`;
+                saga.fases.forEach(f => { 
+                    if(fasesDisponibles.has(f)) {
+                        genreList.appendChild(createItem(f, `Fase ${f}`, 'genre'));
+                        DOM.genreFilter.innerHTML += `<option value="${f}">Fase ${f}</option>`;
+                    }
+                });
             });
-            document.getElementById('genre-text').textContent = "Todas las Fases";
-        } else if (type === 'starwars') {
-             genreList.appendChild(createItem('all', 'Toda la Galaxia', 'genre'));
-             const eras = [{ id: 'republic', label: 'La República' }, { id: 'empire', label: 'El Imperio' }];
-             eras.forEach(e => {
-                 genreList.appendChild(createItem(e.id, e.label, 'genre'));
-                 DOM.genreFilter.innerHTML += `<option value="${e.id}">${e.label}</option>`;
-             });
-             document.getElementById('genre-text').textContent = "Toda la Galaxia";
-        } else if (type === 'harrypotter') {
-             genreList.appendChild(createItem('all', 'Mundo Mágico', 'genre'));
-             genreList.appendChild(createItem('Harry Potter', 'Saga Original', 'genre'));
-             genreList.appendChild(createItem('Animales Fantásticos', 'Animales Fantásticos', 'genre'));
-             DOM.genreFilter.innerHTML += `<option value="Harry Potter">Saga Original</option>`;
-             DOM.genreFilter.innerHTML += `<option value="Animales Fantásticos">Animales Fantásticos</option>`;
-             document.getElementById('genre-text').textContent = "Mundo Mágico";
+
+        // CASO: SAGAS (Tipo Harry Potter)
+        } else if (confGenres === 'sagas') {
+            genreList.appendChild(createItem('all', 'Todas las Sagas', 'genre'));
+            document.getElementById('genre-text').textContent = "Todas las Sagas";
+            
+            // Aquí personaliza según tus necesidades o lee dinámicamente
+            genreList.appendChild(createItem('Harry Potter', 'Harry Potter', 'genre'));
+            genreList.appendChild(createItem('Animales Fantásticos', 'Animales Fantásticos', 'genre'));
+            DOM.genreFilter.innerHTML += `<option value="Harry Potter">Harry Potter</option>`;
+            DOM.genreFilter.innerHTML += `<option value="Animales Fantásticos">Animales Fantásticos</option>`;
+
+        // CASO: ERAS (Tipo Star Wars)
+        } else if (confGenres === 'eras') {
+            genreList.appendChild(createItem('all', 'Todas las Eras', 'genre'));
+            document.getElementById('genre-text').textContent = "Todas las Eras";
+            
+            const eras = [{ id: 'republic', label: 'La República' }, { id: 'empire', label: 'El Imperio' }, { id: 'rebellion', label: 'La Rebelión' }];
+            eras.forEach(e => {
+                genreList.appendChild(createItem(e.id, e.label, 'genre'));
+                DOM.genreFilter.innerHTML += `<option value="${e.id}">${e.label}</option>`;
+            });
+
+        // CASO: ESTÁNDAR (Por géneros de la columna 'genres')
         } else {
-            // Lógica Genérica
             const genres = new Set(Object.values(sourceData).flatMap(i => i.genres ? String(i.genres).split(';') : []));
             genreList.appendChild(createItem('all', 'Todos', 'genre'));
+            document.getElementById('genre-text').textContent = "Géneros";
+            
             Array.from(genres).sort().forEach(g => {
                 const gTrim = g.trim();
                 if(gTrim) {
@@ -1138,34 +1165,25 @@ function populateFilters(type) {
                     DOM.genreFilter.innerHTML += `<option value="${gTrim}">${gTrim}</option>`;
                 }
             });
-            document.getElementById('genre-text').textContent = "Todos";
-        }
-
-        // 2. IDIOMAS (NUEVO BLOQUE)
-        if (langList && DOM.langFilter) {
-            langList.innerHTML = '';
-            DOM.langFilter.innerHTML = `<option value="all">Todos</option>`;
-            
-            const languages = new Set(Object.values(sourceData).map(i => i.language ? String(i.language).trim() : '').filter(l => l !== ''));
-            
-            langList.appendChild(createItem('all', 'Todos', 'lang'));
-            
-            Array.from(languages).sort().forEach(l => {
-                langList.appendChild(createItem(l, l, 'lang'));
-                DOM.langFilter.innerHTML += `<option value="${l}">${l}</option>`;
-            });
-            document.getElementById('lang-text').textContent = "Idioma";
         }
     }
 
-    // 3. ORDENAR POR
-    if (type === 'ucm' || type === 'starwars' || type === 'harrypotter') {
-        if (sortVisual) sortVisual.style.display = 'none';
-        if (ucmButtons) ucmButtons.style.display = 'flex';
-    } else {
-        if (sortVisual) sortVisual.style.display = 'block';
-        if (ucmButtons) ucmButtons.style.display = 'none';
+    // 5. POPULAR IDIOMAS (Solo si está activado)
+    if (confLang === 'si') {
+        langList.innerHTML = '';
+        DOM.langFilter.innerHTML = `<option value="all">Todos</option>`;
+        const languages = new Set(Object.values(sourceData).map(i => i.language ? String(i.language).trim() : '').filter(l => l !== ''));
+        langList.appendChild(createItem('all', 'Todos', 'lang'));
+        document.getElementById('lang-text').textContent = "Idioma";
         
+        Array.from(languages).sort().forEach(l => {
+            langList.appendChild(createItem(l, l, 'lang'));
+            DOM.langFilter.innerHTML += `<option value="${l}">${l}</option>`;
+        });
+    }
+
+    // 6. POPULAR SORT TRADICIONAL (Solo si NO hay botones)
+    if (confSortBtn === 'no') {
         sortList.innerHTML = '';
         const sortOptions = [
             {val:'recent', label:'Recientes'},
@@ -1180,14 +1198,13 @@ function populateFilters(type) {
         });
     }
     
-    // Configurar Triggers
+    // Configuración de Triggers del menú
     const configDropdown = (trigger, visual) => {
         if (!trigger) return;
         const newTrigger = trigger.cloneNode(true);
         trigger.parentNode.replaceChild(newTrigger, trigger);
         newTrigger.onclick = (e) => { 
             e.stopPropagation(); 
-            // Cerrar otros dropdowns al abrir uno
             [genreVisual, sortVisual, langVisual].forEach(v => {
                 if(v && v !== visual) v.classList.remove('open');
             });
@@ -1197,15 +1214,7 @@ function populateFilters(type) {
 
     if(document.getElementById('genre-trigger')) configDropdown(document.getElementById('genre-trigger'), genreVisual);
     if(document.getElementById('sort-trigger')) configDropdown(document.getElementById('sort-trigger'), sortVisual);
-    if(document.getElementById('lang-trigger')) configDropdown(document.getElementById('lang-trigger'), langVisual); // <--- NUEVO
-    
-    if(DOM.ucmSortButtons) DOM.ucmSortButtons.forEach(btn => {
-        btn.onclick = (e) => {
-            DOM.ucmSortButtons.forEach(b => b.classList.remove('active'));
-            e.target.classList.add('active');
-            applyAndDisplayFilters(type);
-        };
-    });
+    if(document.getElementById('lang-trigger')) configDropdown(document.getElementById('lang-trigger'), langVisual); 
 }
 
 async function applyAndDisplayFilters(type) {
@@ -1217,104 +1226,87 @@ async function applyAndDisplayFilters(type) {
     const gridEl = DOM.gridContainer.querySelector('.grid');
     if (!gridEl || !sourceData) return;
 
-    const sagaConfig = appState.content.sagasList.find(s => s.id === type);
-    const mode = String(sagaConfig ? (sagaConfig.filters || 'si') : 'si').toLowerCase().trim();
-    const filtersDisabled = (mode === 'no');
+    // 1. LEER CONFIGURACIÓN (Igual que arriba)
+    const sagaConfig = appState.content.sagasList.find(s => s.id === type) || {};
+    const confGenres = (sagaConfig.genres_filter || 'si').toLowerCase().trim();
+    const confSortBtn = (sagaConfig.sort_buttons || 'no').toLowerCase().trim();
+    const confLang   = (sagaConfig.lang_filter || 'si').toLowerCase().trim();
 
-    // Determinar orden
+    // Determinar valor de ordenamiento
     let sortByValue;
-    if (filtersDisabled) {
-        sortByValue = 'release'; 
+    if (confSortBtn === 'si') {
+        // Si hay botones, miramos cuál está activo
+        const activeBtn = document.querySelector('.sort-btn.active');
+        sortByValue = activeBtn ? activeBtn.dataset.sort : 'release'; 
     } else {
-        if (type === 'ucm' || type === 'starwars' || type === 'harrypotter') {
-            const activeBtn = document.querySelector('.sort-btn.active');
-            sortByValue = activeBtn ? activeBtn.dataset.sort : 'release';
-        } else {
-            sortByValue = DOM.sortBy.value;
-        }
+        // Si no, miramos el dropdown tradicional
+        sortByValue = DOM.sortBy.value || 'recent';
     }
 
     gridEl.innerHTML = `<div style="width:100%;height:60vh;display:flex;justify-content:center;align-items:center;grid-column:1/-1;"><p class="loading-text">Cargando...</p></div>`;
 
+    // 2. OBTENER DATOS (Invertir solo si es saga dinámica para respetar orden Excel)
     let content = Object.entries(sourceData);
+    const isDynamicSaga = (type !== 'movie' && type !== 'series');
+    if (isDynamicSaga) content = content.reverse();
     content.forEach((item, index) => { item[1]._originalIndex = index; });
 
-    // 1. FILTRADO POR GÉNERO
-    if (!filtersDisabled && mode !== 'botones' && DOM.genreFilter.value !== 'all') {
-        const filterVal = DOM.genreFilter.value.toLowerCase().trim(); 
+    // 3. APLICAR FILTROS
+    
+    // A. Género / Fase / Saga
+    if (confGenres !== 'no' && DOM.genreFilter.value !== 'all') {
+        const filterVal = DOM.genreFilter.value.toLowerCase().trim();
+        
         content = content.filter(([id, item]) => {
-            if (type === 'ucm') {
+            // Lógica Específica según tipo de configuración
+            if (confGenres === 'fases') {
                 const fase = String(item.fase || '').trim();
                 if (filterVal === 'saga_infinity') return ['1','2','3'].includes(fase);
                 if (filterVal === 'saga_multiverse') return ['4','5','6'].includes(fase);
                 return fase === filterVal;
             }
-            if (type === 'harrypotter') {
-                return String(item.genres || '').toLowerCase().includes(filterVal) ||
-                       String(item.title || '').toLowerCase().includes(filterVal);
-            }
-            return String(item.genres || '').toLowerCase().includes(filterVal);
+            // Búsqueda genérica (Funciona para 'sagas', 'eras' y 'si')
+            // Busca en genres O en el título (útil para Harry Potter vs Animales Fantásticos)
+            const genresStr = String(item.genres || '').toLowerCase();
+            const titleStr = String(item.title || '').toLowerCase();
+            return genresStr.includes(filterVal) || titleStr.includes(filterVal);
         });
     }
 
-    // 2. 🔥 FILTRADO POR IDIOMA (NUEVO)
-    if (!filtersDisabled && mode !== 'botones' && DOM.langFilter && DOM.langFilter.value !== 'all') {
+    // B. Idioma
+    if (confLang === 'si' && DOM.langFilter && DOM.langFilter.value !== 'all') {
         const langVal = DOM.langFilter.value.toLowerCase().trim();
         content = content.filter(([id, item]) => {
             return String(item.language || '').toLowerCase().includes(langVal);
         });
     }
 
-    // 3. ORDENAMIENTO JERÁRQUICO (SERIES Y PELIS)
+    // 4. APLICAR ORDENAMIENTO
     content.sort((a, b) => {
-        const idA = a[0]; const idB = b[0];
         const aData = a[1]; const bData = b[1];
 
-        // Verificamos si es contenido "ESTRENO" (Por fecha de agregado)
-        // Esto aplica tanto a Series como a Películas
-        const aIsNew = isDateRecent(aData.date_added);
-        const bIsNew = isDateRecent(bData.date_added);
+        if (sortByValue === 'release') return (aData._originalIndex || 0) - (bData._originalIndex || 0);
 
-        // Solo aplicamos lógica especial si el orden es RECIENTE o DEFECTO
-        if (sortByValue === 'recent' || sortByValue === 'release') {
-
-            // --- NIVEL 1: ESTRENOS (SERIES O PELIS) ---
-            if (aIsNew && !bIsNew) return -1; // A sube
-            if (!aIsNew && bIsNew) return 1;  // B sube
-            
-            // Si ambos son Estrenos, desempatamos por Ranking (tr)
-            if (aIsNew && bIsNew) {
-                return (Number(bData.tr) || 0) - (Number(aData.tr) || 0);
-            }
-
-            // --- NIVEL 2: NUEVOS CAPÍTULOS (SOLO SERIES) ---
-            if (type === 'series') {
-                const aHasNewEp = hasRecentEpisodes(idA);
-                const bHasNewEp = hasRecentEpisodes(idB);
-
-                if (aHasNewEp && !bHasNewEp) return -1;
-                if (!aHasNewEp && bHasNewEp) return 1;
-
-                if (aHasNewEp && bHasNewEp) {
-                    return (Number(bData.tr) || 0) - (Number(aData.tr) || 0);
-                }
-            }
+        if (sortByValue === 'recent') {
+            const aIsNew = isDateRecent(aData.date_added);
+            const bIsNew = isDateRecent(bData.date_added);
+            if (aIsNew && !bIsNew) return -1;
+            if (!aIsNew && bIsNew) return 1;
+            return (aData._originalIndex || 0) - (bData._originalIndex || 0);
         }
 
-        // --- NIVEL 3: EL RESTO (RANKING SIEMPRE) ---
-        // Si el usuario elige "Año" o "Alfabetico", se ignora lo de arriba y cae aquí abajo
         if (sortByValue === 'chronological') return (Number(aData.cronologia) || 9999) - (Number(bData.cronologia) || 9999);
+        
         if (sortByValue === 'year-asc') return (Number(aData.year) || 9999) - (Number(bData.year) || 9999);
         if (sortByValue === 'year-desc') return (Number(bData.year) || 0) - (Number(aData.year) || 0);
         if (sortByValue === 'title-asc') return (aData.title || '').localeCompare(bData.title || '');
         if (sortByValue === 'title-desc') return (bData.title || '').localeCompare(aData.title || '');
 
-        // Por defecto (y para Nivel 3): RANKING (tr)
-        return (Number(bData.tr) || 0) - (Number(aData.tr) || 0);
+        return (aData._originalIndex || 0) - (bData._originalIndex || 0);
     });
 
-    // 4. EXPANSIÓN TEMPORADAS
-    if ((type === 'ucm' || type === 'starwars' || type === 'harrypotter') && sortByValue === 'chronological') {
+    // 5. EXPANSIÓN CRONOLÓGICA (Solo si se eligió ese orden)
+    if (sortByValue === 'chronological') {
         const expandedContent = [];
         content.forEach(([id, item]) => {
             const multiChrono = item.cronologiaMulti || item.cronologia_multi; 
@@ -1329,11 +1321,11 @@ async function applyAndDisplayFilters(type) {
                 expandedContent.push([id, item]); 
             }
         });
-        expandedContent.sort((a, b) => (Number(a[1].cronologia)||999) - (Number(b[1].cronologia)||999));
+        expandedContent.sort((a, b) => (Number(a[1].cronologia)||99999) - (Number(b[1].cronologia)||99999));
         content = expandedContent;
     }
 
-    // 5. RENDERIZADO FINAL
+    // 6. RENDER FINAL
     appState.ui.contentToDisplay = content;
     appState.ui.currentIndex = 0; 
     setupPaginationControls();
@@ -2563,13 +2555,31 @@ function createMovieCardElement(id, data, type, layout = 'carousel', lazy = fals
         watchlistBtnHTML = `<button class="btn-watchlist ${inListClass}" data-content-id="${id}"><i class="fas ${icon}"></i></button>`;
     }
 
-    let imageUrl = data.poster;
+    let imageUrl = data.poster; 
+
+    // 2. Intentamos buscar un póster específico de temporada si aplica
     const seasonMatch = data.title.match(/\(T(\d+)\)$/);
     if (seasonMatch && appState.content.seasonPosters[id]) {
         const seasonNum = seasonMatch[1];
-        if (appState.content.seasonPosters[id][seasonNum]) {
-            imageUrl = appState.content.seasonPosters[id][seasonNum];
+        
+        // Buscamos en seasonPosters con seguridad
+        const posterEntry = appState.content.seasonPosters[id][seasonNum];
+        
+        if (posterEntry) {
+            // Si es objeto (nuevo formato), usamos .posterUrl o .poster
+            if (typeof posterEntry === 'object') {
+                imageUrl = posterEntry.posterUrl || posterEntry.poster || imageUrl;
+            } 
+            // Si es string (viejo formato), lo usamos directo
+            else if (typeof posterEntry === 'string') {
+                imageUrl = posterEntry;
+            }
         }
+    }
+    
+    // 3. Fallback final de seguridad: si imageUrl es null/undefined, intentar usar banner
+    if (!imageUrl) {
+        imageUrl = data.banner || ''; // Último recurso para evitar vacío total
     }
 
     const img = new Image();
@@ -2579,8 +2589,13 @@ function createMovieCardElement(id, data, type, layout = 'carousel', lazy = fals
         card.classList.add('img-loaded');
     };
     img.onerror = () => {
-        card.classList.add('img-error');
-        console.warn(`Imagen rota para: ${data.title}`);
+        // Si falla la carga, intentamos poner el póster general si no era el que estábamos usando
+        if (imageUrl !== data.poster && data.poster) {
+            img.src = data.poster;
+        } else {
+            card.classList.add('img-error');
+            console.warn(`Imagen rota para: ${data.title} (URL: ${imageUrl})`);
+        }
     };
 
     img.src = imageUrl; 
