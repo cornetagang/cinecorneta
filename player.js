@@ -210,8 +210,19 @@ function populateSeasonGrid(seriesId) {
     // Obtenemos datos usando 'shared'
     const episodesData = shared.appState.content.seriesEpisodes[seriesId] || {};
     const postersData = shared.appState.content.seasonPosters[seriesId] || {};
-    const seriesInfo = shared.appState.content.series[seriesId]; // Ojo: usa findContentData si lo tienes definido en player.js
     
+    // 🔴 ERROR ANTERIOR: Solo buscaba en la lista de series normal
+    // const seriesInfo = shared.appState.content.series[seriesId]; 
+
+    // 🟢 CORRECCIÓN: Usamos el buscador inteligente que busca en Sagas también
+    const seriesInfo = findContentData(seriesId); 
+    
+    // Seguridad extra: Si por alguna razón no lo encuentra, salimos para no romper la app
+    if (!seriesInfo) {
+        console.error("No se encontró info para la serie:", seriesId);
+        return;
+    }
+
     if (!container) return;
 
     container.innerHTML = '';
@@ -242,7 +253,7 @@ function populateSeasonGrid(seriesId) {
         const posterEntry = postersData[seasonKey];
         if (posterEntry) {
             if (typeof posterEntry === 'object') {
-                posterUrl = posterEntry.poster || posterUrl;
+                posterUrl = posterEntry.posterUrl || posterEntry.poster || posterUrl;
                 seasonStatus = String(posterEntry.estado || '').toLowerCase().trim();
             } else {
                 posterUrl = posterEntry;
