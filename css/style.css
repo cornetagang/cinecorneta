@@ -307,16 +307,6 @@ body.modal-open { overflow: hidden; }
     margin-bottom: 40px;
 }
 
-.content-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 1.5rem;
-    font-weight: bold;
-    margin-bottom: 15px;
-    padding: 0 4vw;
-}
-
 /* ================================== */
 /* PAGINACIÓN (NUEVO)                 */
 /* ================================== */
