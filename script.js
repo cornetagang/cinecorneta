@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL (MODULAR)
-// Versión: 5.3.1 (Optimizada)
+// Versión: 5.3.5 (Optimizada)
 // ===========================================================
 
 import { logError } from './logger.js';
@@ -1283,26 +1283,49 @@ async function applyAndDisplayFilters(type) {
 
     // 4. APLICAR ORDENAMIENTO
     content.sort((a, b) => {
+        const idA = a[0]; const idB = b[0];
         const aData = a[1]; const bData = b[1];
 
-        if (sortByValue === 'release') return (aData._originalIndex || 0) - (bData._originalIndex || 0);
+        if (sortByValue === 'recent' || sortByValue === 'release') {
+            
+            // Detectamos tipos
+            const typeA = (aData.type === 'series' || appState.content.series[idA]) ? 'series' : 'movie';
+            const typeB = (bData.type === 'series' || appState.content.series[idB]) ? 'series' : 'movie';
 
-        if (sortByValue === 'recent') {
-            const aIsNew = isDateRecent(aData.date_added);
-            const bIsNew = isDateRecent(bData.date_added);
-            if (aIsNew && !bIsNew) return -1;
-            if (!aIsNew && bIsNew) return 1;
-            return (aData._originalIndex || 0) - (bData._originalIndex || 0);
+            // Calculamos el TIEMPO EXACTO (milisegundos)
+            const timeA = getLatestUpdateTimestamp(idA, aData, typeA);
+            const timeB = getLatestUpdateTimestamp(idB, bData, typeB);
+
+            // 1. SI TIENEN FECHAS DISTINTAS (O HORAS DISTINTAS)
+            // Gana el número más alto (el más reciente)
+            if (timeA !== timeB) {
+                return timeB - timeA; 
+            }
+
+            // 2. SI ES EMPATE EXACTO (Mismo día y hora, o sin hora)
+            // Aquí usamos tu jerarquía como desempate: Estreno > Temp > Cap
+            if (timeA > 0) { 
+                const getScore = (id, data, t) => {
+                    if (isDateRecent(data.date_added)) return 3; // Estreno
+                    if (t === 'series' && hasRecentSeasonFromPosters(id)) return 2; // Temp
+                    if (t === 'series' && hasRecentEpisodes(id)) return 1; // Cap
+                    return 0;
+                };
+                return getScore(idB, bData, typeB) - getScore(idA, aData, typeA);
+            }
+
+            // 3. SI NO SON NUEVOS -> Ranking Normal
+            return (Number(bData.tr) || 0) - (Number(aData.tr) || 0);
         }
 
+        // ... resto de ordenamientos (A-Z, Año, etc) ...
         if (sortByValue === 'chronological') return (Number(aData.cronologia) || 9999) - (Number(bData.cronologia) || 9999);
-        
         if (sortByValue === 'year-asc') return (Number(aData.year) || 9999) - (Number(bData.year) || 9999);
         if (sortByValue === 'year-desc') return (Number(bData.year) || 0) - (Number(aData.year) || 0);
         if (sortByValue === 'title-asc') return (aData.title || '').localeCompare(bData.title || '');
         if (sortByValue === 'title-desc') return (bData.title || '').localeCompare(aData.title || '');
 
-        return (aData._originalIndex || 0) - (bData._originalIndex || 0);
+        return 0;
     });
 
     // 5. EXPANSIÓN CRONOLÓGICA (Solo si se eligió ese orden)
@@ -1659,24 +1682,28 @@ function createCarouselSection(title, dataSource) {
         const idA = a[0]; const idB = b[0];
         const aData = a[1]; const bData = b[1];
         
-        // 1. Prioridad: ESTRENO (Aplica a Series y Pelis)
-        // Busca si tiene fecha reciente en la columna 'date_added' del Excel
-        const aIsNew = isDateRecent(aData.date_added);
-        const bIsNew = isDateRecent(bData.date_added);
+        // Detectar tipo para usar la función correctamente
+        const typeA = title.toLowerCase().includes('serie') ? 'series' : 'movie';
+        const typeB = typeA;
 
-        if (aIsNew && !bIsNew) return -1;
-        if (!aIsNew && bIsNew) return 1;
-        
-        // 2. Si es SERIE, chequeamos Episodios Nuevos
-        if (title.toLowerCase().includes('serie')) {
-            const aHasNewEp = hasRecentEpisodes(idA);
-            const bHasNewEp = hasRecentEpisodes(idB);
+        const timeA = getLatestUpdateTimestamp(idA, aData, typeA);
+        const timeB = getLatestUpdateTimestamp(idB, bData, typeB);
 
-            if (aHasNewEp && !bHasNewEp) return -1;
-            if (!aHasNewEp && bHasNewEp) return 1;
+        // 1. Por Fecha exacta
+        if (timeA !== timeB) return timeB - timeA;
+
+        // 2. Por Tipo (Si empatan fecha)
+        if (timeA > 0) {
+             const getScore = (id, data) => {
+                if (isDateRecent(data.date_added)) return 3;
+                if (hasRecentSeasonFromPosters(id)) return 2;
+                if (hasRecentEpisodes(id)) return 1;
+                return 0;
+            };
+            return getScore(idB, bData) - getScore(idA, aData);
         }
 
-        // 3. Desempate final: RANKING (tr)
+        // 3. Por Ranking
         return (Number(bData.tr) || 0) - (Number(aData.tr) || 0);
     });
 
@@ -2609,6 +2636,52 @@ function createMovieCardElement(id, data, type, layout = 'carousel', lazy = fals
     `;
 
     return card;
+}
+
+// Obtiene el momento exacto (Fecha + Hora) de la última actualización
+function getLatestUpdateTimestamp(id, data, type) {
+    let maxTimestamp = 0;
+
+    // 1. REVISAR FECHA DE AGREGADO DE LA SERIE/PELI
+    if (data.date_added) {
+        // El truco: new Date() lee la hora si se la das en el Excel
+        const d = new Date(data.date_added); 
+        if (!isNaN(d.getTime()) && isDateRecent(data.date_added)) {
+            maxTimestamp = Math.max(maxTimestamp, d.getTime());
+        }
+    }
+
+    // Si es película, terminamos aquí
+    if (type === 'movie') return maxTimestamp;
+
+    // 2. REVISAR NUEVAS TEMPORADAS (Posters)
+    const posters = appState.content.seasonPosters[id];
+    if (posters) {
+        Object.values(posters).forEach(p => {
+            if (typeof p === 'object' && p.date_added) {
+                const d = new Date(p.date_added);
+                if (!isNaN(d.getTime()) && isDateRecent(p.date_added)) {
+                    maxTimestamp = Math.max(maxTimestamp, d.getTime());
+                }
+            }
+        });
+    }
+
+    // 3. REVISAR NUEVOS EPISODIOS
+    const allEpisodes = appState.content.seriesEpisodes[id];
+    if (allEpisodes) {
+        const flatEpisodes = Array.isArray(allEpisodes) ? allEpisodes : Object.values(allEpisodes).flat();
+        flatEpisodes.forEach(ep => {
+            if (ep.releaseDate) {
+                const d = new Date(ep.releaseDate);
+                if (!isNaN(d.getTime()) && isDateRecent(ep.releaseDate)) {
+                    maxTimestamp = Math.max(maxTimestamp, d.getTime());
+                }
+            }
+        });
+    }
+
+    return maxTimestamp;
 }
 
 function shuffleArray(array) {
