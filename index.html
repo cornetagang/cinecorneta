@@ -32,9 +32,7 @@
                             <li><a href="#" data-filter="series">Series</a></li>
                             <li><a href="#" data-filter="sagas">Universos</a></li>
                             <li><a href="#" data-filter="roulette">Ruleta</a></li>
-                            
-                            <li id="my-list-nav-link" style="display: none;"><a href="#" data-filter="my-list">Mi Lista</a></li>
-                            <li id="history-nav-link" style="display: none;"><a href="#" data-filter="history">Historial</a></li>
+                            <li><a href="#" data-filter="reviews">Reseñas</a></li>
                         </ul>
                     </nav>
                 </div>
@@ -53,6 +51,14 @@
                         <div class="user-dropdown-wrapper">
                             <button id="user-greeting" class="user-greeting-btn">Hola, Usuario</button>
                             <div id="user-menu-dropdown" class="user-menu-dropdown">
+                                <a href="#" id="my-list-nav-link" data-filter="my-list" style="display: none;">
+                                    <i class="fas fa-list" style="width: 18px;"></i> Mi Lista
+                                </a>
+                                <a href="#" id="history-nav-link" data-filter="history" style="display: none;">
+                                    <i class="fas fa-history" style="width: 18px;"></i> Historial
+                                </a>
+                                <div style="border-top: 1px solid rgba(255,255,255,0.1); margin: 5px 10px;"></div>
+                                
                                 <a href="#" data-filter="profile">
                                     <i class="fas fa-user-circle" style="width: 18px;"></i> Mi Perfil
                                 </a>
@@ -75,59 +81,63 @@
         </header>
 
         <main>
-            <section id="hero-section" class="hero-section">
-            </section>
+            <section id="hero-section" class="hero-section"></section>
 
-            <div id="carousel-container">
-            </div>
+            <div id="carousel-container"></div>
 
             <div id="full-grid-container" style="display: none;">
                 <div class="filter-controls" id="filter-controls">
-                    
                     <button id="back-to-sagas-btn" class="sort-btn back-saga-btn" style="display: none;">
                         <i class="fas fa-arrow-left"></i> Universos
                     </button>
 
-                    <select id="genre-filter" style="display: none !important;"></select>
-                    
                     <div class="custom-dropdown" id="genre-dropdown-visual">
                         <div class="dropdown-trigger" id="genre-trigger">
                             <span id="genre-text">Todos</span>
                             <i class="fas fa-chevron-down"></i>
                         </div>
-                        <div class="dropdown-menu" id="genre-menu-list">
-                            </div>
+                        <div class="dropdown-menu" id="genre-menu-list"></div>
                     </div>
-
-                    <select id="lang-filter" style="display: none !important;"></select>
                     
+                    <select id="genre-filter" style="display: none !important;"></select>
+                    <select id="lang-filter" style="display: none !important;"></select>
+                    <select id="sort-by" style="display: none !important;"></select>
+
                     <div class="custom-dropdown" id="lang-dropdown-visual">
                         <div class="dropdown-trigger" id="lang-trigger">
                             <span id="lang-text">Idioma</span>
                             <i class="fas fa-chevron-down"></i>
                         </div>
-                        <div class="dropdown-menu" id="lang-menu-list">
-                            </div>
+                        <div class="dropdown-menu" id="lang-menu-list"></div>
                     </div>
-                    
-                    <select id="sort-by" style="display: none !important;"></select>
                     
                     <div class="custom-dropdown" id="sort-dropdown-visual">
                         <div class="dropdown-trigger" id="sort-trigger">
                             <span id="sort-text">Recientes</span>
                             <i class="fas fa-chevron-down"></i>
                         </div>
-                        <div class="dropdown-menu" id="sort-menu-list">
-                            </div>
+                        <div class="dropdown-menu" id="sort-menu-list"></div>
                     </div>
 
                     <div id="ucm-sort-buttons" style="display: none;">
                         <button class="sort-btn active" data-sort="release">Orden de Salida</button>
                         <button class="sort-btn" data-sort="chronological">Orden Cronológico</button>
                     </div>
-
                 </div>
                 <div class="grid"></div>
+            </div>
+
+            <div id="reviews-container" style="display: none;">
+                <div class="content-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; padding: 0 4vw;">
+                    <div>
+                        <h2 style="font-family: 'Bebas Neue', sans-serif; font-size: 3.5rem; color: var(--text-light); margin: 0;">Reseñas Profesionales</h2>
+                        <p style="color: var(--text-muted); font-size: 1.1rem; margin: 5px 0 0 0;">Opiniones reales de expertos en la materia.</p>
+                    </div>
+                    <button id="open-review-modal-btn" class="btn-primary" style="padding: 15px 30px; font-size: 1.1rem;">
+                        <i class="fas fa-edit"></i> Escribir Reseña
+                    </button>
+                </div>
+                <div id="reviews-grid" class="reviews-grid"></div>
             </div>
 
             <div id="my-list-container" style="display: none;">
@@ -141,9 +151,7 @@
             </div>
 
             <div id="sagas-hub-container" style="display: none;">
-                <div class="content-header">
-                    <h1 class="main-title"></h1>
-                </div>
+                <div class="content-header"><h1 class="main-title"></h1></div>
                 <div class="sagas-grid" id="sagas-grid-dynamic"></div>
             </div>
 
@@ -152,99 +160,68 @@
                     <h2>Mi Perfil</h2>
                     <p id="profile-hub-email">Cargando...</p>
                 </div>
-
                 <div id="hub-logged-in-content" style="display: none;">
                     <a href="#" class="profile-hub-menu-item" data-filter="my-list">
-                        <i class="fas fa-list"></i>
-                        <span>Mi Lista</span>
+                        <i class="fas fa-list"></i><span>Mi Lista</span>
                     </a>
                     <a href="#" class="profile-hub-menu-item" data-filter="history">
-                        <i class="fas fa-history"></i>
-                        <span>Historial</span>
+                        <i class="fas fa-history"></i><span>Historial</span>
                     </a>
                     <a href="#" class="profile-hub-menu-item" data-filter="profile">
-                        <i class="fas fa-chart-line"></i>
-                        <span>Mi Actividad y Estadísticas</span>
+                        <i class="fas fa-chart-line"></i><span>Estadísticas</span>
                     </a>
                     <a href="#" class="profile-hub-menu-item" data-filter="settings">
-                        <i class="fas fa-cog"></i>
-                        <span>Ajustes de Cuenta</span>
+                        <i class="fas fa-cog"></i><span>Ajustes de Cuenta</span>
                     </a>
                     <a href="#" id="logout-btn-hub" class="profile-hub-menu-item logout">
-                        <i class="fas fa-sign-out-alt"></i>
-                        <span>Cerrar Sesión</span>
+                        <i class="fas fa-sign-out-alt"></i><span>Cerrar Sesión</span>
                     </a>
                 </div>
-
                 <div id="hub-guest-content" style="display: none; text-align: center; padding: 30px 20px;">
                     <i class="fas fa-user-lock" style="font-size: 4rem; color: #444; margin-bottom: 20px;"></i>
                     <h3 style="margin: 0 0 10px 0; color: var(--text-light);">Modo Invitado</h3>
-                    <p style="color: var(--text-muted); margin-bottom: 30px; font-size: 1rem; line-height: 1.5;">
-                        Inicia sesión para guardar tu lista, continuar donde lo dejaste y ver tus estadísticas.
-                    </p>
                     <button id="login-btn-hub" class="btn-primary" style="width: 100%; padding: 15px; font-size: 1.1rem; display: flex; justify-content: center; align-items: center; gap: 10px;">
                         <i class="fas fa-sign-in-alt"></i> Iniciar Sesión
                     </button>
                 </div>
             </div>
+
             <div id="profile-container" class="content-container" style="display: none;">
                 <div class="profile-header-wrapper">
                     <div class="profile-main-info">
-                        <div class="profile-avatar-placeholder">
-                             <i class="fas fa-user-circle"></i>
-                        </div>
+                        <div class="profile-avatar-placeholder"><i class="fas fa-user-circle"></i></div>
                         <div class="profile-text-info">
                             <h3 id="profile-username"></h3>
                             <p id="profile-email"></p>
                         </div>
                     </div>
-                    <div class="profile-nav-tabs">
-                        <button class="profile-tab active" data-tab="activity">Mi Actividad</button>
-                    </div>
                 </div>
-
                 <div class="profile-tab-content active" id="activity-tab">
                     <div class="stats-container">
-                        <div class="stat-card">
-                            <i class="fas fa-film"></i>
-                            <span id="stat-movies-watched" class="stat-value">0</span>
-                            <span class="stat-label">Películas Vistas</span>
-                        </div>
-                        <div class="stat-card">
-                            <i class="fas fa-tv"></i>
-                            <span id="stat-series-watched" class="stat-value">0</span>
-                            <span class="stat-label">Series Únicas Vistas</span>
-                        </div>
-                        <div class="stat-card">
-                            <i class="fas fa-clock"></i>
-                            <span id="stat-total-items" class="stat-value">0</span>
-                            <span class="stat-label">Títulos en Historial</span>
-                        </div>
+                        <div class="stat-card"><i class="fas fa-film"></i><span id="stat-movies-watched" class="stat-value">0</span><span class="stat-label">Películas</span></div>
+                        <div class="stat-card"><i class="fas fa-tv"></i><span id="stat-series-watched" class="stat-value">0</span><span class="stat-label">Series</span></div>
                     </div>
-                    <h4>Tus Géneros Favoritos</h4>
-                    <div id="genre-stats-container">
-                    </div>
+                    <div id="genre-stats-container"></div>
                 </div>
             </div>
 
             <div id="settings-container" class="content-container" style="display: none;">
                 <div class="content-header">
-                    <h1 class="main-title">Ajustes de Cuenta</h1>
-                    <p class="section-description">Administra la configuración de tu perfil y cuenta.</p>
+                    <h1 class="main-title">Ajustes</h1>
                 </div>
                 <div class="settings-form-wrapper">
                     <div class="settings-group">
-                        <label for="settings-username-input">Nombre de usuario</label>
+                        <label>Nombre de usuario</label>
                         <div class="input-with-button">
-                            <input type="text" id="settings-username-input" placeholder="Nuevo nombre de usuario">
-                            <button id="update-username-btn" class="btn-primary">Guardar Nombre</button>
+                            <input type="text" id="settings-username-input">
+                            <button id="update-username-btn" class="btn-primary">Guardar</button>
                         </div>
                     </div>
                     <div class="settings-group">
-                        <label for="settings-password-input">Contraseña</label>
+                        <label>Contraseña</label>
                         <div class="input-with-button">
-                            <input type="password" id="settings-password-input" placeholder="Nueva contraseña (mín. 6 caracteres)">
-                            <button id="update-password-btn" class="btn-primary">Actualizar Contraseña</button>
+                            <input type="password" id="settings-password-input">
+                            <button id="update-password-btn" class="btn-primary">Actualizar</button>
                         </div>
                     </div>
                     <p id="settings-feedback" class="feedback-message"></p>
@@ -255,21 +232,17 @@
 
     <div id="details-modal" class="modal">
         <div class="details-panel">
-            <button class="close-btn" aria-label="Cerrar modal">&times;</button>
+            <button class="close-btn">&times;</button>
             <div class="details-content">
-                <div class="details-poster">
-                    <img id="details-poster-img" src="" alt="Poster">
-                </div>
+                <div class="details-poster"><img id="details-poster-img" src="" alt="Poster"></div>
                 <div class="details-info">
                     <h2 id="details-title"></h2>
                     <div class="details-meta">
                         <span id="details-year"></span>
-                        
-                        <span id="details-language" class="meta-tag language" style="display: none;"></span>
-                        
+                        <span id="details-language" style="display: none;"></span>
                         <span id="details-genres"></span>
                     </div>
-                    <p id="details-synopsis" style="font-size: 1rem; line-height: 1.5;"></p>
+                    <p id="details-synopsis"></p>
                     <div id="details-buttons"></div>
                 </div>
             </div>
@@ -278,17 +251,8 @@
 
     <div id="cinema" class="modal">
         <div class="cinema-wrapper">
-            <div class="screen">
-                <iframe src="" allowfullscreen></iframe>
-            </div>
-            <div class="cinema-info">
-                <h2 id="cinema-title">Título de la Película</h2>
-                <div class="cinema-controls">
-                    <button class="btn btn-watchlist">
-                        <i class="fas fa-plus"></i> Mi Lista
-                    </button>
-                </div>
-            </div>
+            <div class="screen"><iframe src="" allowfullscreen></iframe></div>
+            <div class="cinema-info"><h2 id="cinema-title"></h2><div class="cinema-controls"></div></div>
         </div>
         <button class="close-btn">&times;</button>
     </div>
@@ -305,35 +269,77 @@
         </div>
     </div>
 
-    <div id="series-player-modal" class="modal">
-    </div>
+    <div id="series-player-modal" class="modal"></div>
 
     <div id="auth-modal" class="modal">
         <div class="auth-modal-content">
             <button class="close-btn">&times;</button>
             <form id="register-form" class="auth-form">
                 <h2>Crear Cuenta</h2>
-                <input type="text" id="register-username" placeholder="Nombre de usuario" required>
-                <input type="email" id="register-email" placeholder="Correo electrónico" required>
-                <input type="password" id="register-password" placeholder="Contraseña (mín. 6 caracteres)" required>
-                <p class="auth-error" id="register-error"></p>
+                <input type="text" id="register-username" placeholder="Usuario" required>
+                <input type="email" id="register-email" placeholder="Email" required>
+                <input type="password" id="register-password" placeholder="Pass" required>
                 <button type="submit">Registrarse</button>
             </form>
             <form id="login-form" class="auth-form" style="display:none;">
-                <h2>Iniciar Sesión</h2>
-                <input type="email" id="login-email" placeholder="Correo electrónico" required>
-                <input type="password" id="login-password" placeholder="Contraseña" required>
-                <p class="auth-error" id="login-error"></p>
+                <h2>Login</h2>
+                <input type="email" id="login-email" placeholder="Email" required>
+                <input type="password" id="login-password" placeholder="Pass" required>
                 <button type="submit">Ingresar</button>
             </form>
-            <p class="auth-switch"><a href="#" id="switch-auth-mode">¿Ya tienes cuenta? Inicia Sesión</a></p>
+            <p class="auth-switch"><a href="#" id="switch-auth-mode">¿No tienes cuenta? Regístrate</a></p>
+        </div>
+    </div>
+
+    <div id="review-form-modal" class="modal">
+        <div class="auth-modal-content" style="max-width: 500px;">
+            <button class="close-btn">&times;</button>
+            <form id="review-submission-form" class="auth-form">
+                <h2 style="font-family: 'Bebas Neue'; font-size: 2.5rem;">Escribe tu opinión</h2>
+                <label style="text-align: left; margin-bottom: 5px; color: var(--text-muted);">Título:</label>
+                <select id="review-movie-select" required style="margin-bottom: 15px; width: 100%; height: 45px; background: rgba(0,0,0,0.3); color: white; border: 1px solid #444; padding: 10px; border-radius: 8px;"></select>
+
+                <label style="text-align: left; margin-bottom: 5px; color: var(--text-muted);">Calificación:</label>
+                <div class="star-rating-input" style="display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; font-size: 1.5rem;">
+                    <i class="fas fa-star star-option" data-value="1"></i>
+                    <i class="fas fa-star star-option" data-value="2"></i>
+                    <i class="fas fa-star star-option" data-value="3"></i>
+                    <i class="fas fa-star star-option" data-value="4"></i>
+                    <i class="fas fa-star star-option" data-value="5"></i>
+                </div>
+                <input type="hidden" id="review-rating-value" value="0">
+                <textarea id="review-text-input" placeholder="¿Qué te pareció? (Mínimo 2 letras)" required style="height: 120px; background: rgba(255,255,255,0.05); color: white; border: 1px solid #333; padding: 10px; border-radius: 8px; margin-bottom: 15px; resize: none;"></textarea>
+                <button type="submit" class="btn-primary" style="width: 100%;">Publicar Reseña</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="full-review-modal" class="modal">
+        <div class="auth-modal-content" style="max-width: 600px; padding: 0; overflow: hidden; border-radius: 20px;">
+            <button class="close-btn" onclick="closeAllModals()">&times;</button>
+            <div id="read-review-header" style="height: 200px; background-size: cover; background-position: center; position: relative;">
+                <div style="position: absolute; inset: 0; background: linear-gradient(to top, #181818, transparent);"></div>
+                <div style="position: absolute; bottom: 20px; left: 30px; display: flex; gap: 20px; align-items: flex-end;">
+                    <img id="read-review-poster" src="" style="width: 100px; height: 150px; border-radius: 10px; box-shadow: 0 10px 20px rgba(0,0,0,0.5);">
+                    <div>
+                        <h2 id="read-review-movie-title" style="font-family: 'Bebas Neue'; font-size: 2.5rem; margin: 0; color: white;"></h2>
+                        <p id="read-review-user" style="color: var(--primary-red); font-weight: bold; margin: 0;"></p>
+                    </div>
+                </div>
+            </div>
+            <div style="padding: 30px; background: #181818; max-height: 400px; overflow-y: auto;">
+                <div id="read-review-stars" style="color: #ffd700; font-size: 1.2rem; margin-bottom: 20px;"></div>
+                <p id="read-review-text" style="color: #eee; line-height: 1.8; font-size: 1.1rem; font-style: italic; white-space: pre-wrap;"></p>
+            </div>
+            <div style="padding: 20px 30px; background: #111; border-top: 1px solid #222; text-align: right;">
+                <span id="read-review-date" style="color: #555; font-size: 0.9rem; font-weight: bold;"></span>
+            </div>
         </div>
     </div>
 
     <div id="confirmation-modal" class="modal">
         <div class="confirmation-modal-content">
-            <h2></h2>
-            <p></p>
+            <h2></h2><p></p>
             <div class="confirmation-buttons">
                 <button id="cancel-delete-btn" class="btn-cancel">Cancelar</button>
                 <button id="confirm-delete-btn" class="btn-confirm">Confirmar</button>
@@ -342,34 +348,17 @@
     </div>
     
     <footer class="bottom-nav">
-        <a href="#" class="nav-link active" data-filter="all" aria-label="Inicio">
-            <i class="fas fa-home"></i>
-            <span>Inicio</span>
-        </a>
-        <a href="#" class="nav-link" data-filter="movie" aria-label="Películas">
-            <i class="fas fa-film"></i>
-            <span>Películas</span>
-        </a>
-        
-        <a href="#" class="nav-link" data-filter="sagas" aria-label="Sagas">
-            <i class="fas fa-layer-group"></i>
-            <span>Universos</span>
-        </a>
-
-        <a href="#" class="nav-link" data-filter="series" aria-label="Series">
-            <i class="fas fa-tv"></i>
-            <span>Series</span>
-        </a>
-        <a href="#" class="nav-link" data-filter="profile-hub" aria-label="Mi Perfil">
-            <i class="fas fa-user-circle"></i>
-            <span>Perfil</span>
-        </a>
+        <a href="#" class="nav-link active" data-filter="all"><i class="fas fa-home"></i><span>Inicio</span></a>
+        <a href="#" class="nav-link" data-filter="movie"><i class="fas fa-film"></i><span>Películas</span></a>
+        <a href="#" class="nav-link" data-filter="sagas"><i class="fas fa-layer-group"></i><span>Universos</span></a>
+        <a href="#" class="nav-link" data-filter="series"><i class="fas fa-tv"></i><span>Series</span></a>
+        <a href="#" class="nav-link" data-filter="reviews"><i class="fas fa-star"></i><span>Reseñas</span></a>
+        <a href="#" class="nav-link" data-filter="profile-hub"><i class="fas fa-user-circle"></i><span>Perfil</span></a>
     </footer>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="script.js?v=6" type="module" defer></script>
+    <script src="script.js?v=7" type="module" defer></script>
 </body>
 </html>
-
