@@ -107,7 +107,7 @@ const ErrorHandler = {
 
         notification.innerHTML = `
             <i class="fas ${icons[type] || icons.unknown}"></i>
-            <span>${message}</span>
+            <span>${message}</span> 
             <button class="close-notification">&times;</button>
         `;
 
@@ -467,8 +467,14 @@ const DOM = {
     gridContainer: document.getElementById('full-grid-container'),
     myListContainer: document.getElementById('my-list-container'),
     historyContainer: document.getElementById('history-container'),
-    profileContainer: document.getElementById('profile-container'),
-    settingsContainer: document.getElementById('settings-container'),
+    
+    // --- SECCIÓN RESEÑAS ---
+    reviewsContainer: document.getElementById('reviews-container'),
+    reviewsGrid: document.getElementById('reviews-grid'),
+    reviewModal: document.getElementById('review-form-modal'),
+    reviewForm: document.getElementById('review-submission-form'),
+    openReviewBtn: document.getElementById('open-review-modal-btn'),
+
     detailsModal: document.getElementById('details-modal'),
     cinemaModal: document.getElementById('cinema'),
     rouletteModal: document.getElementById('roulette-modal'),
@@ -480,7 +486,7 @@ const DOM = {
     
     // --- FILTROS ---
     genreFilter: document.getElementById('genre-filter'),
-    langFilter: document.getElementById('lang-filter'), // <--- 🔥 AGREGADO
+    langFilter: document.getElementById('lang-filter'),
     sortBy: document.getElementById('sort-by'),
     ucmSortButtonsContainer: document.getElementById('ucm-sort-buttons'),
     ucmSortButtons: document.querySelectorAll('.sort-btn'),
@@ -506,8 +512,6 @@ const DOM = {
     userMenuDropdown: document.getElementById('user-menu-dropdown'),
     myListNavLink: document.getElementById('my-list-nav-link'),
     historyNavLink: document.getElementById('history-nav-link'),
-    myListNavLinkMobile: document.getElementById('my-list-nav-link-mobile'),
-    historyNavLinkMobile: document.getElementById('history-nav-link-mobile'),
     profileUsername: document.getElementById('profile-username'),
     profileEmail: document.getElementById('profile-email'),
     settingsUsernameInput: document.getElementById('settings-username-input'),
@@ -712,6 +716,7 @@ async function fetchInitialDataWithCache() {
     if (cachedContent) {
         console.log('✓ Iniciando desde caché...');
         processData(cachedContent);
+        setupRatingsListener();
         await setupAndShow(cachedMetadata?.movies, cachedMetadata?.series);
         refreshDataInBackground(); // Actualiza silenciosamente por si acaso
         
@@ -765,6 +770,7 @@ async function fetchInitialDataWithCache() {
             processData(freshContent);
             cacheManager.set(cacheManager.keys.content, freshContent);
             cacheManager.set(cacheManager.keys.metadata, freshMetadata);
+            setupRatingsListener();
             
             // 🔥 Guardamos la fecha actual como referencia inicial si no existía
             if (!localStorage.getItem('local_last_update')) {
@@ -882,7 +888,7 @@ async function handleFilterClick(event) {
 // FUNCIÓN SWITCHVIEW (LIMPIA Y CORREGIDA)
 // ===========================================================
 async function switchView(filter) {
-    // 1. Ocultar todos los contenedores
+    // 1. Ocultar todos los contenedores principales para limpiar la pantalla
     const containers = [
         document.getElementById('hero-section'),
         document.getElementById('carousel-container'),
@@ -892,7 +898,8 @@ async function switchView(filter) {
         document.getElementById('profile-container'),
         document.getElementById('settings-container'),
         document.getElementById('profile-hub-container'),
-        document.getElementById('sagas-hub-container')
+        document.getElementById('sagas-hub-container'),
+        document.getElementById('reviews-container') // Nueva sección integrada
     ];
 
     containers.forEach(el => {
@@ -902,17 +909,14 @@ async function switchView(filter) {
     const filterControls = document.getElementById('filter-controls');
     if (filterControls) filterControls.style.display = 'none';
 
-    // 2. Lógica del Botón "Volver a Sagas"
+    // 2. Lógica del Botón "Volver a Sagas" para Universos Dinámicos
     const backBtn = document.getElementById('back-to-sagas-btn');
-    
-    // Verificamos si estamos DENTRO de una saga (ej: harrypotter)
-    // Usamos el objeto sagas para confirmar
     const isDynamicSaga = appState.content.sagas && appState.content.sagas[filter];
 
     if (backBtn) {
         if (isDynamicSaga) {
             backBtn.style.display = 'flex';
-            // Clonamos para limpiar eventos anteriores
+            // Clonamos el botón para limpiar eventos previos y asegurar un único listener fresco
             const newBtn = backBtn.cloneNode(true);
             backBtn.parentNode.replaceChild(newBtn, backBtn);
             
@@ -920,12 +924,12 @@ async function switchView(filter) {
                 e.preventDefault();
                 e.stopPropagation();
                 
-                // Efecto visual en el menú
-                document.querySelectorAll('.main-nav a').forEach(a => a.classList.remove('active'));
+                // Actualizar visualmente la navegación activa hacia "Universos"
+                document.querySelectorAll('.main-nav a, .bottom-nav .nav-link').forEach(a => a.classList.remove('active'));
                 const sagasNav = document.querySelector('a[data-filter="sagas"]');
                 if (sagasNav) sagasNav.classList.add('active');
                 
-                switchView('sagas'); // Volver al Hub
+                switchView('sagas'); // Volver al Hub de Logos
             };
         } else {
             backBtn.style.display = 'none';
@@ -933,10 +937,10 @@ async function switchView(filter) {
     }
 
     // ============================================================
-    // 3. SELECCIÓN DE VISTA
+    // 3. SELECCIÓN Y RENDERIZADO DE LA VISTA ACTIVA
     // ============================================================
 
-    // CASO: INICIO
+    // CASO: INICIO (Hero principal y carruseles de novedades)
     if (filter === 'all') {
         const hero = document.getElementById('hero-section');
         const carousel = document.getElementById('carousel-container');
@@ -945,48 +949,58 @@ async function switchView(filter) {
         return;
     }
 
-    // CASO: HUB DE SAGAS (Logos Grandes)
+    // CASO: HUB DE SAGAS (Vista de logos/universos)
     if (filter === 'sagas') {
         const hub = document.getElementById('sagas-hub-container');
         if (hub) {
             hub.style.display = 'block';
-            renderSagasHub(); // Función que pinta los botones negros
+            renderSagasHub(); // Función que genera los banners de los universos
         }
         return;
     }
 
-    // CASO: GRILLA DE CONTENIDO (Pelis, Series O Sagas Específicas)
+    // CASO: RESEÑAS DE LA COMUNIDAD (Nueva sección)
+    if (filter === 'reviews') {
+        const reviewsContainer = document.getElementById('reviews-container');
+        if (reviewsContainer) {
+            reviewsContainer.style.display = 'block';
+            renderReviews(); // Función que inyecta las opiniones de los usuarios
+        }
+        return;
+    }
+
+    // CASO: GRILLA DE CONTENIDO (Películas, Series o Sagas Específicas)
     if (filter === 'movie' || filter === 'series' || isDynamicSaga) {
         const grid = document.getElementById('full-grid-container');
         if (grid) grid.style.display = 'block';
         if (filterControls) filterControls.style.display = 'flex';
 
-        populateFilters(filter);
-        applyAndDisplayFilters(filter);
+        populateFilters(filter); // Prepara los géneros e idiomas según el contenido
+        applyAndDisplayFilters(filter); // Filtra y ordena los resultados
         return;
     }
 
-    // CASO: MI LISTA
+    // CASO: MI LISTA (Watchlist personal)
     if (filter === 'my-list') {
         const listContainer = document.getElementById('my-list-container');
         if (listContainer) {
             listContainer.style.display = 'block';
-            displayMyListView();
+            displayMyListView(); // Renderiza las tarjetas guardadas por el usuario
         }
         return;
     }
 
-    // CASO: HISTORIAL
+    // CASO: HISTORIAL DE REPRODUCCIÓN
     if (filter === 'history') {
         const historyContainer = document.getElementById('history-container');
         if (historyContainer) {
             historyContainer.style.display = 'block';
-            renderHistory();
+            renderHistory(); // Carga la lista de títulos vistos cronológicamente
         }
         return;
     }
 
-    // OTROS CASOS (Perfil, Ajustes, Búsqueda)
+    // CASOS DE PERFIL Y AJUSTES (Carga modular de estadísticas y configuración)
     if (filter === 'profile-hub' || filter === 'profile' || filter === 'settings') {
         const containerMap = {
             'profile-hub': 'profile-hub-container',
@@ -996,15 +1010,17 @@ async function switchView(filter) {
         const container = document.getElementById(containerMap[filter]);
         if (container) {
             container.style.display = 'block';
+            // Carga de módulos bajo demanda para optimizar rendimiento
             if (filter === 'profile') getProfileModule().then(m => m.renderProfile());
             if (filter === 'settings') getProfileModule().then(m => m.renderSettings());
         }
         return;
     }
 
+    // CASO: RESULTADOS DE BÚSQUEDA
     if (filter === 'search') {
         const grid = document.getElementById('full-grid-container');
-        if(grid) grid.style.display = 'block';
+        if (grid) grid.style.display = 'block';
         return;
     }
 }
@@ -1371,6 +1387,9 @@ function setupEventListeners() {
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     document.addEventListener('click', handleGlobalClick);
+
+    // 🟢 AÑADE ESTO AQUÍ:
+    setupReviewSystem(); 
 }
 
 function handleFullscreenChange() {
@@ -1891,21 +1910,25 @@ async function openDetailsModal(id, type, triggerElement = null) {
         const detailsButtons = document.getElementById('details-buttons');
 
         // =========================================================
-        // 🔥 BÚSQUEDA INTELIGENTE UNIVERSAL
+        // 1. BÚSQUEDA INTELIGENTE UNIVERSAL
         // =========================================================
         let data = null;
 
+        // Buscar en películas
         if (appState.content.movies[id]) { 
             data = appState.content.movies[id]; type = 'movie'; 
         }
+        // Buscar en series
         else if (appState.content.series[id]) { 
             data = appState.content.series[id]; type = 'series'; 
         }
+        // Buscar en UCM (Legacy)
         else if (appState.content.ucm && appState.content.ucm[id]) { 
             data = appState.content.ucm[id]; 
             type = (data.type === 'series' || appState.content.seriesEpisodes[id]) ? 'series' : 'movie';
         }
 
+        // Buscar en Sagas Dinámicas (Star Wars, HP, etc.)
         if (!data && appState.content.sagas) {
             for (const sagaKey in appState.content.sagas) {
                 const sagaData = appState.content.sagas[sagaKey];
@@ -1923,7 +1946,7 @@ async function openDetailsModal(id, type, triggerElement = null) {
         }
 
         // =========================================================
-        // RENDERIZADO
+        // 2. RENDERIZADO DE TEXTOS E IMÁGENES
         // =========================================================
         const isSeries = (type === 'series');
         
@@ -1933,7 +1956,7 @@ async function openDetailsModal(id, type, triggerElement = null) {
         document.getElementById('details-synopsis').textContent = data.synopsis || 'Sin descripción.';
         document.getElementById('details-poster-img').src = data.poster || '';
 
-        // 🔥 MOSTRAR IDIOMA (NUEVO)
+        // --- Mostrar Idioma ---
         const langEl = document.getElementById('details-language');
         if (langEl) {
             if (data.language) {
@@ -1944,7 +1967,7 @@ async function openDetailsModal(id, type, triggerElement = null) {
             }
         }
 
-        // Fondo (Banner)
+        // --- Fondo (Banner) ---
         if (data.banner && data.banner.length > 5) {
             panel.style.backgroundImage = `url(${data.banner})`;
         } else {
@@ -1952,10 +1975,30 @@ async function openDetailsModal(id, type, triggerElement = null) {
             panel.style.backgroundColor = '#1a1a1a';
         }
 
-        // Botones
+        // =========================================================
+        // 3. INYECTAR ESTRELLAS (RATING PROMEDIO)
+        // =========================================================
+        const modalRating = appState.content.averages[id];
+        const detailsMeta = modal.querySelector('.details-meta');
+        
+        // Limpiamos nota previa para no duplicar
+        const oldRating = detailsMeta.querySelector('.modal-rating-badge');
+        if (oldRating) oldRating.remove();
+
+        if (modalRating) {
+            const ratingBadge = document.createElement('span');
+            ratingBadge.className = 'modal-rating-badge';
+            // Usamos la función auxiliar getStarsHTML que definimos antes
+            ratingBadge.innerHTML = getStarsHTML(modalRating, false);
+            detailsMeta.prepend(ratingBadge); // Lo pone al inicio de la fila de info
+        }
+
+        // =========================================================
+        // 4. CONFIGURACIÓN DE BOTONES DE ACCIÓN
+        // =========================================================
         detailsButtons.innerHTML = '';
 
-        // 1. Botón PLAY
+        // --- Botón PLAY ---
         const playBtn = document.createElement('button');
         playBtn.className = 'btn btn-play';
         playBtn.innerHTML = `<i class="fas fa-play"></i> Ver ahora`;
@@ -1967,12 +2010,12 @@ async function openDetailsModal(id, type, triggerElement = null) {
         };
         detailsButtons.appendChild(playBtn);
 
-        // 2. Botones de Series
+        // --- Botones Específicos de Series ---
         if (isSeries) {
             const episodes = appState.content.seriesEpisodes[id] || {};
             const seasonCount = Object.keys(episodes).length;
 
-            // Botón Temporadas: Solo si hay MÁS de 1 temporada
+            // Botón Temporadas (solo si hay más de 1)
             if (seasonCount > 1) {
                 const infoBtn = document.createElement('button');
                 infoBtn.className = 'btn btn-info';
@@ -1985,7 +2028,7 @@ async function openDetailsModal(id, type, triggerElement = null) {
                 detailsButtons.appendChild(infoBtn);
             }
 
-            // Botón Aleatorio
+            // Botón Aleatorio (según columna 'random' del Excel)
             const randomVal = String(data.random || '').trim().toLowerCase();
             const isRandomEnabled = ['si', 'sí', 'yes', 'true', '1'].includes(randomVal);
 
@@ -2002,7 +2045,7 @@ async function openDetailsModal(id, type, triggerElement = null) {
             }
         }
 
-        // 3. Botón Mi Lista
+        // --- Botón Mi Lista (Watchlist) ---
         if (auth.currentUser) {
             const listBtn = document.createElement('button');
             const inList = appState.user.watchlist.has(id);
@@ -2013,6 +2056,9 @@ async function openDetailsModal(id, type, triggerElement = null) {
             detailsButtons.appendChild(listBtn);
         }
 
+        // =========================================================
+        // 5. MOSTRAR MODAL
+        // =========================================================
         modal.classList.add('show');
         document.body.classList.add('modal-open');
 
@@ -2020,7 +2066,7 @@ async function openDetailsModal(id, type, triggerElement = null) {
         if(closeBtn) closeBtn.onclick = closeAllModals;
 
     } catch (e) {
-        console.error(e);
+        console.error("Error en openDetailsModal:", e);
         if(typeof logError === 'function') logError(e, 'Open Details');
     }
 }
@@ -2628,10 +2674,12 @@ function createMovieCardElement(id, data, type, layout = 'carousel', lazy = fals
     img.src = imageUrl; 
     img.alt = data.title;
 
-    // Aquí inyectamos el 'ribbonHTML' antes de la imagen
+    const ratingHTML = `<div class="card-rating-container">${getStarsHTML(appState.content.averages[id], true)}</div>`;
+
     card.innerHTML = `
         ${ribbonHTML}
         <div class="img-container-placeholder"></div>
+        ${ratingHTML} 
         ${watchlistBtnHTML}
     `;
 
@@ -2743,76 +2791,223 @@ function setupPageVisibilityHandler() {
 }
 
 // ===========================================================
-// 🔥 RENDERIZADO DE HUB SAGAS (CON BANNERS)
+// SISTEMA DE RESEÑAS (VERSIÓN ÚNICA Y CORREGIDA)
 // ===========================================================
-function renderSagasHub() {
-    const container = document.getElementById('sagas-grid-dynamic');
-    if (!container) return;
-    
-    // Obtenemos la lista y la ordenamos por la columna 'order'
-    // Aseguramos que sea un array
-    const sagas = Array.isArray(appState.content.sagasList) 
-        ? appState.content.sagasList 
-        : Object.values(appState.content.sagasList || {});
 
-    // Ordenar (si el campo order está vacío, lo manda al final)
-    sagas.sort((a, b) => (Number(a.order) || 99) - (Number(b.order) || 99));
+// Exportamos funciones al objeto global para que el HTML las vea
+window.closeAllModals = closeAllModals;
+window.openFullReview = openFullReview;
+window.deleteReview = deleteReview;
 
-    container.innerHTML = '';
+function renderReviews() {
+    if (!DOM.reviewsGrid) return;
+    DOM.reviewsGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 50px;"><p class="loading-text">Conectando...</p></div>`;
 
-    if (sagas.length === 0) {
-        container.innerHTML = '<p class="loading-text" style="font-size:1.5rem">Cargando sagas...</p>';
-        return;
-    }
-
-    sagas.forEach(saga => {
-        const card = document.createElement('div');
-        card.className = 'saga-card';
-        card.dataset.saga = saga.id;
-        
-        // Color y Banner
-        const color = saga.color || '#ffffff';
-        card.style.setProperty('--hover-color', color);
-
-        if (saga.banner && saga.banner.trim() !== "") {
-            card.style.backgroundImage = `url('${saga.banner}')`;
+    db.ref('reviews').limitToLast(30).on('value', snapshot => {
+        DOM.reviewsGrid.innerHTML = '';
+        if (!snapshot.exists()) {
+            DOM.reviewsGrid.innerHTML = `<p style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 40px;">Aún no hay opiniones.</p>`;
+            return;
         }
 
-        // Clic
-        card.onclick = () => {
-            switchView(saga.id); 
-        };
+        const reviews = [];
+        snapshot.forEach(child => { 
+            const data = child.val();
+            data.id = child.key;
+            reviews.push(data); 
+        });
 
-        // 🔥 SIN FILTROS RAROS: Se verá el dorado original
-        card.innerHTML = `
-            <img src="${saga.logo}" alt="${saga.title}" class="saga-logo">
-        `;
+        const ADMIN_EMAIL = 'baquezadat@gmail.com'; 
 
-        container.appendChild(card);
+        reviews.reverse().forEach(rev => {
+            const starsHTML = '<i class="fas fa-star"></i>'.repeat(rev.stars) + '<i class="far fa-star"></i>'.repeat(5 - rev.stars);
+            const date = rev.timestamp ? new Date(rev.timestamp).toLocaleDateString() : 'Reciente';
+            const isAdmin = auth.currentUser && auth.currentUser.email === ADMIN_EMAIL;
+            const deleteBtnHTML = isAdmin ? `<button class="btn-delete-review" onclick="deleteReview('${rev.id}')"><i class="fas fa-trash-alt"></i></button>` : '';
+
+            const isLong = rev.text && rev.text.length > 120;
+            const readMoreBtn = isLong ? `<button class="btn-read-more" onclick='openFullReview(${JSON.stringify(rev).replace(/'/g, "&apos;")})'>Leer reseña completa</button>` : '';
+
+            const card = document.createElement('div');
+            card.className = 'review-card';
+            card.innerHTML = `
+                <img src="${rev.poster}" class="review-poster" onerror="this.src='https://res.cloudinary.com/djhgmmdjx/image/upload/v1759209689/u71QEFc_bet4rv.png'">
+                <div class="review-content">
+                    <h3 class="review-movie-title">${rev.contentTitle}</h3>
+                    <p class="review-user">@${rev.userName} <span class="review-date-tag">${date}</span></p>
+                    <div class="review-stars">${starsHTML}</div>
+                    <p class="review-text">"${rev.text}"</p>
+                    ${readMoreBtn}
+                    ${deleteBtnHTML}
+                </div>`;
+            DOM.reviewsGrid.appendChild(card);
+        });
     });
 }
 
 // ===========================================================
-// 10. 🎯 EXPORTAR PARA USO GLOBAL
+// SISTEMA DE CÁLCULO DE PROMEDIOS (RATINGS)
 // ===========================================================
-window.ErrorHandler = ErrorHandler;
-window.cacheManager = cacheManager;
-window.lazyLoader = lazyLoader;
+appState.content.averages = {}; // Almacenará { contentId: 4.5 }
 
-// 🔥 NUEVO: Función para el botón Maestro del Admin
-window.adminForceUpdate = () => {
-    console.log('👑 ADMIN: Forzando actualización de datos...');
+function setupRatingsListener() {
+    // Escuchamos TODO el nodo de reseñas para calcular promedios
+    db.ref('reviews').on('value', snapshot => {
+        const ratingsData = {}; // { contentId: { totalStars: X, count: Y } }
+        
+        if (snapshot.exists()) {
+            snapshot.forEach(child => {
+                const rev = child.val();
+                if (!ratingsData[rev.contentId]) {
+                    ratingsData[rev.contentId] = { sum: 0, count: 0 };
+                }
+                ratingsData[rev.contentId].sum += rev.stars;
+                ratingsData[rev.contentId].count += 1;
+            });
+        }
+
+        // Convertir sumas en promedios
+        const newAverages = {};
+        for (const id in ratingsData) {
+            newAverages[id] = (ratingsData[id].sum / ratingsData[id].count).toFixed(1);
+        }
+
+        appState.content.averages = newAverages;
+        
+        // Refrescar solo los elementos visuales de ratings sin recargar la grilla
+        updateVisibleRatings();
+    });
+}
+
+function getStarsHTML(rating, isSmall = true) {
+    if (!rating || rating === "0.0") return '';
     
-    // 1. Borrar toda la caché local
-    if (window.cacheManager) {
-        window.cacheManager.clearAll();
-    } else {
-        localStorage.clear();
-    }
+    return `
+        <div class="star-rating-display ${isSmall ? 'small' : 'large'}" title="${rating} de 5 estrellas">
+            <i class="fas fa-star"></i>
+            <span class="rating-number">${rating}</span>
+        </div>`;
+}
 
-    // 2. Recargar la página para traer datos frescos de Google Script
-    // El setTimeout es solo para que veas el efecto visual del botón un momento
-    setTimeout(() => {
-        location.reload(); 
-    }, 500);
-};
+function updateVisibleRatings() {
+    // Actualizar ratings en tarjetas visibles
+    document.querySelectorAll('.movie-card').forEach(card => {
+        const id = card.dataset.contentId;
+        const ratingContainer = card.querySelector('.card-rating-container');
+        if (ratingContainer) {
+            ratingContainer.innerHTML = getStarsHTML(appState.content.averages[id], true);
+        }
+    });
+}
+
+function setupReviewSystem() {
+    if (!DOM.openReviewBtn) return;
+
+    // FIX ESTRELLAS: Usamos un selector fresco para asegurar el clic
+    const stars = document.querySelectorAll('.star-option');
+    stars.forEach(star => {
+        star.onclick = (e) => {
+            const val = parseInt(star.dataset.value);
+            const ratingInput = document.getElementById('review-rating-value');
+            if (ratingInput) ratingInput.value = val;
+            
+            stars.forEach(s => {
+                s.classList.toggle('selected', parseInt(s.dataset.value) <= val);
+            });
+        };
+    });
+
+    DOM.openReviewBtn.onclick = () => {
+        if (!auth.currentUser) { ErrorHandler.show('auth', 'Inicia sesión para reseñar.'); return; }
+        const select = document.getElementById('review-movie-select');
+        select.innerHTML = '<option value="" disabled selected>Escoge un título...</option>';
+        const allContent = { ...appState.content.movies, ...appState.content.series };
+        Object.entries(allContent).sort((a, b) => a[1].title.localeCompare(b[1].title)).forEach(([id, item]) => {
+            const option = document.createElement('option');
+            option.value = id; option.textContent = item.title;
+            select.appendChild(option);
+        });
+        DOM.reviewModal.classList.add('show');
+        document.body.classList.add('modal-open');
+    };
+
+    DOM.reviewForm.onsubmit = async (e) => {
+        e.preventDefault();
+        const user = auth.currentUser;
+        const contentId = document.getElementById('review-movie-select').value;
+        const rating = document.getElementById('review-rating-value').value;
+        const text = document.getElementById('review-text-input').value.trim();
+
+        if (rating === "0" || text.length < 2) {
+            return ErrorHandler.show('content', 'Completa la calificación y el texto.');
+        }
+
+        try {
+            const existingReviews = await db.ref('reviews').orderByChild('userId').equalTo(user.uid).once('value');
+            let yaResenado = false;
+            existingReviews.forEach(child => { if (child.val().contentId === contentId) yaResenado = true; });
+
+            if (yaResenado) return ErrorHandler.show('content', 'Ya has reseñado este título.');
+
+            const item = appState.content.movies[contentId] || appState.content.series[contentId];
+            await db.ref('reviews').push({
+                userId: user.uid, userName: user.displayName || 'Usuario',
+                contentId, contentTitle: item.title, poster: item.poster,
+                stars: parseInt(rating), text, timestamp: firebase.database.ServerValue.TIMESTAMP
+            });
+
+            ErrorHandler.show('content', '¡Reseña publicada!', 3000);
+            closeAllModals();
+            DOM.reviewForm.reset();
+            stars.forEach(s => s.classList.remove('selected'));
+            document.getElementById('review-rating-value').value = "0";
+        } catch (error) { ErrorHandler.show('database', 'Error al publicar.'); }
+    };
+}
+
+function openFullReview(data) {
+    const modal = document.getElementById('full-review-modal');
+    if (!modal) return;
+    document.getElementById('read-review-header').style.backgroundImage = `url(${data.poster})`;
+    document.getElementById('read-review-poster').src = data.poster;
+    document.getElementById('read-review-movie-title').textContent = data.contentTitle;
+    document.getElementById('read-review-user').textContent = `@${data.userName}`;
+    document.getElementById('read-review-date').textContent = data.timestamp ? new Date(data.timestamp).toLocaleDateString() : 'Reciente';
+    document.getElementById('read-review-text').textContent = data.text;
+    document.getElementById('read-review-stars').innerHTML = '<i class="fas fa-star"></i>'.repeat(data.stars) + '<i class="far fa-star"></i>'.repeat(5 - data.stars);
+    modal.classList.add('show');
+    document.body.classList.add('modal-open');
+}
+
+function deleteReview(reviewId) {
+    if (confirm('¿Eliminar esta reseña?')) {
+        db.ref(`reviews/${reviewId}`).remove().then(() => ErrorHandler.show('content', 'Reseña eliminada.'));
+    }
+}
+
+function renderSagasHub() {
+    const container = document.getElementById('sagas-grid-dynamic');
+    if (!container) return;
+    const sagas = Object.values(appState.content.sagasList || {});
+    sagas.sort((a, b) => (Number(a.order) || 99) - (Number(b.order) || 99));
+    container.innerHTML = '';
+    sagas.forEach(saga => {
+        const card = document.createElement('div');
+        card.className = 'saga-card';
+        card.style.setProperty('--hover-color', saga.color || '#fff');
+        if (saga.banner) card.style.backgroundImage = `url('${saga.banner}')`;
+        card.onclick = () => switchView(saga.id);
+        card.innerHTML = `<img src="${saga.logo}" alt="${saga.title}" class="saga-logo">`;
+        container.appendChild(card);
+    });
+}
+
+function findContentData(id) {
+    const c = appState.content;
+    if (c.movies[id]) return c.movies[id];
+    if (c.series[id]) return c.series[id];
+    for (const k in c.sagas) { if (c.sagas[k][id]) return c.sagas[k][id]; }
+    return null;
+}
+
+window.adminForceUpdate = () => { localStorage.clear(); location.reload(); };
