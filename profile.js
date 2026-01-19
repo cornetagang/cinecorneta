@@ -15,35 +15,38 @@ export function initProfile(dependencies) {
     isInitialized = true;
 }
 
-// 2. LÓGICA DEL HEADER (MENÚ DESPLEGABLE)
+// 2. LÓGICA DEL HEADER (MENÚ DESPLEGABLE ACTUALIZADO)
 export function setupUserDropdown() {
     if (isDropdownInitialized) return;
 
-    // Buscamos los elementos frescos del DOM para evitar referencias nulas
     const btn = document.getElementById('user-greeting');
     const dropdown = document.getElementById('user-menu-dropdown');
 
     if (btn && dropdown) {
+        // Abrir/Cerrar al hacer clic en el botón
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             dropdown.classList.toggle('show');
         });
 
+        // Manejar clics dentro del menú
         dropdown.addEventListener('click', (e) => {
-            const link = e.target.closest('a[data-action]');
+            const link = e.target.closest('a');
             if (!link) return;
-            e.preventDefault();
-            const action = link.dataset.action;
 
-            if (action === 'logout') {
+            // Caso especial: Cerrar Sesión
+            if (link.dataset.action === 'logout') {
+                e.preventDefault();
                 shared.auth.signOut();
-            } else if (action === 'profile' || action === 'settings') {
-                document.querySelectorAll('.main-nav a, .mobile-nav a').forEach(l => l.classList.remove('active'));
-                shared.switchView(action);
-            }
+            } 
+            
+            // Para cualquier enlace con data-filter (Mi Lista, Historial, Perfil, etc.)
+            // El script.js principal detectará el clic automáticamente.
+            // Aquí solo nos encargamos de cerrar el menú visualmente.
             dropdown.classList.remove('show');
         });
 
+        // Cerrar si se hace clic fuera
         document.addEventListener('click', (e) => {
             if (!dropdown.contains(e.target) && !btn.contains(e.target)) {
                 dropdown.classList.remove('show');
