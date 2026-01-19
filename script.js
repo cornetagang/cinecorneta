@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL (MODULAR)
-// Versión: 5.3.5 (Optimizada)
+// Versión: 5.6 (Optimizada)
 // ===========================================================
 
 import { logError } from './logger.js';
@@ -570,6 +570,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     updateThemeAssets();
     fetchInitialDataWithCache();
+    checkResetPasswordMode();
 });
 
 function preloadImage(url) {
@@ -860,27 +861,41 @@ function setupNavigation() {
     if (DOM.menuOverlay) DOM.menuOverlay.addEventListener('click', closeMenu);
 }
 
-async function handleFilterClick(event) { 
+async function handleFilterClick(event) {
+    // 1. Detectar si el clic fue en un enlace <a>
     const link = event.target.closest('a');
     if (!link) return;
+
+    // 🔥 FIX CRÍTICO: Si el enlace NO tiene data-filter (ej: botón Ingresar/Registro),
+    // detenemos la función aquí. Así no se ejecuta switchView() ni se borra el fondo.
+    if (!link.dataset.filter) return;
+
+    // 2. Si tiene filtro, prevenimos la navegación estándar del navegador
     event.preventDefault();
-    DOM.mobileNavPanel?.classList.remove('is-open');
-    DOM.menuOverlay?.classList.remove('active');
+
+    // 3. Cerrar menús móviles y dropdowns si están abiertos
+    if (DOM.mobileNavPanel) DOM.mobileNavPanel.classList.remove('is-open');
+    if (DOM.menuOverlay) DOM.menuOverlay.classList.remove('active');
     if (DOM.userMenuDropdown) DOM.userMenuDropdown.classList.remove('show');
-    
+
     const filter = link.dataset.filter;
 
+    // 4. Caso Especial: Ruleta (Carga el módulo y abre modal, no cambia de vista)
     if (filter === 'roulette') {
         const roulette = await getRouletteModule();
         roulette.openRouletteModal();
         return;
     }
 
+    // 5. Optimización: Si ya estamos en esa sección, no recargar (excepto Historial y Lista)
     if (link.classList.contains('active') && !['history', 'my-list'].includes(filter)) return;
+
+    // 6. Actualizar el estado visual (.active) en los menús
     document.querySelectorAll('a[data-filter]').forEach(l => l.classList.remove('active'));
     document.querySelectorAll(`a[data-filter="${filter}"]`).forEach(l => l.classList.add('active'));
-    
-    DOM.searchInput.value = '';
+
+    // 7. Limpiar la barra de búsqueda y cambiar la vista principal
+    if (DOM.searchInput) DOM.searchInput.value = '';
     switchView(filter);
 }
 
@@ -1988,9 +2003,8 @@ async function openDetailsModal(id, type, triggerElement = null) {
         if (modalRating) {
             const ratingBadge = document.createElement('span');
             ratingBadge.className = 'modal-rating-badge';
-            // Usamos la función auxiliar getStarsHTML que definimos antes
             ratingBadge.innerHTML = getStarsHTML(modalRating, false);
-            detailsMeta.prepend(ratingBadge); // Lo pone al inicio de la fila de info
+            detailsMeta.prepend(ratingBadge); 
         }
 
         // =========================================================
@@ -1998,7 +2012,7 @@ async function openDetailsModal(id, type, triggerElement = null) {
         // =========================================================
         detailsButtons.innerHTML = '';
 
-        // --- Botón PLAY ---
+        // --- A. Botón VER AHORA (Play) ---
         const playBtn = document.createElement('button');
         playBtn.className = 'btn btn-play';
         playBtn.innerHTML = `<i class="fas fa-play"></i> Ver ahora`;
@@ -2010,7 +2024,50 @@ async function openDetailsModal(id, type, triggerElement = null) {
         };
         detailsButtons.appendChild(playBtn);
 
-        // --- Botones Específicos de Series ---
+        // --- B. NUEVO: Botón RESEÑAR DIRECTO ---
+        const reviewBtn = document.createElement('button');
+        reviewBtn.className = 'btn btn-review';
+        reviewBtn.innerHTML = `<i class="fas fa-star"></i> Reseñar`;
+        
+        reviewBtn.onclick = () => {
+            // 1. Verificar si está logueado
+            if (!auth.currentUser) {
+                openConfirmationModal(
+                    "Inicia Sesión",
+                    "Necesitas acceder a tu cuenta para dejar una reseña.",
+                    () => openAuthModal(true)
+                );
+                return;
+            }
+
+            // 2. Cerrar el modal actual (Detalles)
+            closeAllModals();
+
+            // 3. PRE-LLENAR EL BUSCADOR INTELIGENTE
+            const searchInput = document.getElementById('review-movie-search');
+            const hiddenInput = document.getElementById('review-selected-id');
+            const optionsList = document.getElementById('review-movie-options');
+
+            if (searchInput && hiddenInput) {
+                searchInput.value = data.title; // Ponemos el nombre visible
+                hiddenInput.value = id;         // Ponemos el ID oculto
+                
+                // Aseguramos que la lista de sugerencias esté cerrada para que se vea limpio
+                if(optionsList) {
+                    optionsList.classList.remove('show');
+                    optionsList.style.display = 'none';
+                }
+            }
+
+            // 4. Abrir el modal de Reseña
+            if (DOM.reviewModal) {
+                DOM.reviewModal.classList.add('show');
+                document.body.classList.add('modal-open');
+            }
+        };
+        detailsButtons.appendChild(reviewBtn);
+
+        // --- C. Botones Específicos de Series ---
         if (isSeries) {
             const episodes = appState.content.seriesEpisodes[id] || {};
             const seasonCount = Object.keys(episodes).length;
@@ -2028,7 +2085,7 @@ async function openDetailsModal(id, type, triggerElement = null) {
                 detailsButtons.appendChild(infoBtn);
             }
 
-            // Botón Aleatorio (según columna 'random' del Excel)
+            // Botón Aleatorio
             const randomVal = String(data.random || '').trim().toLowerCase();
             const isRandomEnabled = ['si', 'sí', 'yes', 'true', '1'].includes(randomVal);
 
@@ -2045,7 +2102,7 @@ async function openDetailsModal(id, type, triggerElement = null) {
             }
         }
 
-        // --- Botón Mi Lista (Watchlist) ---
+        // --- D. Botón Mi Lista (Watchlist) ---
         if (auth.currentUser) {
             const listBtn = document.createElement('button');
             const inList = appState.user.watchlist.has(id);
@@ -2075,100 +2132,216 @@ async function openDetailsModal(id, type, triggerElement = null) {
 // 6. AUTENTICACIÓN Y DATOS DE USUARIO
 // ===========================================================
 function setupAuthListeners() {
-    // 1. Botones de Ingreso/Registro del Header (PC)
-    if (DOM.loginBtnHeader) DOM.loginBtnHeader.addEventListener('click', () => openAuthModal(true));
-    if (DOM.registerBtnHeader) DOM.registerBtnHeader.addEventListener('click', () => openAuthModal(false));
+    // === 1. Lógica del OJO (Ver/Ocultar Password) ===
+    const setupPasswordToggle = (inputId, iconId) => {
+        const input = document.getElementById(inputId);
+        const icon = document.getElementById(iconId);
+        if (input && icon) {
+            // Clonamos para eliminar listeners viejos si se recarga
+            const newIcon = icon.cloneNode(true);
+            icon.parentNode.replaceChild(newIcon, icon);
+            
+            newIcon.addEventListener('click', () => {
+                const isPassword = input.type === 'password';
+                input.type = isPassword ? 'text' : 'password';
+                newIcon.classList.toggle('fa-eye');
+                newIcon.classList.toggle('fa-eye-slash');
+            });
+        }
+    };
+    setupPasswordToggle('login-password', 'toggle-login-pass');
+    setupPasswordToggle('register-password', 'toggle-register-pass');
 
-    // 2. Link para cambiar entre Login/Registro en el modal
-    if (DOM.switchAuthModeLink) {
-        DOM.switchAuthModeLink.addEventListener('click', (e) => {
+    // === 2. Navegación del Modal (Login <-> Registro <-> Recuperar) ===
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    const recoveryForm = document.getElementById('recovery-form');
+    const authSwitch = document.querySelector('.auth-switch');
+
+    // Ir a "Recuperar Contraseña"
+    const forgotLink = document.getElementById('forgot-password-link');
+    if (forgotLink) {
+        forgotLink.onclick = (e) => {
             e.preventDefault();
-            const isLoginVisible = DOM.loginForm.style.display === 'flex' || DOM.loginForm.style.display === '';
-            openAuthModal(!isLoginVisible);
-        });
+            loginForm.style.display = 'none';
+            registerForm.style.display = 'none';
+            recoveryForm.style.display = 'flex'; // Usamos flex para centrar contenido si es necesario
+            recoveryForm.style.flexDirection = 'column';
+            if (authSwitch) authSwitch.style.display = 'none';
+        };
     }
 
-    // 3. Manejo del Formulario de Registro
+    // Volver a Login desde Recuperar
+    const backToLogin = document.getElementById('back-to-login-link');
+    if (backToLogin) {
+        backToLogin.onclick = (e) => {
+            e.preventDefault();
+            recoveryForm.style.display = 'none';
+            loginForm.style.display = 'flex';
+            if (authSwitch) authSwitch.style.display = 'block';
+        };
+    }
+
+    // Botón Header: Ingresar
+    if (DOM.loginBtnHeader) DOM.loginBtnHeader.onclick = (e) => { e.preventDefault(); openAuthModal(true); };
+    // Botón Header: Registro
+    if (DOM.registerBtnHeader) DOM.registerBtnHeader.onclick = (e) => { e.preventDefault(); openAuthModal(false); };
+    
+    // Switcher inferior
+    if (DOM.switchAuthModeLink) {
+        DOM.switchAuthModeLink.onclick = (e) => {
+            e.preventDefault();
+            const isLogin = loginForm.style.display !== 'none';
+            openAuthModal(!isLogin);
+        };
+    }
+
+    // === 3. Envíos de Formulario (Submits) ===
+    
+    // LOGIN
+    if (DOM.loginForm) {
+    DOM.loginForm.onsubmit = (e) => {
+        e.preventDefault();
+        const email = document.getElementById('login-email').value;
+        const pass = document.getElementById('login-password').value;
+        
+        // Elemento de error
+        const errorEl = document.getElementById('login-error'); 
+        
+        auth.signInWithEmailAndPassword(email, pass)
+            .then(() => { 
+                closeAllModals(); 
+                DOM.loginForm.reset(); 
+            })
+            .catch(() => { 
+                // 🔥 AQUÍ ESTÁ EL CAMBIO:
+                errorEl.textContent = "Credenciales incorrectas."; 
+                errorEl.style.display = 'block'; // MOSTRAR el espacio ahora
+            });
+        };
+    }
+
+    // REGISTRO
     if (DOM.registerForm) {
         DOM.registerForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const username = DOM.registerUsernameInput.value;
-            const email = DOM.registerEmailInput.value;
-            const password = DOM.registerPasswordInput.value;
+            e.preventDefault(); // Evita que se recargue la página
+            const username = document.getElementById('register-username').value;
+            const email = document.getElementById('register-email').value;
+            const password = document.getElementById('register-password').value;
+            
+            // Elemento de error
+            const errorEl = document.getElementById('register-error');
+
+            // Limpiamos errores previos al intentar de nuevo
+            if (errorEl) {
+                errorEl.style.display = 'none';
+                errorEl.textContent = '';
+            }
+
             auth.createUserWithEmailAndPassword(email, password)
                 .then((userCredential) => userCredential.user.updateProfile({ displayName: username }))
-                .then(() => { closeAllModals(); DOM.registerForm.reset(); })
-                .catch(error => { DOM.registerError.textContent = error.message; });
+                .then(() => { 
+                    closeAllModals(); 
+                    DOM.registerForm.reset(); 
+                    ErrorHandler.show('auth', '¡Cuenta creada con éxito!', 3000);
+                })
+                .catch((err) => { 
+                    // 🔥 AQUÍ ESTÁ EL TRUCO: Solo mostramos el espacio si hay error
+                    if (errorEl) {
+                        errorEl.textContent = err.message;
+                        errorEl.style.display = 'block'; 
+                    }
+                });
         });
     }
-
-    // 4. Manejo del Formulario de Login
-    if (DOM.loginForm) {
-        DOM.loginForm.addEventListener('submit', (e) => {
+    // RECUPERAR (Firebase Reset)
+    if (recoveryForm) {
+        recoveryForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            const email = DOM.loginEmailInput.value;
-            const password = DOM.loginPasswordInput.value;
-            auth.signInWithEmailAndPassword(email, password)
-                .then(() => { closeAllModals(); DOM.loginForm.reset(); })
-                .catch(error => { DOM.loginError.textContent = error.message; });
-        });
-    }
-
-    // 5. Listener global de estado
-    auth.onAuthStateChanged(updateUIAfterAuthStateChange);
-
-    // 6. Eliminar items del historial
-    if (DOM.historyContainer) {
-        DOM.historyContainer.addEventListener('click', (event) => {
-            const removeButton = event.target.closest('.btn-remove-history');
-            if (removeButton) {
-                event.stopPropagation();
-                const entryKey = removeButton.dataset.key;
-                openConfirmationModal(
-                    'Eliminar del Historial',
-                    '¿Estás seguro de que quieres eliminar este item de tu historial?',
-                    () => removeFromHistory(entryKey)
-                );
+            const email = document.getElementById('recovery-email-input').value;
+            const msgElement = document.getElementById('recovery-message');
+            
+            // Limpiamos estado previo (ocultamos el espacio)
+            if(msgElement) {
+                msgElement.style.display = 'none';
+                msgElement.textContent = '';
             }
+            
+            auth.sendPasswordResetEmail(email)
+                .then(() => {
+                    if (msgElement) {
+                        msgElement.style.color = '#4cd137'; // Verde éxito
+                        msgElement.textContent = `Enlace enviado a ${email}`;
+                        msgElement.style.display = 'block'; // 🔥 AHORA SÍ OCUPA ESPACIO
+                    }
+                })
+                .catch((error) => {
+                    if (msgElement) {
+                        msgElement.style.color = '#ff4d4d'; // Rojo error
+                        if (error.code === 'auth/user-not-found') {
+                            msgElement.textContent = "Correo no registrado.";
+                        } else {
+                            msgElement.textContent = "Error al enviar. Intenta nuevamente.";
+                        }
+                        msgElement.style.display = 'block'; // 🔥 AHORA SÍ OCUPA ESPACIO
+                    }
+                });
         });
     }
 
-    // 🔥 NUEVO: Lógica del botón "Iniciar Sesión" en el perfil móvil
-    const hubLoginBtn = document.getElementById('login-btn-hub');
-    if (hubLoginBtn) {
-        hubLoginBtn.addEventListener('click', () => {
-             openAuthModal(true); // Abre el modal de login
-        });
-    }
-
-    // LÓGICA DE CERRAR SESIÓN
-    const performLogout = (e) => {
-        e.preventDefault(); e.stopPropagation();
-        auth.signOut().then(() => window.location.reload());
-    };
-
-    const logoutBtnHeader = document.getElementById('logout-btn');
-    if (logoutBtnHeader) {
-        const newBtn = logoutBtnHeader.cloneNode(true);
-        logoutBtnHeader.parentNode.replaceChild(newBtn, logoutBtnHeader);
-        newBtn.addEventListener('click', performLogout);
-    }
-
-    const logoutBtnHub = document.getElementById('logout-btn-hub');
-    if (logoutBtnHub) {
-        const newBtnHub = logoutBtnHub.cloneNode(true);
-        logoutBtnHub.parentNode.replaceChild(newBtnHub, logoutBtnHub);
-        newBtnHub.addEventListener('click', performLogout);
-    }
+    // Listeners globales
+    auth.onAuthStateChanged(updateUIAfterAuthStateChange);
+    
+    // Logout Logic
+    const handleLogout = (e) => { e.preventDefault(); auth.signOut().then(() => location.reload()); };
+    const btnLogout = document.getElementById('logout-btn');
+    if (btnLogout) { btnLogout.parentNode.replaceChild(btnLogout.cloneNode(true), btnLogout).addEventListener('click', handleLogout); }
 }
 
 function openAuthModal(isLogin) {
-    DOM.loginForm.style.display = isLogin ? 'flex' : 'none';
-    DOM.registerForm.style.display = isLogin ? 'none' : 'flex';
-    DOM.switchAuthModeLink.textContent = isLogin ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia Sesión';
-    DOM.loginError.textContent = '';
-    DOM.registerError.textContent = '';
-    DOM.authModal.classList.add('show');
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    const recoveryForm = document.getElementById('recovery-form');
+    const authSwitch = document.querySelector('.auth-switch');
+    const switchLink = document.getElementById('switch-auth-mode');
+    const modal = document.getElementById('auth-modal');
+
+    // Siempre ocultar recuperación al abrir de cero
+    if (recoveryForm) recoveryForm.style.display = 'none';
+    if (authSwitch) authSwitch.style.display = 'block';
+
+    // Mostrar form correcto
+    if (loginForm) loginForm.style.display = isLogin ? 'flex' : 'none';
+    if (registerForm) registerForm.style.display = isLogin ? 'none' : 'flex';
+
+    // Texto del switcher
+    if (switchLink) {
+        switchLink.textContent = isLogin ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia Sesión';
+    }
+
+    // Limpiar errores y campos de password
+    ['login-error', 'register-error', 'recovery-message'].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.textContent = '';
+        el.style.display = 'none';
+    });
+    
+    // Resetear visibilidad de passwords a oculto
+    ['login-error', 'register-error', 'recovery-message'].forEach(id => {
+    const el = document.getElementById(id);
+        if(el) {
+            el.textContent = '';
+            el.style.display = 'none'; // <--- Ocultar de nuevo
+        }
+    });
+    
+    // Resetear iconos de ojos
+    document.querySelectorAll('.toggle-password').forEach(icon => {
+        icon.classList.add('fa-eye');
+        icon.classList.remove('fa-eye-slash');
+    });
+
+    if (modal) modal.classList.add('show');
     document.body.classList.add('modal-open');
 }
 
@@ -2452,6 +2625,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function hideConfirmationModal() {
     DOM.confirmationModal.classList.remove('show');
     DOM.confirmationModal.onConfirm = null;
+    document.getElementById('confirm-delete-btn').textContent = "Confirmar";
     if (!document.querySelector('.modal.show')) {
         document.body.classList.remove('modal-open');
     }
@@ -2903,53 +3077,150 @@ function updateVisibleRatings() {
 function setupReviewSystem() {
     if (!DOM.openReviewBtn) return;
 
-    // FIX ESTRELLAS: Usamos un selector fresco para asegurar el clic
+    // 1. Elementos del buscador
+    const searchInput = document.getElementById('review-movie-search');
+    const optionsList = document.getElementById('review-movie-options');
+    const hiddenInput = document.getElementById('review-selected-id');
+    const wrapper = document.querySelector('.custom-select-wrapper');
+
+    // 2. Lógica de Estrellas
     const stars = document.querySelectorAll('.star-option');
     stars.forEach(star => {
         star.onclick = (e) => {
             const val = parseInt(star.dataset.value);
-            const ratingInput = document.getElementById('review-rating-value');
-            if (ratingInput) ratingInput.value = val;
-            
-            stars.forEach(s => {
-                s.classList.toggle('selected', parseInt(s.dataset.value) <= val);
-            });
+            document.getElementById('review-rating-value').value = val;
+            stars.forEach(s => s.classList.toggle('selected', parseInt(s.dataset.value) <= val));
         };
     });
 
-    DOM.openReviewBtn.onclick = () => {
-        if (!auth.currentUser) { ErrorHandler.show('auth', 'Inicia sesión para reseñar.'); return; }
-        const select = document.getElementById('review-movie-select');
-        select.innerHTML = '<option value="" disabled selected>Escoge un título...</option>';
-        const allContent = { ...appState.content.movies, ...appState.content.series };
-        Object.entries(allContent).sort((a, b) => a[1].title.localeCompare(b[1].title)).forEach(([id, item]) => {
-            const option = document.createElement('option');
-            option.value = id; option.textContent = item.title;
-            select.appendChild(option);
+    // 3. Lógica Visual del Buscador
+    if (searchInput) {
+        const showList = (e) => {
+            e.stopPropagation();
+            if(optionsList) optionsList.classList.add('show');
+        };
+
+        searchInput.addEventListener('click', showList);
+        searchInput.addEventListener('focus', showList);
+        
+        searchInput.addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase();
+            if(optionsList) optionsList.classList.add('show');
+            
+            const options = optionsList.querySelectorAll('.custom-option');
+            options.forEach(opt => {
+                const text = opt.textContent.toLowerCase();
+                opt.style.display = text.includes(term) ? 'block' : 'none';
+            });
         });
+
+        document.addEventListener('click', (e) => {
+            if (wrapper && !wrapper.contains(e.target)) {
+                if(optionsList) optionsList.classList.remove('show');
+            }
+        });
+    }
+
+    // 4. ABRIR MODAL Y CARGAR DATOS (¡AQUÍ ESTÁ LA MAGIA!)
+    DOM.openReviewBtn.onclick = () => {
+        if (!auth.currentUser) { 
+            openConfirmationModal("Inicia Sesión", "Necesitas cuenta para reseñar.", () => openAuthModal(true));
+            return; 
+        }
+
+        // Limpieza
+        if(searchInput) searchInput.value = '';
+        if(hiddenInput) hiddenInput.value = '';
+        if(optionsList) optionsList.innerHTML = ''; 
+
+        // --- 🔥 RECOLECCIÓN TOTAL DE CONTENIDO ---
+        let allContent = { ...appState.content.movies, ...appState.content.series };
+
+        // A. Agregar contenido de Universos/Sagas Dinámicas
+        if (appState.content.sagas) {
+            Object.values(appState.content.sagas).forEach(sagaContent => {
+                // Mezclamos el contenido de cada saga en la lista principal
+                allContent = { ...allContent, ...sagaContent };
+            });
+        }
+
+        // B. Agregar UCM (Si existe como legado)
+        if (appState.content.ucm) {
+            allContent = { ...allContent, ...appState.content.ucm };
+        }
+        // ------------------------------------------
+
+        // Convertir a array y ordenar alfabéticamente
+        const sorted = Object.entries(allContent).sort((a, b) => a[1].title.localeCompare(b[1].title));
+
+        // Generar la lista visual
+        sorted.forEach(([id, item]) => {
+            const div = document.createElement('div');
+            div.className = 'custom-option';
+            div.textContent = item.title;
+            
+            div.onclick = () => {
+                searchInput.value = item.title;
+                hiddenInput.value = id;
+                optionsList.classList.remove('show');
+            };
+            
+            if(optionsList) optionsList.appendChild(div);
+        });
+            
         DOM.reviewModal.classList.add('show');
         document.body.classList.add('modal-open');
     };
 
+    // 5. Enviar Formulario (Lógica Inteligente para encontrar el item)
     DOM.reviewForm.onsubmit = async (e) => {
         e.preventDefault();
         const user = auth.currentUser;
-        const contentId = document.getElementById('review-movie-select').value;
+        const contentId = hiddenInput ? hiddenInput.value : null;
         const rating = document.getElementById('review-rating-value').value;
         const text = document.getElementById('review-text-input').value.trim();
 
-        if (rating === "0" || text.length < 2) {
-            return ErrorHandler.show('content', 'Completa la calificación y el texto.');
-        }
+        if (!contentId) return ErrorHandler.show('content', 'Selecciona una película de la lista.');
+        if (rating === "0" || text.length < 2) return ErrorHandler.show('content', 'Falta calificación o texto.');
 
         try {
-            const existingReviews = await db.ref('reviews').orderByChild('userId').equalTo(user.uid).once('value');
-            let yaResenado = false;
-            existingReviews.forEach(child => { if (child.val().contentId === contentId) yaResenado = true; });
+            // Validar duplicados
+            const existing = await db.ref('reviews').orderByChild('userId').equalTo(user.uid).once('value');
+            let duplicado = false;
+            existing.forEach(child => { if (child.val().contentId === contentId) duplicado = true; });
 
-            if (yaResenado) return ErrorHandler.show('content', 'Ya has reseñado este título.');
+            if (duplicado) {
+                openConfirmationModal(
+                    "¡Ya opinaste!",
+                    "Ya has publicado una reseña para este título anteriormente. Solo se permite una opinión por usuario.",
+                () => {
+                    // Si le da a "Confirmar/Entendido", cerramos el formulario de reseña
+                    DOM.reviewModal.classList.remove('show'); 
+                }
+            );
+                // Opcional: Cambiar texto del botón del modal temporalmente (truco visual)
+                document.getElementById('confirm-delete-btn').textContent = "Entendido";
+                return;
+            }
 
-            const item = appState.content.movies[contentId] || appState.content.series[contentId];
+            // 🔥 BÚSQUEDA PROFUNDA DE DATOS (Para guardar título y poster correcto)
+            let item = appState.content.movies[contentId] || appState.content.series[contentId];
+            
+            // Si no está en las listas normales, buscar en Sagas
+            if (!item && appState.content.sagas) {
+                for (const key in appState.content.sagas) {
+                    if (appState.content.sagas[key][contentId]) {
+                        item = appState.content.sagas[key][contentId];
+                        break;
+                    }
+                }
+            }
+            // Si sigue sin aparecer, buscar en UCM
+            if (!item && appState.content.ucm) item = appState.content.ucm[contentId];
+
+            if (!item) return ErrorHandler.show('content', 'Error al identificar el título.');
+
+            // Guardar en Firebase
             await db.ref('reviews').push({
                 userId: user.uid, userName: user.displayName || 'Usuario',
                 contentId, contentTitle: item.title, poster: item.poster,
@@ -2959,6 +3230,9 @@ function setupReviewSystem() {
             ErrorHandler.show('content', '¡Reseña publicada!', 3000);
             closeAllModals();
             DOM.reviewForm.reset();
+            
+            if(searchInput) searchInput.value = '';
+            if(hiddenInput) hiddenInput.value = '';
             stars.forEach(s => s.classList.remove('selected'));
             document.getElementById('review-rating-value').value = "0";
         } catch (error) { ErrorHandler.show('database', 'Error al publicar.'); }
@@ -2980,11 +3254,17 @@ function openFullReview(data) {
 }
 
 function deleteReview(reviewId) {
-    if (confirm('¿Eliminar esta reseña?')) {
-        db.ref(`reviews/${reviewId}`).remove().then(() => ErrorHandler.show('content', 'Reseña eliminada.'));
-    }
+    openConfirmationModal(
+        "Eliminar Reseña", 
+        "¿Estás seguro de que deseas eliminar esta reseña permanentemente?", 
+        () => {
+            // Esta función se ejecuta solo si le dan a "Confirmar"
+            db.ref(`reviews/${reviewId}`).remove()
+                .then(() => ErrorHandler.show('content', 'Reseña eliminada correctamente.'))
+                .catch(() => ErrorHandler.show('database', 'Error al eliminar.'));
+        }
+    );
 }
-
 function renderSagasHub() {
     const container = document.getElementById('sagas-grid-dynamic');
     if (!container) return;
@@ -3011,3 +3291,110 @@ function findContentData(id) {
 }
 
 window.adminForceUpdate = () => { localStorage.clear(); location.reload(); };
+
+// ==========================================
+// 8. MANEJO DE RECUPERACIÓN DE CONTRASEÑA (NIVEL PROFESIONAL)
+// ==========================================
+
+function checkResetPasswordMode() {
+    // 1. Verificamos si la URL tiene los parámetros mágicos de Firebase
+    const urlParams = new URLSearchParams(window.location.search);
+    const mode = urlParams.get('mode');      // Debe ser 'resetPassword'
+    const actionCode = urlParams.get('oobCode'); // El código único de seguridad
+
+    // Si detectamos que el usuario viene del correo...
+    if (mode === 'resetPassword' && actionCode) {
+        
+        // A. Limpiamos la URL para que no se vea fea (quita los parámetros visualmente)
+        window.history.replaceState({}, document.title, window.location.pathname);
+
+        // B. Abrimos el modal especial
+        const modal = document.getElementById('new-password-modal');
+        if (modal) {
+            modal.classList.add('show');
+            document.body.classList.add('modal-open');
+        }
+
+        // C. Configuramos el ojo para ver la contraseña (reutilizando lógica)
+        const toggleIcon = document.getElementById('toggle-new-pass');
+        const inputPass = document.getElementById('new-password-input');
+        
+        if(toggleIcon && inputPass) {
+            // Clonamos para asegurar limpieza de eventos
+            const newToggle = toggleIcon.cloneNode(true);
+            toggleIcon.parentNode.replaceChild(newToggle, toggleIcon);
+            
+            newToggle.addEventListener('click', () => {
+                const isPass = inputPass.type === 'password';
+                inputPass.type = isPass ? 'text' : 'password';
+                newToggle.classList.toggle('fa-eye');
+                newToggle.classList.toggle('fa-eye-slash');
+            });
+        }
+
+        // D. Manejamos el envío del formulario
+        const form = document.getElementById('new-password-form');
+        const feedback = document.getElementById('new-pass-feedback');
+        
+        if (form) {
+            form.onsubmit = async (e) => {
+                e.preventDefault();
+                const newPassword = inputPass.value;
+                const btn = form.querySelector('button');
+
+                // Estado de carga
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+                feedback.textContent = "";
+
+                try {
+                    // 🔥 LA MAGIA: Confirmamos el cambio en Firebase usando el código
+                    await auth.confirmPasswordReset(actionCode, newPassword);
+                    
+                    // Éxito visual
+                    feedback.style.color = '#4cd137'; // Verde
+                    feedback.textContent = "¡Contraseña actualizada correctamente!";
+                    btn.textContent = "¡Listo!";
+                    
+                    // Esperar 2 segundos y abrir el login normal para que entre
+                    setTimeout(() => {
+                        modal.classList.remove('show'); // Cerrar modal de reset
+                        if(window.openAuthModal) window.openAuthModal(true); // Abrir login
+                    }, 2000);
+
+                } catch (error) {
+                    console.error("Error reset password:", error);
+                    btn.disabled = false;
+                    btn.textContent = "Guardar Nueva Contraseña";
+                    feedback.style.color = '#ff4d4d'; // Rojo
+                    
+                    // Mensajes de error amigables
+                    if (error.code === 'auth/expired-action-code') {
+                        feedback.textContent = "El enlace ha expirado. Solicita uno nuevo.";
+                    } else if (error.code === 'auth/invalid-action-code') {
+                        feedback.textContent = "El enlace ya fue usado o no es válido.";
+                    } else if (error.code === 'auth/weak-password') {
+                        feedback.textContent = "La contraseña es muy débil (mínimo 6 caracteres).";
+                    } else {
+                        feedback.textContent = "Ocurrió un error. Intenta nuevamente.";
+                    }
+                }
+            };
+        }
+    }
+}
+
+// 🔥 IMPORTANTE: AGREGAR ESTO AL FINAL DEL DOMContentLoaded EXISTENTE
+// Busca donde dice: document.addEventListener('DOMContentLoaded', () => { ...
+// Y asegúrate de llamar a esta función adentro.
+
+/* Ejemplo:
+document.addEventListener('DOMContentLoaded', () => {
+    // ... tu código de carga inicial ...
+    updateThemeAssets();
+    fetchInitialDataWithCache();
+    
+    // --> AGREGAR ESTA LÍNEA:
+    checkResetPasswordMode(); 
+});
+*/
