@@ -3383,18 +3383,3 @@ function checkResetPasswordMode() {
         }
     }
 }
-
-// 🔥 IMPORTANTE: AGREGAR ESTO AL FINAL DEL DOMContentLoaded EXISTENTE
-// Busca donde dice: document.addEventListener('DOMContentLoaded', () => { ...
-// Y asegúrate de llamar a esta función adentro.
-
-/* Ejemplo:
-document.addEventListener('DOMContentLoaded', () => {
-    // ... tu código de carga inicial ...
-    updateThemeAssets();
-    fetchInitialDataWithCache();
-    
-    // --> AGREGAR ESTA LÍNEA:
-    checkResetPasswordMode(); 
-});
-*/
