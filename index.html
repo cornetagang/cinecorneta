@@ -272,23 +272,78 @@
     <div id="series-player-modal" class="modal"></div>
 
     <div id="auth-modal" class="modal">
-        <div class="auth-modal-content">
-            <button class="close-btn">&times;</button>
-            <form id="register-form" class="auth-form">
-                <h2>Crear Cuenta</h2>
-                <input type="text" id="register-username" placeholder="Usuario" required>
-                <input type="email" id="register-email" placeholder="Email" required>
-                <input type="password" id="register-password" placeholder="Pass" required>
-                <button type="submit">Registrarse</button>
-            </form>
-            <form id="login-form" class="auth-form" style="display:none;">
-                <h2>Login</h2>
-                <input type="email" id="login-email" placeholder="Email" required>
-                <input type="password" id="login-password" placeholder="Pass" required>
-                <button type="submit">Ingresar</button>
-            </form>
-            <p class="auth-switch"><a href="#" id="switch-auth-mode">¿No tienes cuenta? Regístrate</a></p>
-        </div>
+    <div class="auth-modal-content">
+        <button class="close-btn">&times;</button>
+
+        <form id="register-form" class="auth-form">
+            <h2>Crear Cuenta</h2>
+            <input type="text" id="register-username" placeholder="Usuario" required>
+            <input type="email" id="register-email" placeholder="Email" required>
+            
+            <div class="password-wrapper">
+                <input type="password" id="register-password" placeholder="Contraseña" required>
+                <i class="fas fa-eye toggle-password" id="toggle-register-pass"></i>
+            </div>
+            
+            <p id="register-error" class="auth-error"></p>
+            <button type="submit">Registrarse</button>
+        </form>
+
+        <form id="login-form" class="auth-form" style="display:none;">
+            <h2>Login</h2>
+            <input type="email" id="login-email" placeholder="Email" required>
+            
+            <div class="password-wrapper">
+                <input type="password" id="login-password" placeholder="Contraseña" required>
+                <i class="fas fa-eye toggle-password" id="toggle-login-pass"></i>
+            </div>
+            
+            <div class="forgot-container">
+                <a href="#" id="forgot-password-link" class="forgot-link">¿Olvidaste tu contraseña?</a>
+            </div>
+
+            <p id="login-error" class="auth-error"></p>
+            <button type="submit">Ingresar</button>
+        </form>
+
+        <form id="recovery-form" class="auth-form" style="display:none;">
+            <h2>Recuperar</h2>
+                <p style="color: #ccc; font-size: 0.9rem; margin-bottom: 20px; line-height: 1.5;">
+                    Ingresa tu correo y te enviaremos un enlace para restablecer tu acceso.
+                </p>
+            <input type="email" id="recovery-email-input" placeholder="Tu Email registrado" required>
+                
+            <button type="submit">Enviar correo</button>
+
+            <p class="spam-notice" style="font-size: 0.8rem; color: #888; margin-top: 10px; text-align: center;">
+                <i class="fas fa-info-circle"></i> Si no recibes el correo, revisa tu carpeta de <strong>Spam</strong>.
+            </p>
+            <p id="recovery-message" class="auth-error"></p>
+    
+            <div style="text-align: center; margin-top: 15px;">
+                <a href="#" id="back-to-login-link" class="forgot-link">Volver a Iniciar Sesión</a>
+            </div>
+        </form>
+
+        <p class="auth-switch"><a href="#" id="switch-auth-mode">¿No tienes cuenta? Regístrate</a></p>
+    </div>
+    </div>
+
+    <div id="new-password-modal" class="modal">
+    <div class="auth-modal-content">
+        <h2 style="font-family: 'Bebas Neue'; font-size: 2.5rem; margin-bottom: 10px;">Restablecer Contraseña</h2>
+        <p style="color: #ccc; margin-bottom: 20px;">Ingresa tu nueva clave para recuperar el acceso.</p>
+        
+        <form id="new-password-form" class="auth-form">
+            <div class="password-wrapper">
+                <input type="password" id="new-password-input" placeholder="Nueva contraseña" required minlength="6">
+                <i class="fas fa-eye toggle-password" id="toggle-new-pass"></i>
+            </div>
+            <button type="submit" class="btn-primary" style="width: 100%; margin-top: 10px;">Guardar Nueva Contraseña</button>
+        </form>
+        
+        <p id="new-pass-feedback" class="auth-error" style="margin-top: 15px; font-weight: bold;"></p>
+    </div>
     </div>
 
     <div id="review-form-modal" class="modal">
@@ -296,9 +351,18 @@
             <button class="close-btn">&times;</button>
             <form id="review-submission-form" class="auth-form">
                 <h2 style="font-family: 'Bebas Neue'; font-size: 2.5rem;">Escribe tu opinión</h2>
-                <label style="text-align: left; margin-bottom: 5px; color: var(--text-muted);">Título:</label>
-                <select id="review-movie-select" required style="margin-bottom: 15px; width: 100%; height: 45px; background: rgba(0,0,0,0.3); color: white; border: 1px solid #444; padding: 10px; border-radius: 8px;"></select>
+                
+                <label style="text-align: left; margin-bottom: 5px; color: var(--text-muted); display:block;">Título:</label>
+                <div class="custom-select-wrapper">
+                    <div class="custom-select-input-container">
+                        <input type="text" id="review-movie-search" placeholder="Escribe para buscar..." autocomplete="off">
+                        <i class="fas fa-chevron-down select-icon"></i>
+                    </div>
+                    
+                    <input type="hidden" id="review-selected-id">
 
+                    <div id="review-movie-options" class="custom-options-list"></div>
+                </div>
                 <label style="text-align: left; margin-bottom: 5px; color: var(--text-muted);">Calificación:</label>
                 <div class="star-rating-input" style="display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; font-size: 1.5rem;">
                     <i class="fas fa-star star-option" data-value="1"></i>
@@ -308,7 +372,9 @@
                     <i class="fas fa-star star-option" data-value="5"></i>
                 </div>
                 <input type="hidden" id="review-rating-value" value="0">
+                
                 <textarea id="review-text-input" placeholder="¿Qué te pareció? (Mínimo 2 letras)" required style="height: 120px; background: rgba(255,255,255,0.05); color: white; border: 1px solid #333; padding: 10px; border-radius: 8px; margin-bottom: 15px; resize: none;"></textarea>
+                
                 <button type="submit" class="btn-primary" style="width: 100%;">Publicar Reseña</button>
             </form>
         </div>
