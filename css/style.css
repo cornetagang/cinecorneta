@@ -439,7 +439,25 @@ body.modal-open { overflow: hidden; }
 /* ================================== */
 /* MODALES                            */
 /* ================================== */
-.modal { position: fixed; inset: 0; z-index: 2000; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.9); opacity: 0; transition: opacity 0.3s ease; }
+.modal {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+
+    /* 🔥 CAMBIO CLAVE: */
+    /* Usamos 0.7 para que sea oscuro pero transparente */
+    background: rgba(0, 0, 0, 0.7); 
+    
+    /* Agregamos desenfoque para que se vea moderno (efecto vidrio) */
+    backdrop-filter: blur(8px); 
+    -webkit-backdrop-filter: blur(8px);
+
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
 .modal.show { display: flex; opacity: 1; }
 .close-btn { position: absolute; top: 20px; right: 20px; background: rgba(20,20,20,0.7); color: #fff; border: 2px solid #fff; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; font-size: 20px; z-index: 1010; transition: all 0.2s ease; }
 .close-btn:hover { background: white; color: black; transform: scale(1.1); }
@@ -916,7 +934,21 @@ body.modal-open { overflow: hidden; }
 .auth-form h2 { margin-top: 0; font-family: 'Bebas Neue', sans-serif; font-size: 2rem; }
 .auth-form input { width: 100%; background: rgba(255, 255, 255, 0.1); border: 1px solid var(--text-muted); border-radius: 6px; padding: 12px; font-size: 1rem; color: var(--text-light); margin-bottom: 15px; }
 .auth-form button { width: 100%; padding: 12px; background: var(--primary-red); border: none; border-radius: 6px; color: white; font-size: 1.1rem; font-weight: bold; cursor: pointer; }
-.auth-error { color: #ff9a9a; min-height: 20px; font-size: 0.9rem; text-align: left; }
+.auth-error {
+    color: #ff4d4d;
+    font-size: 0.9rem;
+    text-align: center;
+    display: none;
+    margin-top: 15px;
+    margin-bottom: 0;
+    font-weight: bold;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
 .auth-switch { margin-top: 20px; }
 .auth-switch a { color: var(--text-muted); text-decoration: none; }
 .btn-watchlist { position: absolute; top: 10px; right: 10px; z-index: 3; background: rgba(20, 20, 20, 0.75); color: #fff; border: 2px solid #fff; width: 34px; height: 34px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; opacity: 0; transform: scale(0.8); transition: all 0.2s ease; }
@@ -3177,4 +3209,158 @@ body.tab-inactive iframe {
 
 .modal-rating-badge::after {
     display: none !important;
+}
+
+/* --- ESTILOS DE PASSWORD Y RECUPERACIÓN --- */
+
+/* Contenedor relativo para el input + ojo */
+.password-wrapper {
+    position: relative;
+    width: 100%;
+    margin-bottom: 0; /* Quitamos margen porque lo manejará el contenedor siguiente */
+}
+
+/* Ajuste del input para que el texto no choque con el ojo */
+.password-wrapper input {
+    width: 100%;
+    padding-right: 45px; /* Espacio para el icono */
+    margin-bottom: 0;    /* Pegado al contenedor del link si lo hubiera */
+}
+
+/* Icono del ojo */
+.toggle-password {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%); /* Centrado vertical perfecto */
+    cursor: pointer;
+    color: #888;
+    z-index: 5;
+    transition: color 0.3s ease;
+    font-size: 1rem;
+}
+
+.toggle-password:hover {
+    color: var(--primary-red);
+}
+
+/* 🔥 Contenedor del enlace "Olvidaste contraseña" (UBICACIÓN MEJORADA) */
+.forgot-container {
+    width: 100%;
+    text-align: left;    /* Alineado a la derecha */
+    margin-top: 8px;      /* Separación del input de contraseña */
+    margin-bottom: 20px;  /* Separación del botón de Ingresar */
+}
+
+/* Estilo del enlace */
+.forgot-link {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.forgot-link:hover {
+    color: #fff;
+    text-decoration: underline;
+}
+
+#register-form .password-wrapper,
+#new-password-form .password-wrapper {
+    margin-bottom: 20px; 
+}
+
+/* --- BUSCADOR INTELIGENTE (ESTILO OSCURO) --- */
+.custom-select-wrapper {
+    position: relative;
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+#review-movie-search {
+    width: 100%;
+    height: 50px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    color: white;
+    padding: 0 40px 0 15px;
+    font-size: 1rem;
+    font-family: 'Montserrat', sans-serif;
+    outline: none;
+    transition: border 0.3s;
+}
+
+#review-movie-search:focus {
+    border-color: var(--primary-red);
+    background: #222;
+}
+
+.select-icon {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #888;
+    pointer-events: none;
+}
+
+/* La lista desplegable (oculta por defecto) */
+.custom-options-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    max-height: 250px; /* Altura máxima con scroll */
+    background: #141414;
+    border: 1px solid #333;
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    z-index: 1000; /* Para que flote encima de todo */
+    overflow-y: auto;
+    display: none; /* OCULTO */
+    box-shadow: 0 10px 20px rgba(0,0,0,0.8);
+}
+
+.custom-options-list.show {
+    display: block; /* VISIBLE */
+}
+
+/* Opciones */
+.custom-option {
+    padding: 12px 15px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    color: #ccc;
+    transition: background 0.2s;
+}
+
+.custom-option:hover {
+    background: var(--primary-red);
+    color: white;
+    font-weight: bold;
+}
+
+/* --- BOTÓN RESEÑAR (ESTILO DORADO PREMIUM) --- */
+.btn-review {
+    background-color: rgba(255, 215, 0, 0.1); /* Fondo oscuro con tinte dorado */
+    color: #ffd700; /* Texto color oro */
+    border: 1px solid rgba(255, 215, 0, 0.3); /* Borde sutil */
+    transition: all 0.3s ease;
+}
+
+.btn-review:hover {
+    background-color: rgba(255, 215, 0, 0.2); /* Más brillante al pasar el mouse */
+    border-color: #ffd700; /* Borde sólido */
+    color: #fff; /* Texto blanco para leer mejor */
+    transform: translateY(-2px);
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.2); /* Resplandor dorado suave */
+}
+
+.btn-review i {
+    color: #ffd700; /* Aseguramos que el icono sea dorado */
+}
+
+.btn-review:hover i {
+    color: #fff;
 }
