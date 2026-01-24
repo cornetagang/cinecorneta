@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL (MODULAR)
-// Versión: 5.6 (Optimizada)
+// Versión: 6.0 (optimizacion update enero 2026)
 // ===========================================================
 
 import { logError } from './logger.js';
@@ -584,15 +584,28 @@ function preloadImage(url) {
 }
 
 async function fetchInitialDataWithCache() {
+    // =========================================================================
+    // ⚡ 1. DETECTOR DE HARDWARE (OPTIMIZACIÓN AUTOMÁTICA)
+    // =========================================================================
+    // Esto detecta si tu PC es "modesta" (4 núcleos o menos, como tu Celeron)
+    // y activa la clase 'low-spec' para apagar los efectos pesados.
+    const cores = navigator.hardwareConcurrency || 4; // Si el navegador no lo dice, asumimos 4
+    if (cores <= 4) {
+        console.log(`💻 Hardware modesto detectado (${cores} núcleos): Activando Modo Rendimiento.`);
+        document.body.classList.add('low-spec');
+    } else {
+        console.log(`🚀 Hardware potente detectado (${cores} núcleos): Gráficos en Ultra.`);
+        document.body.classList.remove('low-spec');
+    }
+
     const startLoadTime = Date.now();
 
     // =========================================================================
-    // 📡 SISTEMA DE ACTUALIZACIÓN INTELIGENTE (FIXED & MOBILE READY)
+    // 📡 2. SISTEMA DE ACTUALIZACIÓN INTELIGENTE (Firebase)
     // =========================================================================
     if (typeof db !== 'undefined') {
         const updatesRef = db.ref('system_metadata/last_update');
         updatesRef.on('value', (snapshot) => {
-            // 1. Aseguramos que sean números para evitar errores de comparación
             const serverLastUpdate = Number(snapshot.val()); 
             const localRaw = localStorage.getItem('local_last_update');
             const localLastUpdate = localRaw ? Number(localRaw) : 0;
@@ -602,46 +615,29 @@ async function fetchInitialDataWithCache() {
             // Caso: Nueva versión detectada en el servidor
             if (serverLastUpdate > localLastUpdate) {
                 console.log('🔄 ADMIN: Nueva versión detectada.');
-
-                // Detectamos si hay un modal abierto (Usuario viendo algo)
                 const isWatching = document.body.classList.contains('modal-open');
 
                 if (isWatching) {
-                    // A: SI ESTÁ VIENDO ALGO -> Actualizar en silencio (Segundo plano)
+                    // Si está viendo algo, programamos recarga silenciosa
                     console.log('🎬 Usuario ocupado. Programando recarga en localStorage...');
-                    
-                    // 1. Guardamos la "orden" de recargar en el disco (localStorage)
-                    // Esto sobrevive aunque el navegador mate el proceso en segundo plano
                     localStorage.setItem('pending_reload', 'true');
-                    
-                    // 2. Actualizamos la fecha YA para que no vuelva a intentar actualizarse en bucle
                     localStorage.setItem('local_last_update', serverLastUpdate);
-                    
-                    // 3. Bajamos la data nueva "por debajo" sin molestar
                     refreshDataInBackground(); 
-                    
                 } else {
-                    // B: SI ESTÁ LIBRE -> Recarga inmediata (Hard Reload)
+                    // Si está libre, forzamos recarga inmediata
                     console.log('🚀 Aplicando actualización inmediata...');
-                    
-                    // 1. Primero borramos todo (Caché vieja)
                     if (window.cacheManager) {
                         window.cacheManager.clearAll();
                     } else {
                         localStorage.clear();
                     }
-                    
-                    // 2. Y LUEGO guardamos la nueva fecha (para que al volver sepa que está al día)
                     localStorage.setItem('local_last_update', serverLastUpdate);
-
-                    // 3. 🔥 EL TRUCO DEL HARD RELOAD EN MÓVIL
-                    // Forzamos una navegación a una URL "nueva" agregando la hora actual
+                    
                     const url = new URL(window.location.href);
                     url.searchParams.set('force_update', Date.now());
                     window.location.href = url.toString();
                 }
             } 
-            // Caso: Primera vez que entramos (Sincronización inicial)
             else if (serverLastUpdate && localLastUpdate === 0) {
                 localStorage.setItem('local_last_update', serverLastUpdate);
             }
@@ -649,7 +645,7 @@ async function fetchInitialDataWithCache() {
     }
 
     // =========================================================================
-    // ⚙️ FUNCIONES INTERNAS DE PROCESAMIENTO
+    // ⚙️ 3. PROCESAMIENTO DE DATOS
     // =========================================================================
     const processData = (data) => {
         appState.content.movies = data.allMovies || {};
@@ -708,7 +704,7 @@ async function fetchInitialDataWithCache() {
     };
 
     // =========================================================================
-    // 🚀 LÓGICA DE CARGA: CACHÉ VS INTERNET
+    // 🚀 4. LÓGICA DE CARGA: CACHÉ VS INTERNET
     // =========================================================================
     const cachedContent = cacheManager.get(cacheManager.keys.content);
     const cachedMetadata = cacheManager.get(cacheManager.keys.metadata);
@@ -773,7 +769,6 @@ async function fetchInitialDataWithCache() {
             cacheManager.set(cacheManager.keys.metadata, freshMetadata);
             setupRatingsListener();
             
-            // 🔥 Guardamos la fecha actual como referencia inicial si no existía
             if (!localStorage.getItem('local_last_update')) {
                 localStorage.setItem('local_last_update', Date.now());
             }
@@ -1569,10 +1564,20 @@ function updatePaginationUI() {
 }
 
 function handleGlobalClick(event) {
+    // 1. Cerrar modales (Ya existía)
     if (event.target.closest('.close-btn')) {
         closeAllModals();
         return;
     }
+
+    const removeHistoryBtn = event.target.closest('.btn-remove-history');
+    if (removeHistoryBtn) {
+        const entryKey = removeHistoryBtn.dataset.key;
+        removeFromHistory(entryKey);
+        return;
+    }
+
+    // 2. Botón Mi Lista (Ya existía)
     const watchlistButton = event.target.closest('.btn-watchlist');
     if (watchlistButton) {
         handleWatchlistClick(watchlistButton);
@@ -2418,22 +2423,36 @@ function addToHistoryIfLoggedIn(contentId, type, episodeInfo = {}) {
     const itemData = isSeries ? appState.content.series[contentId] : appState.content.movies[contentId];
     if (!itemData) return;
 
+    // 1. Empezamos con el póster general de la serie/película
     let posterUrl = itemData.poster;
+
+    // 2. Si es una serie y estamos viendo una temporada específica, intentamos buscar su póster
     if (isSeries && episodeInfo.season) {
-        const seasonPosterUrl = appState.content.seasonPosters[contentId]?.[episodeInfo.season];
-        if (seasonPosterUrl) {
-            posterUrl = seasonPosterUrl;
+        // Buscamos la entrada en seasonPosters
+        const seasonPosterEntry = appState.content.seasonPosters[contentId]?.[episodeInfo.season];
+
+        if (seasonPosterEntry) {
+            // === CORRECCIÓN AQUÍ ===
+            if (typeof seasonPosterEntry === 'object') {
+                // Si es un objeto (ej: { posterUrl: "...", date: "..." }), extraemos solo la URL
+                posterUrl = seasonPosterEntry.posterUrl || seasonPosterEntry.poster || posterUrl;
+            } else {
+                // Si ya es un texto (formato antiguo), lo usamos directamente
+                posterUrl = seasonPosterEntry;
+            }
         }
     }
     
+    // Generamos la clave única para el historial
     const historyKey = isSeries ? `${contentId}_${episodeInfo.season}` : contentId;
     const historyTitle = isSeries ? `${itemData.title}: T${String(episodeInfo.season).replace('T', '')}` : itemData.title;
     
+    // Objeto final a guardar en Firebase
     const historyEntry = {
         type,
         contentId,
         title: historyTitle,
-        poster: posterUrl,
+        poster: posterUrl, // Ahora aseguramos que esto sea un String URL limpio
         viewedAt: firebase.database.ServerValue.TIMESTAMP,
         season: isSeries ? episodeInfo.season : null,
         lastEpisode: isSeries ? episodeInfo.index : null
@@ -2802,8 +2821,11 @@ function createMovieCardElement(id, data, type, layout = 'carousel', lazy = fals
         watchlistBtnHTML = `<button class="btn-watchlist ${inListClass}" data-content-id="${id}"><i class="fas ${icon}"></i></button>`;
     }
 
-    let imageUrl = data.poster; 
+    let imageUrl = data.poster;
 
+    if (typeof imageUrl === 'object' && imageUrl !== null) {
+        imageUrl = imageUrl.posterUrl || imageUrl.poster || '';
+    }
     // 2. Intentamos buscar un póster específico de temporada si aplica
     const seasonMatch = data.title.match(/\(T(\d+)\)$/);
     if (seasonMatch && appState.content.seasonPosters[id]) {
