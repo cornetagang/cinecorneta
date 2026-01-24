@@ -3364,3 +3364,81 @@ body.tab-inactive iframe {
 .btn-review:hover i {
     color: #fff;
 }
+
+/* ============================================ */
+/* CORRECCIÓN DE TÍTULOS (HISTORIAL Y MI LISTA) */
+/* ============================================ */
+
+/* 1. Alineamos el contenedor del título con la grilla */
+#history-container .content-header,
+#my-list-container .content-header {
+    /* Usamos '4vw' a los lados, igual que tu clase .grid */
+    padding: 30px 4vw 10px 4vw; 
+    display: flex;
+    align-items: center;
+}
+
+/* 2. Mejoramos la tipografía para que coincida con el resto del sitio */
+#history-container h2,
+#my-list-container h2 {
+    font-family: 'Bebas Neue', sans-serif; /* Fuente de títulos */
+    font-size: 3.5rem; /* Tamaño grande y legible */
+    letter-spacing: 1.5px;
+    margin: 0;
+    color: var(--text-light);
+    text-shadow: 0 4px 6px rgba(0,0,0,0.5); /* Sombra para resaltar */
+}
+
+/* 3. Ajuste para Móviles (Para que no se rompa en el cel) */
+@media (max-width: 992px) {
+    #history-container .content-header,
+    #my-list-container .content-header {
+        /* En móvil tu grilla usa 15px, así que igualamos aquí */
+        padding: 20px 15px 10px 15px; 
+        justify-content: center; /* Centramos el título en móvil */
+    }
+    
+    #history-container h2,
+    #my-list-container h2 {
+        font-size: 2.5rem; /* Un poco más chico en móvil */
+        text-align: center;
+    }
+}
+
+/* ======================================================= */
+/* ⚡ MODO RENDIMIENTO (SOLO PARA PCS LENTOS) */
+/* ======================================================= */
+
+/* Solo se aplica si el body tiene la clase "low-spec" */
+body.low-spec .modal, 
+body.low-spec .user-menu-dropdown, 
+body.low-spec .bottom-nav, 
+body.low-spec .main-header,
+body.low-spec .card-rating-display {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background-color: rgba(12, 12, 12, 0.98) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: none !important;
+}
+
+body.low-spec .movie-card, 
+body.low-spec .season-poster-card {
+    box-shadow: 0 2px 5px rgba(0,0,0,0.5) !important;
+    transition: transform 0.2s ease !important;
+}
+
+body.low-spec .movie-card:hover, 
+body.low-spec .season-poster-card:hover {
+    transform: translateY(-4px) !important;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.8) !important;
+}
+
+body.low-spec .loading-text {
+    animation: none !important;
+    text-shadow: none !important;
+}
+
+body.low-spec .hero-section::after {
+    background: linear-gradient(to top, #141414 10%, transparent 100%) !important;
+}
