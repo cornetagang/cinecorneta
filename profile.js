@@ -23,26 +23,24 @@ export function setupUserDropdown() {
     const dropdown = document.getElementById('user-menu-dropdown');
 
     if (btn && dropdown) {
-        // Abrir/Cerrar al hacer clic en el botón
+        // Abrir/Cerrar menú
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             dropdown.classList.toggle('show');
         });
 
-        // Manejar clics dentro del menú
+        // Detectar clics dentro del menú
         dropdown.addEventListener('click', (e) => {
             const link = e.target.closest('a');
             if (!link) return;
 
-            // Caso especial: Cerrar Sesión
+            // Si es cerrar sesión
             if (link.dataset.action === 'logout') {
                 e.preventDefault();
                 shared.auth.signOut();
-            } 
+            }
             
-            // Para cualquier enlace con data-filter (Mi Lista, Historial, Perfil, etc.)
-            // El script.js principal detectará el clic automáticamente.
-            // Aquí solo nos encargamos de cerrar el menú visualmente.
+            // Cerrar menú después de cualquier clic
             dropdown.classList.remove('show');
         });
 
@@ -102,70 +100,181 @@ export function renderProfile() {
     }
 }
 
-// 4. RENDERIZAR AJUSTES (CORREGIDO)
+// =======================================================
+// RENDERIZAR AJUSTES (CON SOLUCIÓN DE RETRASO Y DESCARGA)
+// =======================================================
 export function renderSettings() {
-    try {
-        const user = shared.auth.currentUser;
-        if (!user) {
-            shared.switchView('all');
-            return;
+    const settingsContainer = document.getElementById('settings-container');
+    
+    // A. SOLUCIÓN AL "A VECES NO CARGA":
+    if (!shared.auth.currentUser) {
+        if (settingsContainer) {
+            settingsContainer.innerHTML = '<div class="spinner" style="margin: 50px auto;"></div>';
         }
+        setTimeout(() => renderSettings(), 500);
+        return;
+    }
 
-        // Elementos existentes
-        const userInput = document.getElementById('settings-username-input');
-        const updateNameBtn = document.getElementById('update-username-btn');
-        const passInput = document.getElementById('settings-password-input');
-        const updatePassBtn = document.getElementById('update-password-btn');
+    const user = shared.auth.currentUser;
+
+    // B. RESTAURAR FORMULARIO
+    if (settingsContainer) {
+         settingsContainer.innerHTML = `
+            <div class="content-header"><h1 class="main-title">Ajustes</h1></div>
+            <div class="settings-form-wrapper">
+                <div class="settings-group">
+                    <label>Nombre de usuario</label>
+                    <div class="input-with-button">
+                        <input type="text" id="settings-username-input" value="${user.displayName || ''}">
+                        <button id="update-username-btn" class="btn-primary">Guardar</button>
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <label>Contraseña</label>
+                    <div class="input-with-button">
+                        <input type="password" id="settings-password-input" placeholder="Nueva contraseña">
+                        <button id="update-password-btn" class="btn-primary">Actualizar</button>
+                    </div>
+                </div>
+                <p id="settings-feedback" class="feedback-message"></p>
+            </div>
+         `;
+    }
+
+    // --- C. LÓGICA USUARIO NORMAL ---
+    const usernameInput = document.getElementById('settings-username-input');
+    const passwordInput = document.getElementById('settings-password-input');
+    const updateNameBtn = document.getElementById('update-username-btn');
+    const updatePassBtn = document.getElementById('update-password-btn');
+    const feedbackMsg = document.getElementById('settings-feedback');
+
+    const showFeedback = (msg, type = 'success') => {
+        if (feedbackMsg) {
+            feedbackMsg.textContent = msg;
+            feedbackMsg.style.color = type === 'success' ? '#46d369' : '#ff4444';
+            feedbackMsg.style.display = 'block';
+            setTimeout(() => { feedbackMsg.style.display = 'none'; }, 3000);
+        }
+    };
+
+    if (updateNameBtn) {
+        updateNameBtn.onclick = async () => {
+            const newName = usernameInput.value.trim();
+            if (!newName) return showFeedback('El nombre no puede estar vacío', 'error');
+            updateNameBtn.textContent = 'Guardando...';
+            try {
+                await user.updateProfile({ displayName: newName });
+                await shared.db.ref('users/' + user.uid).update({ username: newName });
+                showFeedback('Nombre actualizado');
+                const greeting = document.getElementById('user-greeting');
+                if (greeting) greeting.textContent = `Hola, ${newName}`;
+            } catch (e) { showFeedback('Error al actualizar', 'error'); }
+            updateNameBtn.textContent = 'Guardar';
+        };
+    }
+
+    if (updatePassBtn) {
+        updatePassBtn.onclick = async () => {
+            const newPass = passwordInput.value;
+            if (newPass.length < 6) return showFeedback('Mínimo 6 caracteres', 'error');
+            updatePassBtn.textContent = 'Actualizando...';
+            try {
+                await user.updatePassword(newPass);
+                showFeedback('Contraseña actualizada. Vuelve a entrar.');
+                passwordInput.value = '';
+            } catch (e) { 
+                if (e.code === 'auth/requires-recent-login') showFeedback('Por seguridad, cierra sesión y vuelve a entrar.', 'error');
+                else showFeedback('Error al actualizar', 'error');
+            }
+            updatePassBtn.textContent = 'Actualizar';
+        };
+    }
+
+    // --- D. ZONA ADMIN (SIN DESCARGA DE DB) ---
+    const ADMIN_EMAILS = ['baquezadat@gmail.com']; 
+
+    if (ADMIN_EMAILS.includes(user.email)) {
+        const wrapper = settingsContainer.querySelector('.settings-form-wrapper');
         
-        // Contenedor principal para inyectar la zona admin
-        const settingsWrapper = document.querySelector('.settings-form-wrapper');
+        const existingZone = document.getElementById('admin-zone');
+        if (existingZone) existingZone.remove();
 
-        if (userInput) userInput.value = user.displayName || '';
-
-        // ===========================================================
-        // 🔒 ZONA ADMIN (NUEVO)
-        // ===========================================================
-        // Poner aquí TU correo de administrador exacto
-        const ADMIN_EMAILS = ['baquezadat@gmail.com']; 
-        
-        // Eliminamos si ya existe para no duplicar al re-renderizar
-        const existingAdminZone = document.getElementById('admin-zone');
-        if (existingAdminZone) existingAdminZone.remove();
-
-        if (ADMIN_EMAILS.includes(user.email) && settingsWrapper) {
+        if (wrapper) {
             const adminZone = document.createElement('div');
             adminZone.id = 'admin-zone';
-            adminZone.className = 'settings-group danger-zone'; // Usamos estilos existentes
-            adminZone.style.borderColor = '#ffd700'; // Dorado para destacar
-            adminZone.style.backgroundColor = 'rgba(255, 215, 0, 0.05)';
+            adminZone.className = 'settings-group';
+            adminZone.style.cssText = 'margin-top: 40px; padding: 25px; border: 1px solid #444; border-radius: 10px; background: #151515;';
 
             adminZone.innerHTML = `
-                <h3 style="color: #ffd700; display: flex; align-items: center; gap: 10px;">
-                    <i class="fas fa-crown"></i> Panel de Administrador
-                </h3>
-                <p>Este botón borrará la memoria caché y forzará una descarga fresca de datos desde Google Sheets.</p>
-                <button id="admin-force-update-btn" class="btn-primary" style="background: #ffd700; color: #000; width: 100%;">
-                    <i class="fas fa-sync-alt spin-hover"></i> ACTUALIZAR TODO AHORA
-                </button>
+                <div style="margin-bottom: 30px; border-bottom: 1px dashed #444; padding-bottom: 25px;">
+                    <h3 style="color: #d42279; margin-top: 0; font-family: 'Bebas Neue'; letter-spacing: 1px;">
+                        <i class="fas fa-microphone"></i> GESTIÓN FESTIVAL
+                    </h3>
+                    <div style="margin-bottom: 15px;">
+                        <label style="color: #aaa; font-size: 0.9rem; display:block; margin-bottom: 5px;">Link Señal (.m3u8)</label>
+                        <input type="text" id="admin-live-url" placeholder="https://..." style="background:#222; border:1px solid #444; color:white; width:100%; padding:10px; border-radius:5px;">
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="color: #aaa; font-size: 0.9rem; display:block; margin-bottom: 5px;">Fondo (Imagen URL)</label>
+                        <input type="text" id="admin-bg-url" placeholder="https://..." style="background:#222; border:1px solid #444; color:white; width:100%; padding:10px; border-radius:5px;">
+                    </div>
+                    <button id="save-festival-data" class="btn-primary" style="width: 100%; background: #d42279;">GUARDAR FESTIVAL</button>
+                </div>
+
+                <div>
+                    <h3 style="color: #ffd700; display: flex; align-items: center; gap: 10px; margin-top: 0;">
+                        <i class="fas fa-crown"></i> Panel de Administrador
+                    </h3>
+                    <p style="color: #ccc; font-size: 0.9rem; margin-bottom: 15px;">
+                        Herramientas de mantenimiento del sistema.
+                    </p>
+                    
+                    <button id="admin-force-update-btn" class="btn-primary" style="background: #ffd700; color: #000; width: 100%; font-weight: 800;">
+                        <i class="fas fa-sync-alt spin-hover"></i> ACTUALIZAR TODO AHORA
+                    </button>
+                </div>
             `;
 
-            settingsWrapper.appendChild(adminZone);
+            wrapper.appendChild(adminZone);
 
-            // Lógica del Botón Maestro
+            // 1. Cargar datos del Festival
+            shared.db.ref('system_metadata').once('value', (s) => {
+                const d = s.val() || {};
+                if (d.live_festival_url) document.getElementById('admin-live-url').value = d.live_festival_url;
+                if (d.live_background_url) document.getElementById('admin-bg-url').value = d.live_background_url;
+            });
+
+            // 2. Guardar datos del Festival
+            document.getElementById('save-festival-data').onclick = async () => {
+                const btn = document.getElementById('save-festival-data');
+                const originalText = btn.textContent;
+                btn.textContent = "Guardando...";
+                try {
+                    await shared.db.ref('system_metadata').update({
+                        live_festival_url: document.getElementById('admin-live-url').value.trim(),
+                        live_background_url: document.getElementById('admin-bg-url').value.trim()
+                    });
+                    btn.textContent = "¡GUARDADO!";
+                    btn.style.background = "#28a745";
+                    setTimeout(() => { 
+                        btn.textContent = originalText; 
+                        btn.style.background = "#d42279";
+                    }, 2000);
+                } catch (e) { btn.textContent = "ERROR"; }
+            };
+
+            // 3. 🔥 LÓGICA BOTÓN MAESTRO ORIGINAL 🔥
             document.getElementById('admin-force-update-btn').onclick = async function() {
                 const btn = this;
                 btn.disabled = true;
                 btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Actualizando...';
 
                 try {
-                    // 1. Opcional: Avisar a Firebase que hubo update (útil para futuro)
                     await shared.db.ref('system_metadata/last_update').set(Date.now());
 
-                    // 2. Llamar a la función global de limpieza (definida en script.js)
                     if (window.adminForceUpdate) {
                         window.adminForceUpdate();
                     } else {
-                        // Fallback por si la función no está expuesta
                         localStorage.clear();
                         location.reload();
                     }
@@ -176,64 +285,6 @@ export function renderSettings() {
                 }
             };
         }
-        // ===========================================================
-        // FIN ZONA ADMIN
-        // ===========================================================
-
-        // Actualizar nombre
-        if (updateNameBtn) {
-            updateNameBtn.onclick = async () => {
-                const newUsername = userInput.value.trim();
-
-                if (!newUsername) {
-                    showFeedbackMessage('El nombre no puede estar vacío.', 'error');
-                    return;
-                }
-
-                if (newUsername === user.displayName) {
-                    showFeedbackMessage('El nombre es igual al actual.', 'error');
-                    return;
-                }
-
-                try {
-                    await user.updateProfile({ displayName: newUsername });
-                    await shared.db.ref(`users/${user.uid}/profile/displayName`).set(newUsername);
-
-                    showFeedbackMessage('Nombre actualizado correctamente.', 'success');
-
-                    const greetingBtn = document.getElementById('user-greeting');
-                    if (greetingBtn) greetingBtn.textContent = `Hola, ${newUsername}`;
-
-                } catch (error) {
-                    logError(error, 'Profile: Update Name');
-                    showFeedbackMessage(`Error: ${error.message}`, 'error');
-                }
-            };
-        }
-
-        // Actualizar contraseña
-        if (updatePassBtn) {
-            updatePassBtn.onclick = async () => {
-                const newPassword = passInput.value;
-
-                if (newPassword.length < 6) {
-                    showFeedbackMessage('Mínimo 6 caracteres.', 'error');
-                    return;
-                }
-
-                try {
-                    await user.updatePassword(newPassword);
-                    showFeedbackMessage('Contraseña actualizada correctamente.', 'success');
-                    passInput.value = '';
-                } catch (error) {
-                    logError(error, 'Profile: Update Password');
-                    showFeedbackMessage(`Error: ${error.message}`, 'error');
-                }
-            };
-        }
-
-    } catch (error) {
-        logError(error, 'Profile: Render Settings');
     }
 }
 
