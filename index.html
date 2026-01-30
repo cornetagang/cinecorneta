@@ -5,11 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cine Corneta</title>
     <link id="app-icon" rel="icon" type="image/png" href="https://res.cloudinary.com/djhgmmdjx/image/upload/v1759209689/u71QEFc_bet4rv.png">
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/style.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 </head>
 <body class="">
 
@@ -33,15 +37,11 @@
                             <li><a href="#" data-filter="sagas">Universos</a></li>
                             <li><a href="#" data-filter="roulette">Ruleta</a></li>
                             <li><a href="#" data-filter="reviews">Reseñas</a></li>
+                            <!--<li><a href="#" data-filter="live" class="nav-live-btn" style="color: #d42279;">Festival</a></li>-->
                         </ul>
                     </nav>
                 </div>
                 <div class="header-right">
-                    
-                    <a href="#" class="mobile-roulette-btn" data-filter="roulette" aria-label="Ruleta">
-                        <img src="https://res.cloudinary.com/djhgmmdjx/image/upload/v1759456737/Ruletaaaaaaaaaaaaaaaa_ipprhm.png" alt="Ruleta">
-                    </a>
-
                     <div id="search-container">
                         <input type="text" id="search-input" placeholder="Buscar..." autocomplete="off">
                         <i class="fas fa-search search-icon"></i>
@@ -140,6 +140,91 @@
                 <div id="reviews-grid" class="reviews-grid"></div>
             </div>
 
+            <div id="live-tv-section" style="display: none;">
+                <div class="live-bg-layer" id="live-bg-image"></div>
+                <div class="live-overlay-layer"></div>
+                
+                <div class="live-content-wrapper">
+                    <div class="live-header-container">
+                        <h1 id="live-section-title" style="font-family: 'Bebas Neue', sans-serif;">FESTIVAL DE VIÑA 2026</h1>
+                    </div>
+
+                    <div class="live-player-container">
+                        <video id="embedded-live-video" controls autoplay playsinline></video>
+                        </div>
+
+                    <div class="live-footer-container">
+                        <p class="live-status"><span class="blink-red"></span> TRANSMISIÓN EN VIVO</p>
+                    </div>
+
+                    <div class="festival-schedule-container">
+                        <h2 class="schedule-main-title"><i class="fas fa-calendar-alt"></i> PROGRAMACIÓN</h2>
+                        
+                        <div class="schedule-accordion">
+                            <div class="accordion-item">
+                                <button class="accordion-header">Domingo 22 de Febrero <i class="fas fa-chevron-down"></i></button>
+                                <div class="accordion-content">
+                                    <ul>
+                                        <li><i class="fas fa-star"></i> Gloria Estefan</li>
+                                        <li><i class="fas fa-laugh-squint"></i> Stefan Kramer</li>
+                                        <li><i class="fas fa-microphone"></i> Matteo Bocelli</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="accordion-item">
+                                <button class="accordion-header">Lunes 23 de Febrero <i class="fas fa-chevron-down"></i></button>
+                                <div class="accordion-content">
+                                    <ul>
+                                        <li><i class="fas fa-star"></i> Juan Luis Guerra</li>
+                                        <li><i class="fas fa-laugh-squint"></i> Chiqui Aguayo</li>
+                                        <li><i class="fas fa-microphone"></i> Zúmbale Primo</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="accordion-item">
+                                <button class="accordion-header">Martes 24 de Febrero <i class="fas fa-chevron-down"></i></button>
+                                <div class="accordion-content">
+                                    <ul>
+                                        <li><i class="fas fa-star"></i> Marc Anthony</li>
+                                        <li><i class="fas fa-laugh-squint"></i> Edo Caroe</li>
+                                        <li><i class="fas fa-microphone"></i> Bacilos</li>
+                                    </ul>
+                                </div>
+                            </div>
+                             <div class="accordion-item">
+                                <button class="accordion-header">Miércoles 25 de Febrero <i class="fas fa-chevron-down"></i></button>
+                                <div class="accordion-content">
+                                    <ul>
+                                        <li><i class="fas fa-star"></i> Carlos Vives</li>
+                                        <li><i class="fas fa-laugh-squint"></i> Yamila Reyna</li>
+                                        <li><i class="fas fa-microphone"></i> Sebastián Yatra</li>
+                                    </ul>
+                                </div>
+                            </div>
+                             <div class="accordion-item">
+                                <button class="accordion-header">Jueves 26 de Febrero <i class="fas fa-chevron-down"></i></button>
+                                <div class="accordion-content">
+                                    <ul>
+                                        <li><i class="fas fa-star"></i> Los Bunkers</li>
+                                        <li><i class="fas fa-laugh-squint"></i> Fabrizio Copano</li>
+                                        <li><i class="fas fa-microphone"></i> Kidd Voodoo</li>
+                                    </ul>
+                                </div>
+                            </div>
+                             <div class="accordion-item">
+                                <button class="accordion-header">Viernes 27 de Febrero <i class="fas fa-chevron-down"></i></button>
+                                <div class="accordion-content">
+                                    <ul>
+                                        <li><i class="fas fa-star"></i> Duki</li>
+                                        <li><i class="fas fa-laugh-squint"></i> Pedro Ruminot</li>
+                                        <li><i class="fas fa-microphone"></i> Young Cister</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <div id="my-list-container" style="display: none;">
                 <div class="content-header"><h2>Mi Lista</h2></div>
                 <div id="my-list-grid" class="grid"></div>
@@ -160,7 +245,27 @@
                     <h2>Mi Perfil</h2>
                     <p id="profile-hub-email">Cargando...</p>
                 </div>
+                
                 <div id="hub-logged-in-content" style="display: none;">
+                    
+                    <h4 style="color: #666; font-size: 0.9rem; margin: 10px 0 10px 5px; text-transform: uppercase;">Explorar</h4>
+
+                    <!--<a href="#" class="profile-hub-menu-item" data-filter="live"> <i class="fas fa-microphone-alt" style="color: #d42279;"></i> <span>Festival de Viña 2026</span> </a>-->
+
+                    <a href="#" class="profile-hub-menu-item" data-filter="reviews">
+                        <i class="fas fa-star" style="color: #00f2ff;"></i>
+                        <span>Reseñas</span>
+                    </a>
+                    
+                    <a href="#" class="profile-hub-menu-item" data-filter="roulette">
+                        <i class="fas fa-dice" style="color: #ffffff;"></i>
+                        <span>Ruleta</span>
+                    </a>
+
+                    <div style="border-top: 1px solid rgba(255,255,255,0.1); margin: 20px 0;"></div>
+
+                    <h4 style="color: #666; font-size: 0.9rem; margin: 10px 0 10px 5px; text-transform: uppercase;">Mi Cuenta</h4>
+
                     <a href="#" class="profile-hub-menu-item" data-filter="my-list">
                         <i class="fas fa-list"></i><span>Mi Lista</span>
                     </a>
@@ -171,12 +276,16 @@
                         <i class="fas fa-chart-line"></i><span>Estadísticas</span>
                     </a>
                     <a href="#" class="profile-hub-menu-item" data-filter="settings">
-                        <i class="fas fa-cog"></i><span>Ajustes de Cuenta</span>
+                        <i class="fas fa-cog"></i><span>Ajustes</span>
                     </a>
-                    <a href="#" id="logout-btn-hub" class="profile-hub-menu-item logout">
-                        <i class="fas fa-sign-out-alt"></i><span>Cerrar Sesión</span>
-                    </a>
+                    
+                    <div style="margin-top: 20px;">
+                        <a href="#" id="logout-btn-hub" class="profile-hub-menu-item logout" style="justify-content: center; background: rgba(255,0,0,0.1); border: 1px solid rgba(255,0,0,0.3);">
+                            <i class="fas fa-sign-out-alt"></i><span>Cerrar Sesión</span>
+                        </a>
+                    </div>
                 </div>
+
                 <div id="hub-guest-content" style="display: none; text-align: center; padding: 30px 20px;">
                     <i class="fas fa-user-lock" style="font-size: 4rem; color: #444; margin-bottom: 20px;"></i>
                     <h3 style="margin: 0 0 10px 0; color: var(--text-light);">Modo Invitado</h3>
@@ -260,7 +369,7 @@
     <div id="roulette-modal" class="modal">
         <div class="roulette-modal-content">
             <button class="close-btn">&times;</button>
-            <h2>Película al Azar</h2>
+            <h2>Película Aleatoria</h2>
             <div class="roulette-carousel-wrapper">
                 <div id="roulette-carousel-track" class="roulette-carousel-track"></div>
                 <div class="roulette-selector"></div>
@@ -414,12 +523,30 @@
     </div>
     
     <footer class="bottom-nav">
-        <a href="#" class="nav-link active" data-filter="all"><i class="fas fa-home"></i><span>Inicio</span></a>
-        <a href="#" class="nav-link" data-filter="movie"><i class="fas fa-film"></i><span>Películas</span></a>
-        <a href="#" class="nav-link" data-filter="sagas"><i class="fas fa-layer-group"></i><span>Universos</span></a>
-        <a href="#" class="nav-link" data-filter="series"><i class="fas fa-tv"></i><span>Series</span></a>
-        <a href="#" class="nav-link" data-filter="reviews"><i class="fas fa-star"></i><span>Reseñas</span></a>
-        <a href="#" class="nav-link" data-filter="profile-hub"><i class="fas fa-user-circle"></i><span>Perfil</span></a>
+        <a href="#" class="nav-link active" data-filter="all">
+            <i class="fas fa-home"></i>
+            <span>Inicio</span>
+        </a>
+        
+        <a href="#" class="nav-link" data-filter="movie">
+            <i class="fas fa-film"></i>
+            <span>Peliculas</span>
+        </a>
+
+        <a href="#" class="nav-link" data-filter="sagas">
+            <i class="fas fa-layer-group"></i>
+            <span>Universos</span>
+        </a>
+
+        <a href="#" class="nav-link" data-filter="series">
+            <i class="fas fa-tv"></i>
+            <span>Series</span>
+        </a>
+
+        <a href="#" class="nav-link" data-filter="profile-hub">
+            <i class="fas fa-bars"></i>
+            <span>Menú</span>
+        </a>
     </footer>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
