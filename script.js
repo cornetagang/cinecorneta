@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL (MODULAR)
-// Versión: 6.0 (optimizacion update enero 2026)
+// Versión: 7.0 (Update 30 de Enero 2026)
 // ===========================================================
 
 import { logError } from './logger.js';
@@ -25,7 +25,7 @@ async function getPlayerModule() {
 
 async function getProfileModule() {
     if (profileModule) return profileModule;
-    const module = await import('./profile.js?v=3'); 
+    const module = await import('./profile.js?v=7'); 
     module.initProfile({
         appState, DOM, auth, db, switchView
     });
@@ -895,10 +895,41 @@ async function handleFilterClick(event) {
 }
 
 // ===========================================================
-// FUNCIÓN SWITCHVIEW (LIMPIA Y CORREGIDA)
+// FUNCIÓN SWITCHVIEW (CORREGIDA PARA RULETA)
 // ===========================================================
+
+// 1. Función auxiliar para iluminar los botones del menú
+function updateActiveNav(filter) {
+    // Si es Ruleta, NO tocamos el menú (para que siga iluminado donde estabas)
+    if (filter === 'roulette') return;
+
+    document.querySelectorAll('.main-nav a, .bottom-nav .nav-link').forEach(link => {
+        link.classList.remove('active');
+    });
+    
+    if (filter) {
+        const selector = `.main-nav a[data-filter="${filter}"], .bottom-nav .nav-link[data-filter="${filter}"]`;
+        document.querySelectorAll(selector).forEach(link => link.classList.add('active'));
+    }
+}
+
+// 2. Función Principal de Cambio de Vista
 async function switchView(filter) {
-    // 1. Ocultar todos los contenedores principales para limpiar la pantalla
+    // 🔥 FIX RULETA: Si es ruleta, abrimos el modal y SALIMOS.
+    // No ocultamos el fondo (return) para que parezca un popup sobre la web.
+    if (filter === 'roulette') {
+        const roulette = await getRouletteModule();
+        roulette.openRouletteModal();
+        return; 
+    }
+
+    console.log(`Switched to: ${filter}`);
+    appState.currentFilter = filter;
+    
+    // A. Actualizar botones del menú visualmente
+    updateActiveNav(filter);
+
+    // B. Ocultar todo para empezar limpio (SOLO SI NO ES RULETA)
     const containers = [
         document.getElementById('hero-section'),
         document.getElementById('carousel-container'),
@@ -909,108 +940,145 @@ async function switchView(filter) {
         document.getElementById('settings-container'),
         document.getElementById('profile-hub-container'),
         document.getElementById('sagas-hub-container'),
-        document.getElementById('reviews-container') // Nueva sección integrada
+        document.getElementById('reviews-container'),
+        document.getElementById('live-tv-section')
     ];
 
-    containers.forEach(el => {
-        if (el) el.style.display = 'none';
+    containers.forEach(el => { 
+        if(el) el.style.display = 'none'; 
     });
 
     const filterControls = document.getElementById('filter-controls');
     if (filterControls) filterControls.style.display = 'none';
 
-    // 2. Lógica del Botón "Volver a Sagas" para Universos Dinámicos
-    const backBtn = document.getElementById('back-to-sagas-btn');
-    const isDynamicSaga = appState.content.sagas && appState.content.sagas[filter];
-
-    if (backBtn) {
-        if (isDynamicSaga) {
-            backBtn.style.display = 'flex';
-            // Clonamos el botón para limpiar eventos previos y asegurar un único listener fresco
-            const newBtn = backBtn.cloneNode(true);
-            backBtn.parentNode.replaceChild(newBtn, backBtn);
-            
-            newBtn.onclick = (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                // Actualizar visualmente la navegación activa hacia "Universos"
-                document.querySelectorAll('.main-nav a, .bottom-nav .nav-link').forEach(a => a.classList.remove('active'));
-                const sagasNav = document.querySelector('a[data-filter="sagas"]');
-                if (sagasNav) sagasNav.classList.add('active');
-                
-                switchView('sagas'); // Volver al Hub de Logos
-            };
-        } else {
-            backBtn.style.display = 'none';
-        }
+    // C. DETENER VIDEO EN VIVO (Limpieza)
+    const liveVideo = document.getElementById('embedded-live-video');
+    if (liveVideo) {
+        liveVideo.pause();
+        liveVideo.removeAttribute('src'); 
+        liveVideo.load();
+    }
+    if (window.hlsLiveInstance) {
+        window.hlsLiveInstance.destroy();
+        window.hlsLiveInstance = null;
     }
 
-    // ============================================================
-    // 3. SELECCIÓN Y RENDERIZADO DE LA VISTA ACTIVA
-    // ============================================================
+    // =======================================================
+    // D. LÓGICA POR PANTALLA
+    // =======================================================
 
-    // CASO: INICIO (Hero principal y carruseles de novedades)
-    if (filter === 'all') {
-        const hero = document.getElementById('hero-section');
-        const carousel = document.getElementById('carousel-container');
-        if (hero) hero.style.display = 'flex';
-        if (carousel) carousel.style.display = 'block';
+    // 1. FESTIVAL DE VIÑA (EN VIVO) 🎸
+    if (filter === 'live') {
+        const liveSection = document.getElementById('live-tv-section');
+        const bgLayer = document.getElementById('live-bg-image');
+        const loading = document.getElementById('live-loading-indicator');
+        const videoEl = document.getElementById('embedded-live-video');
+
+        if (liveSection) {
+            liveSection.style.display = 'flex'; 
+            if (loading) loading.style.display = 'block';
+
+            firebase.database().ref('system_metadata').once('value', (snapshot) => {
+                const data = snapshot.val() || {};
+                const liveUrl = data.live_festival_url;
+                const bgUrl = data.live_background_url;
+
+                if (bgUrl && bgLayer) {
+                    bgLayer.style.backgroundImage = `url('${bgUrl}')`;
+                    bgLayer.style.backgroundSize = 'cover';
+                }
+
+                if (!liveUrl) {
+                    if (window.ErrorHandler) ErrorHandler.show('content', 'La señal no está disponible.');
+                    if (loading) loading.style.display = 'none';
+                    return;
+                }
+
+                if (Hls.isSupported()) {
+                    window.hlsLiveInstance = new Hls();
+                    window.hlsLiveInstance.loadSource(liveUrl);
+                    window.hlsLiveInstance.attachMedia(videoEl);
+                    window.hlsLiveInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+                        videoEl.play().catch(e => console.log("Autoplay bloqueado"));
+                        if (loading) loading.style.display = 'none';
+                    });
+                } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+                    videoEl.src = liveUrl;
+                    videoEl.addEventListener('loadedmetadata', () => {
+                        videoEl.play();
+                        if (loading) loading.style.display = 'none';
+                    });
+                }
+            });
+        }
+        window.scrollTo(0, 0);
         return;
     }
 
-    // CASO: HUB DE SAGAS (Vista de logos/universos)
+    // 2. INICIO (HOME)
+    if (filter === 'all') {
+        if(DOM.heroSection) DOM.heroSection.style.display = 'flex';
+        if(DOM.carouselContainer) DOM.carouselContainer.style.display = 'block';
+        return;
+    } 
+    
+    // 3. HUB DE UNIVERSOS
     if (filter === 'sagas') {
         const hub = document.getElementById('sagas-hub-container');
         if (hub) {
             hub.style.display = 'block';
-            renderSagasHub(); // Función que genera los banners de los universos
+            renderSagasHub();
         }
         return;
     }
 
-    // CASO: RESEÑAS DE LA COMUNIDAD (Nueva sección)
+    // 4. CONTENIDO (Películas, Series o Saga Específica)
+    const isDynamicSaga = appState.content.sagas && appState.content.sagas[filter];
+
+    if (filter === 'movie' || filter === 'series' || isDynamicSaga) {
+        if(DOM.gridContainer) DOM.gridContainer.style.display = 'block';
+        if(filterControls) filterControls.style.display = 'flex';
+        
+        const backBtn = document.getElementById('back-to-sagas-btn');
+        if (backBtn) {
+            backBtn.style.display = isDynamicSaga ? 'flex' : 'none';
+            backBtn.onclick = () => switchView('sagas');
+        }
+
+        populateFilters(filter); 
+        applyAndDisplayFilters(filter);
+        return;
+    }
+    
+    // 5. MI LISTA
+    if (filter === 'my-list') {
+        if(document.getElementById('my-list-container')) {
+            document.getElementById('my-list-container').style.display = 'block';
+            displayMyListView();
+        }
+        return;
+    } 
+    
+    // 6. HISTORIAL
+    if (filter === 'history') {
+        if(document.getElementById('history-container')) {
+            document.getElementById('history-container').style.display = 'block';
+            renderHistory();
+        }
+        return;
+    } 
+    
+    // 7. RESEÑAS
     if (filter === 'reviews') {
         const reviewsContainer = document.getElementById('reviews-container');
-        if (reviewsContainer) {
+        if(reviewsContainer) {
             reviewsContainer.style.display = 'block';
-            renderReviews(); // Función que inyecta las opiniones de los usuarios
+            if(window.renderReviews) renderReviews(); 
         }
         return;
     }
 
-    // CASO: GRILLA DE CONTENIDO (Películas, Series o Sagas Específicas)
-    if (filter === 'movie' || filter === 'series' || isDynamicSaga) {
-        const grid = document.getElementById('full-grid-container');
-        if (grid) grid.style.display = 'block';
-        if (filterControls) filterControls.style.display = 'flex';
-
-        populateFilters(filter); // Prepara los géneros e idiomas según el contenido
-        applyAndDisplayFilters(filter); // Filtra y ordena los resultados
-        return;
-    }
-
-    // CASO: MI LISTA (Watchlist personal)
-    if (filter === 'my-list') {
-        const listContainer = document.getElementById('my-list-container');
-        if (listContainer) {
-            listContainer.style.display = 'block';
-            displayMyListView(); // Renderiza las tarjetas guardadas por el usuario
-        }
-        return;
-    }
-
-    // CASO: HISTORIAL DE REPRODUCCIÓN
-    if (filter === 'history') {
-        const historyContainer = document.getElementById('history-container');
-        if (historyContainer) {
-            historyContainer.style.display = 'block';
-            renderHistory(); // Carga la lista de títulos vistos cronológicamente
-        }
-        return;
-    }
-
-    // CASOS DE PERFIL Y AJUSTES (Carga modular de estadísticas y configuración)
+    // 8. PERFIL Y AJUSTES
     if (filter === 'profile-hub' || filter === 'profile' || filter === 'settings') {
         const containerMap = {
             'profile-hub': 'profile-hub-container',
@@ -1020,19 +1088,20 @@ async function switchView(filter) {
         const container = document.getElementById(containerMap[filter]);
         if (container) {
             container.style.display = 'block';
-            // Carga de módulos bajo demanda para optimizar rendimiento
             if (filter === 'profile') getProfileModule().then(m => m.renderProfile());
             if (filter === 'settings') getProfileModule().then(m => m.renderSettings());
         }
         return;
     }
 
-    // CASO: RESULTADOS DE BÚSQUEDA
+    // 9. RESULTADOS DE BÚSQUEDA
     if (filter === 'search') {
-        const grid = document.getElementById('full-grid-container');
-        if (grid) grid.style.display = 'block';
+        if(DOM.gridContainer) DOM.gridContainer.style.display = 'block';
         return;
     }
+
+    // Scroll arriba por defecto
+    window.scrollTo(0, 0);
 }
 
 function populateFilters(type) {
@@ -1391,15 +1460,171 @@ async function applyAndDisplayFilters(type) {
 // 4. MÓDULOS DE FUNCIONALIDADES (HERO, BÚSQUEDA, ETC.)
 // ===========================================================
 function setupEventListeners() {
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') closeAllModals();
-    });
-
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    console.log('⚙️ Configurando Event Listeners...');
     document.addEventListener('click', handleGlobalClick);
 
-    // 🟢 AÑADE ESTO AQUÍ:
-    setupReviewSystem(); 
+    // =======================================================
+    // 1. NAVEGACIÓN UNIVERSAL (Header, Footer y DROPDOWN)
+    // =======================================================
+    // ⚠️ CORRECCIÓN: Ahora incluimos ".user-menu-dropdown a[data-filter]" en la lista
+    const navLinks = document.querySelectorAll('.main-nav a, .bottom-nav .nav-link, .profile-hub-menu-item');
+    
+    navLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            
+            const filter = link.dataset.filter;
+            
+            // 1. Ejecutar cambio de vista
+            switchView(filter);
+            
+            // 2. Si el clic vino del menú desplegable de usuario, lo cerramos
+            const dropdown = document.getElementById('user-menu-dropdown');
+            if (dropdown && dropdown.classList.contains('show')) {
+                dropdown.classList.remove('show');
+            }
+        });
+    });
+
+    // Botón Ruleta en Móvil (Header)
+    const mobileRouletteBtn = document.querySelector('.mobile-roulette-btn');
+    if (mobileRouletteBtn) {
+        mobileRouletteBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            switchView('roulette');
+        });
+    }
+
+    // =======================================================
+    // 2. BUSCADOR EN TIEMPO REAL
+    // =======================================================
+    if (DOM.searchInput) {
+        DOM.searchInput.addEventListener('input', (e) => {
+            const query = e.target.value;
+            if (query.length > 0) {
+                const currentDisplay = DOM.fullGridContainer.style.display;
+                if (currentDisplay === 'none' && appState.currentFilter !== 'all') {
+                    // Opcional: switchView('all'); 
+                }
+                handleSearch(query);
+            } else {
+                const currentFilter = document.querySelector('.main-nav a.active')?.dataset.filter || 'all';
+                switchView(currentFilter);
+            }
+        });
+
+        DOM.searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                DOM.searchInput.value = '';
+                DOM.searchInput.blur();
+                const currentFilter = document.querySelector('.main-nav a.active')?.dataset.filter || 'all';
+                switchView(currentFilter);
+            }
+        });
+    }
+
+    // =======================================================
+    // 3. LOGICA DE FILTROS (DROPDOWNS)
+    // =======================================================
+    document.addEventListener('click', (e) => {
+        const trigger = e.target.closest('.dropdown-trigger');
+        const dropdown = e.target.closest('.custom-dropdown');
+        
+        if (trigger) {
+            e.stopPropagation(); 
+            const menu = dropdown.querySelector('.dropdown-menu');
+            document.querySelectorAll('.dropdown-menu.show').forEach(m => {
+                if (m !== menu) m.classList.remove('show');
+            });
+            if (menu) menu.classList.toggle('show');
+        } else {
+            document.querySelectorAll('.dropdown-menu.show').forEach(m => {
+                m.classList.remove('show');
+            });
+        }
+    });
+
+    const backSagaBtn = document.getElementById('back-to-sagas-btn');
+    if (backSagaBtn) {
+        backSagaBtn.addEventListener('click', () => switchView('sagas'));
+    }
+
+    // =======================================================
+    // 4. MODALES
+    // =======================================================
+    document.querySelectorAll('.close-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            closeAllModals();
+            const cinema = document.getElementById('cinema');
+            if (cinema) {
+                const iframe = cinema.querySelector('iframe');
+                if (iframe) iframe.src = '';
+                const video = cinema.querySelector('video');
+                if (video) video.pause();
+            }
+        });
+    });
+
+    window.addEventListener('click', (e) => {
+        if (e.target.classList.contains('modal')) {
+            closeAllModals();
+        }
+    });
+
+    // =======================================================
+    // 5. AUTENTICACIÓN (Header)
+    // =======================================================
+    const loginHeader = document.getElementById('login-btn-header');
+    const regHeader = document.getElementById('register-btn-header');
+
+    if (loginHeader) {
+        loginHeader.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (window.openAuthModal) window.openAuthModal(true);
+        });
+    }
+    if (regHeader) {
+        regHeader.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (window.openAuthModal) window.openAuthModal(false);
+        });
+    }
+
+    // =======================================================
+    // 6. ACORDEÓN FESTIVAL DE VIÑA
+    // =======================================================
+    document.addEventListener('click', (e) => {
+        const header = e.target.closest('.accordion-header');
+        if (header) {
+            const item = header.parentElement;
+            const isActive = item.classList.contains('active');
+            
+            // Cerrar otros del mismo grupo
+            const parentAccordion = item.closest('.schedule-accordion');
+            if (parentAccordion) {
+                parentAccordion.querySelectorAll('.accordion-item').forEach(el => {
+                    el.classList.remove('active');
+                });
+            }
+            
+            if (!isActive) {
+                item.classList.add('active');
+            }
+        }
+    });
+
+    // =======================================================
+    // 7. EVENTOS DE SCROLL
+    // =======================================================
+    window.addEventListener('scroll', () => {
+        if (DOM.header) {
+            if (window.scrollY > 50) {
+                DOM.header.classList.add('scrolled');
+            } else {
+                DOM.header.classList.remove('scrolled');
+            }
+        }
+    });
 }
 
 function handleFullscreenChange() {
@@ -1563,24 +1788,43 @@ function updatePaginationUI() {
     }
 }
 
+// ===========================================================
+// MANEJO GLOBAL DE CLICS (Delegación de Eventos)
+// ===========================================================
 function handleGlobalClick(event) {
-    // 1. Cerrar modales (Ya existía)
-    if (event.target.closest('.close-btn')) {
-        closeAllModals();
-        return;
+    // 1. CERRAR MENÚ DE PERFIL AL CLICAR FUERA
+    const profileContainer = document.getElementById('user-profile-container');
+    const dropdown = document.getElementById('user-menu-dropdown');
+    
+    if (dropdown && dropdown.classList.contains('show')) {
+        if (!profileContainer.contains(event.target)) {
+            dropdown.classList.remove('show');
+        }
     }
 
+    // 2. CERRAR RESULTADOS DE BÚSQUEDA AL CLICAR FUERA
+    const searchContainer = document.getElementById('search-container');
+    const searchInput = document.getElementById('search-input');
+    if (searchContainer && !searchContainer.contains(event.target)) {
+    }
+
+    // 3. BOTÓN "BORRAR DEL HISTORIAL" (Con Confirmación)
     const removeHistoryBtn = event.target.closest('.btn-remove-history');
+    
     if (removeHistoryBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+        
         const entryKey = removeHistoryBtn.dataset.key;
-        removeFromHistory(entryKey);
+        
+        if (entryKey) {
+            openConfirmationModal(
+                'Borrar del Historial',
+                '¿Quieres eliminar este título de tu historial de reproducción?',
+                () => removeFromHistory(entryKey)
+            );
+        }
         return;
-    }
-
-    // 2. Botón Mi Lista (Ya existía)
-    const watchlistButton = event.target.closest('.btn-watchlist');
-    if (watchlistButton) {
-        handleWatchlistClick(watchlistButton);
     }
 }
 
@@ -1657,33 +1901,52 @@ function changeHeroMovie(movieId) {
         heroContent.querySelector('#hero-title').textContent = movieData.title;
         heroContent.querySelector('#hero-synopsis').textContent = movieData.synopsis;
 
-        const user = auth.currentUser;
-        let watchlistButtonHTML = '';
+        // --- ZONA DE BOTONES CORREGIDA ---
+        const heroButtons = heroContent.querySelector('.hero-buttons');
+        heroButtons.innerHTML = ''; // Limpiamos todo el contenedor primero
 
-        if (user) { 
-            const isInList = appState.user.watchlist.has(movieId);
-            const iconClass = isInList ? 'fa-check' : 'fa-plus';
-            const buttonClass = isInList ? 'btn-watchlist in-list' : 'btn-watchlist';
-            watchlistButtonHTML = `<button class="${buttonClass}" data-content-id="${movieId}" title="Añadir a Mi Lista"><i class="fas ${iconClass}"></i></button>`;
-        }
-
+        // 1. Botón Play (Elemento Real)
         const playButton = document.createElement('button');
         playButton.className = 'btn btn-play';
         playButton.innerHTML = '<i class="fas fa-play"></i> Ver Ahora';
-        playButton.onclick = async () => { // 🆕 Carga bajo demanda
+        playButton.onclick = async () => { 
             const player = await getPlayerModule();
             player.openPlayerModal(movieId, movieData.title.replace(/'/g, "\\'"));
         };
 
+        // 2. Botón Información (Elemento Real)
         const infoButton = document.createElement('button');
         infoButton.className = 'btn btn-info';
         infoButton.textContent = 'Más Información';
         infoButton.onclick = () => openDetailsModal(movieId, 'movie');
 
-        const heroButtons = heroContent.querySelector('.hero-buttons');
-        heroButtons.innerHTML = watchlistButtonHTML; // Limpia y añade watchlist
-        heroButtons.prepend(infoButton); // Añade info
-        heroButtons.prepend(playButton); // Añade play al principio
+        // Agregamos los botones principales al contenedor
+        heroButtons.appendChild(playButton);
+        heroButtons.appendChild(infoButton);
+
+        // 3. Botón Mi Lista (SOLO SI ESTÁ LOGUEADO)
+        // 🔥 AHORA SE CREA COMO ELEMENTO CON EVENTO, NO COMO TEXTO
+        const user = auth.currentUser;
+        if (user) { 
+            const listBtn = document.createElement('button');
+            const isInList = appState.user.watchlist.has(movieId);
+            const iconClass = isInList ? 'fa-check' : 'fa-plus';
+            
+            // Asignamos clases y datos
+            listBtn.className = isInList ? 'btn-watchlist in-list' : 'btn-watchlist';
+            listBtn.setAttribute('data-content-id', movieId);
+            listBtn.title = "Añadir a Mi Lista";
+            listBtn.innerHTML = `<i class="fas ${iconClass}"></i>`;
+            
+            // ✅ ESTA ES LA CLAVE: Asignar el clic manualmente
+            listBtn.onclick = (e) => {
+                e.stopPropagation(); // Evita conflictos con el fondo
+                handleWatchlistClick(listBtn); // Llama a la función que ya gestiona Agrega/Borrar
+            };
+
+            heroButtons.appendChild(listBtn);
+        }
+        // ---------------------------------
 
         heroContent.classList.remove('hero-fading');
         appState.hero.isTransitioning = false;
@@ -2462,10 +2725,52 @@ function addToHistoryIfLoggedIn(contentId, type, episodeInfo = {}) {
     userHistoryRef.set(historyEntry);
 }
 
-function removeFromHistory(entryKey) {
+// ===========================================================
+// FUNCIÓN PARA BORRAR DEL HISTORIAL (ANIMACIÓN SUAVE)
+// ===========================================================
+async function removeFromHistory(entryKey) {
     const user = auth.currentUser;
     if (!user) return;
-    db.ref(`users/${user.uid}/history/${entryKey}`).remove().then(() => renderHistory());
+
+    // 1. Borrar de la base de datos
+    await db.ref(`users/${user.uid}/history/${entryKey}`).remove();
+
+    // 2. Efecto Visual "Soft" (Desvanecer tarjeta)
+    const historyGrid = DOM.historyContainer.querySelector('.grid');
+    
+    // Buscamos el botón específico que se pulsó
+    const btnPressed = historyGrid.querySelector(`.btn-remove-history[data-key="${entryKey}"]`);
+    
+    if (btnPressed) {
+        const cardToRemove = btnPressed.closest('.movie-card');
+        
+        if (cardToRemove) {
+            // A) Bloquear clicks
+            cardToRemove.style.pointerEvents = 'none';
+            
+            // B) Animación de salida
+            cardToRemove.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+            cardToRemove.style.opacity = '0';
+            cardToRemove.style.transform = 'scale(0.8) translateY(20px)';
+            
+            // C) Borrar del HTML cuando termine la animación
+            setTimeout(() => {
+                if (cardToRemove.parentNode) cardToRemove.remove();
+                
+                // Si la lista queda vacía, mostrar mensaje
+                if (historyGrid.children.length === 0) {
+                    historyGrid.innerHTML = `<p class="empty-message" style="opacity:0; transition: opacity 0.5s;">Tu historial está vacío.</p>`;
+                    requestAnimationFrame(() => {
+                        const msg = historyGrid.querySelector('.empty-message');
+                        if(msg) msg.style.opacity = '1';
+                    });
+                }
+            }, 400); 
+        }
+    } else {
+        // Plan B: Si algo falla, recarga normal
+        renderHistory();
+    }
 }
 
 function handleWatchlistClick(button) {
@@ -2512,96 +2817,296 @@ async function removeFromWatchlist(contentId) {
     const user = auth.currentUser;
     if (!user) return;
     
+    // Convertimos a string por seguridad
+    const safeId = String(contentId);
+
     await ErrorHandler.firebaseOperation(async () => {
-        await db.ref(`users/${user.uid}/watchlist/${contentId}`).remove();
-        appState.user.watchlist.delete(contentId);
+        // 1. Borrar de Firebase y actualizar estado local
+        await db.ref(`users/${user.uid}/watchlist/${safeId}`).remove();
+        appState.user.watchlist.delete(safeId);
         
-        document.querySelectorAll(`.btn-watchlist[data-content-id="${contentId}"]`).forEach(button => {
+        // 2. Actualizar visualmente los botones en otras vistas (Inicio, Películas, etc)
+        // Buscamos cualquier botón que tenga este ID
+        document.querySelectorAll(`.btn-watchlist[data-content-id="${safeId}"]`).forEach(button => {
             button.classList.remove('in-list');
             button.innerHTML = '<i class="fas fa-plus"></i>';
         });
         
-        const activeFilter = document.querySelector('.main-nav a.active, .mobile-nav a.active')?.dataset.filter;
-        if (activeFilter === 'my-list') {
-            const cardToRemove = DOM.myListContainer.querySelector(`.movie-card[data-content-id="${contentId}"]`);
+        // 3. BORRADO VISUAL EN "MI LISTA" (Lógica Reforzada)
+        const myListContainer = document.getElementById('my-list-container');
+        
+        // Solo actuamos si la sección "Mi Lista" está visible
+        if (myListContainer && myListContainer.style.display !== 'none') {
+            
+            // Buscamos la tarjeta Específica dentro del grid de mi lista
+            const cardToRemove = myListContainer.querySelector(`.movie-card[data-content-id="${safeId}"]`);
+            
             if (cardToRemove) {
-                cardToRemove.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                // A) Bloquear clicks inmediatamente
+                cardToRemove.style.pointerEvents = 'none';
+                
+                // B) Aplicar estilos de salida directamente (sin depender de clases externas)
+                cardToRemove.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
                 cardToRemove.style.opacity = '0';
-                cardToRemove.style.transform = 'scale(0.9)';
+                cardToRemove.style.transform = 'scale(0.8) translateY(20px)';
+                
+                // C) Borrar del DOM al terminar la animación
                 setTimeout(() => {
-                    cardToRemove.remove();
-                    if (appState.user.watchlist.size === 0) {
-                        DOM.myListContainer.querySelector('.grid').innerHTML = `<p class="empty-message">Tu lista está vacía. Agrega contenido para verlo aquí.</p>`;
+                    if (cardToRemove.parentNode) {
+                        cardToRemove.parentNode.removeChild(cardToRemove);
                     }
-                }, 300);
+                    
+                    // Chequeo de lista vacía
+                    if (appState.user.watchlist.size === 0) {
+                        const grid = myListContainer.querySelector('.grid');
+                        if (grid) {
+                            grid.innerHTML = `<p class="empty-message" style="opacity:0; transition: opacity 0.5s;">Tu lista está vacía.</p>`;
+                            requestAnimationFrame(() => {
+                                const msg = grid.querySelector('.empty-message');
+                                if(msg) msg.style.opacity = '1';
+                            });
+                        }
+                    }
+                }, 400); 
+            } else {
+                // Si por alguna razón no encontró la tarjeta (bug raro), recargamos la lista completa
+                console.warn("Tarjeta no encontrada en el DOM, forzando repintado...");
+                displayMyListView();
             }
         }
     });
 }
 
+// ===========================================================
+// 📝 MI LISTA INTELIGENTE (CARGA POR LOTES)
+// ===========================================================
+
+// Variables GLOBALES para la paginación de "Mi Lista"
+let myListDataCache = [];
+let myListRenderedCount = 0;
+
 function displayMyListView() {
     const user = auth.currentUser;
     const myListGrid = DOM.myListContainer.querySelector('.grid');
+    
+    // Limpieza inicial de botón antiguo si existe
+    const existingBtn = document.getElementById('mylist-load-more-btn');
+    if (existingBtn) existingBtn.remove();
+    
     if (!user) {
         myListGrid.innerHTML = `<p class="empty-message">Debes iniciar sesión para ver tu lista.</p>`;
         return;
     }
+    
     if (appState.user.watchlist.size === 0) {
         myListGrid.innerHTML = `<p class="empty-message">Tu lista está vacía. Agrega contenido para verlo aquí.</p>`;
         return;
     }
-    myListGrid.innerHTML = '';
+    
+    // Spinner de carga rápida
+    myListGrid.innerHTML = `<div class="spinner" style="margin: 50px auto;"></div>`;
+
+    // 1. PREPARACIÓN DE DATOS (SNAPSHOT)
+    // Recopilamos toda la info necesaria AHORA para no buscarla luego
     const allContent = { ...appState.content.movies, ...appState.content.series, ...appState.content.ucm };
-    appState.user.watchlist.forEach(contentId => {
+    
+    // Si tienes Sagas dinámicas, las agregamos también para asegurar que encuentre todo
+    if (appState.content.sagas) {
+        Object.values(appState.content.sagas).forEach(sagaItems => {
+            Object.assign(allContent, sagaItems);
+        });
+    }
+
+    myListDataCache = [];
+    
+    // Convertimos el Set de IDs a Array y lo invertimos (últimos agregados primero)
+    const watchlistIDs = Array.from(appState.user.watchlist).reverse();
+
+    watchlistIDs.forEach(contentId => {
         const data = allContent[contentId];
         if (data) {
-            const type = appState.content.series[contentId] ? 'series' : 'movie';
-            myListGrid.appendChild(createMovieCardElement(contentId, data, type, 'grid', false));
+            // Determinamos el tipo una sola vez
+            let type = 'movie';
+            if (appState.content.series[contentId] || data.type === 'series' || appState.content.seriesEpisodes[contentId]) {
+                type = 'series';
+            }
+            
+            // Guardamos el objeto listo para renderizar
+            myListDataCache.push({ id: contentId, data: data, type: type });
         }
     });
+
+    // 2. Limpiar grid y resetear contador
+    myListGrid.innerHTML = '';
+    myListRenderedCount = 0;
+
+    // 3. Renderizar el PRIMER lote
+    appendMyListBatch();
 }
+
+function appendMyListBatch() {
+    const myListGrid = DOM.myListContainer.querySelector('.grid');
+    const BATCH_SIZE = 24; // Cargar 24 items por vez
+    
+    // Calcular el siguiente lote
+    const nextBatch = myListDataCache.slice(myListRenderedCount, myListRenderedCount + BATCH_SIZE);
+    
+    if (nextBatch.length === 0) return;
+
+    // 🔥 USAR FRAGMENTO PARA RENDIMIENTO MÁXIMO
+    const fragment = document.createDocumentFragment();
+
+    nextBatch.forEach((item, index) => {
+        // Pasamos { source: 'my-list' } para que salga la "X" en lugar del "+"
+        const card = createMovieCardElement(item.id, item.data, item.type, 'grid', false, { source: 'my-list' });
+        
+        // Pequeña animación de entrada (solo para los nuevos elementos)
+        card.style.animation = `fadeInUp 0.3s ease forwards ${index * 0.05}s`;
+        card.style.opacity = '0';
+        
+        fragment.appendChild(card);
+    });
+
+    // Inyectar en el DOM
+    myListGrid.appendChild(fragment);
+    myListRenderedCount += nextBatch.length;
+
+    // --- GESTIÓN DEL BOTÓN "CARGAR MÁS" ---
+    let loadBtn = document.getElementById('mylist-load-more-btn');
+    
+    if (myListRenderedCount < myListDataCache.length) {
+        if (!loadBtn) {
+            loadBtn = document.createElement('button');
+            loadBtn.id = 'mylist-load-more-btn';
+            loadBtn.className = 'btn btn-primary'; 
+            loadBtn.innerHTML = 'Cargar más <i class="fas fa-chevron-down"></i>';
+            loadBtn.style.cssText = "display: block; margin: 30px auto; min-width: 200px;";
+            loadBtn.onclick = appendMyListBatch; 
+            DOM.myListContainer.appendChild(loadBtn);
+        } else {
+            // Asegurar que el botón siempre esté al final
+            DOM.myListContainer.appendChild(loadBtn);
+        }
+    } else {
+        if (loadBtn) loadBtn.remove();
+    }
+}
+
+// ===========================================================
+// 🧠 HISTORIAL INTELIGENTE (CARGA POR LOTES)
+// ===========================================================
+
+// Variables para controlar la paginación del historial
+let historyDataCache = [];
+let historyRenderedCount = 0;
 
 function renderHistory() {
     const user = auth.currentUser;
     const historyGrid = DOM.historyContainer.querySelector('.grid');
+    
+    // Limpieza inicial: Borramos contenido y botón viejo si existe
+    const existingBtn = document.getElementById('history-load-more-btn');
+    if (existingBtn) existingBtn.remove();
+    
     if (!user) {
         historyGrid.innerHTML = `<p class="empty-message">Debes iniciar sesión para ver tu historial.</p>`;
         return;
     }
-    historyGrid.innerHTML = `<p>Cargando tu historial...</p>`;
+    
+    // Spinner de carga inicial
+    historyGrid.innerHTML = `<div class="spinner" style="margin: 50px auto;"></div>`;
+
     db.ref(`users/${user.uid}/history`).orderByChild('viewedAt').once('value', snapshot => {
         if (!snapshot.exists()) {
             historyGrid.innerHTML = `<p class="empty-message">Tu historial está vacío.</p>`;
             return;
         }
-        const historyData = [];
+
+        // 1. Guardamos TODO el historial en memoria (RAM)
+        historyDataCache = [];
         snapshot.forEach(child => {
             const item = child.val();
-            item.key = child.key;
-            historyData.push(item);
+            item.key = child.key; // Guardamos la key para poder borrar después
+            historyDataCache.push(item);
         });
+        
+        // Ordenamos: Lo último visto primero
+        historyDataCache.reverse(); 
+        
+        // 2. Preparamos el Grid limpio
         historyGrid.innerHTML = '';
-        historyData.reverse().forEach((item) => {
-            const options = {
-                source: 'history',
-                season: item.season
-            };
-            const card = createMovieCardElement(item.contentId, item, item.type, 'grid', false, options);
-            
-            const removeButton = document.createElement('button');
-            removeButton.className = 'btn-remove-history';
-            removeButton.dataset.key = item.key;
-            removeButton.innerHTML = `<i class="fas fa-times"></i>`;
-            card.appendChild(removeButton);
+        historyRenderedCount = 0;
 
-            const infoOverlay = document.createElement('div');
-            infoOverlay.className = 'history-item-overlay';
-            infoOverlay.innerHTML = `<h4 class="history-item-title">${item.title}</h4><p class="history-item-date">Visto: ${new Date(item.viewedAt).toLocaleDateString()}</p>`;
-            card.appendChild(infoOverlay);
-
-            historyGrid.appendChild(card);
-        });
+        // 3. Renderizamos el PRIMER lote (los primeros 24)
+        appendHistoryBatch();
     });
+}
+
+// Función auxiliar que inyecta las tarjetas por partes
+function appendHistoryBatch() {
+    const historyGrid = DOM.historyContainer.querySelector('.grid');
+    const BATCH_SIZE = 24; // Cantidad a cargar por clic (igual que tu grid principal)
+    
+    // Calculamos qué parte del array toca mostrar ahora
+    const nextBatch = historyDataCache.slice(historyRenderedCount, historyRenderedCount + BATCH_SIZE);
+    
+    if (nextBatch.length === 0) return;
+
+    // 🔥 OPTIMIZACIÓN: Usamos Fragment para pintar todo de una sola vez (0 lag)
+    const fragment = document.createDocumentFragment();
+
+    nextBatch.forEach((item) => {
+        const options = {
+            source: 'history',
+            season: item.season
+        };
+        // Usamos tu función constructora base
+        const card = createMovieCardElement(item.contentId, item, item.type, 'grid', false, options);
+        
+        // --- PERSONALIZACIÓN PARA HISTORIAL ---
+        
+        // 1. Botón de Borrar (X)
+        const removeButton = document.createElement('button');
+        removeButton.className = 'btn-remove-history';
+        removeButton.dataset.key = item.key;
+        removeButton.innerHTML = `<i class="fas fa-times"></i>`;
+        card.appendChild(removeButton);
+
+        // 2. Información superpuesta (Título y Fecha)
+        const infoOverlay = document.createElement('div');
+        infoOverlay.className = 'history-item-overlay';
+        const dateStr = item.viewedAt ? new Date(item.viewedAt).toLocaleDateString() : 'Reciente';
+        infoOverlay.innerHTML = `<h4 class="history-item-title">${item.title}</h4><p class="history-item-date">Visto: ${dateStr}</p>`;
+        card.appendChild(infoOverlay);
+
+        fragment.appendChild(card);
+    });
+
+    // Inyectamos el lote en la pantalla
+    historyGrid.appendChild(fragment);
+    historyRenderedCount += nextBatch.length;
+
+    // --- GESTIÓN DEL BOTÓN "CARGAR MÁS" ---
+    let loadBtn = document.getElementById('history-load-more-btn');
+    
+    // Si todavía quedan items en memoria sin mostrar...
+    if (historyRenderedCount < historyDataCache.length) {
+        if (!loadBtn) {
+            loadBtn = document.createElement('button');
+            loadBtn.id = 'history-load-more-btn';
+            loadBtn.className = 'btn btn-primary'; 
+            loadBtn.innerHTML = 'Cargar más <i class="fas fa-chevron-down"></i>';
+            loadBtn.style.cssText = "display: block; margin: 30px auto; min-width: 200px;";
+            loadBtn.onclick = appendHistoryBatch; // Al clicar, llama a esta misma función para el siguiente lote
+            DOM.historyContainer.appendChild(loadBtn);
+        } else {
+            // Mover el botón al final siempre
+            DOM.historyContainer.appendChild(loadBtn);
+        }
+    } else {
+        // Si ya mostramos todo, quitamos el botón
+        if (loadBtn) loadBtn.remove();
+    }
 }
 
 function setupRealtimeHistoryListener(user) {
@@ -2756,128 +3261,84 @@ function createMovieCardElement(id, data, type, layout = 'carousel', lazy = fals
     card.className = `movie-card ${layout === 'carousel' ? 'carousel-card' : ''}`;
     card.dataset.contentId = id;
 
-    let badgesAccumulator = ''; // Usamos esto para juntar varias etiquetas
-    
+    // --- 🏷️ ZONA DE ETIQUETAS (RESTAURADA) ---
+    let badgesAccumulator = ''; 
     const isNewContent = isDateRecent(data.date_added);
 
     if (type === 'series') {
-        const hasNewSeason = hasRecentSeasonFromPosters(id);
-        const hasNewEp = hasRecentEpisodes(id);
-
-        // 1. ¿Es Estreno?
-        if (isNewContent) {
-            badgesAccumulator += `<div class="new-episode-badge badge-estreno">ESTRENO</div>`;
-        }
-
-        // 2. ¿Tiene Nueva Temporada? (Ahora se agrega DEBAJO, no reemplaza)
-        if (hasNewSeason) {
-            badgesAccumulator += `<div class="new-episode-badge badge-season">NUEVA TEMP</div>`;
-        }
-
-        // 3. ¿Tiene Nuevo Cap? 
-        // Lógica opcional: Si ya mostramos "Nueva Temp", quizás "Nuevo Cap" sea redundante.
-        // Pero si quieres que salga también, quita la parte de "&& !hasNewSeason"
-        if (hasNewEp && !hasNewSeason) {
-            badgesAccumulator += `<div class="new-episode-badge badge-episode">NUEVO CAP</div>`;
-        }
-    } 
-    else if (type === 'movie') {
-        if (isNewContent) {
-            badgesAccumulator += `<div class="new-episode-badge badge-estreno">ESTRENO</div>`;
-        }
+        const hasNewSeason = hasRecentSeasonFromPosters(id); // Detecta si hay temporada nueva
+        const hasNewEp = hasRecentEpisodes(id);              // Detecta si hay cap nuevo
+        
+        if (isNewContent) badgesAccumulator += `<div class="new-episode-badge badge-estreno">ESTRENO</div>`;
+        if (hasNewSeason) badgesAccumulator += `<div class="new-episode-badge badge-season">NUEVA TEMP</div>`;
+        
+        // Solo mostramos "NUEVO CAP" si no estamos mostrando ya "NUEVA TEMP" (para no tapar la imagen)
+        if (hasNewEp && !hasNewSeason) badgesAccumulator += `<div class="new-episode-badge badge-episode">NUEVO CAP</div>`;
+    } else {
+        // Películas
+        if (isNewContent) badgesAccumulator += `<div class="new-episode-badge badge-estreno">ESTRENO</div>`;
     }
 
-    // Si hay alguna etiqueta, la envolvemos en el contenedor nuevo
-    let ribbonHTML = '';
-    if (badgesAccumulator !== '') {
-        ribbonHTML = `<div class="badges-container">${badgesAccumulator}</div>`;
-    }
+    let ribbonHTML = badgesAccumulator !== '' ? `<div class="badges-container">${badgesAccumulator}</div>` : '';
+    // ----------------------------------------
 
+    // --- Clic Principal (Abrir Detalles o Reproductor) ---
     card.onclick = (e) => {
+        // Ignorar si el clic fue en el botón de borrar/lista
         if (e.target.closest('.btn-watchlist') || e.target.closest('.btn-remove-history')) return;
         
         const seasonMatch = data.title.match(/\(T(\d+)\)$/);
         if (seasonMatch) {
-            const seasonNum = seasonMatch[1];
-            (async () => {
-                const player = await getPlayerModule();
-                player.openSeriesPlayerDirectlyToSeason(id, seasonNum);
-            })();
+            (async () => { const player = await getPlayerModule(); player.openSeriesPlayerDirectlyToSeason(id, seasonMatch[1]); })();
         } else if (options.source === 'history' && type === 'series' && options.season) {
-            (async () => {
-                const player = await getPlayerModule();
-                player.openSeriesPlayerDirectlyToSeason(id, options.season);
-            })();
+            (async () => { const player = await getPlayerModule(); player.openSeriesPlayerDirectlyToSeason(id, options.season); })();
         } else {
             openDetailsModal(id, type);
         }
     };
     
+    // --- Botón de Lista / Borrar ---
     let watchlistBtnHTML = '';
     if(auth.currentUser && options.source !== 'history'){
         const isInList = appState.user.watchlist.has(id);
-        const icon = isInList ? 'fa-check' : 'fa-plus';
+        
+        // Lógica de ícono: X si es Mi Lista, Check si no
+        let iconClass = isInList ? 'fa-check' : 'fa-plus';
+        if (options.source === 'my-list') iconClass = 'fa-times'; 
+
         const inListClass = isInList ? 'in-list' : '';
-        watchlistBtnHTML = `<button class="btn-watchlist ${inListClass}" data-content-id="${id}"><i class="fas ${icon}"></i></button>`;
+        
+        watchlistBtnHTML = `<button class="btn-watchlist ${inListClass}" data-content-id="${id}"><i class="fas ${iconClass}"></i></button>`;
     }
 
+    // --- Imagen ---
     let imageUrl = data.poster;
-
-    if (typeof imageUrl === 'object' && imageUrl !== null) {
-        imageUrl = imageUrl.posterUrl || imageUrl.poster || '';
-    }
-    // 2. Intentamos buscar un póster específico de temporada si aplica
-    const seasonMatch = data.title.match(/\(T(\d+)\)$/);
-    if (seasonMatch && appState.content.seasonPosters[id]) {
-        const seasonNum = seasonMatch[1];
-        
-        // Buscamos en seasonPosters con seguridad
-        const posterEntry = appState.content.seasonPosters[id][seasonNum];
-        
-        if (posterEntry) {
-            // Si es objeto (nuevo formato), usamos .posterUrl o .poster
-            if (typeof posterEntry === 'object') {
-                imageUrl = posterEntry.posterUrl || posterEntry.poster || imageUrl;
-            } 
-            // Si es string (viejo formato), lo usamos directo
-            else if (typeof posterEntry === 'string') {
-                imageUrl = posterEntry;
-            }
-        }
-    }
-    
-    // 3. Fallback final de seguridad: si imageUrl es null/undefined, intentar usar banner
-    if (!imageUrl) {
-        imageUrl = data.banner || ''; // Último recurso para evitar vacío total
-    }
+    if (typeof imageUrl === 'object' && imageUrl?.posterUrl) imageUrl = imageUrl.posterUrl;
+    if (!imageUrl) imageUrl = data.banner || '';
 
     const img = new Image();
     img.onload = () => {
-        const imgContainer = card.querySelector('.img-container-placeholder');
-        if(imgContainer) imgContainer.replaceWith(img);
+        const placeholder = card.querySelector('.img-container-placeholder');
+        if(placeholder) placeholder.replaceWith(img);
         card.classList.add('img-loaded');
     };
-    img.onerror = () => {
-        // Si falla la carga, intentamos poner el póster general si no era el que estábamos usando
-        if (imageUrl !== data.poster && data.poster) {
-            img.src = data.poster;
-        } else {
-            card.classList.add('img-error');
-            console.warn(`Imagen rota para: ${data.title} (URL: ${imageUrl})`);
-        }
-    };
-
     img.src = imageUrl; 
     img.alt = data.title;
 
+    // --- HTML Final ---
     const ratingHTML = `<div class="card-rating-container">${getStarsHTML(appState.content.averages[id], true)}</div>`;
 
-    card.innerHTML = `
-        ${ribbonHTML}
-        <div class="img-container-placeholder"></div>
-        ${ratingHTML} 
-        ${watchlistBtnHTML}
-    `;
+    card.innerHTML = `${ribbonHTML}<div class="img-container-placeholder"></div>${ratingHTML}${watchlistBtnHTML}`;
+
+    // 🔥 ESTO ES LO QUE FALTA: Darle vida al botón
+    const watchBtn = card.querySelector('.btn-watchlist');
+    if (watchBtn) {
+        watchBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation(); // Evita que se abra la película
+            handleWatchlistClick(watchBtn);
+        };
+    }
 
     return card;
 }
@@ -3404,4 +3865,114 @@ function checkResetPasswordMode() {
             };
         }
     }
+}
+
+// ===========================================================
+// 11. MÓDULO DE RESEÑAS (LOGICA FALTANTE)
+// ===========================================================
+
+// Función principal para renderizar
+window.renderReviews = async function() {
+    const grid = document.getElementById('reviews-grid');
+    if (!grid) return;
+
+    grid.innerHTML = '<div class="spinner" style="margin: 50px auto;"></div>';
+
+    try {
+        // 1. Obtener reseñas de Firebase
+        const snapshot = await db.ref('reviews').once('value');
+        const reviewsData = snapshot.val();
+
+        grid.innerHTML = ''; // Limpiar cargador
+
+        if (!reviewsData) {
+            grid.innerHTML = `
+                <div style="text-align:center; width:100%; color:#888; margin-top:50px;">
+                    <i class="fas fa-comment-slash" style="font-size:3rem; margin-bottom:20px;"></i>
+                    <p>Aún no hay reseñas. ¡Sé el primero en opinar!</p>
+                </div>`;
+            return;
+        }
+
+        // 2. Convertir a array y ordenar (más recientes primero)
+        const reviews = Object.entries(reviewsData)
+            .map(([id, data]) => ({ id, ...data }))
+            .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+        // 3. Crear tarjetas
+        reviews.forEach(review => {
+            // Buscar datos de la película para el poster
+            let movieData = null;
+            if (appState.content.movies && appState.content.movies[review.contentId]) {
+                movieData = appState.content.movies[review.contentId];
+            } else if (appState.content.series && appState.content.series[review.contentId]) {
+                movieData = appState.content.series[review.contentId];
+            }
+
+            // Si no encontramos la peli (quizás se borró), usamos imagen genérica
+            const posterUrl = movieData ? movieData.poster : 'https://via.placeholder.com/300x450?text=No+Image';
+            const title = movieData ? movieData.title : (review.contentTitle || 'Título Desconocido');
+
+            // Generar Estrellas HTML
+            let starsHtml = '';
+            for (let i = 1; i <= 5; i++) {
+                if (i <= review.rating) starsHtml += '<i class="fas fa-star" style="color: #ffd700;"></i>';
+                else starsHtml += '<i class="far fa-star" style="color: #444;"></i>';
+            }
+
+            // Crear elemento HTML
+            const card = document.createElement('div');
+            card.className = 'review-card';
+            card.innerHTML = `
+                <div class="review-poster">
+                    <img src="${posterUrl}" alt="${title}" loading="lazy">
+                </div>
+                <div class="review-content">
+                    <div class="review-header">
+                        <h3 class="review-movie-title">${title}</h3>
+                        <div class="review-rating">${starsHtml}</div>
+                    </div>
+                    <p class="review-snippet">"${review.text}"</p>
+                    <div class="review-footer">
+                        <span class="review-author"><i class="fas fa-user-circle"></i> ${review.userEmail ? review.userEmail.split('@')[0] : 'Anónimo'}</span>
+                        <span class="review-date">${new Date(review.timestamp).toLocaleDateString()}</span>
+                    </div>
+                </div>
+            `;
+
+            // Click para abrir modal de lectura completa
+            card.onclick = () => openReadReviewModal(review, movieData);
+            
+            grid.appendChild(card);
+        });
+
+    } catch (error) {
+        console.error("Error cargando reseñas:", error);
+        grid.innerHTML = '<p style="text-align:center; color:red;">Error al cargar las reseñas.</p>';
+    }
+};
+
+// Función para abrir el modal de lectura
+function openReadReviewModal(review, movieData) {
+    const modal = document.getElementById('full-review-modal');
+    if (!modal) return;
+
+    const posterUrl = movieData ? movieData.poster : '';
+    const title = movieData ? movieData.title : (review.contentTitle || 'Desconocido');
+
+    document.getElementById('read-review-poster').src = posterUrl;
+    document.getElementById('read-review-movie-title').textContent = title;
+    document.getElementById('read-review-user').textContent = `Reseña de: ${review.userEmail.split('@')[0]}`;
+    document.getElementById('read-review-text').textContent = review.text;
+    document.getElementById('read-review-date').textContent = new Date(review.timestamp).toLocaleDateString();
+
+    // Estrellas en el modal
+    let starsHtml = '';
+    for (let i = 1; i <= 5; i++) {
+        starsHtml += i <= review.rating ? '<i class="fas fa-star"></i>' : '<i class="far fa-star"></i>';
+    }
+    document.getElementById('read-review-stars').innerHTML = starsHtml;
+
+    document.body.classList.add('modal-open');
+    modal.classList.add('show');
 }
