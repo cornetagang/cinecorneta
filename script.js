@@ -529,7 +529,7 @@ const DOM = {
     menuOverlay: document.getElementById('menu-overlay')
 };
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbxsC8vcvWrCMjx6ryUTLi0UDgU0eMy2oBijsiNCABCcS9LRKHQnUse4gxRSrL-1etNS/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxVqZINCA75vq8bt-0dLwH1LZ24p8e6DzdSXWc-Q74WHmLTfFup2D6QtpwwB0FfpfUf/exec';
 const ITEMS_PER_LOAD = window.innerWidth < 1600 ? 25 : 24;
 
 const firebaseConfig = {
@@ -3976,3 +3976,4 @@ function openReadReviewModal(review, movieData) {
     document.body.classList.add('modal-open');
     modal.classList.add('show');
 }
+
