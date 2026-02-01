@@ -110,6 +110,18 @@
                         </div>
                         <div class="dropdown-menu" id="lang-menu-list"></div>
                     </div>
+
+                    <div class="custom-dropdown" id="request-dropdown-visual">
+                        <div class="dropdown-trigger" id="request-trigger">
+                            <span id="request-text">Pedidos</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                            <div class="dropdown-menu" id="request-menu-list">
+                        </div>
+                            <select id="request-filter" style="display:none;">
+                            <option value="all">Todos</option>
+                        </select>
+                    </div>
                     
                     <div class="custom-dropdown" id="sort-dropdown-visual">
                         <div class="dropdown-trigger" id="sort-trigger">
@@ -459,21 +471,26 @@
         <div class="auth-modal-content" style="max-width: 500px;">
             <button class="close-btn">&times;</button>
             <form id="review-submission-form" class="auth-form">
-                <h2 style="font-family: 'Bebas Neue'; font-size: 2.5rem;">Escribe tu opinión</h2>
+                <h2 style="font-family: 'Bebas Neue'; font-size: 2.5rem; margin-bottom: 20px;">Escribe tu opinión</h2>
                 
                 <label style="text-align: left; margin-bottom: 5px; color: var(--text-muted); display:block;">Título:</label>
                 <div class="custom-select-wrapper">
+                    <div id="review-selected-display" class="review-selected-display" style="display: none;">
+                        <span id="review-selected-title"></span>
+                        <button type="button" class="btn-change-selection" style="background:none; border:none; color: #aaa; cursor: pointer; font-size: 0.8rem; margin-left: auto;">(Cambiar)</button>
+                    </div>
+                    
                     <div class="custom-select-input-container">
                         <input type="text" id="review-movie-search" placeholder="Escribe para buscar..." autocomplete="off">
-                        <i class="fas fa-chevron-down select-icon"></i>
                     </div>
                     
                     <input type="hidden" id="review-selected-id">
-
+                    <input type="hidden" id="review-content-type">
                     <div id="review-movie-options" class="custom-options-list"></div>
                 </div>
-                <label style="text-align: left; margin-bottom: 5px; color: var(--text-muted);">Calificación:</label>
-                <div class="star-rating-input" style="display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; font-size: 1.5rem;">
+
+                <label style="text-align: left; margin-bottom: 5px; color: var(--text-muted); margin-top: 15px;">Calificación:</label>
+                <div class="star-rating-input" style="display: flex; gap: 15px; justify-content: center; margin-bottom: 20px; font-size: 2rem;">
                     <i class="fas fa-star star-option" data-value="1"></i>
                     <i class="fas fa-star star-option" data-value="2"></i>
                     <i class="fas fa-star star-option" data-value="3"></i>
@@ -482,7 +499,7 @@
                 </div>
                 <input type="hidden" id="review-rating-value" value="0">
                 
-                <textarea id="review-text-input" placeholder="¿Qué te pareció? (Mínimo 2 letras)" required style="height: 120px; background: rgba(255,255,255,0.05); color: white; border: 1px solid #333; padding: 10px; border-radius: 8px; margin-bottom: 15px; resize: none;"></textarea>
+                <textarea id="review-text-input" placeholder="¿Qué te pareció? (Mínimo 2 letras)" required style="height: 140px; background: rgba(255,255,255,0.05); color: white; border: 1px solid #333; padding: 15px; border-radius: 8px; margin-bottom: 20px; resize: none; width: 100%;"></textarea>
                 
                 <button type="submit" class="btn-primary" style="width: 100%;">Publicar Reseña</button>
             </form>
@@ -548,6 +565,8 @@
             <span>Menú</span>
         </a>
     </footer>
+
+    <div id="toast-container"></div>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
