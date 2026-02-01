@@ -43,7 +43,6 @@ body.modal-open { overflow: hidden; }
 #preloader.fade-out { 
     opacity: 0; 
     visibility: hidden; 
-    pointer-events: none;
 }
 
 /* Opcional: Haz el spinner un poco más elegante */
@@ -139,219 +138,172 @@ body.modal-open { overflow: hidden; }
 .main-nav ul { list-style: none; margin: 0; padding: 0; display: flex; gap: 10px; align-items: center;}
 .main-nav a { color: var(--text-muted); text-decoration: none; font-size: 1rem; font-weight: bold; padding: 8px 15px; border-radius: 6px; transition: background-color 0.2s ease, color 0.2s ease; }
 .main-nav a:hover, .main-nav a.active { color: var(--text-light); background-color: rgba(255, 255, 255, 0.1); }
-#search-container { position: relative; }
+#search-container { 
+    position: relative; 
+    /* Agregamos esto para asegurar alineación */
+    display: flex;
+    align-items: center;
+}
+
+/* --- AGREGA ESTO --- */
+.search-icon {
+    position: absolute;       /* Lo saca del flujo normal para ponerlo sobre el input */
+    left: 15px;               /* Lo separa del borde izquierdo */
+    top: 50%;                 /* Lo baja al 50% del contenedor */
+    transform: translateY(-50%); /* Lo centra verticalmente de forma perfecta */
+    color: var(--text-muted); /* Usa tu variable de color gris */
+    font-size: 0.9rem;        /* Tamaño del ícono */
+    pointer-events: none;     /* Permite hacer clic en el input a través del ícono */
+    transition: color 0.3s ease;
+}
+
+/* Opcional: Que la lupa brille cuando escribes */
+#search-input:focus + .search-icon {
+    color: var(--text-light);
+}
 #search-input { background-color: rgba(255, 255, 255, 0.1); border: 1px solid var(--text-muted); border-radius: 20px; color: var(--text-light); padding: 8px 12px 8px 40px; width: 200px; transition: all 0.3s ease; outline: none; }
 #search-input::placeholder { color: var(--text-muted); }
 #search-input:focus { background-color: rgba(255, 255, 255, 0.2); border-color: var(--text-light); width: 250px; }
-.search-icon { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
 
 /* ================================== */
 /* CONTENIDO PRINCIPAL Y TARJETAS     */
 /* ================================== */
-
 .hero-section { 
     width: 100%; 
-    height: 70vh;
+    height: 80vh;
     min-height: 550px; 
     position: relative; 
     padding: 0 4vw; 
     background-size: cover; 
-    background-position: center top; /* Mejor encuadre general */
-    
+    background-position: 50% 15%; 
     display: flex; 
     align-items: center; 
-    overflow: hidden; /* Vital para que no se salga el blur/fade */
 }
 
-/* CAPA 1: Sombra Lateral (Para leer el texto) */
-.hero-section::before {
+.hero-section::after { 
     content: ''; 
     position: absolute; 
     inset: 0; 
     z-index: 1;
-    background: linear-gradient(to right, 
-            rgba(20,20,20, 0.95) 0%, 
-            rgba(20,20,20, 0.7) 30%, 
-            rgba(20,20,20, 0.4) 50%,
-            transparent 100%
+    
+    background: 
+        /* 1. DEGRADADO VERTICAL (El que te interesa) */
+        linear-gradient(to top, 
+            #141414 0%,             /* Negro sólido pegado al piso */
+            rgba(20,20,20,0.6) 15%, /* Se empieza a desvanecer rápido */
+            
+            /* 👇 ESTE ES EL NÚMERO QUE DEBES CAMBIAR 👇 */
+            rgba(20,20,20,0) 30%    /* ALTURA FINAL: Aquí se vuelve invisible */
+        ),
+        
+        /* 2. Degradado Horizontal (Sombra suave a la izquierda para que se lean las letras) */
+        linear-gradient(to right, 
+            rgba(20,20,20,0.8) 0%, 
+            rgba(20,20,20,0) 60%
         );
-    pointer-events: none;
 }
 
-/* CAPA 2: El "Super Fade" Inferior (Arregla el corte sucio) */
-.hero-section::after { 
-    content: ''; 
-    position: absolute; 
-    bottom: 0; 
-    left: 0;
-    width: 100%;
-    height: 75px; /* Altura del degradado suave */
-    z-index: 2;
-    background: linear-gradient(to bottom, 
-            transparent 0%,
-            rgba(20, 20, 20, 0.3) 30%,
-            rgba(20, 20, 20, 0.8) 70%, 
-            #141414 100% /* Color exacto de tu fondo */
-        );
-    pointer-events: none;
-}
-
-.hero-content { 
-    z-index: 5; /* Encima de todas las sombras */
-    position: relative;
-    transition: opacity 0.5s ease-in-out; 
-    max-width: 50%; /* Un poco más de espacio */
-}
-
-.hero-content h1 { font-family: 'Bebas Neue', sans-serif; font-size: clamp(2.5rem, 5vw, 4rem); margin: 0 0 15px 0; text-shadow: 0 4px 10px rgba(0,0,0,0.8); line-height: 0.9; }
-.hero-content p { font-size: 1.15rem; line-height: 1.5; max-width: 650px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); margin-bottom: 25px; color: #e0e0e0; }
+.hero-content { z-index: 2; transition: opacity 0.5s ease-in-out; max-width: 45%; }
+.hero-content h1 { font-family: 'Bebas Neue', sans-serif; font-size: clamp(2.5rem, 4vw, 3.5rem); margin: 0 0 20px 0; text-shadow: 0 4px 10px black; }
+.hero-content p { font-size: 1.1rem; line-height: 1.6; max-width: 600px; text-shadow: 0 2px 5px black; }
 .hero-buttons { display: flex; gap: 15px; margin-top: 20px; }
 .hero-content.hero-fading { opacity: 0; }
 
-/* BOTONES */
 .btn, .btn-play, .btn-info, .btn-episodes, .btn-random { 
-    padding: 12px 28px; 
-    border-radius: 6px; 
+    padding: 12px 25px; 
+    border-radius: 8px; 
     border: 1px solid transparent;
     font-size: 1.1rem; 
     line-height: 1.4;
     font-weight: bold; 
     cursor: pointer; 
-    transition: all 0.2s ease; 
+    transition: all 0.3s ease; 
     display: inline-flex; 
     align-items: center; 
     gap: 10px; 
     text-decoration: none; 
 }
-.btn-play { background: var(--primary-red); color: white; box-shadow: 0 4px 15px rgba(229, 9, 20, 0.4); border: none; }
-.btn-info { background: rgba(255, 255, 255, 0.2); color: white; backdrop-filter: blur(5px); }
+.btn-play { background: linear-gradient(to right, var(--primary-red), var(--secondary-red)); color: var(--text-on-accent, white); box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4); border-color: var(--primary-red); }
+.btn-info { background: rgba(109, 109, 110, 0.7); color: white; border-color: rgba(255,255,255,0.2); }
+.btn-play:hover { background: linear-gradient(to right, var(--secondary-red), var(--primary-red)); color: var(--text-on-accent, white); transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0, 0, 0, 0.5); }
+.btn-info:hover { background-color: rgba(109, 109, 110, 0.5); transform: translateY(-2px); }
 
-.btn-play:hover { background: var(--secondary-red); transform: scale(1.05); }
-.btn-info:hover { background: rgba(255, 255, 255, 0.3); transform: scale(1.05); }
-
-/* ======================================================= */
-/* 🎠 CARRUSEL Y TARJETAS (OPTIMIZADO)                     */
-/* ======================================================= */
 .carousel {
-    width: fit-content; /* Mejor usar porcentaje directo para centrado */
+    width: fit-content;
     max-width: 94%;
-    margin: 30px auto 40px auto; /* 🔥 EL TRUCO: Sube 50px sobre el Hero */
-    position: relative;
-    z-index: 10; /* Encima de la sombra del hero */
-    background-color: var(--panel-dark); 
-    border: 1px solid rgba(255, 255, 255, 0.1); 
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5); /* Sombra más difusa */
+    margin: 30px auto 40px auto; /* Centrado automático */
+    
+    /* 2. COLOR Y APARIENCIA (Paleta Cine Corneta) */
+    background-color: var(--panel-dark); /* Usamos el gris oscuro #181818 */
+    border: 1px solid rgba(255, 255, 255, 0.1); /* Borde sutil elegante */
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7); /* Sombra profunda para dar relieve */
     border-radius: 12px;
-    padding: 25px;
+    
+    /* 3. ESPACIADO */
+    padding-top: 20px;
+    padding-bottom: 20px;
+    padding-left: 20px;
+    padding-right: 20px;
+    
+    /* 4. COMPORTAMIENTO */
     overflow: hidden;
+    position: relative;
 }
 
+/* Ajuste del título en modo normal para que respire bien dentro de la caja */
 .carousel-title {
     font-size: 1.5rem;
-    font-weight: 800;
-    text-transform: uppercase;
+    font-weight: bold;
     margin-bottom: 20px;
-    padding-left: 15px;
+    padding-left: 10px; /* Alineación visual con las tarjetas */
     color: var(--text-light);
-    border-left: 4px solid var(--primary-red);
-    line-height: 1;
+    border-left: 4px solid var(--primary-red); /* Detalle de marca a la izquierda */
+    padding-left: 15px; /* Espacio tras la línea roja */
 }
 
+/* Ajuste del track para que encaje en la nueva caja */
 .carousel-track {
+    /* 🔥 ESTO FALTABA: Alineación horizontal */
     display: flex;
-    gap: 20px; 
+    gap: 20px; /* Espacio entre tarjetas */
+
+    /* Configuración del Scroll */
     overflow-x: auto;
     overflow-y: hidden;
-    cursor: grab;
+    cursor: default;
     scroll-behavior: smooth;
     padding-bottom: 15px; 
+    
+    /* Ajuste de padding lateral */
+    padding-left: 10px;
     padding-right: 10px;
-    scroll-padding-left: 10px;
 }
 .carousel-track::-webkit-scrollbar { display: none; }
-
-
-/* TARJETAS (Carousel y Grid) */
-.carousel-card, .movie-card, .season-poster-card { 
-    aspect-ratio: 2 / 3; 
-    border-radius: 8px; 
-    overflow: hidden; 
-    cursor: pointer; 
-    position: relative; 
-    background-color: #222; 
-    flex-shrink: 0; 
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3); 
-    transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.2s ease; 
-    will-change: transform;
+.carousel-card, .movie-card, .season-poster-card { aspect-ratio: 2 / 3; border-radius: 8px; overflow: hidden; cursor: pointer; position: relative; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4); transition: transform 0.3s ease; background-color: var(--panel-dark); flex-shrink: 0; }
+.carousel-card img, .movie-card img, .season-poster-card img { width: 100%; height: 100%; }
+.carousel-card { width: 200px; }
+.grid .movie-card {
+    width: 100%;
 }
-
-/* Imágenes */
-.carousel-card img, .movie-card img, .season-poster-card img { 
-    width: 100%; 
-    height: 100%; 
-    background-color: #1a1a1a;
-}
-
-/* Tamaños específicos */
-.carousel-card { width: 200px; } /* Un pelín más chico para que quepan más en carrusel */
-.grid .movie-card { width: 100%; }
-
-
-/* EFECTO HOVER */
 .carousel-card:hover, .movie-card:hover, .season-poster-card:hover {
     transform: translateY(4px);
-    z-index: 20;
-    box-shadow: 0 12px 24px rgba(0,0,0,0.7); /* Sombra más dramática */
-    border: 2px solid rgba(255,255,255,0.3); /* Borde sutil brillante */
+    z-index: 10;
 }
-
-
+.roulette-carousel-track.is-spinning .movie-card {
+}
 #full-grid-container .grid {
     display: grid;
-    width: 100%;
-    justify-content: center; 
-    gap: 15px;
-    padding: 20px 10px;
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px;
+    padding: 20px 4vw;
 }
-
-/* 💻 PC / LAPTOP (Pantallas medianas y grandes) */
-@media (min-width: 768px) {
-    #full-grid-container .grid {
-        gap: 30px; /* Más aire entre tarjetas */
-        padding: 40px; 
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    }
-}
-
-@media (min-width: 1600px) {
-    #full-grid-container .grid {
-        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    }
-}
-
-@keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* OTROS AJUSTES */
-.roulette-carousel-track.is-spinning .movie-card { pointer-events: none; }
-
 .episode-description {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: var(--text-muted);
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
     overflow: hidden;
-    line-height: 1.4;
 }
 
 .episode-card.expanded .episode-description {
@@ -359,9 +311,12 @@ body.modal-open { overflow: hidden; }
     -webkit-line-clamp: unset;
     white-space: normal;
     overflow: visible;
+    max-height: 500px;
 }
 
-.content-container { margin-bottom: 40px; }
+.content-container {
+    margin-bottom: 40px;
+}
 
 /* ================================== */
 /* PAGINACIÓN (NUEVO)                 */
@@ -420,7 +375,6 @@ body.modal-open { overflow: hidden; }
   padding: 20px 4vw;
 }
 
-.history-item-overlay { position: absolute; bottom: 0; left: 0; right: 0; padding: 40px 15px 15px; background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%); opacity: 0; transition: opacity 0.3s ease; text-align: center; pointer-events: none; }
 #history-container .movie-card:hover .history-item-overlay { opacity: 1; }
 .history-item-title { font-size: 1rem; font-weight: bold; color: white; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .btn-remove-history {
@@ -538,13 +492,16 @@ body.modal-open { overflow: hidden; }
 #details-buttons { display: flex; align-items: center; margin-top: 20px; }
 
 .seasons-grid, #season-grid {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 20px;
-  grid-template-columns: repeat(4, 1fr);
   margin-top: 20px;
 }
 
 .season-poster-card {
+  width: 200px;
+  flex-shrink: 0;
   position: relative;
   cursor: pointer;
   border-radius: 10px;
@@ -630,7 +587,6 @@ body.modal-open { overflow: hidden; }
   opacity: 0;
   transform: translateY(6px);
   transition: opacity 0.22s ease, transform 0.22s ease;
-  pointer-events: none;
 }
 
 .season-label {
@@ -967,12 +923,32 @@ body.modal-open { overflow: hidden; }
   background: #2ecc71;
 }
 
+.series-main-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.5rem;
+    color: #e6e3db;
+    text-align: center;
+    margin: 0;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+}
+
+.player-container .player-title {
+    font-size: 1.1rem;
+    color: #ccc;
+    margin-top: 5px;
+    margin-bottom: 15px;
+    font-weight: normal;
+    text-align: center;
+}
+
 /* ================================== */
 /* RULETA, AUTH, MI LISTA, HISTORIAL  */
 /* ================================== */
 .roulette-modal-content { background: var(--panel-dark); border-radius: 10px; padding: 30px; width: 90%; max-width: 650px; text-align: center; }
 .roulette-carousel-wrapper { width: 100%; height: 250px; overflow: hidden; position: relative; display: flex; align-items: center; margin-top: 20px; }
-.roulette-carousel-wrapper::before, .roulette-carousel-wrapper::after { content: ''; position: absolute; top: 0; bottom: 0; width: 15%; z-index: 2; pointer-events: none; }
 .roulette-carousel-wrapper::before { left: 0; background: linear-gradient(to right, var(--panel-dark) 20%, transparent); }
 .roulette-carousel-wrapper::after { right: 0; background: linear-gradient(to left, var(--panel-dark) 20%, transparent); }
 .roulette-carousel-track { display: flex; }
@@ -1227,7 +1203,7 @@ body.modal-open { overflow: hidden; }
 }
 
 /* ================================== */
-/* 👤 PERFIL DE USUARIO (Header y Stats) */
+/* PERFIL DE USUARIO Y HUB DE PERFIL  */
 /* ================================== */
 .profile-header-wrapper {
     background-color: var(--panel-dark);
@@ -1235,7 +1211,6 @@ body.modal-open { overflow: hidden; }
     padding: 30px;
     margin: 20px 4vw 0 4vw;
     border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
 }
 
 .profile-main-info {
@@ -1254,18 +1229,15 @@ body.modal-open { overflow: hidden; }
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    background: rgba(0,0,0,0.2);
-    border-radius: 50%;
-    border: 2px solid rgba(229, 9, 20, 0.3);
 }
 
-.profile-text-info h3 { margin: 0 0 5px 0; font-size: 2rem; color: white; }
+.profile-text-info h3 { margin: 0 0 5px 0; font-size: 2rem; }
 .profile-text-info p { margin: 0; font-size: 1.1rem; color: var(--text-muted); }
 
 .profile-nav-tabs {
     display: flex;
     gap: 10px;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
+    border-bottom: 1px solid #333;
 }
 
 .profile-tab {
@@ -1277,15 +1249,15 @@ body.modal-open { overflow: hidden; }
     padding: 10px 20px;
     cursor: pointer;
     border-bottom: 3px solid transparent;
-    transition: all 0.2s;
+    transition: color 0.2s, border-color 0.2s;
 }
 
 .profile-tab:hover { color: var(--text-light); }
 .profile-tab.active { color: var(--primary-red); border-bottom-color: var(--primary-red); }
 
 .profile-tab-content { display: none; padding: 20px 4vw; }
-.profile-tab-content.active { display: block; animation: fadeIn 0.3s ease; }
-.profile-tab-content h4 { font-size: 1.5rem; margin-bottom: 20px; color: white; }
+.profile-tab-content.active { display: block; }
+.profile-tab-content h4 { font-size: 1.5rem; margin-bottom: 20px; }
 
 .stats-container {
     display: grid;
@@ -1295,112 +1267,81 @@ body.modal-open { overflow: hidden; }
 }
 
 .stat-card {
-    background-color: rgba(255,255,255,0.03);
+    background-color: var(--panel-dark);
     padding: 25px;
-    border-radius: 12px;
+    border-radius: 8px;
     text-align: center;
-    border: 1px solid rgba(255,255,255,0.05);
+    border: 1px solid #222;
 }
 
-.stat-card i { font-size: 2.5rem; color: var(--primary-red); margin-bottom: 15px; display: block; }
-.stat-value { display: block; font-size: 2.2rem; font-weight: 800; color: white; }
-.stat-label { color: var(--text-muted); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; }
+.stat-card i { font-size: 2.5rem; color: var(--primary-red); margin-bottom: 15px; }
+.stat-value { display: block; font-size: 2rem; font-weight: bold; }
+.stat-label { color: var(--text-muted); }
 
 #genre-stats-container {
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 10px;
     max-width: 600px;
 }
 .genre-stat-bar { display: flex; align-items: center; gap: 15px; }
 .genre-label { flex-basis: 120px; text-align: right; color: var(--text-light); font-weight: 500;}
-.genre-progress { flex-grow: 1; height: 12px; background-color: rgba(255,255,255,0.1); border-radius: 10px; overflow: hidden; }
-.genre-progress-fill { height: 100%; background-color: var(--primary-red); width: 0%; border-radius: 10px; transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
-.genre-count { font-weight: bold; color: white; min-width: 30px; }
+.genre-progress { flex-grow: 1; height: 20px; background-color: #333; border-radius: 10px; overflow: hidden; }
+.genre-progress-fill { height: 100%; background-color: var(--primary-red); width: 0%; transition: width 0.5s ease-in-out; }
+.genre-count { font-weight: bold; }
 
-
-/* ================================== */
-/* 📱 HUB DE PERFIL (Menú Móvil)      */
-/* ================================== */
+/* NUEVO: Estilos para la vista de "Perfil" en móvil */
 #profile-hub-container {
-    padding: 30px 20px;
+    padding: 30px 15px;
     display: flex;
     flex-direction: column;
-    gap: 20px; 
-    min-height: 80vh;
+    gap: 15px;
 }
-
 .profile-hub-header {
     text-align: center;
-    margin-bottom: 10px;
+    margin-bottom: 20px;
 }
-.profile-hub-header h2 { font-size: 2rem; margin: 0 0 5px 0; color: white; }
-.profile-hub-header p { font-size: 1.1rem; color: var(--text-muted); margin: 0; }
-
-/* Títulos de sección (Explorar / Mi Cuenta) */
-#hub-logged-in-content h4 {
+.profile-hub-header h2 {
+    font-size: 2rem;
+    margin: 0 0 5px 0;
+}
+.profile-hub-header p {
+    font-size: 1.1rem;
     color: var(--text-muted);
-    font-size: 0.85rem;
-    font-weight: 800;
-    letter-spacing: 1.5px;
-    margin-top: 20px;
-    margin-bottom: 10px;
-    margin-left: 5px;
-    text-transform: uppercase;
-    opacity: 0.8;
+    margin: 0;
 }
-
-/* Botones del Menú - Diseño Tarjeta */
 .profile-hub-menu-item {
     display: flex;
     align-items: center;
     gap: 20px;
-    background-color: rgba(30, 30, 30, 0.6); /* Fondo semi-transparente */
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background-color: var(--panel-dark);
     color: var(--text-light);
     text-decoration: none;
-    padding: 18px 20px;
-    border-radius: 12px;
-    font-size: 1.05rem;
-    font-weight: 600;
-    transition: all 0.2s ease;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1); /* Sombra suave */
-    
-    /* Espaciado extra para que no se peguen */
-    margin-bottom: 10px;
+    padding: 20px;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    transition: background-color 0.2s, transform 0.2s;
 }
-
 .profile-hub-menu-item:hover {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: #222;
     transform: translateX(5px);
-    border-color: rgba(255, 255, 255, 0.2);
-    color: white;
 }
-
 .profile-hub-menu-item i {
-    font-size: 1.4rem;
+    font-size: 1.5rem;
+    color: var(--primary-red);
     width: 30px;
     text-align: center;
-    color: var(--text-muted);
-    transition: color 0.3s;
 }
-
-.profile-hub-menu-item:hover i { color: white; }
-
-/* Botón Cerrar Sesión */
 .profile-hub-menu-item.logout {
-    margin-top: 20px;
-    background-color: rgba(229, 9, 20, 0.1);
-    border: 1px solid rgba(229, 9, 20, 0.3);
-    color: #ff8a8a;
+    color: #ff9a9a;
 }
-.profile-hub-menu-item.logout i { color: #ff8a8a; }
-.profile-hub-menu-item.logout:hover { background-color: var(--primary-red); color: white; }
-.profile-hub-menu-item.logout:hover i { color: white; }
-
+.profile-hub-menu-item.logout i {
+    color: #ff9a9a;
+}
 
 /* ================================== */
-/* ⚙️ AJUSTES DE CUENTA               */
+/* AJUSTES DE CUENTA */
 /* ================================== */
 #settings-container {
     padding: 40px 4vw;
@@ -1424,103 +1365,171 @@ body.modal-open { overflow: hidden; }
     letter-spacing: 1px;
 }
 
+#settings-container .section-description {
+    font-size: 1.1rem;
+    color: var(--text-muted);
+    max-width: 600px;
+    margin: 10px auto 0 auto;
+    line-height: 1.6;
+}
+
 .settings-form-wrapper {
     background-color: var(--panel-dark);
     border-radius: 12px;
     padding: 40px;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
 }
 
 .settings-group {
     padding-bottom: 25px;
     margin-bottom: 25px;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
+    border-bottom: 1px solid #282828;
 }
 
-.settings-group:last-of-type { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+.settings-group::after {
+    content: "";
+    display: table;
+    clear: both;
+}
+
+.settings-group:last-of-type:not(.danger-zone) {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
 
 .settings-group label {
     display: block;
-    font-size: 0.95rem;
-    color: var(--text-muted);
-    margin-bottom: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    font-size: 1rem;
+    color: var(--text-light);
+    margin-bottom: 12px;
+    font-weight: bold;
 }
 
-.input-with-button {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-/* Inputs mejorados */
 .settings-group input[type="text"],
 .settings-group input[type="email"],
 .settings-group input[type="password"] {
     width: 100%;
     box-sizing: border-box;
-    padding: 16px 20px;
-    background-color: rgba(0,0,0,0.3);
-    border: 1px solid rgba(255,255,255,0.1);
+    padding: 14px 18px;
+    background-color: #1A1A1A;
+    border: 1px solid #333;
     border-radius: 8px;
-    color: white;
+    color: var(--text-light);
     font-size: 1rem;
-    transition: all 0.3s;
+    transition: border-color 0.3s, box-shadow 0.3s;
 }
 
 .settings-group input:focus {
     outline: none;
     border-color: var(--primary-red);
-    background-color: rgba(0,0,0,0.5);
-    box-shadow: 0 0 0 3px rgba(229, 9, 20, 0.15);
+    box-shadow: 0 0 0 4px rgba(229, 9, 20, 0.2);
+}
+
+.settings-group input[readonly] {
+    background-color: #2a2a2a;
+    color: var(--text-muted);
+    cursor: not-allowed;
+}
+
+.input-with-button {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+}
+
+.input-with-button input {
+    width: 100%;
 }
 
 .btn-primary {
     background-color: var(--primary-red);
     color: white;
     border: none;
-    padding: 15px 30px;
+    padding: 14px 28px;
     border-radius: 8px;
     cursor: pointer;
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: bold;
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.2s;
     white-space: nowrap; 
-    min-width: 180px;
+    min-width: 210px;
     text-align: center;
-    box-shadow: 0 4px 15px rgba(229, 9, 20, 0.3);
 }
 
 .btn-primary:hover {
     background-color: var(--secondary-red);
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(229, 9, 20, 0.5);
 }
 
-.btn-primary:disabled {
-    background-color: #555;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
+.danger-zone {
+    background-color: rgba(229, 9, 20, 0.05);
+    border: 1px solid var(--secondary-red);
+    padding: 25px;
+    border-radius: 8px;
+    margin-top: 40px;
 }
 
-/* Feedback messages */
+.danger-zone h3 {
+    color: #ff8a8a;
+    font-size: 1.3rem;
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+.danger-zone p {
+    color: var(--text-muted);
+    margin-bottom: 25px;
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.btn-danger-action {
+    background-color: transparent;
+    color: #ff8a8a;
+    border: 1px solid #ff8a8a;
+    padding: 12px 30px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: bold;
+    transition: background-color 0.3s ease, color 0.3s;
+}
+
+.btn-danger-action:hover {
+    background-color: var(--primary-red);
+    color: white;
+    border-color: var(--primary-red);
+}
+
 .feedback-message {
     text-align: center;
     margin-top: 25px;
     font-size: 1rem;
-    font-weight: 600;
-    padding: 15px;
-    border-radius: 8px;
+    font-weight: 500;
+    padding: 12px 20px;
+    border-radius: 6px;
     display: none;
+}
+
+.feedback-message.success {
+    background-color: rgba(45, 211, 111, 0.1);
+    color: #2dd36f;
+    border: 1px solid rgba(45, 211, 111, 0.2);
+}
+
+.feedback-message.error {
+    background-color: rgba(235, 68, 90, 0.1);
+    color: #eb445a;
+    border: 1px solid rgba(235, 68, 90, 0.2);
 }
 
 /* ================================== */
 /* CARRUSEL "CONTINUAR VIENDO"        */
 /* ================================== */
+
 .continue-watching-card {
     position: relative;
     width: 280px;
@@ -1737,7 +1746,6 @@ body.modal-open { overflow: hidden; }
 }
 
 .mobile-roulette-btn img {
-    pointer-events: none; /* El clic atraviesa la imagen y llega al botón */
 }
 
 
@@ -1862,8 +1870,58 @@ body.modal-open { overflow: hidden; }
         display: none;
     }
     
-    .filter-controls { flex-direction: column; gap: 15px; padding: 0 15px 20px 15px; }
-    .filter-controls select { width: 100%; font-size: 1rem; padding: 12px 16px; }
+    .filter-controls {
+        display: grid !important;      /* Forzamos GRID */
+        grid-template-columns: 1fr 1fr; /* Dos columnas iguales */
+        gap: 10px !important;          /* Espacio pequeño entre botones */
+        padding: 0 15px 15px 15px;
+        width: 100%;
+        box-sizing: border-box;
+        
+        /* Reseteamos estilos viejos de flex */
+        flex-direction: unset !important; 
+        align-items: unset !important;
+    }
+
+    /* 2. LOS BOTONES DE FILTRO (Género, Idioma, etc) */
+    .filter-controls select, 
+    .custom-dropdown, 
+    .dropdown-trigger {
+        width: 100% !important;
+        min-width: 0 !important;
+        margin: 0 !important;
+    }
+
+    /* El botón Trigger un poco más compacto */
+    .dropdown-trigger {
+        padding: 10px 15px;
+        height: 45px; /* Altura fija uniforme */
+        font-size: 0.9rem;
+    }
+
+    /* 3. BOTÓN "VOLVER A UNIVERSOS" (OCUPA TODO EL ANCHO) */
+    .back-saga-btn {
+        grid-column: 1 / -1; /* Ocupa las 2 columnas */
+        width: 100%;
+        justify-content: center;
+        margin-right: 0;
+        margin-bottom: 5px;
+    }
+
+    /* 4. BOTONES DE ORDEN DE MARVEL (OCUPAN TODO EL ANCHO) */
+    #ucm-sort-buttons {
+        grid-column: 1 / -1; /* Ocupa las 2 columnas */
+        display: flex;       /* Internamente sigue siendo flex */
+        justify-content: space-between;
+        width: 100%;
+        gap: 10px;
+    }
+    
+    .sort-btn {
+        flex: 1; /* Mitad y mitad */
+        text-align: center;
+        justify-content: center;
+    }
 
     #profile-container, 
     #settings-container {
@@ -2706,30 +2764,53 @@ body.tab-inactive iframe {
 }
 
 /* ------------------------------------------------------- */
-/* 4. ADAPTACIÓN MÓVIL                                     */
+/* 4. ADAPTACIÓN MÓVIL (MODO GRILLA COMPACTO)              */
 /* ------------------------------------------------------- */
 @media (max-width: 768px) {
     .filter-controls {
-        flex-direction: column; /* Uno debajo del otro */
-        align-items: stretch;   /* Ancho completo */
-        gap: 15px;
+        display: grid;
+        grid-template-columns: 1fr 1fr; /* Dos columnas iguales */
+        gap: 10px; /* Menos separación entre botones */
+        align-items: start;
+        padding: 0 15px 15px 15px; /* Padding ajustado */
     }
 
+    /* Los dropdowns ocupan el 100% de su celda en la grilla */
     .filter-controls select, 
     .custom-dropdown, 
     .dropdown-trigger {
         width: 100%;
-        min-width: 0;
+        min-width: 0; /* Evita que se deformen */
     }
 
+    /* El botón "Trigger" más compacto en altura */
+    .dropdown-trigger {
+        padding: 10px 15px; /* Menos relleno */
+        font-size: 0.85rem; /* Letra un pelín más chica para que quepa */
+        height: 42px; /* Altura fija uniforme */
+    }
+
+    /* Excepción 1: Botón "Volver a Universos" ocupa todo el ancho */
+    .back-saga-btn {
+        grid-column: 1 / -1; /* Ocupa las 2 columnas */
+        width: 100%;
+        justify-content: center;
+        margin-right: 0;
+        margin-bottom: 5px;
+    }
+
+    /* Excepción 2: Botones de orden UCM (Salida/Crono) ocupan todo el ancho */
     #ucm-sort-buttons {
+        grid-column: 1 / -1; /* Ocupa las 2 columnas */
         justify-content: space-between;
         width: 100%;
+        gap: 10px;
     }
     
     .sort-btn {
-        flex: 1; /* Botones ocupan mitad y mitad */
+        flex: 1; 
         text-align: center;
+        padding: 10px; /* Botones táctiles cómodos */
     }
 }
 
@@ -2773,7 +2854,6 @@ body.tab-inactive iframe {
     object-fit: contain;  /* Asegura que no se recorte */
     
     filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.1)); /* Brillo sutil */
-    pointer-events: none; 
 }
 
 /* Ajuste específico para cuando hay LOGO */
@@ -2966,7 +3046,6 @@ body.tab-inactive iframe {
     display: flex;
     flex-direction: column; /* Esto hace que se pongan una debajo de otra */
     gap: 5px; /* Espacio entre etiquetas */
-    pointer-events: none;
 }
 
 /* 2. La apariencia de la etiqueta individual */
@@ -3160,7 +3239,6 @@ body.tab-inactive iframe {
     bottom: 8px; /* 🟢 Un poco más ajustado al borde */
     left: 8px;
     z-index: 20;
-    pointer-events: none;
 }
 
 .star-rating-display {
@@ -3297,7 +3375,6 @@ body.tab-inactive iframe {
 .custom-select-wrapper {
     position: relative;
     width: 100%;
-    margin-bottom: 20px;
 }
 
 #review-movie-search {
@@ -3325,7 +3402,6 @@ body.tab-inactive iframe {
     top: 50%;
     transform: translateY(-50%);
     color: #888;
-    pointer-events: none;
 }
 
 /* La lista desplegable (oculta por defecto) */
@@ -3451,80 +3527,680 @@ body.low-spec .season-poster-card {
     transition: transform 0.2s ease !important;
 }
 
+body.low-spec .movie-card:hover, 
+body.low-spec .season-poster-card:hover {
+    transform: translateY(-4px) !important;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.8) !important;
+}
+
 body.low-spec .loading-text {
     animation: none !important;
     text-shadow: none !important;
 }
 
-body.low-spec .hero-section::after {
-    background: linear-gradient(to top, #141414 10%, transparent 100%) !important;
-}
+/* ============================================
+   LAYOUT PELÍCULA (PANORÁMICO / CINE)
+   ============================================ */
 
-/* ======================================================= */
-/* 🕰️ GRID DE HISTORIAL (CLON EXACTO DE PELÍCULAS)         */
-/* ======================================================= */
-
-#history-container .grid {
+#series-player-modal .player-layout-container.movie-mode {
     display: grid;
-    width: 100%;
-    justify-content: center; /* Centra todo el bloque */
+    /* Video (Flexible) | Info (Fijo de 380px) */
+    grid-template-columns: 1fr 380px; 
     
-    /* Mismas medidas que la sección de Películas */
-    gap: 20px;
-    padding: 20px 4vw;
+    /* 🔥 CAMBIOS CLAVE AQUÍ PARA EL ANCHO 🔥 */
+    width: 96vw;            /* 96% del ancho de la pantalla (Casi borde a borde) */
+    max-width: 1850px;      /* Aumentado de 1500px a 1850px para monitores grandes */
+    height: 90vh;           /* Un poco más alto también (90% de la altura) */
     
-    /* 📱 MÓVIL: 150px asegura 2 columnas (igual que en películas) */
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    background-color: #141414;
+    border-radius: 12px;
+    box-shadow: 0 0 50px rgba(0,0,0,0.9); /* Sombra más intensa */
+    
+    overflow: hidden;
+    gap: 0;
+    padding: 0;
+    margin: auto;
 }
 
-/* 💻 PC / TABLET: Usamos la misma lógica de "Pelis" */
-@media (min-width: 992px) {
-    #history-container .grid {
-        gap: 30px; /* Más aire */
-        padding: 40px;
-        
-        /* En PC subimos a 220px para que se vean grandes y nítidas */
-        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    }
-}
-
-/* Ajuste de seguridad para monitores muy anchos (4K) */
-@media (min-width: 1600px) {
-    #history-container .grid {
-        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    }
-}
-
-/* ======================================================= */
-/* 📝 GRID DE MI LISTA (CLON EXACTO DE PELÍCULAS)          */
-/* ======================================================= */
-
-#my-list-container .grid {
-    display: grid;
-    width: 100%;
+/* --- REPRODUCTOR (IZQUIERDA) --- */
+.movie-mode .player-container {
+    display: flex;
+    align-items: center;
     justify-content: center;
-    
-    /* Mismas medidas que la sección principal */
-    gap: 20px;
-    padding: 20px 4vw;
-    
-    /* 📱 MÓVIL: 150px asegura 2 columnas */
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    background: #000;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    overflow: hidden;
 }
 
-/* 💻 PC / TABLET: Ajuste para pantallas grandes */
-@media (min-width: 992px) {
-    #my-list-container .grid {
-        gap: 30px; 
-        padding: 40px;
-        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    }
+.movie-mode .screen {
+    width: 100%;
+    height: 100%;
+    border: none;
+    box-shadow: none;
+    background: #000;
 }
 
-@media (min-width: 1600px) {
-    #my-list-container .grid {
-        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+/* --- BARRA LATERAL (DERECHA) --- */
+.movie-info-sidebar {
+    background: #141414;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 30px; /* Un poco más de espacio interno */
+    display: flex;
+    flex-direction: column;
+    gap: 20px;     /* Separación vertical más cómoda */
+    overflow-y: auto;
+    height: 100%;
+    z-index: 10;
+    box-sizing: border-box;
+}
+
+/* Scrollbar fina */
+.movie-info-sidebar::-webkit-scrollbar { width: 5px; }
+.movie-info-sidebar::-webkit-scrollbar-thumb { background-color: #333; border-radius: 3px; }
+.movie-info-sidebar::-webkit-scrollbar-track { background-color: #141414; }
+
+/* Botón "Volver" */
+.movie-info-sidebar .player-back-link {
+    align-self: flex-start;
+    margin: 0;
+    background: none;
+    border: none;
+    color: #aaa;
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 0;
+}
+.movie-info-sidebar .player-back-link:hover { color: white; }
+
+/* --- PÓSTER --- */
+.sidebar-poster-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-bottom: 10px;
+}
+
+.sidebar-poster-img {
+    width: 100%;
+    max-width: 130px;
+    height: auto;
+    border-radius: 6px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    object-fit: cover;
+}
+
+/* --- TÍTULO --- */
+.movie-info-sidebar .player-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem; 
+    line-height: 1.1;
+    color: #fff;
+    margin: 0;
+    text-align: center;
+}
+
+/* --- METADATA --- */
+.movie-metadata {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.meta-tag {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    color: #ccc;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.meta-tag i { color: var(--primary-red, #e50914); font-size: 0.8rem; }
+
+/* Estilo específico para la etiqueta de Pedido */
+.request-tag {
+    border: 1px solid rgba(255, 215, 0, 0.3); /* Borde dorado sutil */
+    color: #ffd700; /* Texto dorado/amarillo para diferenciarlo del año */
+    background: rgba(255, 215, 0, 0.05);
+}
+
+.request-tag i {
+    color: #ffd700; /* Icono dorado */
+}
+
+/* --- PEDIDO POR --- */
+.requester-info {
+    font-size: 0.85rem;
+    color: #bbb;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 8px 12px;
+    border-radius: 4px;
+    border-left: 3px solid var(--primary-red, #e50914);
+    margin: 0;
+}
+
+/* --- SINOPSIS --- */
+.movie-synopsis-container p {
+    font-size: 0.9rem; 
+    line-height: 1.5;
+    color: #ccc;
+    margin: 0;
+    text-align: left;
+}
+
+/* --- ZONA INFERIOR --- */
+.movie-mode .lang-controls {
+    margin-top: auto;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.lang-btn-movie {
+    padding: 8px 15px;
+    background: rgba(255,255,255,0.1);
+    border: none;
+    color: white;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+.lang-btn-movie.active { background: var(--primary-red, #e50914); }
+
+.btn-review-sidebar {
+    background-color: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    width: 100%;
+    padding: 10px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+.btn-review-sidebar:hover { background: #fff; color: #000; border-color: #fff; }
+
+/* ============================================
+   RESPONSIVE MÓVIL (ESTILO TARJETA FLOTANTE)
+   ============================================ */
+@media (max-width: 1024px) {
+    
+    /* 1. EL CONTENEDOR ES LA "TARJETA" QUE FLOTA */
+    #series-player-modal .player-layout-container.movie-mode {
+        display: flex;
+        flex-direction: column;
+        
+        /* AQUÍ ESTÁ LA CLAVE: */
+        width: 92%;           /* Ocupa el 92% del ancho (se separa de los bordes) */
+        margin: auto;         /* Se centra automáticamente en la pantalla */
+        height: auto;
+        max-height: 85vh;     /* No toca ni el techo ni el piso */
+        
+        background-color: #141414;
+        border-radius: 16px;  /* Redondeamos TODO el bloque */
+        overflow-y: auto;     /* Scroll interno */
+        box-shadow: 0 15px 40px rgba(0,0,0,0.8); /* Sombra potente para profundidad */
+        position: relative;
     }
+
+    /* 2. EL VIDEO LLENA LA TARJETA (PERO LA TARJETA YA FLOTA) */
+    .movie-mode .player-container {
+        width: 100%;          /* Llena el ancho de la tarjeta */
+        height: 52vw;         /* Mantiene proporción 16:9 aprox */
+        min-height: 200px;
+        
+        position: sticky;     /* Se queda pegado arriba al hacer scroll */
+        top: 0;
+        z-index: 20;
+        
+        background: #000;
+        padding: 0;
+        border-radius: 0;     /* Sin bordes extra, usa los de la tarjeta */
+        margin: 0;
+    }
+
+    /* 3. INFO DEBAJO */
+    .movie-info-sidebar {
+        width: 100%;
+        border: none;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 20px;
+        height: auto;
+        overflow: visible;
+    }
+
+    /* Ajustes visuales para móvil */
+    .sidebar-poster-container { display: none; } /* Sin poster en móvil */
+    
+    .movie-info-sidebar .player-title { 
+        text-align: left; 
+        font-size: 1.8rem; 
+        margin-top: 5px;
+    }
+    
+    .movie-metadata { justify-content: flex-start; }
+    
+    .requester-info { text-align: left; }
+    
+    /* Botón cerrar (Opcional: asegurar que no se tape) */
+    .close-btn {
+        z-index: 2005; /* Asegurar que quede encima de todo */
+    }
+}
+/* ===========================================================
+   FIX PARA LAYOUT DE RESEÑAS - VERSIÓN CORRECTA
+   =========================================================== */
+
+/* Contenedor del modal de reseñas */
+#review-submission-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Contenedor de selección pre-cargada - LIMPIO */
+.review-selected-display {
+    display: none;
+    padding: 12px 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid #444;
+    border-radius: 8px;
+    margin-bottom: 0;
+}
+
+/* Solo el título */
+.review-selected-display span {
+    color: #fff;
+    font-weight: 600;
+    font-size: 1rem;
+    display: block;
+}
+
+/* Contenedor del input de búsqueda */
+.custom-select-input-container {
+    position: relative;
+    width: 100%;
+}
+
+#review-movie-search {
+    width: 100%;
+    padding: 12px 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid #444;
+    border-radius: 8px;
+    color: white;
+    font-size: 1rem;
+}
+
+/* Lista de opciones */
+.custom-options-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 200px;
+    overflow-y: auto;
+    background: #1a1a1a;
+    border: 1px solid #444;
+    border-radius: 8px;
+    margin-top: 5px;
+    z-index: 1000;
+    display: none;
+}
+
+.custom-options-list.show {
+    display: block;
+}
+
+.custom-option {
+    padding: 10px 15px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.custom-option:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* Estrellas de calificación */
+.star-rating-input {
+    display: flex !important;
+    gap: 10px !important;
+    justify-content: center !important;
+    margin: 0 !important;
+    font-size: 1.5rem !important;
+}
+
+.star-rating-input .star-option {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: #444;
+}
+
+.star-rating-input .star-option:hover,
+.star-rating-input .star-option.selected {
+    color: #ffd700;
+    transform: scale(1.15);
+}
+
+/* Textarea de reseña */
+#review-text-input {
+    width: 100%;
+    min-height: 120px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid #444;
+    border-radius: 8px;
+    color: white;
+    font-size: 1rem;
+    resize: vertical;
+    font-family: inherit;
+}
+
+#review-text-input::placeholder {
+    color: #888;
+}
+
+/* Botón de enviar */
+#review-submission-form button[type="submit"] {
+    width: 100%;
+    padding: 15px;
+    background: #e50914;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+#review-submission-form button[type="submit"]:hover {
+    background: #f40612;
+}
+
+#review-submission-form button[type="submit"]:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Labels */
+#review-submission-form label {
+    color: #ccc;
+    font-size: 0.9rem;
+    margin-bottom: 5px;
+    display: block;
+    text-align: left;
+}
+
+/* Ocultar elementos innecesarios */
+.review-preselected-badge,
+.btn-change-selection {
+    display: none !important;
+}
+
+/* ===========================================================
+   FIX COMPLETO PARA MODAL DE RESEÑAS - VERSIÓN DEFINITIVA
+   =========================================================== */
+/* Contenedor principal del formulario */
+#review-submission-form {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+}
+
+/* Labels */
+#review-submission-form label {
+    display: block !important;
+    text-align: left !important;
+    color: #ccc !important;
+    font-size: 0.9rem !important;
+}    
+
+/* Contenedor de selección cuando está pre-seleccionado */
+.review-selected-display {
+    display: none;
+    width: 100%;
+    background: rgba(255, 255, 255, 0.1);
+    border-left: 4px solid #08c450;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* Forzar que se comporte como flex cuando JS lo active */
+.review-selected-display[style*="block"] {
+    display: flex !important;
+}
+
+.review-selected-display span {
+    color: #fff;
+    font-family: 'Bebas Neue', sans-serif; /* Fuente de títulos */
+    font-size: 1.4rem;
+    letter-spacing: 1px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+/* Input de búsqueda */
+.custom-select-input-container {
+    position: relative !important;
+    width: 100% !important;
+}
+
+#review-movie-search {
+    width: 100% !important;
+    padding: 14px 18px !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid #555 !important;
+    border-radius: 8px !important;
+    color: white !important;
+    font-size: 1rem !important;
+    box-sizing: border-box !important;
+}
+
+#review-movie-search::placeholder {
+    color: #888 !important;
+}
+
+/* Lista de opciones */
+.custom-options-list {
+    position: absolute !important;
+    top: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+    max-height: 250px !important;
+    overflow-y: auto !important;
+    background: #1a1a1a !important;
+    border: 1px solid #555 !important;
+    border-radius: 8px !important;
+    margin-top: 8px !important;
+    z-index: 1000 !important;
+    display: none !important;
+}
+
+.custom-options-list.show {
+    display: block !important;
+}
+
+.custom-option {
+    padding: 12px 18px !important;
+    cursor: pointer !important;
+    transition: background 0.2s !important;
+    color: #fff !important;
+}
+
+.custom-option:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Estrellas de calificación */
+.star-rating-input {
+    display: flex !important;
+    gap: 12px !important;
+    justify-content: center !important;
+    align-items: center !important;
+    margin: 0 !important;
+}
+
+.star-rating-input .star-option {
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    color: #555 !important;
+    font-size: 2rem !important;
+}
+
+.star-rating-input .star-option:hover {
+    color: #ffd700 !important;
+    transform: scale(1.2) !important;
+}
+
+.star-rating-input .star-option.selected {
+    color: #ffd700 !important;
+}
+
+/* Textarea */
+#review-text-input {
+    width: 100% !important;
+    min-height: 140px !important;
+    padding: 14px 18px !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid #555 !important;
+    border-radius: 8px !important;
+    color: white !important;
+    font-size: 1rem !important;
+    line-height: 1.5 !important;
+    resize: vertical !important;
+    font-family: inherit !important;
+    box-sizing: border-box !important;
+}
+
+#review-text-input::placeholder {
+    color: #888 !important;
+}
+
+#review-text-input:focus {
+    outline: none !important;
+    border-color: #e50914 !important;
+}
+
+/* Botón de publicar */
+#review-submission-form button[type="submit"] {
+    width: 100% !important;
+    padding: 16px !important;
+    background: #e50914 !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 8px !important;
+    font-size: 1.1rem !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    transition: all 0.2s !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+}
+
+#review-submission-form button[type="submit"]:hover {
+    background: #f40612 !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 12px rgba(229, 9, 20, 0.4) !important;
+}
+
+#review-submission-form button[type="submit"]:active {
+    transform: translateY(0) !important;
+}
+
+#review-submission-form button[type="submit"]:disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+}
+
+/* Ocultar elementos innecesarios */
+.review-preselected-badge,
+.btn-change-selection {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.3);
+    color: #ccc;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-change-selection:hover {
+    background: white;
+    color: black;
+}
+
+/* Wrapper del modal */
+.custom-select-wrapper {
+    width: 100% !important;
+    position: relative !important;
+}
+
+/* Hidden input */
+#review-selected-id,
+#review-rating-value {
+    display: none !important;
+}
+
+/* ================================== */
+/* NOTIFICACIONES (TOASTS)            */
+/* ================================== */
+#toast-container {
+    position: fixed;
+    top: 90px; /* Debajo del header */
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.toast {
+    background: #181818;
+    color: white;
+    padding: 15px 20px;
+    border-radius: 8px;
+    border-left: 5px solid #E50914; /* Rojo marca */
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    min-width: 250px;
+    
+    /* Animación de entrada */
+    animation: slideInToast 0.3s ease forwards;
+    opacity: 0;
+    transform: translateX(100%);
+}
+
+.toast.success { border-left-color: #2ecc71; } /* Verde para éxito */
+.toast.error { border-left-color: #e74c3c; }   /* Rojo para error */
+
+.toast-icon { font-size: 1.2rem; }
+.toast-message { font-size: 0.95rem; font-weight: 500; }
+
+@keyframes slideInToast {
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fadeOutToast {
+    to { opacity: 0; transform: translateY(-10px); }
 }
 
 /* ======================================================= */
@@ -3738,4 +4414,3 @@ body.low-spec .hero-section::after {
 .accordion-content li i.fa-star { color: #ffd700; text-shadow: 0 0 10px #ffd700; }
 .accordion-content li i.fa-laugh-squint { color: #00f2ff; text-shadow: 0 0 10px #00f2ff; }
 .accordion-content li i.fa-microphone { color: #ff00ea; text-shadow: 0 0 10px #ff00ea; }
-
