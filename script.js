@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL OPTIMIZADO
-// Versión: 8.0 (01 de Feberero 2026)
+// Versión: 8.1 (01 de Feberero 2026)
 // ===========================================================
 
 // ===========================================================
@@ -21,6 +21,58 @@ let cacheManager;
 let modalManager;
 let lazyLoader;
 let contentManager;
+
+// ==========================================
+// PEGAR ESTO ANTES DE 'let playerModule = null;'
+// ==========================================
+function checkUserLogin() {
+    const user = JSON.parse(localStorage.getItem('cineCornetoUser'));
+    
+    // Mantener estructura de appState.user incluso sin usuario logueado
+    if (typeof appState !== 'undefined') {
+        if (user) {
+            appState.user = {
+                ...user,
+                watchlist: appState.user?.watchlist || new Set(),
+                historyListenerRef: appState.user?.historyListenerRef || null
+            };
+        } else {
+            appState.user = {
+                watchlist: new Set(),
+                historyListenerRef: null
+            };
+        }
+    }
+
+    // 1. Saludo Escritorio
+    if (typeof DOM !== 'undefined' && DOM.userGreeting) {
+        DOM.userGreeting.textContent = user ? `Hola, ${user.username}` : '';
+    }
+
+    // 2. Email en Profile Hub Móvil
+    const profileHubEmail = document.getElementById('profile-hub-email');
+    if (profileHubEmail) {
+        if (user) {
+            profileHubEmail.textContent = user.email;
+            profileHubEmail.style.display = 'block';
+        } else {
+            profileHubEmail.textContent = 'Visitante';
+            profileHubEmail.style.display = 'block';
+        }
+    }
+
+    // 3. Menús
+    if (typeof DOM !== 'undefined') {
+        if (user) {
+            if(DOM.loginBtn) DOM.loginBtn.style.display = 'none';
+            if(DOM.userMenuContainer) DOM.userMenuContainer.style.display = 'block';
+        } else {
+            if(DOM.loginBtn) DOM.loginBtn.style.display = 'block';
+            if(DOM.userMenuContainer) DOM.userMenuContainer.style.display = 'none';
+            if(DOM.userMenuDropdown && DOM.userMenuDropdown.classList) DOM.userMenuDropdown.classList.remove('show');
+        }
+    }
+}
 
 // Módulos dinámicos
 let playerModule = null;
@@ -1519,6 +1571,24 @@ function setupEventListeners() {
         });
     }
 
+    // Botón de login en el profile hub (móvil)
+    const loginBtnHub = document.getElementById('login-btn-hub');
+    if (loginBtnHub) {
+        loginBtnHub.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (window.openAuthModal) window.openAuthModal(true);
+        });
+    }
+
+    // Botón de registro en el profile hub (móvil)
+    const registerBtnHub = document.getElementById('register-btn-hub');
+    if (registerBtnHub) {
+        registerBtnHub.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (window.openAuthModal) window.openAuthModal(false);
+        });
+    }
+
     // =======================================================
     // 6. ACORDEÓN FESTIVAL DE VIÑA
     // =======================================================
@@ -2670,6 +2740,9 @@ function openAuthModal(isLogin) {
     document.body.classList.add('modal-open');
 }
 
+// Exportar openAuthModal al scope global para que los event listeners puedan accederla
+window.openAuthModal = openAuthModal;
+
 function updateUIAfterAuthStateChange(user) {
     const loggedInElements = [DOM.userProfileContainer, DOM.myListNavLink, DOM.historyNavLink, DOM.myListNavLinkMobile, DOM.historyNavLinkMobile];
     const loggedOutElements = [DOM.authButtons];
@@ -3589,7 +3662,6 @@ window.adminForceUpdate = () => { localStorage.clear(); location.reload(); };
 // ==========================================
 // 8. MANEJO DE RECUPERACIÓN DE CONTRASEÑA (NIVEL PROFESIONAL)
 // ==========================================
-
 function checkResetPasswordMode() {
     // 1. Verificamos si la URL tiene los parámetros mágicos de Firebase
     const urlParams = new URLSearchParams(window.location.search);
@@ -3686,7 +3758,7 @@ window.ErrorHandler = ErrorHandler;
 window.ContentManager = ContentManager;
 window.cacheManager = cacheManager;
 
-console.log('✅ Cine Corneta v8.0 cargado correctamente');
+console.log('✅ Cine Corneta v8.1 cargado correctamente');
 // ===========================================================
 // COMPATIBILIDAD: Funciones que ahora están en el módulo
 // ===========================================================
@@ -3757,3 +3829,276 @@ window.showNotification = function(message, type = 'success') {
         setTimeout(() => toast.remove(), 500);
     }, 3000);
 };
+
+// ===========================================================
+// 🚪 LOGOUT - VERSIÓN ULTRA FINAL QUE EJECUTA EN TOUCH
+// ===========================================================
+
+// Función para mostrar el modal de logout
+function mostrarModalLogout() {
+    console.log('🚀 Mostrando modal de logout');
+    
+    const confirmModal = document.getElementById('confirmation-modal');
+    if (!confirmModal) {
+        console.error('❌ Modal no encontrado');
+        if (confirm('¿Cerrar sesión?')) {
+            ejecutarLogout();
+        }
+        return;
+    }
+
+    const confirmTitle = confirmModal.querySelector('h2');
+    const confirmText = confirmModal.querySelector('p');
+    const confirmBtn = document.getElementById('confirm-delete-btn');
+    const cancelBtn = document.getElementById('cancel-delete-btn');
+    const modalContent = confirmModal.querySelector('.confirmation-modal-content');
+
+    // Configurar texto
+    if (confirmTitle) confirmTitle.textContent = '¿Cerrar sesión?';
+    if (confirmText) confirmText.textContent = 'Se cerrará tu sesión y volverás al modo invitado.';
+    if (confirmBtn) confirmBtn.textContent = 'Cerrar Sesión';
+    
+    // Evitar que los clicks en el contenido se propaguen
+    if (modalContent) {
+        modalContent.onclick = (e) => {
+            e.stopPropagation();
+        };
+    }
+    
+    // Mostrar modal
+    confirmModal.style.display = 'flex';
+    confirmModal.style.zIndex = '99999';
+    confirmModal.style.pointerEvents = 'auto';
+    
+    setTimeout(() => {
+        document.body.classList.add('modal-open');
+        confirmModal.classList.add('show');
+    }, 10);
+
+    // ✅ BOTÓN CONFIRMAR
+    if (confirmBtn) {
+        // Limpiar listeners previos clonando el botón
+        const newConfirmBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+        
+        // Variable para evitar doble ejecución
+        let confirmExecuted = false;
+        
+        const executeConfirm = (e) => {
+            if (confirmExecuted) return;
+            confirmExecuted = true;
+            
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            
+            console.log('✅ Logout confirmado - EJECUTANDO');
+            cerrarModal(confirmModal);
+            ejecutarLogout();
+        };
+        
+        // Método 1: touchstart (PRIMARIO en móvil)
+        newConfirmBtn.addEventListener('touchstart', executeConfirm, { passive: false });
+        
+        // Método 2: click (BACKUP para desktop)
+        newConfirmBtn.addEventListener('click', executeConfirm, true);
+        
+        // Método 3: onclick directo (EXTRA BACKUP)
+        newConfirmBtn.onclick = executeConfirm;
+    }
+
+    // ✅ BOTÓN CANCELAR  
+    if (cancelBtn) {
+        const newCancelBtn = cancelBtn.cloneNode(true);
+        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+        
+        let cancelExecuted = false;
+        
+        const executeCancel = (e) => {
+            if (cancelExecuted) return;
+            cancelExecuted = true;
+            
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            
+            console.log('❌ Logout cancelado - EJECUTANDO');
+            cerrarModal(confirmModal);
+        };
+        
+        newCancelBtn.addEventListener('touchstart', executeCancel, { passive: false });
+        newCancelBtn.addEventListener('click', executeCancel, true);
+        newCancelBtn.onclick = executeCancel;
+    }
+    
+    // Cerrar al hacer click en el fondo oscuro
+    confirmModal.onclick = (e) => {
+        if (e.target === confirmModal) {
+            console.log('🖱️ Click en fondo - cerrando');
+            cerrarModal(confirmModal);
+        }
+    };
+}
+
+// Función para cerrar el modal
+function cerrarModal(confirmModal) {
+    if (!confirmModal) return;
+    
+    confirmModal.classList.remove('show');
+    document.body.classList.remove('modal-open');
+    
+    setTimeout(() => {
+        confirmModal.style.display = 'none';
+        confirmModal.style.pointerEvents = 'none';
+    }, 300);
+}
+
+// Función para ejecutar el logout
+function ejecutarLogout() {
+    console.log('🔓 Ejecutando logout');
+    
+    if (typeof auth === 'undefined' || !auth) {
+        console.warn('⚠️ Auth no disponible, limpiando solo localStorage');
+        localStorage.removeItem('cineCornetoUser');
+        window.location.reload();
+        return;
+    }
+    
+    auth.signOut().then(() => {
+        console.log('✅ Sesión cerrada en Firebase');
+        localStorage.removeItem('cineCornetoUser');
+        
+        if (typeof appState !== 'undefined') {
+            appState.user = {
+                watchlist: new Set(),
+                historyListenerRef: null
+            };
+            
+            if (appState.user.historyListenerRef) {
+                appState.user.historyListenerRef.off();
+                appState.user.historyListenerRef = null;
+            }
+        }
+        
+        const profileHubEmail = document.getElementById('profile-hub-email');
+        if (profileHubEmail) profileHubEmail.textContent = 'Visitante';
+        
+        const hubLoggedIn = document.getElementById('hub-logged-in-content');
+        const hubGuest = document.getElementById('hub-guest-content');
+        if (hubLoggedIn) hubLoggedIn.style.display = 'none';
+        if (hubGuest) hubGuest.style.display = 'block';
+        
+        setTimeout(() => window.location.reload(), 500);
+        
+    }).catch((error) => {
+        console.error('❌ Error:', error);
+        localStorage.removeItem('cineCornetoUser');
+        window.location.reload();
+    });
+}
+
+// MÉTODO 1: Event delegation con MÚLTIPLES selectores
+document.addEventListener('click', function(e) {
+    const target = e.target;
+    
+    // Buscar si el elemento o algún padre es un botón de logout
+    const logoutBtn = target.closest('#logout-btn') || 
+                      target.closest('#logout-btn-hub') || 
+                      target.closest('#mobile-logout-btn') ||
+                      target.closest('.logout-action') ||
+                      target.closest('a[href="#"][id*="logout"]') ||
+                      target.closest('.profile-hub-menu-item.logout');
+    
+    if (logoutBtn) {
+        console.log('🔘 Click detectado en:', logoutBtn.id || logoutBtn.className);
+        e.preventDefault();
+        e.stopPropagation();
+        mostrarModalLogout();
+        return;
+    }
+    
+    // También buscar por texto
+    if (target.innerText && target.innerText.includes('Cerrar Sesión')) {
+        console.log('🔘 Click detectado por texto');
+        e.preventDefault();
+        e.stopPropagation();
+        mostrarModalLogout();
+        return;
+    }
+}, true);
+
+// MÉTODO 2: Listeners directos (BACKUP)
+function attachDirectListeners() {
+    const ids = ['logout-btn', 'logout-btn-hub', 'mobile-logout-btn'];
+    
+    ids.forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) {
+            btn.removeEventListener('click', handleLogoutClick);
+            btn.addEventListener('click', handleLogoutClick, true);
+            
+            // ✅ AGREGAR TOUCH SUPPORT
+            btn.removeEventListener('touchstart', handleLogoutClick);
+            btn.addEventListener('touchstart', handleLogoutClick, { passive: false });
+            
+            console.log(`✅ Listener directo agregado a ${id}`);
+        }
+    });
+    
+    const logoutLinks = document.querySelectorAll('.profile-hub-menu-item.logout');
+    logoutLinks.forEach(link => {
+        link.removeEventListener('click', handleLogoutClick);
+        link.addEventListener('click', handleLogoutClick, true);
+        
+        link.removeEventListener('touchstart', handleLogoutClick);
+        link.addEventListener('touchstart', handleLogoutClick, { passive: false });
+        
+        console.log('✅ Listener agregado a .profile-hub-menu-item.logout');
+    });
+}
+
+function handleLogoutClick(e) {
+    console.log('🔘 Listener directo activado');
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    mostrarModalLogout();
+}
+
+// Ejecutar cuando el DOM esté listo
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', attachDirectListeners);
+} else {
+    attachDirectListeners();
+}
+
+// Re-ejecutar después de 1 segundo
+setTimeout(attachDirectListeners, 1000);
+
+// MÉTODO 3: Observador de mutaciones
+const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+            if (node.nodeType === 1) {
+                if (node.id === 'logout-btn-hub' || 
+                    node.id === 'logout-btn' || 
+                    node.classList?.contains('logout')) {
+                    console.log('🔄 Botón de logout detectado dinámicamente');
+                    attachDirectListeners();
+                }
+                const logoutBtns = node.querySelectorAll?.('#logout-btn, #logout-btn-hub, .logout');
+                if (logoutBtns?.length > 0) {
+                    console.log('🔄 Botones de logout detectados en contenedor');
+                    attachDirectListeners();
+                }
+            }
+        });
+    });
+});
+
+observer.observe(document.body, {
+    childList: true,
+    subtree: true
+});
+
+console.log('✅ Sistema de logout cargado (3 métodos + observador + touch support)');
