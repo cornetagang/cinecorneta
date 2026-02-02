@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL OPTIMIZADO
-// Versión: 8.1 (01 de Feberero 2026)
+// Versión: 8.2 (02 de Feberero 2026)
 // ===========================================================
 
 // ===========================================================
@@ -2368,6 +2368,20 @@ async function openDetailsModal(id, type, triggerElement = null) {
                 return;
             }
         }
+        
+        // 🔥 FIX: Si es serie, obtener datos directamente de appState.content.series para asegurar que tenemos TODOS los campos
+        if (appState.content.series[id]) {
+            data = { ...data, ...appState.content.series[id] };
+        }
+        
+        // 🔍 DEBUG: Verificar que el campo random esté presente
+        console.log('📊 DATA DESPUÉS DE COMBINAR:', {
+            id: id,
+            title: data.title,
+            hasRandom: 'random' in data,
+            randomValue: data.random,
+            allKeys: Object.keys(data)
+        });
 
         // 2. RENDERIZADO BÁSICO
         const isSeries = (type === 'series' || !!appState.content.series[id] || data.type === 'series');
@@ -2452,10 +2466,87 @@ async function openDetailsModal(id, type, triggerElement = null) {
             };
             detailsButtons.appendChild(playBtn);
 
-            // --- BOTÓN 2: RESEÑAR (🔥 CONECTADO Y LIMPIO) ---
+            // --- BOTÓN 2: TEMPORADAS O RANDOM (Solo Series) ---
+            if (isSeries) {
+                const episodes = appState.content.seriesEpisodes[id] || {};
+                
+                // Botón Random - Validación flexible (busca random o randomValue)
+                const randomVal = String(data.randomValue || data.random || '').trim().toLowerCase();
+                const isRandomEnabled = ['si', 'sí', 'yes', 'true', '1'].includes(randomVal);
+                
+                if (isRandomEnabled) {
+                    const randomBtn = document.createElement('button');
+                    randomBtn.className = 'btn btn-random';
+                    randomBtn.innerHTML = `<i class="fas fa-random"></i> Aleatorio`;
+                    randomBtn.onclick = async () => {
+                        const allEpisodes = [];
+                        const episodesData = appState.content.seriesEpisodes[id] || {};
+                        
+                        Object.keys(episodesData).forEach(seasonKey => {
+                            const episodesArray = episodesData[seasonKey];
+                            if (Array.isArray(episodesArray)) {
+                                episodesArray.forEach((episode, index) => {
+                                    if (episode && episode.videoId) {
+                                        allEpisodes.push({
+                                            season: seasonKey,
+                                            episodeIndex: index,
+                                            episodeNum: index + 1,
+                                            data: episode
+                                        });
+                                    }
+                                });
+                            }
+                        });
+
+                        if (allEpisodes.length === 0) {
+                            ErrorHandler.show('content', 'No hay episodios disponibles.');
+                            return;
+                        }
+
+                        const randomIndex = Math.floor(Math.random() * allEpisodes.length);
+                        const selected = allEpisodes[randomIndex];
+
+                        ModalManager.closeAll();
+                        const player = await getPlayerModule();
+                        player.playEpisode(id, selected.season, selected.episodeNum);
+                    };
+                    detailsButtons.appendChild(randomBtn);
+                }
+                
+                // Botón Temporadas - Si tiene más de 1 temporada
+                if (Object.keys(episodes).length > 1) {
+                    const infoBtn = document.createElement('button');
+                    infoBtn.className = 'btn btn-info';
+                    infoBtn.innerHTML = `<i class="fas fa-list"></i> Temporadas`;
+                    infoBtn.onclick = async () => {
+                        ModalManager.closeAll();
+                        const player = await getPlayerModule();
+                        player.openSeriesPlayer(id, true);
+                    };
+                    detailsButtons.appendChild(infoBtn);
+                }
+            }
+
+            // --- BOTÓN 3: MI LISTA ---
+            if (auth.currentUser) {
+                const inList = appState.user.watchlist.has(id);
+                const listBtn = document.createElement('button');
+                listBtn.className = `btn btn-watchlist ${inList ? 'in-list' : ''}`;
+                listBtn.innerHTML = `<i class="fas ${inList ? 'fa-check' : 'fa-plus'}"></i>`;
+                listBtn.dataset.contentId = id;
+                
+                listBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    handleWatchlistClick(listBtn);
+                };
+                detailsButtons.appendChild(listBtn);
+            }
+
+            // --- BOTÓN 4: RESEÑAR (CIRCULAR AL LADO DE MI LISTA) ---
             const reviewBtn = document.createElement('button');
-            reviewBtn.className = 'btn btn-review';
-            reviewBtn.innerHTML = `<i class="fas fa-star"></i> Reseñar`;
+            reviewBtn.className = 'btn btn-review btn-icon-only';
+            reviewBtn.innerHTML = `<i class="fas fa-star"></i>`;
+            reviewBtn.title = 'Reseñar'; // Tooltip
             
             reviewBtn.onclick = async () => {
                 // 1. Validar login
@@ -2480,37 +2571,6 @@ async function openDetailsModal(id, type, triggerElement = null) {
                 }, 100);
             };
             detailsButtons.appendChild(reviewBtn);
-
-            // --- BOTÓN 3: TEMPORADAS (Solo Series) ---
-            if (isSeries) {
-                const episodes = appState.content.seriesEpisodes[id] || {};
-                if (Object.keys(episodes).length > 1) {
-                    const infoBtn = document.createElement('button');
-                    infoBtn.className = 'btn btn-info';
-                    infoBtn.innerHTML = `<i class="fas fa-list"></i> Temporadas`;
-                    infoBtn.onclick = async () => {
-                        ModalManager.closeAll();
-                        const player = await getPlayerModule();
-                        player.openSeriesPlayer(id, true);
-                    };
-                    detailsButtons.appendChild(infoBtn);
-                }
-            }
-
-            // --- BOTÓN 4: MI LISTA ---
-            if (auth.currentUser) {
-                const inList = appState.user.watchlist.has(id);
-                const listBtn = document.createElement('button');
-                listBtn.className = `btn btn-watchlist ${inList ? 'in-list' : ''}`;
-                listBtn.innerHTML = `<i class="fas ${inList ? 'fa-check' : 'fa-plus'}"></i>`;
-                listBtn.dataset.contentId = id;
-                
-                listBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    handleWatchlistClick(listBtn);
-                };
-                detailsButtons.appendChild(listBtn);
-            }
         }
 
         modal.classList.add('show');
@@ -3758,7 +3818,7 @@ window.ErrorHandler = ErrorHandler;
 window.ContentManager = ContentManager;
 window.cacheManager = cacheManager;
 
-console.log('✅ Cine Corneta v8.1 cargado correctamente');
+console.log('✅ Cine Corneta v8.2 cargado correctamente');
 // ===========================================================
 // COMPATIBILIDAD: Funciones que ahora están en el módulo
 // ===========================================================
@@ -4010,7 +4070,6 @@ document.addEventListener('click', function(e) {
                       target.closest('.profile-hub-menu-item.logout');
     
     if (logoutBtn) {
-        console.log('🔘 Click detectado en:', logoutBtn.id || logoutBtn.className);
         e.preventDefault();
         e.stopPropagation();
         mostrarModalLogout();
@@ -4019,7 +4078,6 @@ document.addEventListener('click', function(e) {
     
     // También buscar por texto
     if (target.innerText && target.innerText.includes('Cerrar Sesión')) {
-        console.log('🔘 Click detectado por texto');
         e.preventDefault();
         e.stopPropagation();
         mostrarModalLogout();
@@ -4040,8 +4098,6 @@ function attachDirectListeners() {
             // ✅ AGREGAR TOUCH SUPPORT
             btn.removeEventListener('touchstart', handleLogoutClick);
             btn.addEventListener('touchstart', handleLogoutClick, { passive: false });
-            
-            console.log(`✅ Listener directo agregado a ${id}`);
         }
     });
     
@@ -4052,13 +4108,10 @@ function attachDirectListeners() {
         
         link.removeEventListener('touchstart', handleLogoutClick);
         link.addEventListener('touchstart', handleLogoutClick, { passive: false });
-        
-        console.log('✅ Listener agregado a .profile-hub-menu-item.logout');
     });
 }
 
 function handleLogoutClick(e) {
-    console.log('🔘 Listener directo activado');
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
@@ -4083,12 +4136,10 @@ const observer = new MutationObserver((mutations) => {
                 if (node.id === 'logout-btn-hub' || 
                     node.id === 'logout-btn' || 
                     node.classList?.contains('logout')) {
-                    console.log('🔄 Botón de logout detectado dinámicamente');
                     attachDirectListeners();
                 }
                 const logoutBtns = node.querySelectorAll?.('#logout-btn, #logout-btn-hub, .logout');
                 if (logoutBtns?.length > 0) {
-                    console.log('🔄 Botones de logout detectados en contenedor');
                     attachDirectListeners();
                 }
             }
@@ -4100,5 +4151,3 @@ observer.observe(document.body, {
     childList: true,
     subtree: true
 });
-
-console.log('✅ Sistema de logout cargado (3 métodos + observador + touch support)');
