@@ -797,3 +797,15 @@ export function openPlayerToEpisode(seriesId, seasonNum, episodeIndex) {
     
     renderEpisodePlayer(seriesId, seasonNum, episodeIndex);
 }
+
+/**
+ * Función simplificada para reproducir un episodio específico
+ * @param {string} seriesId - ID de la serie
+ * @param {string} seasonNum - Número/clave de temporada
+ * @param {string|number} episodeNum - Número del episodio (1-indexed en la hoja)
+ */
+export function playEpisode(seriesId, seasonNum, episodeNum) {
+    // Los episodios en el array son 0-indexed, pero en la hoja son 1-indexed
+    const episodeIndex = parseInt(episodeNum) - 1;
+    openPlayerToEpisode(seriesId, seasonNum, episodeIndex);
+}
