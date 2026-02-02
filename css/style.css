@@ -991,13 +991,161 @@ body.modal-open { overflow: hidden; }
 #details-buttons .btn-watchlist { position: static; width: 44px; height: 44px; flex-grow: 0; flex-shrink: 0;background: rgba(109, 109, 110, 0.7); border: 1px solid rgba(255,255,255,0.2); }
 
 /* ================================== */
-/* MODAL DE CONFIRMACIÓN              */
+/* MODAL DE CONFIRMACIÓN - VERSIÓN DEFINITIVA  */
 /* ================================== */
-.confirmation-modal-content { background: var(--panel-dark); padding: 30px 40px; border-radius: 8px; width: 90%; max-width: 450px; text-align: center; border-top: 3px solid var(--primary-red); }
-.confirmation-buttons { display: flex; justify-content: center; gap: 20px; margin-top: 20px; }
-.confirmation-buttons button { padding: 10px 25px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
-.btn-confirm { background: var(--primary-red); color: white; }
-.btn-cancel { background: #444; color: var(--text-light); }
+
+/* 1️⃣ BASE DEL MODAL */
+#confirmation-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.75);
+    z-index: 99999;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none; /* ✅ CRÍTICO: Desactivar eventos en el fondo */
+}
+
+#confirmation-modal.show {
+    display: flex !important;
+    pointer-events: auto; /* ✅ CRÍTICO: Activar eventos cuando está visible */
+}
+
+/* 2️⃣ CONTENIDO DEL MODAL */
+.confirmation-modal-content {
+    background: var(--panel-dark);
+    padding: 30px 40px;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 450px;
+    text-align: center;
+    border-top: 3px solid var(--primary-red);
+    position: relative;
+    z-index: 100000;
+    box-shadow: 0 10px 50px rgba(0, 0, 0, 0.8);
+    animation: modalSlideIn 0.3s ease;
+    pointer-events: auto; /* ✅ CRÍTICO: Asegurar que el contenido sea clickeable */
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9) translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.confirmation-modal-content h2 {
+    margin: 0 0 15px 0;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem;
+    color: var(--text-light);
+    pointer-events: none; /* El texto no necesita eventos */
+}
+
+.confirmation-modal-content p {
+    margin: 0 0 25px 0;
+    color: var(--text-muted);
+    line-height: 1.6;
+    pointer-events: none; /* El texto no necesita eventos */
+}
+
+/* 3️⃣ BOTONES */
+.confirmation-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 20px;
+    pointer-events: auto; /* ✅ CRÍTICO: Los botones DEBEN ser clickeables */
+}
+
+.confirmation-buttons button {
+    padding: 12px 28px;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 1rem;
+    pointer-events: auto; /* ✅ CRÍTICO: Cada botón es clickeable */
+    position: relative; /* ✅ Asegurar stacking context */
+    z-index: 100001; /* ✅ Por encima de todo */
+}
+
+.btn-confirm {
+    background: var(--primary-red);
+    color: white;
+}
+
+.btn-confirm:hover {
+    background: var(--secondary-red);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(229, 9, 20, 0.5);
+}
+
+.btn-confirm:active {
+    transform: translateY(0);
+}
+
+.btn-cancel {
+    background: #444;
+    color: var(--text-light);
+}
+
+.btn-cancel:hover {
+    background: #555;
+    transform: translateY(-2px);
+}
+
+.btn-cancel:active {
+    transform: translateY(0);
+}
+
+/* 4️⃣ AJUSTES ESPECÍFICOS PARA MÓVIL */
+@media (max-width: 768px) {
+    #confirmation-modal {
+        z-index: 99999 !important;
+        pointer-events: auto !important; /* ✅ Forzar en móvil */
+    }
+    
+    .confirmation-modal-content {
+        width: 85%;
+        padding: 25px 20px;
+        z-index: 100000 !important;
+        pointer-events: auto !important; /* ✅ Forzar en móvil */
+    }
+
+    .confirmation-modal-content h2 {
+        font-size: 1.8rem;
+    }
+
+    .confirmation-buttons {
+        flex-direction: row;
+        gap: 15px;
+        pointer-events: auto !important; /* ✅ Forzar en móvil */
+    }
+
+    .confirmation-buttons button {
+        flex: 1;
+        padding: 12px 16px;
+        font-size: 0.95rem;
+        pointer-events: auto !important; /* ✅ CRÍTICO en móvil */
+        touch-action: manipulation; /* ✅ Mejor respuesta táctil */
+        -webkit-tap-highlight-color: transparent; /* ✅ Quitar highlight azul */
+    }
+
+    /* ✅ CRÍTICO: Desactivar el bottom-nav cuando el modal está abierto */
+    body.modal-open .bottom-nav {
+        z-index: 9998 !important;
+        pointer-events: none !important;
+    }
+}
 
 /* ================================== */
 /* ESTILOS PARA BOTONES EN MODAL      */
@@ -1290,26 +1438,43 @@ body.modal-open { overflow: hidden; }
 .genre-progress-fill { height: 100%; background-color: var(--primary-red); width: 0%; transition: width 0.5s ease-in-out; }
 .genre-count { font-weight: bold; }
 
-/* NUEVO: Estilos para la vista de "Perfil" en móvil */
+/* ================================== */
+/* PROFILE HUB - MENÚ MÓVIL MEJORADO  */
+/* ================================== */
+
 #profile-hub-container {
     padding: 30px 15px;
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 20px; /* ✅ Aumentado de 15px a 20px */
 }
+
 .profile-hub-header {
     text-align: center;
-    margin-bottom: 20px;
+    margin-bottom: 25px; /* ✅ Aumentado de 20px a 25px */
 }
+
 .profile-hub-header h2 {
     font-size: 2rem;
-    margin: 0 0 5px 0;
+    margin: 0 0 8px 0; /* ✅ Aumentado de 5px a 8px */
 }
+
 .profile-hub-header p {
     font-size: 1.1rem;
     color: var(--text-muted);
     margin: 0;
 }
+
+/* ✅ SECCIÓN: Títulos de categorías (EXPLORAR, MI CUENTA) */
+#profile-hub-container h4 {
+    color: #666;
+    font-size: 0.9rem;
+    margin: 25px 0 15px 5px; /* ✅ Aumentado margen superior de 10px a 25px */
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* ✅ ITEMS DEL MENÚ - MÁS ESPACIADOS */
 .profile-hub-menu-item {
     display: flex;
     align-items: center;
@@ -1317,27 +1482,172 @@ body.modal-open { overflow: hidden; }
     background-color: var(--panel-dark);
     color: var(--text-light);
     text-decoration: none;
-    padding: 20px;
+    padding: 18px 20px; /* ✅ Aumentado de 20px a 18px vertical (más aire) */
+    margin-bottom: 12px; /* ✅ NUEVO: Espacio entre cada botón */
     border-radius: 8px;
     font-size: 1.1rem;
     font-weight: bold;
     transition: background-color 0.2s, transform 0.2s;
 }
+
 .profile-hub-menu-item:hover {
-    background-color: #222;
+    background-color: rgba(229, 9, 20, 0.2);
     transform: translateX(5px);
 }
+
 .profile-hub-menu-item i {
-    font-size: 1.5rem;
-    color: var(--primary-red);
-    width: 30px;
+    font-size: 1.3rem;
+    width: 24px;
     text-align: center;
 }
+
+/* ✅ BOTÓN DE CERRAR SESIÓN - MÁS SEPARADO */
 .profile-hub-menu-item.logout {
-    color: #ff9a9a;
+    margin-top: 30px; /* ✅ Aumentado de 20px a 30px */
+    margin-bottom: 0; /* ✅ Resetear el margin-bottom aquí */
+    justify-content: center;
+    background: rgba(255, 0, 0, 0.1);
+    border: 1px solid rgba(255, 0, 0, 0.3);
 }
+
 .profile-hub-menu-item.logout i {
-    color: #ff9a9a;
+    color: var(--primary-red);
+}
+
+/* ✅ SEPARADORES VISUALES - MÁS VISIBLES */
+#profile-hub-container > div[style*="border-top"] {
+    margin: 25px 0; /* ✅ Aumentado de 20px a 25px */
+}
+
+/* ✅ CONTENEDORES DE SECCIONES */
+#hub-logged-in-content,
+#hub-guest-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px; /* ✅ Espacio entre items dentro de cada sección */
+}
+
+/* ✅ AJUSTE PARA MÓVIL */
+@media (max-width: 768px) {
+    .profile-hub-menu-item {
+        padding: 16px 18px;
+        margin-bottom: 10px; /* ✅ Menos espacio en pantallas pequeñas */
+        font-size: 1rem;
+    }
+    
+    .profile-hub-menu-item i {
+        font-size: 1.2rem;
+    }
+    
+    #profile-hub-container h4 {
+        margin: 20px 0 12px 5px;
+    }
+}
+
+/* ================================== */
+/* MODO INVITADO - BOTONES MEJORADOS  */
+/* ================================== */
+
+/* ✅ CONTENEDOR DEL MODO INVITADO */
+#hub-guest-content {
+    text-align: center;
+    padding: 40px 20px; /* ✅ Más padding superior/inferior */
+}
+
+/* ✅ ICONO DE CANDADO */
+#hub-guest-content i.fa-user-lock {
+    font-size: 4rem;
+    color: #555; /* ✅ Un poco más claro */
+    margin-bottom: 25px; /* ✅ Más separación */
+}
+
+/* ✅ TÍTULO "MODO INVITADO" */
+#hub-guest-content h3 {
+    margin: 0 0 30px 0; /* ✅ Más separación antes de los botones */
+    color: var(--text-light);
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+/* ✅ BOTÓN INICIAR SESIÓN (PRIMARIO - ROJO) */
+#login-btn-hub {
+    width: 100%;
+    padding: 16px 20px; /* ✅ Más padding */
+    font-size: 1.1rem;
+    font-weight: bold;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 15px;
+    border-radius: 10px; /* ✅ Más redondeado */
+    background: linear-gradient(135deg, var(--primary-red), var(--secondary-red)); /* ✅ Degradado */
+    border: none;
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(229, 9, 20, 0.4); /* ✅ Sombra */
+}
+
+#login-btn-hub:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(229, 9, 20, 0.6);
+    background: linear-gradient(135deg, var(--secondary-red), var(--primary-red));
+}
+
+#login-btn-hub:active {
+    transform: translateY(0);
+}
+
+/* ✅ BOTÓN REGISTRARSE (SECUNDARIO - BLANCO) */
+#register-btn-hub {
+    width: 100%;
+    padding: 16px 20px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-top: 15px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.95); /* ✅ BLANCO casi opaco */
+    border: 2px solid rgba(255, 255, 255, 1); /* ✅ Borde blanco sólido */
+    color: #e7e0e0; /* ✅ Texto oscuro para contraste */
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2); /* ✅ Sombra clara */
+}
+
+#register-btn-hub:hover {
+    background: rgba(255, 255, 255, 1); /* ✅ Blanco completo */
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(255, 255, 255, 0.4);
+    color: #000; /* ✅ Texto más oscuro en hover */
+}
+
+#register-btn-hub:active {
+    transform: translateY(0);
+    background: rgba(240, 240, 240, 1);
+}
+
+/* ✅ ICONOS DENTRO DE LOS BOTONES */
+#login-btn-hub i,
+#register-btn-hub i {
+    font-size: 1.2rem;
+}
+
+/* ✅ AJUSTE PARA PANTALLAS MUY PEQUEÑAS */
+@media (max-width: 400px) {
+    #login-btn-hub,
+    #register-btn-hub {
+        padding: 14px 16px;
+        font-size: 1rem;
+    }
+    
+    #hub-guest-content h3 {
+        font-size: 1.3rem;
+    }
 }
 
 /* ================================== */
