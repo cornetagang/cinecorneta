@@ -489,7 +489,32 @@ body.modal-open { overflow: hidden; }
 .details-info h2 { margin-bottom: 8px; font-size: clamp(1.8rem, 4vw, 2.5rem); }
 .details-meta { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; align-items: center; }
 .details-meta span { background-color: rgba(40, 40, 40, 0.9); padding: 6px 14px; border-radius: 15px; font-size: 0.9rem; }
-#details-buttons { display: flex; align-items: center; margin-top: 20px; }
+#details-buttons { display: flex; align-items: center; margin-top: 20px; gap: 10px; }
+
+/* Botón Review Circular en Details */
+#details-buttons .btn-review.btn-icon-only {
+    flex: 0 0 45px;        /* No crecer, ancho fijo de 41px */
+    width: 45px;           /* Ancho */
+    height: 45px;          /* Altura (igual a los otros botones) */
+    border-radius: 50%;    /* Círculo perfecto */
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+}
+
+#details-buttons .btn-review.btn-icon-only i {
+    color: #ffd700;
+    font-size: 14px;
+    margin: 0;
+}
+
+#details-buttons .btn-review.btn-icon-only:hover {
+    background: rgba(255, 215, 0, 0.25);
+    border-color: #ffd700;
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+}
 
 .seasons-grid, #season-grid {
   display: flex;
@@ -2667,9 +2692,17 @@ body.modal-open { overflow: hidden; }
         order: 2;
     }
     
+    
+    /* El botón de reseñar va junto al botón de Mi Lista */
+    #details-buttons .btn-review.btn-icon-only {
+        order: 3;
+        flex: 0 0 45px;   /* Mismo tamaño que el botón de lista */
+        width: 45px;
+        height: 45px;
+    }
     /* El botón de lista se queda al final */
     #details-buttons .btn-watchlist {
-        order: 3;
+        order: 4;
     }
 }
 
