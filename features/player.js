@@ -805,7 +805,6 @@ export function openPlayerToEpisode(seriesId, seasonNum, episodeIndex) {
  * @param {string|number} episodeNum - Número del episodio (1-indexed en la hoja)
  */
 export function playEpisode(seriesId, seasonNum, episodeNum) {
-    // Los episodios en el array son 0-indexed, pero en la hoja son 1-indexed
     const episodeIndex = parseInt(episodeNum) - 1;
     openPlayerToEpisode(seriesId, seasonNum, episodeIndex);
 }
