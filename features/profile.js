@@ -304,7 +304,6 @@ async function calculateAndDisplayUserStats() {
             if (item.type === 'movie') moviesWatched++;
             else if (item.type === 'series') seriesWatched.add(item.contentId);
 
-            // Seguridad: Verificar que content existe antes de leer genres
             const content = shared.appState.content.movies[item.contentId] || shared.appState.content.series[item.contentId] || (shared.appState.content.ucm ? shared.appState.content.ucm[item.contentId] : null);
             
             if (content && content.genres) {
