@@ -1,8 +1,8 @@
 // ===========================================================
 // MÓDULO DE RESEÑAS (REVIEWS)
 // ===========================================================
-// Versión: 2.0
-// Fecha: 1 de Febrero 2026
+// Versión: 2.1
+// Fecha: 2 de Febrero 2026
 // ===========================================================
 
 let appState, DOM, auth, db, ErrorHandler, ModalManager, openConfirmationModal;
@@ -626,7 +626,6 @@ export function openFullReview(reviewData) {
     document.body.classList.add('modal-open');
 }
 
-// Exponer globalmente
 window.openFullReview = openFullReview;
 
 // ===========================================================
