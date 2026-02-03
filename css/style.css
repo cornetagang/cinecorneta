@@ -2716,7 +2716,7 @@ body.modal-open { overflow: hidden; }
     overflow-y: hidden;
     cursor: default;
     scroll-behavior: smooth;
-    padding-bottom: 15px; /* Espacio para que no pegue con las tarjetas */
+    padding-bottom: 15px;
 }
 
 .carousel-track::-webkit-scrollbar {
