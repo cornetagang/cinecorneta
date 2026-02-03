@@ -3823,11 +3823,7 @@ console.log('✅ Cine Corneta v8.2 cargado correctamente');
 // COMPATIBILIDAD: Funciones que ahora están en el módulo
 // ===========================================================
 
-// setupRatingsListener ahora está dentro del módulo de reviews
-// Esta función stub es solo por compatibilidad durante la transición
 function setupRatingsListener() {
-    // El listener ya se configuró cuando se inicializó el módulo de reviews
-    // Esta función vacía evita errores si hay código legacy que la llame
     console.log('ℹ️ setupRatingsListener: Ya configurado en el módulo de reviews');
 }
 
