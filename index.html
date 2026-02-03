@@ -301,8 +301,11 @@
                 <div id="hub-guest-content" style="display: none; text-align: center; padding: 30px 20px;">
                     <i class="fas fa-user-lock" style="font-size: 4rem; color: #444; margin-bottom: 20px;"></i>
                     <h3 style="margin: 0 0 10px 0; color: var(--text-light);">Modo Invitado</h3>
-                    <button id="login-btn-hub" class="btn-primary" style="width: 100%; padding: 15px; font-size: 1.1rem; display: flex; justify-content: center; align-items: center; gap: 10px;">
+                    <button id="login-btn-hub" class="btn-primary" style="width: 100%; padding: 15px; font-size: 1.1rem; display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 15px;">
                         <i class="fas fa-sign-in-alt"></i> Iniciar Sesión
+                    </button>
+                    <button id="register-btn-hub" class="btn-secondary" style="width: 100%; padding: 15px; font-size: 1.1rem; display: flex; justify-content: center; align-items: center; gap: 10px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); margin-top: 15px;">
+                        <i class="fas fa-user-plus"></i> Registrarse
                     </button>
                 </div>
             </div>
@@ -499,7 +502,7 @@
                 </div>
                 <input type="hidden" id="review-rating-value" value="0">
                 
-                <textarea id="review-text-input" placeholder="¿Qué te pareció? (Mínimo 2 letras)" required style="height: 140px; background: rgba(255,255,255,0.05); color: white; border: 1px solid #333; padding: 15px; border-radius: 8px; margin-bottom: 20px; resize: none; width: 100%;"></textarea>
+                <textarea id="review-text-input" placeholder="¿Qué te pareció?" required style="height: 140px; background: rgba(255,255,255,0.05); color: white; border: 1px solid #333; padding: 15px; border-radius: 8px; margin-bottom: 20px; resize: none; width: 100%;"></textarea>
                 
                 <button type="submit" class="btn-primary" style="width: 100%;">Publicar Reseña</button>
             </form>
