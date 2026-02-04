@@ -642,60 +642,294 @@ body.modal-open { overflow: hidden; }
 }
 
 /* ================================== */
-/* REPRODUCTOR DE PELÍCULAS           */
+/* REPRODUCTOR DE PELÍCULAS - NUEVO DISEÑO */
 /* ================================== */
-#cinema .screen { width: 90vw; max-width: 1600px; aspect-ratio: 16/9; background: #000; border-radius: 8px; overflow: hidden; }
-#cinema .screen iframe { width: 100%; height: 100%; border: none; }
-
-/* =========================== */
-/* PANTALLA DE CINE MEJORADA   */
-/* =========================== */
-#cinema .cinema-wrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 92vw;
-  max-width: 1600px;
-  background: linear-gradient(180deg, #111 0%, #000 100%);
-  padding: 20px;
-  border-radius: 12px;
-  animation: cinemaEnter 0.4s ease;
+.movie-player-layout-container {
+    display: flex;
+    gap: 20px; /* Reducido de 30px a 20px para juntar las columnas */
+    width: 95vw;
+    max-width: 1600px; /* Un poco más contenido para que no se estire tanto */
+    
+    /* 🔥 CAMBIO CLAVE: Altura automática para eliminar el espacio vacío abajo */
+    height: auto; 
+    max-height: 90vh; /* Límite máximo para que no se salga de la pantalla */
+    
+    background-color: var(--panel-dark);
+    border-radius: 12px; /* Bordes un poco más suaves */
+    padding: 20px; /* Reducido de 30px a 20px para ganar espacio */
+    box-shadow: 0 20px 50px rgba(0,0,0,0.8); /* Sombra para darle profundidad */
 }
 
-#cinema .screen {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  background: #000000;
-  border-radius: 8px;
-  overflow: hidden;
+/* Contenedor del reproductor (Izquierda) */
+.movie-player-container {
+    flex: 3;
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* Centra el contenido verticalmente */
+    gap: 15px; /* Espacio pulcro entre el video y los botones */
 }
 
-#cinema .cinema-info {
-  width: 100%;
-  margin-top: 15px;
-  text-align: center;
-  color: var(--text-light);
+.movie-player-container .screen {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #000;
+    border-radius: 8px;
+    overflow: hidden;
 }
 
-#cinema #cinema-title {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.8rem;
-  margin-bottom: 10px;
+.movie-player-container .screen iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
 }
 
+/* Botones de selección de idioma - DEBAJO DEL REPRODUCTOR */
+.movie-lang-selection {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    width: 100%;
+}
+
+.lang-select-btn {
+    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-light);
+    padding: 16px 40px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 1.1rem;
+    font-weight: bold;
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 1.5px;
+    transition: all 0.3s ease;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    min-width: 180px;
+}
+
+.lang-select-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+    transition: left 0.5s ease;
+}
+
+.lang-select-btn:hover::before {
+    left: 100%;
+}
+
+.lang-select-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #2d2d2d 0%, #3d3d3d 100%);
+    border-color: var(--primary-red);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(229, 9, 20, 0.3);
+}
+
+/* Botón activo (pre-seleccionado) */
+.lang-select-btn.active {
+    background: linear-gradient(135deg, var(--primary-red) 0%, #b20710 100%);
+    border-color: var(--primary-red);
+    color: white;
+    box-shadow: 0 6px 16px rgba(229, 9, 20, 0.5);
+}
+
+.lang-select-btn.active::after {
+    content: '\f00c'; /* checkmark */
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    margin-left: 10px;
+}
+
+.lang-select-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    background: #1a1a1a;
+}
+
+.lang-select-btn:disabled:hover {
+    transform: none;
+    box-shadow: none;
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Sidebar de información y controles */
+.movie-info-sidebar {
+    flex: 1;
+    min-width: 380px;
+    display: flex;
+    flex-direction: column;
+    background: #222;
+    border-radius: 8px;
+    padding: 25px;
+    gap: 20px;
+    overflow-y: auto;
+    scrollbar-width: none;
+}
+
+.movie-info-sidebar::-webkit-scrollbar {
+    display: none;
+}
+
+/* Poster de la película - AJUSTADO */
+.movie-poster-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-bottom: 8px;
+    flex-shrink: 0;
+}
+
+.movie-poster-container img {
+    width: 100%;
+    max-width: 200px;
+    height: auto;
+    aspect-ratio: 2/3;
+    border-radius: 6px;
+    object-fit: cover;
+}
+
+/* Información de la película */
+.movie-details-info {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.movie-player-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.2rem;
+    text-align: center;
+    color: var(--text-light);
+    margin: 0;
+    line-height: 1.2;
+}
+
+/* Meta información - ORDEN: Pedido, Año, Duración */
+.movie-meta-info {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.movie-meta-info span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    white-space: nowrap;
+}
+
+.movie-meta-info span::before {
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+}
+
+/* Orden correcto de íconos */
+#cinema-requester::before {
+    content: '\f007'; /* fa-user - PRIMERO */
+    color: var(--primary-red);
+}
+
+#cinema-year::before {
+    content: '\f073'; /* fa-calendar - SEGUNDO */
+    color: #ffd700;
+}
+
+#cinema-duration::before {
+    content: '\f017'; /* fa-clock - TERCERO */
+    color: #00f2ff;
+}
+
+/* Sinopsis */
+.movie-synopsis {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    text-align: justify;
+    margin: 10px 0;
+    padding: 15px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    border-left: 3px solid var(--primary-red);
+}
+
+/* Controles adicionales (Mi Lista, Reseñas) */
 #cinema .cinema-controls {
-  display: flex;
-  justify-content: center;
-  gap: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: auto;
 }
 
+#cinema .cinema-controls .btn-watchlist,
+#cinema .cinema-controls .btn-review {
+    width: 100%;
+    padding: 14px 20px;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+#cinema .cinema-controls .btn-watchlist {
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    color: var(--text-light);
+}
+
+#cinema .cinema-controls .btn-watchlist:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.4);
+    transform: translateY(-2px);
+}
+
+#cinema .cinema-controls .btn-watchlist.in-list {
+    background: rgba(70, 211, 105, 0.2);
+    border-color: rgba(70, 211, 105, 0.5);
+    color: #46d369;
+}
+
+#cinema .cinema-controls .btn-review {
+    background: linear-gradient(135deg, rgba(0, 242, 255, 0.1) 0%, rgba(0, 242, 255, 0.05) 100%);
+    border: 2px solid rgba(0, 242, 255, 0.3);
+    color: #00f2ff;
+}
+
+#cinema .cinema-controls .btn-review:hover {
+    background: linear-gradient(135deg, rgba(0, 242, 255, 0.2) 0%, rgba(0, 242, 255, 0.1) 100%);
+    border-color: #00f2ff;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 242, 255, 0.3);
+}
+
+/* Animación de entrada */
 @keyframes cinemaEnter {
-  from { transform: scale(0.95); opacity: 0; }
-  to   { transform: scale(1); opacity: 1; }
+    from { transform: scale(0.95); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+}
+
+.movie-player-layout-container {
+    animation: cinemaEnter 0.4s ease;
 }
 
 /* ========================================
-   CONTROLES DE IDIOMA PARA PELÍCULAS
+   CONTROLES DE IDIOMA DURANTE LA REPRODUCCIÓN (LEGACY)
    ======================================== */
 .lang-controls-movie {
     display: flex;
@@ -3882,24 +4116,27 @@ body.low-spec .loading-text {
 }
 
 /* ============================================
-   LAYOUT PELÍCULA (PANORÁMICO / CINE)
+   MEJORAS MODAL REPRODUCTOR - PÓSTER MODERADO
    ============================================ */
 
+/* --- CONTENEDOR PRINCIPAL --- */
 #series-player-modal .player-layout-container.movie-mode {
     display: grid;
-    /* Video (Flexible) | Info (Fijo de 380px) */
-    grid-template-columns: 1fr 380px; 
+    grid-template-columns: 1fr 380px; /* Sidebar fijo a la derecha */
     
-    /* 🔥 CAMBIOS CLAVE AQUÍ PARA EL ANCHO 🔥 */
-    width: 96vw;            /* 96% del ancho de la pantalla (Casi borde a borde) */
-    max-width: 1850px;      /* Aumentado de 1500px a 1850px para monitores grandes */
-    height: 90vh;           /* Un poco más alto también (90% de la altura) */
+    width: 95vw;
+    max-width: 1600px;
+    
+    /* 🔥 ELIMINAR ALTURA FIJA AQUÍ TAMBIÉN */
+    height: auto;
+    max-height: 90vh;
+    min-height: 500px; /* Altura mínima para que no colapse */
     
     background-color: #141414;
     border-radius: 12px;
-    box-shadow: 0 0 50px rgba(0,0,0,0.9); /* Sombra más intensa */
+    box-shadow: 0 0 50px rgba(0,0,0,0.9);
     
-    overflow: hidden;
+    overflow: hidden; /* Mantiene todo dentro de los bordes redondeados */
     gap: 0;
     padding: 0;
     margin: auto;
@@ -3929,20 +4166,30 @@ body.low-spec .loading-text {
 .movie-info-sidebar {
     background: #141414;
     border-left: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 30px; /* Un poco más de espacio interno */
+    padding: 25px; /* Un poco más de aire interno */
     display: flex;
     flex-direction: column;
-    gap: 20px;     /* Separación vertical más cómoda */
-    overflow-y: auto;
-    height: 100%;
-    z-index: 10;
+    gap: 15px; 
+    
+    /* 🔥 Ajuste de altura para scroll */
+    height: 100%; 
+    max-height: 90vh; 
+    overflow-y: auto; /* Scroll solo aquí si el contenido es largo */
+    
     box-sizing: border-box;
 }
 
 /* Scrollbar fina */
-.movie-info-sidebar::-webkit-scrollbar { width: 5px; }
-.movie-info-sidebar::-webkit-scrollbar-thumb { background-color: #333; border-radius: 3px; }
-.movie-info-sidebar::-webkit-scrollbar-track { background-color: #141414; }
+.movie-info-sidebar::-webkit-scrollbar { 
+    width: 5px; 
+}
+.movie-info-sidebar::-webkit-scrollbar-thumb { 
+    background-color: #333; 
+    border-radius: 3px; 
+}
+.movie-info-sidebar::-webkit-scrollbar-track { 
+    background-color: #141414; 
+}
 
 /* Botón "Volver" */
 .movie-info-sidebar .player-back-link {
@@ -3954,34 +4201,45 @@ body.low-spec .loading-text {
     cursor: pointer;
     font-size: 0.9rem;
     padding: 0;
+    transition: color 0.2s ease;
 }
-.movie-info-sidebar .player-back-link:hover { color: white; }
+.movie-info-sidebar .player-back-link:hover { 
+    color: white; 
+}
 
-/* --- PÓSTER --- */
+/* --- PÓSTER MODERADO (ESTILO JUJUTSU) 🖼️ --- */
 .sidebar-poster-container {
     width: 100%;
     display: flex;
     justify-content: center;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
+    flex-shrink: 0;
 }
 
 .sidebar-poster-img {
     width: 100%;
-    max-width: 130px;
+    max-width: 155px; /* 🎯 Tamaño moderado como Jujutsu (en lugar de 220px) */
     height: auto;
+    aspect-ratio: 2/3;
     border-radius: 6px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    box-shadow: 0 6px 15px rgba(0,0,0,0.5);
     object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.sidebar-poster-img:hover {
+    transform: scale(1.02);
 }
 
 /* --- TÍTULO --- */
 .movie-info-sidebar .player-title {
     font-family: 'Bebas Neue', sans-serif;
-    font-size: 2rem; 
+    font-size: 1.7rem; 
     line-height: 1.1;
     color: #fff;
     margin: 0;
     text-align: center;
+    flex-shrink: 0;
 }
 
 /* --- METADATA --- */
@@ -3989,32 +4247,36 @@ body.low-spec .loading-text {
     display: flex;
     justify-content: center;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 8px;
     padding-bottom: 10px;
     border-bottom: 1px solid rgba(255,255,255,0.1);
+    flex-shrink: 0;
 }
 
 .meta-tag {
     background: rgba(255, 255, 255, 0.05);
-    padding: 5px 10px;
-    border-radius: 4px;
+    padding: 6px 12px;
+    border-radius: 5px;
     font-size: 0.8rem;
     color: #ccc;
     display: flex;
     align-items: center;
     gap: 5px;
 }
-.meta-tag i { color: var(--primary-red, #e50914); font-size: 0.8rem; }
+.meta-tag i { 
+    color: var(--primary-red, #e50914); 
+    font-size: 0.8rem; 
+}
 
 /* Estilo específico para la etiqueta de Pedido */
 .request-tag {
-    border: 1px solid rgba(255, 215, 0, 0.3); /* Borde dorado sutil */
-    color: #ffd700; /* Texto dorado/amarillo para diferenciarlo del año */
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    color: #ffd700;
     background: rgba(255, 215, 0, 0.05);
 }
 
 .request-tag i {
-    color: #ffd700; /* Icono dorado */
+    color: #ffd700;
 }
 
 /* --- PEDIDO POR --- */
@@ -4026,119 +4288,240 @@ body.low-spec .loading-text {
     border-radius: 4px;
     border-left: 3px solid var(--primary-red, #e50914);
     margin: 0;
+    flex-shrink: 0;
 }
 
-/* --- SINOPSIS --- */
+/* --- SINOPSIS OPTIMIZADA 📜 --- */
+.movie-synopsis-container {
+    flex: 1 1 auto; /* ✨ Crece dinámicamente */
+    overflow-y: auto;
+    min-height: 60px; /* Altura mínima reducida */
+}
+
 .movie-synopsis-container p {
-    font-size: 0.9rem; 
+    font-size: 0.88rem; 
     line-height: 1.5;
     color: #ccc;
     margin: 0;
     text-align: left;
 }
 
-/* --- ZONA INFERIOR --- */
+/* --- CONTROLES DE IDIOMA 🌐 --- */
 .movie-mode .lang-controls {
-    margin-top: auto;
+    margin-top: auto; /* ⬇️ Pegado al fondo */
     display: flex;
     justify-content: center;
     gap: 10px;
-    margin-bottom: 10px;
+    padding-top: 8px;
+    flex-shrink: 0;
 }
 
 .lang-btn-movie {
-    padding: 8px 15px;
-    background: rgba(255,255,255,0.1);
-    border: none;
+    flex: 1;
+    max-width: 100px;
+    padding: 9px 14px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.2);
     color: white;
-    border-radius: 4px;
+    cursor: pointer;
+    border-radius: 6px;
     font-size: 0.85rem;
-    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
 }
-.lang-btn-movie.active { background: var(--primary-red, #e50914); }
 
-.btn-review-sidebar {
-    background-color: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.3);
+.lang-btn-movie:hover { 
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+.lang-btn-movie.active { 
+    background: var(--primary-red, #e50914); 
+    border-color: var(--primary-red, #e50914);
     color: white;
+}
+
+/* --- BOTÓN DE RESEÑA ✍️ --- */
+.btn-review-sidebar {
     width: 100%;
-    padding: 10px;
-    border-radius: 4px;
-    font-size: 0.9rem;
+    padding: 11px;
+    background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    font-weight: 600;
+    font-size: 0.9rem;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
+    transition: all 0.3s ease;
+    margin-top: 5px;
+    flex-shrink: 0;
 }
-.btn-review-sidebar:hover { background: #fff; color: #000; border-color: #fff; }
+
+.btn-review-sidebar:hover { 
+    background: linear-gradient(135deg, #2196f3 0%, #1565c0 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(26, 115, 232, 0.4);
+}
+
+.btn-review-sidebar i {
+    font-size: 0.9rem;
+}
+
+/* ✨ FIX ESPACIO VACÍO */
+.movie-info-sidebar > *:last-child {
+    margin-bottom: 0 !important;
+}
+
+.movie-mode .lang-controls + .btn-review-sidebar {
+    margin-top: 8px;
+}
 
 /* ============================================
-   RESPONSIVE MÓVIL (ESTILO TARJETA FLOTANTE)
+   RESPONSIVE - TABLET
    ============================================ */
 @media (max-width: 1024px) {
-    
-    /* 1. EL CONTENEDOR ES LA "TARJETA" QUE FLOTA */
     #series-player-modal .player-layout-container.movie-mode {
         display: flex;
         flex-direction: column;
-        
-        /* AQUÍ ESTÁ LA CLAVE: */
-        width: 92%;           /* Ocupa el 92% del ancho (se separa de los bordes) */
-        margin: auto;         /* Se centra automáticamente en la pantalla */
+        width: 92%;
+        margin: auto;
         height: auto;
-        max-height: 85vh;     /* No toca ni el techo ni el piso */
-        
+        max-height: 85vh;
         background-color: #141414;
-        border-radius: 16px;  /* Redondeamos TODO el bloque */
-        overflow-y: auto;     /* Scroll interno */
-        box-shadow: 0 15px 40px rgba(0,0,0,0.8); /* Sombra potente para profundidad */
+        border-radius: 16px;
+        overflow-y: auto;
+        box-shadow: 0 15px 40px rgba(0,0,0,0.8);
         position: relative;
     }
 
-    /* 2. EL VIDEO LLENA LA TARJETA (PERO LA TARJETA YA FLOTA) */
     .movie-mode .player-container {
-        width: 100%;          /* Llena el ancho de la tarjeta */
-        height: 52vw;         /* Mantiene proporción 16:9 aprox */
+        width: 100%;
+        height: 52vw;
         min-height: 200px;
-        
-        position: sticky;     /* Se queda pegado arriba al hacer scroll */
+        position: sticky;
         top: 0;
         z-index: 20;
-        
         background: #000;
         padding: 0;
-        border-radius: 0;     /* Sin bordes extra, usa los de la tarjeta */
+        border-radius: 0;
         margin: 0;
     }
 
-    /* 3. INFO DEBAJO */
     .movie-info-sidebar {
         width: 100%;
         border: none;
         border-top: 1px solid rgba(255, 255, 255, 0.1);
-        padding: 20px;
+        padding: 18px;
         height: auto;
         overflow: visible;
     }
 
-    /* Ajustes visuales para móvil */
-    .sidebar-poster-container { display: none; } /* Sin poster en móvil */
-    
-    .movie-info-sidebar .player-title { 
-        text-align: left; 
-        font-size: 1.8rem; 
+    .sidebar-poster-container {
+        margin-bottom: 10px;
+    }
+
+    .sidebar-poster-img {
+        max-width: 140px; /* Tamaño para tablet */
+    }
+
+    .movie-info-sidebar .player-title {
+        text-align: left;
+        font-size: 1.6rem;
         margin-top: 5px;
     }
+
+    .movie-metadata { 
+        justify-content: flex-start; 
+    }
     
-    .movie-metadata { justify-content: flex-start; }
+    .requester-info { 
+        text-align: left; 
+    }
     
-    .requester-info { text-align: left; }
-    
-    /* Botón cerrar (Opcional: asegurar que no se tape) */
     .close-btn {
-        z-index: 2005; /* Asegurar que quede encima de todo */
+        z-index: 2005;
+    }
+}
+
+/* ============================================
+   RESPONSIVE - MÓVIL (CORRECCIÓN SCROLL)
+   ============================================ */
+@media (max-width: 768px) {
+    /* 1. El contenedor principal ocupa toda la pantalla real */
+    #series-player-modal .player-layout-container.movie-mode {
+        width: 100vw;
+        height: 100vh;      /* Fallback */
+        height: 100dvh;     /* Altura dinámica real (evita problemas con barra de URL) */
+        max-height: none;
+        border-radius: 0;
+        display: flex;
+        flex-direction: column; /* Apilamos Video arriba, Info abajo */
+        overflow: hidden;   /* Evitamos doble scroll en el body */
+        padding: 0;
+        margin: 0;
+    }
+
+    /* 2. El video ocupa solo su proporción natural (16:9) y se queda fijo arriba */
+    .movie-mode .player-container {
+        flex: 0 0 auto;       /* No estirar ni encoger */
+        width: 100%;
+        height: auto;
+        aspect-ratio: 16/9;   /* Mantiene la forma perfecta de video */
+        min-height: auto;     /* Quitamos alturas forzadas */
+        background: black;
+        z-index: 10;
+    }
+
+    /* 3. La barra de info ocupa TODO el espacio restante y tiene el SCROLL */
+    .movie-info-sidebar {
+        flex: 1;              /* Ocupa todo el espacio que sobra abajo del video */
+        width: 100%;
+        height: auto;
+        max-height: none;     /* Quitamos límites */
+        padding: 20px 20px 100px 20px; /* 🔥 100px de padding abajo para levantar el botón */
+        overflow-y: auto;     /* EL SCROLL ESTÁ AQUÍ */
+        -webkit-overflow-scrolling: touch; /* Scroll suave en iPhone */
+        
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        border: none;
+    }
+
+    /* 4. La sinopsis ya no tiene scroll interno, fluye con la página */
+    .movie-synopsis-container {
+        flex: 0 0 auto;       /* Deja de calcular altura automática */
+        overflow: visible;
+        min-height: auto;
+        height: auto;
+    }
+    
+    .movie-synopsis-container p {
+        font-size: 0.95rem;   /* Letra legible */
+        white-space: normal;  /* Asegura que el texto baje */
+    }
+
+    /* 5. Ajustes cosméticos para móvil */
+    .sidebar-poster-container { 
+        display: none;        /* Ocultamos el póster pequeño en móvil para ganar espacio */
+    }
+
+    .movie-info-sidebar .player-title { 
+        font-size: 1.5rem;
+        margin-bottom: 5px;
+        text-align: center;
+    }
+
+    /* Botones grandes y fáciles de tocar */
+    .btn-review-sidebar {
+        padding: 15px;
+        margin-top: 10px;
+        font-size: 1rem;
+        flex-shrink: 0;       /* Evita que se aplaste */
     }
 }
 /* ===========================================================
@@ -4757,3 +5140,82 @@ body.low-spec .loading-text {
 .accordion-content li i.fa-star { color: #ffd700; text-shadow: 0 0 10px #ffd700; }
 .accordion-content li i.fa-laugh-squint { color: #00f2ff; text-shadow: 0 0 10px #00f2ff; }
 .accordion-content li i.fa-microphone { color: #ff00ea; text-shadow: 0 0 10px #ff00ea; }
+
+/* ================================== */
+/* RESPONSIVE - MODAL DE PELÍCULAS   */
+/* ================================== */
+
+/* Tablet y móvil */
+@media (max-width: 1024px) {
+    .movie-player-layout-container {
+        flex-direction: column;
+        height: auto;
+        width: 100%;
+        padding: 15px;
+        gap: 20px;
+    }
+    
+    .movie-player-container,
+    .movie-info-sidebar {
+        min-width: 100%;
+        width: 100%;
+    }
+    
+    .movie-info-sidebar {
+        padding: 20px;
+        max-height: none;
+    }
+    
+    .movie-poster-container {
+        max-width: 300px;
+        margin: 0 auto;
+    }
+    
+    .movie-player-title {
+        font-size: 1.8rem;
+    }
+}
+
+/* Móvil pequeño */
+@media (max-width: 768px) {
+    #cinema {
+        align-items: flex-start;
+        overflow-y: auto;
+    }
+    
+    .movie-player-layout-container {
+        padding: 10px;
+        gap: 15px;
+    }
+    
+    .movie-info-sidebar {
+        padding: 15px;
+    }
+    
+    .movie-poster-container {
+        max-width: 250px;
+    }
+    
+    .movie-player-title {
+        font-size: 1.5rem;
+    }
+    
+    .movie-meta-info {
+        font-size: 0.8rem;
+    }
+    
+    .lang-select-btn {
+        padding: 14px 20px;
+        font-size: 1rem;
+    }
+    
+    #cinema .cinema-controls {
+        gap: 8px;
+    }
+    
+    #cinema .cinema-controls .btn-watchlist,
+    #cinema .cinema-controls .btn-review {
+        padding: 12px 16px;
+        font-size: 0.95rem;
+    }
+}
