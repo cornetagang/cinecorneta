@@ -958,3 +958,44 @@ function calculateFinishTime(durationStr) {
 
     return endTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
 }
+
+// ==========================================
+// HELPER: PANTALLA COMPLETA (Con Giro Automático)
+// ==========================================
+async function toggleFullScreen(element) {
+    const target = element || document.documentElement;
+    const doc = document;
+
+    const isFullScreen = doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement || doc.msFullscreenElement;
+
+    if (!isFullScreen) {
+        // ENTRAR EN PANTALLA COMPLETA
+        const requestMethod = target.requestFullscreen || target.webkitRequestFullscreen || target.webkitEnterFullscreen || target.mozRequestFullScreen || target.msRequestFullscreen;
+        
+        if (requestMethod) {
+            try {
+                await requestMethod.call(target);
+                
+                // 🔥 GIRO AUTOMÁTICO: Intentar bloquear en horizontal
+                if (screen.orientation && screen.orientation.lock) {
+                    await screen.orientation.lock('landscape').catch(err => {
+                        console.warn("El bloqueo de orientación no es compatible o fue denegado:", err);
+                    });
+                }
+            } catch (err) {
+                console.error("Error al intentar entrar en pantalla completa:", err);
+            }
+        }
+    } else {
+        // SALIR DE PANTALLA COMPLETA
+        const exitMethod = doc.exitFullscreen || doc.webkitExitFullscreen || doc.mozCancelFullScreen || doc.msExitFullscreen;
+        
+        if (exitMethod) {
+            // 🔥 LIBERAR ORIENTACIÓN: Volver a permitir giro normal
+            if (screen.orientation && screen.orientation.unlock) {
+                screen.orientation.unlock();
+            }
+            exitMethod.call(doc);
+        }
+    }
+}
