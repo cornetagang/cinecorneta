@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL OPTIMIZADO
-// Versión: 8.2 (02 de Feberero 2026)
+// Versión: 8.3 (03 de Feberero 2026)
 // ===========================================================
 
 // ===========================================================
@@ -1531,10 +1531,22 @@ function setupEventListeners() {
     }
 
     // =======================================================
-    // 4. MODALES
+    // 4. MODALES (Lógica corregida para Reseñas)
     // =======================================================
+    
+    // A. Botones de cerrar (La "X")
     document.querySelectorAll('.close-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', (e) => {
+            // 🔥 EXCEPCIÓN: Si es el modal de reseñas, SOLO cierra ese y no toca el resto
+            if (btn.closest('#review-form-modal')) {
+                e.preventDefault();
+                e.stopPropagation(); // Evita que el evento suba y cierre todo
+                const reviewModal = document.getElementById('review-form-modal');
+                if (reviewModal) reviewModal.classList.remove('show');
+                return; // Terminamos aquí, el reproductor de fondo sigue vivo
+            }
+
+            // Comportamiento normal para el resto (cierra todo)
             ModalManager.closeAll();
             const cinema = document.getElementById('cinema');
             if (cinema) {
@@ -1546,8 +1558,16 @@ function setupEventListeners() {
         });
     });
 
+    // B. Clic en el fondo oscuro (Backdrop)
     window.addEventListener('click', (e) => {
         if (e.target.classList.contains('modal')) {
+            // 🔥 EXCEPCIÓN: Si clicamos fuera del modal de reseñas
+            if (e.target.id === 'review-form-modal') {
+                e.target.classList.remove('show');
+                // IMPORTANTE: No quitamos 'modal-open' del body porque el reproductor sigue abajo
+                return; 
+            }
+
             ModalManager.closeAll();
         }
     });
@@ -2387,22 +2407,34 @@ async function openDetailsModal(id, type, triggerElement = null) {
         const isSeries = (type === 'series' || !!appState.content.series[id] || data.type === 'series');
         
         document.getElementById('details-title').textContent = data.title || '';
-        document.getElementById('details-synopsis').textContent = data.synopsis || 'Sin descripción.';
+        
+        // --- LÓGICA SINOPSIS MIXTA ---
+        let fullSynopsis = data.synopsis || 'Sin descripción.';
+        
+        // Solo recortamos si es PELÍCULA (isSeries es falso)
+        if (!isSeries) {
+            const maxChars = 280; 
+            if (fullSynopsis.length > maxChars) {
+                fullSynopsis = fullSynopsis.substring(0, maxChars).trim() + "...";
+            }
+        }
+        // Si es SERIE, dejamos la sinopsis completa (pasa directo)
+
+        document.getElementById('details-synopsis').textContent = fullSynopsis;
+        
         if (posterImg) posterImg.src = data.poster || '';
 
-        // 3. GESTIÓN DE METADATOS (Estrellas, Año, Idioma, etc.)
+        // 3. GESTIÓN DE METADATOS (Diferente para Series y Pelis)
         const detailsMeta = modal.querySelector('.details-meta');
         
         if (detailsMeta) {
             detailsMeta.innerHTML = ''; 
 
-            // A. Rating (Estrellas) - Usamos el módulo si ya cargó, o fallback visual
+            // A. Rating (Para todos igual)
             const modalRating = appState.content.averages[id];
             if (modalRating) {
                 const ratingBadge = document.createElement('span');
                 ratingBadge.className = 'modal-rating-badge';
-                
-                // Intentamos usar el módulo si está cargado, si no, HTML simple
                 if (reviewsModule && reviewsModule.getStarsHTML) {
                     ratingBadge.innerHTML = reviewsModule.getStarsHTML(modalRating, false);
                 } else {
@@ -2411,17 +2443,27 @@ async function openDetailsModal(id, type, triggerElement = null) {
                 detailsMeta.appendChild(ratingBadge); 
             }
 
-            // B. PEDIDO
-            if (data.pedido) {
-                const requestPill = document.createElement('span');
-                requestPill.className = 'meta-pill request-pill'; 
-                requestPill.innerHTML = `<i class="fas fa-user-circle" style="margin-right:5px; color:#ffd700;"></i> ${data.pedido}`;
-                detailsMeta.appendChild(requestPill);
+            // --- EXCEPCIÓN: SOLO SERIES MUESTRAN PEDIDO Y AÑO AQUÍ ---
+            if (isSeries) {
+                // B. PEDIDO
+                if (data.pedido) {
+                    const requestPill = document.createElement('span');
+                    requestPill.className = 'meta-pill request-pill'; 
+                    requestPill.innerHTML = `<i class="fas fa-user-circle" style="margin-right:5px; color:#ffd700;"></i> ${data.pedido}`;
+                    detailsMeta.appendChild(requestPill);
+                }
+
+                // C. AÑO
+                if (data.year) {
+                    const yearPill = document.createElement('span');
+                    yearPill.className = 'meta-pill';
+                    yearPill.textContent = data.year;
+                    detailsMeta.appendChild(yearPill);
+                }
             }
 
-            // C. AÑO, IDIOMA, GÉNEROS...
+            // D. IDIOMA Y GÉNEROS (Para todos)
             const metaItems = [
-                { val: data.year, class: 'meta-pill' },
                 { val: data.language, class: 'meta-pill' },
                 { val: data.genres ? data.genres.replace(/;/g, ', ') : null, class: 'meta-pill' }
             ];
@@ -3818,7 +3860,7 @@ window.ErrorHandler = ErrorHandler;
 window.ContentManager = ContentManager;
 window.cacheManager = cacheManager;
 
-console.log('✅ Cine Corneta v8.2 cargado correctamente');
+console.log('✅ Cine Corneta v8.3 cargado correctamente');
 // ===========================================================
 // COMPATIBILIDAD: Funciones que ahora están en el módulo
 // ===========================================================
@@ -3884,6 +3926,46 @@ window.showNotification = function(message, type = 'success') {
         toast.style.animation = 'fadeOutToast 0.5s ease forwards';
         setTimeout(() => toast.remove(), 500);
     }, 3000);
+};
+
+// ===========================================================
+// ✅ FUNCIÓN GLOBAL PARA ABRIR RESEÑAS DESDE CUALQUIER LADO
+// ===========================================================
+window.openSmartReviewModal = async (contentId, type, title) => {
+    // 1. Verificar Auth
+    if (!firebase.auth().currentUser) {
+        if (window.openConfirmationModal) {
+            window.openConfirmationModal(
+                "Inicia Sesión", 
+                "Necesitas una cuenta para escribir reseñas.", 
+                () => window.openAuthModal(true)
+            );
+        }
+        return;
+    }
+
+    // 2. Cargar módulo dinámicamente (si no está cargado)
+    // Nota: Usamos la variable reviewsModule que definiste arriba en script.js
+    // Si no tienes acceso a ella directamente aquí, importamos de nuevo es seguro.
+    const module = await import('./features/reviews.js');
+    
+    // 3. Cerrar modales que estorben (opcional, pero recomendado)
+    // Si quieres que el reproductor se cierre al reseñar:
+    // window.closeAllModals(); 
+    // O si prefieres que se quede abierto de fondo, comenta la línea de arriba.
+
+    // 4. Abrir el modal con los datos pre-cargados
+    // true = modo contextual (pre-seleccionado)
+    module.initReviews({ appState, DOM, auth, db, ErrorHandler: window.ErrorHandler, ModalManager: window.ModalManager }); // Re-init rápido por seguridad
+    
+    // Pequeño delay para asegurar que el DOM esté listo
+    setTimeout(() => {
+        module.openReviewModal(true, {
+            contentId: contentId,
+            contentTitle: title,
+            contentType: type
+        });
+    }, 50);
 };
 
 // ===========================================================
