@@ -472,68 +472,29 @@ async function renderEpisodePlayer(seriesId, seasonNum, startAtIndex = null) {
         
         // BOTÓN DE RESEÑA (solo en modo película)
         const reviewBtn = shared.DOM.seriesPlayerModal.querySelector(`#btn-review-player-${seriesId}`);
+        
         if (reviewBtn) {
             reviewBtn.onclick = () => {
-                // Verificar si hay usuario logueado
-                if (!shared.auth.currentUser) {
-                    shared.ErrorHandler.show('auth', 'Debes iniciar sesión para escribir una reseña.');
-                    return;
-                }
-                
-                // Determinar el título correcto basado en el tipo de contenido
+                // 1. Determinar el título correcto
+                // Si es modo película (isSingleMovie), usamos el título del episodio/película.
+                // Si es serie normal, usamos el título de la serie.
                 let correctTitle = '';
-                let correctId = seriesId;
-                
-                if (isSpecialContent) {
-                    // Para películas/especiales: usar el título específico del episodio
-                    correctTitle = displayTitle;
+                let correctType = 'movie'; // Por defecto movie si es Gladiador II
+
+                if (isSpecialContent || isSingleMovie) {
+                    correctTitle = displayTitle; // Título específico (ej: "Gladiador II")
+                    correctType = 'movie';       // Tratamos como película para reseñas
                 } else {
-                    // Para series: usar el título de la serie completa
                     correctTitle = seriesInfo.title || displayTitle;
+                    correctType = 'series';
                 }
                 
-                // Abrir modal PRIMERO
-                const reviewModal = document.getElementById('review-form-modal');
-                if (!reviewModal) return;
-                
-                reviewModal.classList.add('show');
-                document.body.classList.add('modal-open');
-                
-                // LUEGO (después de que el modal esté visible) manipular los elementos
-                setTimeout(() => {
-                    const selectedIdInput = document.getElementById('review-selected-id');
-                    const selectedDisplay = document.getElementById('review-selected-display');
-                    const selectedTitleSpan = document.getElementById('review-selected-title');
-                    const searchInput = document.getElementById('review-movie-search');
-                    const searchContainer = searchInput?.parentElement;
-                    
-                    // Establecer valores
-                    if (selectedIdInput) selectedIdInput.value = correctId;
-                    if (selectedTitleSpan) selectedTitleSpan.textContent = correctTitle;
-                    
-                    // MOSTRAR el display bloqueado, OCULTAR búsqueda
-                    if (selectedDisplay) {
-                        selectedDisplay.style.display = 'flex';
-                        // Ocultar el botón X
-                        const changeBtn = selectedDisplay.querySelector('.btn-change-selection');
-                        if (changeBtn) changeBtn.style.display = 'none';
-                    }
-                    
-                    if (searchContainer) searchContainer.style.display = 'none';
-                    if (searchInput) searchInput.value = '';
-                    
-                    // Resetear formulario
-                    const form = document.getElementById('review-submission-form');
-                    if (form) {
-                        const textarea = form.querySelector('textarea');
-                        if (textarea) textarea.value = '';
-                    }
-                    
-                    // Resetear estrellas
-                    document.querySelectorAll('.star-option').forEach(s => s.classList.remove('selected'));
-                    const ratingValue = document.getElementById('review-rating-value');
-                    if (ratingValue) ratingValue.value = '0';
-                }, 50); // 50ms de delay para que el DOM se actualice
+                // 2. LLAMAR A LA FUNCIÓN GLOBAL QUE CREAMOS EN EL PASO 1
+                if (window.openSmartReviewModal) {
+                    window.openSmartReviewModal(seriesId, correctType, correctTitle);
+                } else {
+                    console.error("La función window.openSmartReviewModal no está definida en script.js");
+                }
             };
         }
         if (!isSingleMovie) populateEpisodeList(seriesId, seasonNum);
@@ -658,12 +619,11 @@ function changeLanguage(seriesId, lang) {
     openEpisode(seriesId, season, episodeIndex);
 }
 
-// 6. REPRODUCTOR DE PELÍCULAS (ACTUALIZADO)
+// 6. REPRODUCTOR DE PELÍCULAS (FORMATO COMPLETO CON INFORMACIÓN CORRECTA)
 export function openPlayerModal(movieId, movieTitle) {
     try {
         shared.closeAllModals();
-        shared.addToHistoryIfLoggedIn(movieId, 'movie');
-
+        
         // 🔥 USAMOS EL BUSCADOR INTELIGENTE
         const movieData = findContentData(movieId);
 
@@ -677,78 +637,218 @@ export function openPlayerModal(movieId, movieTitle) {
         const hasEnglish = !!(movieData.videoId_en && movieData.videoId_en.trim());
         const hasMultipleLangs = hasSpanish && hasEnglish;
         
-        let defaultLang, initialVideoId;
-
-        if (hasEnglish) {
-            defaultLang = 'en';
-            initialVideoId = movieData.videoId_en;
-        } else if (hasSpanish) {
-            defaultLang = 'es';
-            initialVideoId = movieData.videoId_es
-        } else {
-            defaultLang = 'default';
-            initialVideoId = movieId; // Algunos IDs son directamente el videoID
-        }
-
-        const iframe = shared.DOM.cinemaModal.querySelector('iframe');
-        if (!iframe) return;
-        
-        iframe.src = `https://drive.google.com/file/d/${initialVideoId}/preview`;
-
-        const titleElement = shared.DOM.cinemaModal.querySelector('#cinema-title');
-        if (titleElement) titleElement.textContent = movieTitle || movieData.title || "Película";
-
-        const cinemaControls = shared.DOM.cinemaModal.querySelector('.cinema-controls');
-        if (cinemaControls) {
-            let controlsHTML = '';
-            const user = shared.auth.currentUser;
-            if (user) {
-                const isInList = shared.appState.user.watchlist.has(movieId);
-                const iconClass = isInList ? 'fa-check' : 'fa-plus';
-                const buttonClass = isInList ? 'btn-watchlist in-list' : 'btn-watchlist';
-                controlsHTML += `<button class="${buttonClass}" data-content-id="${movieId}"><i class="fas ${iconClass}"></i> Mi Lista</button>`;
-            }
-
-            if (hasMultipleLangs) {
-                controlsHTML += `
-                    <div class="lang-controls-movie">
-                        <button class="lang-btn-movie ${defaultLang === 'en' ? 'active' : ''}" data-lang="en" data-movie-id="${movieId}" ${!hasEnglish ? 'disabled' : ''}>Original</button>
-                        <button class="lang-btn-movie ${defaultLang === 'es' ? 'active' : ''}" data-lang="es" data-movie-id="${movieId}" ${!hasSpanish ? 'disabled' : ''}>Español</button>
-                    </div>`;
-            }
-            cinemaControls.innerHTML = controlsHTML;
-
-            if (hasMultipleLangs) {
-                cinemaControls.querySelectorAll('.lang-btn-movie').forEach(btn => {
-                    btn.addEventListener('click', function() {
-                        const selectedLang = this.dataset.lang;
-                        const targetMovieId = this.dataset.movieId;
-                        
-                        // 🔥 USAMOS EL BUSCADOR INTELIGENTE TAMBIÉN AQUÍ
-                        const targetMovieData = findContentData(targetMovieId);
-                        
-                        if (!targetMovieData) return;
-
-                        let newVideoId;
-                        if (selectedLang === 'es' && targetMovieData.videoId_es) newVideoId = targetMovieData.videoId_es;
-                        else if (selectedLang === 'en' && targetMovieData.videoId_en) newVideoId = targetMovieData.videoId_en;
-                        else newVideoId = targetMovieId;
-
-                        const iframe = shared.DOM.cinemaModal.querySelector('iframe');
-                        if (iframe) iframe.src = `https://drive.google.com/file/d/${newVideoId}/preview`;
-
-                        cinemaControls.querySelectorAll('.lang-btn-movie').forEach(b => b.classList.remove('active'));
-                        this.classList.add('active');
-                    });
-                });
-            }
-        }
-
+        // Mostrar modal
         shared.DOM.cinemaModal.classList.add('show');
         document.body.classList.add('modal-open');
+
+        // 1. ACTUALIZAR POSTER (de la columna "poster" de la misma hoja)
+        const posterImg = shared.DOM.cinemaModal.querySelector('#cinema-poster');
+        if (posterImg) {
+            posterImg.src = movieData.poster || movieData.image || '';
+            posterImg.alt = movieData.title || 'Poster';
+        }
+
+        // 2. ACTUALIZAR TÍTULO
+        const titleElement = shared.DOM.cinemaModal.querySelector('#cinema-title');
+        if (titleElement) {
+            titleElement.textContent = movieTitle || movieData.title || "Película";
+        }
+
+        // 3. ACTUALIZAR META INFORMACIÓN - ORDEN: Pedido, Año, Duración
+        const requesterEl = shared.DOM.cinemaModal.querySelector('#cinema-requester');
+        const yearEl = shared.DOM.cinemaModal.querySelector('#cinema-year');
+        const durationEl = shared.DOM.cinemaModal.querySelector('#cinema-duration');
+
+        // 1. Solicitante (de la columna "pedido") - PRIMERO
+        if (requesterEl) {
+            requesterEl.textContent = movieData.pedido || movieData.requester || 'Anónimo';
+            requesterEl.style.display = (movieData.pedido || movieData.requester) ? 'inline-flex' : 'none';
+        }
+
+        // 2. Año - SEGUNDO
+        if (yearEl) {
+            // Buscamos en 'year' O en 'anio' y quitamos espacios vacíos
+            const finalYear = (movieData.year || movieData.anio || '').toString().trim();
+            
+            if (finalYear.length > 0) {
+                yearEl.textContent = finalYear;
+                yearEl.style.display = 'inline-flex';
+            } else {
+                // Si no hay año real, ocultamos TODO (incluido el icono)
+                yearEl.style.display = 'none';
+            }
+        }
+
+        // 3. Duración (de la columna "duration") - TERCERO
+        if (durationEl) {
+            durationEl.textContent = movieData.duration || 'Duration';
+            durationEl.style.display = 'inline-flex';
+        }
+
+        // 🔥 4. NUEVO: HORA DE TÉRMINO CALCULADA (MEJORADA)
+        let endTimeEl = shared.DOM.cinemaModal.querySelector('#cinema-endtime');
+        const metaContainer = shared.DOM.cinemaModal.querySelector('.movie-meta-info');
+
+        if (movieData.duration) {
+            const finishTime = calculateFinishTime(movieData.duration);
+            
+            if (finishTime) {
+                if (!endTimeEl && metaContainer) {
+                    endTimeEl = document.createElement('div'); // Usamos div o span
+                    endTimeEl.id = 'cinema-endtime';
+                    
+                    if (durationEl && durationEl.nextSibling) {
+                        metaContainer.insertBefore(endTimeEl, durationEl.nextSibling);
+                    } else {
+                        metaContainer.appendChild(endTimeEl);
+                    }
+                }
+                
+                // --- ESTILO Y CONTENIDO MEJORADO ---
+                if (endTimeEl) {
+                    // 1. Aplicamos la clase para que se vea como una "cajita" igual al resto
+                    endTimeEl.className = 'meta-tag'; 
+                    
+                    // 2. Formato: Icono rojo + Texto claro + Hora en negrita
+                    endTimeEl.innerHTML = `
+                        <i class="fas fa-flag-checkered" style="color:#ff4d4d;"></i> 
+                        <span style="opacity: 0.9; margin-left: 5px;">Terminas de ver a las <strong style="color: #fff;">${finishTime}</strong> aprox.</span>
+                    `;
+                    
+                    endTimeEl.style.display = 'inline-flex';
+                    endTimeEl.style.alignItems = 'center';
+                }
+            }
+        } else {
+            if (endTimeEl) endTimeEl.style.display = 'none';
+        }
+
+        // 4.5 ACTUALIZAR SINOPSIS (de la columna "synopsis")
+        const synopsisEl = shared.DOM.cinemaModal.querySelector('#cinema-synopsis');
+        if (synopsisEl) {
+            synopsisEl.textContent = movieData.synopsis || 'Sin sinopsis disponible.';
+        }
+
+        // 5. CONFIGURAR BOTONES DE IDIOMA
+        const langSelection = shared.DOM.cinemaModal.querySelector('.movie-lang-selection');
+        const originalBtn = shared.DOM.cinemaModal.querySelector('[data-lang="original"]');
+        const spanishBtn = shared.DOM.cinemaModal.querySelector('[data-lang="spanish"]');
+        
+        if (langSelection && originalBtn && spanishBtn) {
+            // Resetear estados
+            originalBtn.classList.remove('active');
+            spanishBtn.classList.remove('active');
+            
+            // Limpiar iframe inicialmente
+            const iframe = shared.DOM.cinemaModal.querySelector('iframe');
+            if (iframe) iframe.src = '';
+            
+            // Configurar disponibilidad de botones
+            originalBtn.disabled = !hasEnglish;
+            spanishBtn.disabled = !hasSpanish;
+            
+            // Si solo hay un idioma, seleccionarlo y cargar automáticamente
+            if (!hasMultipleLangs) {
+                if (hasEnglish) {
+                    originalBtn.classList.add('active');
+                    loadMovieInPlayer(movieData.videoId_en, movieId, movieData);
+                } else if (hasSpanish) {
+                    spanishBtn.classList.add('active');
+                    loadMovieInPlayer(movieData.videoId_es, movieId, movieData);
+                } else {
+                    // Fallback a movieId directo
+                    originalBtn.classList.add('active');
+                    loadMovieInPlayer(movieId, movieId, movieData);
+                }
+            } else {
+                // 🔥 CORRECCIÓN: Si tiene ambos, seleccionar Original Y CARGARLO INMEDIATAMENTE
+                originalBtn.classList.add('active');
+                
+                // Carga automática del video original
+                loadMovieInPlayer(movieData.videoId_en, movieId, movieData);
+                
+                // Event listeners para selección manual (Click del usuario)
+                originalBtn.onclick = () => {
+                    if (hasEnglish) {
+                        originalBtn.classList.add('active');
+                        spanishBtn.classList.remove('active');
+                        loadMovieInPlayer(movieData.videoId_en, movieId, movieData);
+                    }
+                };
+                
+                spanishBtn.onclick = () => {
+                    if (hasSpanish) {
+                        spanishBtn.classList.add('active');
+                        originalBtn.classList.remove('active');
+                        loadMovieInPlayer(movieData.videoId_es, movieId, movieData);
+                    }
+                };
+            }
+        }
+
+        // 6. CONFIGURAR CONTROLES ADICIONALES (Mi Lista + Reseñas)
+        setupMovieControls(movieId, movieData);
+
     } catch (e) {
         logError(e, 'Player: Open Modal');
         shared.ErrorHandler.show('unknown', 'Error al abrir el reproductor.');
+    }
+}
+
+// Helper para cargar la película en el reproductor
+function loadMovieInPlayer(videoId, movieId, movieData) {
+    const iframe = shared.DOM.cinemaModal.querySelector('iframe');
+    if (!iframe) return;
+    
+    // Cargar video
+    iframe.src = `https://drive.google.com/file/d/${videoId}/preview`;
+    
+    // Registrar en historial
+    shared.addToHistoryIfLoggedIn(movieId, 'movie');
+}
+
+// Helper para configurar controles adicionales (Mi Lista + Reseñas)
+function setupMovieControls(movieId, movieData) {
+    const cinemaControls = shared.DOM.cinemaModal.querySelector('.cinema-controls');
+    if (!cinemaControls) return;
+    
+    let controlsHTML = '';
+    const user = shared.auth.currentUser;
+    
+    // Botón "Mi Lista" (solo si está logueado)
+    if (user) {
+        const isInList = shared.appState.user.watchlist.has(movieId);
+        const iconClass = isInList ? 'fa-check' : 'fa-plus';
+        const buttonClass = isInList ? 'btn-watchlist in-list' : 'btn-watchlist';
+        controlsHTML += `
+            <button class="${buttonClass}" data-content-id="${movieId}">
+                <i class="fas ${iconClass}"></i> 
+                ${isInList ? 'En Mi Lista' : 'Agregar a Mi Lista'}
+            </button>
+        `;
+    }
+    
+    // Botón "Escribir Reseña" (siempre visible)
+    controlsHTML += `
+        <button class="btn-review" data-content-id="${movieId}" data-type="movie">
+            <i class="fas fa-star"></i> 
+            Escribir Reseña
+        </button>
+    `;
+    
+    cinemaControls.innerHTML = controlsHTML;
+    
+    // Event listener para el botón de reseñas
+    const reviewBtn = cinemaControls.querySelector('.btn-review');
+    if (reviewBtn) {
+        reviewBtn.addEventListener('click', () => {
+            // 🔥 CORRECCIÓN: Usar la función global window.openSmartReviewModal
+            if (typeof window.openSmartReviewModal === 'function') {
+                window.openSmartReviewModal(movieId, 'movie', movieData.title);
+            } else {
+                console.error("Error: window.openSmartReviewModal no está definida en script.js");
+            }
+        });
     }
 }
 
@@ -807,4 +907,54 @@ export function openPlayerToEpisode(seriesId, seasonNum, episodeIndex) {
 export function playEpisode(seriesId, seasonNum, episodeNum) {
     const episodeIndex = parseInt(episodeNum) - 1;
     openPlayerToEpisode(seriesId, seasonNum, episodeIndex);
+}
+
+// ==========================================
+// HELPER: CALCULAR HORA DE TÉRMINO (V2 INTELIGENTE)
+// ==========================================
+function calculateFinishTime(durationStr) {
+    if (!durationStr) return null;
+    
+    let hours = 0, minutes = 0, seconds = 0;
+    
+    // Limpieza básica
+    durationStr = durationStr.toString().trim();
+
+    // Caso 1: Formato con dos puntos (ej: "58:20" o "2:30:00")
+    if (durationStr.includes(':')) {
+        const parts = durationStr.split(':').map(Number);
+        
+        if (parts.length === 3) {
+            // Formato H:MM:SS
+            [hours, minutes, seconds] = parts;
+        } else if (parts.length === 2) {
+            // AMBIGÜEDAD: ¿H:MM o M:SS?
+            // 🔥 CORRECCIÓN: Si el primer número es > 7, asumimos que son MINUTOS.
+            // (Ej: "58:20" son 58 min, no 58 horas)
+            if (parts[0] > 7) {
+                [minutes, seconds] = parts; 
+            } else {
+                [hours, minutes] = parts;
+            }
+        }
+    } 
+    // Caso 2: Texto (ej: "2h 15m" o "90 min")
+    else {
+        const hMatch = durationStr.match(/(\d+)\s*h/);
+        const mMatch = durationStr.match(/(\d+)\s*m/);
+        if (hMatch) hours = parseInt(hMatch[1]);
+        if (mMatch) minutes = parseInt(mMatch[1]);
+        
+        if (!hMatch && !mMatch && durationStr.includes('min')) {
+            const minOnly = parseInt(durationStr);
+            if (!isNaN(minOnly)) minutes = minOnly;
+        }
+    }
+
+    // Calcular fecha final
+    const now = new Date();
+    const durationMs = (hours * 3600000) + (minutes * 60000) + (seconds * 1000);
+    const endTime = new Date(now.getTime() + durationMs);
+
+    return endTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
 }
