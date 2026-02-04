@@ -735,7 +735,10 @@ export function openPlayerModal(movieId, movieTitle) {
         const spanishBtn = shared.DOM.cinemaModal.querySelector('[data-lang="spanish"]');
         
         if (langSelection && originalBtn && spanishBtn) {
-            // Resetear estados
+            // 🔥 CORRECCIÓN: Si no hay elección múltiple, OCULTAMOS los botones
+            langSelection.style.display = hasMultipleLangs ? 'flex' : 'none';
+
+            // Resetear estados visuales
             originalBtn.classList.remove('active');
             spanishBtn.classList.remove('active');
             
@@ -743,31 +746,32 @@ export function openPlayerModal(movieId, movieTitle) {
             const iframe = shared.DOM.cinemaModal.querySelector('iframe');
             if (iframe) iframe.src = '';
             
-            // Configurar disponibilidad de botones
+            // Configurar disponibilidad (por si acaso se muestran)
             originalBtn.disabled = !hasEnglish;
             spanishBtn.disabled = !hasSpanish;
             
-            // Si solo hay un idioma, seleccionarlo y cargar automáticamente
+            // Lógica de carga
             if (!hasMultipleLangs) {
+                // CASO 1: UN SOLO IDIOMA (Botones ocultos, carga automática)
                 if (hasEnglish) {
-                    originalBtn.classList.add('active');
+                    originalBtn.classList.add('active'); // Marcamos internamente
                     loadMovieInPlayer(movieData.videoId_en, movieId, movieData);
                 } else if (hasSpanish) {
-                    spanishBtn.classList.add('active');
+                    spanishBtn.classList.add('active'); // Marcamos internamente
                     loadMovieInPlayer(movieData.videoId_es, movieId, movieData);
                 } else {
-                    // Fallback a movieId directo
+                    // Fallback extremo
                     originalBtn.classList.add('active');
                     loadMovieInPlayer(movieId, movieId, movieData);
                 }
             } else {
-                // 🔥 CORRECCIÓN: Si tiene ambos, seleccionar Original Y CARGARLO INMEDIATAMENTE
+                // CASO 2: AMBOS IDIOMAS (Botones visibles, carga automática del original)
                 originalBtn.classList.add('active');
                 
-                // Carga automática del video original
+                // Cargar Original por defecto
                 loadMovieInPlayer(movieData.videoId_en, movieId, movieData);
                 
-                // Event listeners para selección manual (Click del usuario)
+                // Listeners para cambiar
                 originalBtn.onclick = () => {
                     if (hasEnglish) {
                         originalBtn.classList.add('active');
