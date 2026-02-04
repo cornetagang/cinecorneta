@@ -374,11 +374,31 @@
     </div>
 
     <div id="cinema" class="modal">
-        <div class="cinema-wrapper">
-            <div class="screen"><iframe src="" allowfullscreen></iframe></div>
-            <div class="cinema-info"><h2 id="cinema-title"></h2><div class="cinema-controls"></div></div>
-        </div>
         <button class="close-btn">&times;</button>
+        <div class="movie-player-layout-container">
+            <div class="movie-player-container">
+                <div class="screen"><iframe src="" allowfullscreen></iframe></div>
+                <div class="movie-lang-selection">
+                    <button class="lang-select-btn active" data-lang="original">Original</button>
+                    <button class="lang-select-btn" data-lang="spanish">Español</button>
+                </div>
+            </div>
+            <div class="movie-info-sidebar">
+                <div class="movie-poster-container">
+                    <img id="cinema-poster" src="" alt="Poster">
+                </div>
+                <div class="movie-details-info">
+                    <h2 id="cinema-title" class="movie-player-title"></h2>
+                    <div class="movie-meta-info">
+                        <span id="cinema-requester"></span>
+                        <span id="cinema-year"></span>
+                        <span id="cinema-duration"></span>
+                    </div>
+                    <p id="cinema-synopsis" class="movie-synopsis"></p>
+                    <div class="cinema-controls"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div id="roulette-modal" class="modal">
