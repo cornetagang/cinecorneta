@@ -4118,25 +4118,18 @@ body.low-spec .loading-text {
 /* ============================================
    MEJORAS MODAL REPRODUCTOR - PÓSTER MODERADO
    ============================================ */
-
-/* --- CONTENEDOR PRINCIPAL --- */
 #series-player-modal .player-layout-container.movie-mode {
     display: grid;
     grid-template-columns: 1fr 380px; /* Sidebar fijo a la derecha */
-    
     width: 95vw;
     max-width: 1600px;
-    
-    /* 🔥 ELIMINAR ALTURA FIJA AQUÍ TAMBIÉN */
     height: auto;
     max-height: 90vh;
-    min-height: 500px; /* Altura mínima para que no colapse */
-    
+    min-height: 500px;
     background-color: #141414;
     border-radius: 12px;
     box-shadow: 0 0 50px rgba(0,0,0,0.9);
-    
-    overflow: hidden; /* Mantiene todo dentro de los bordes redondeados */
+    overflow: hidden;
     gap: 0;
     padding: 0;
     margin: auto;
@@ -4170,12 +4163,9 @@ body.low-spec .loading-text {
     display: flex;
     flex-direction: column;
     gap: 15px; 
-    
-    /* 🔥 Ajuste de altura para scroll */
-    height: 100%; 
+    height: auto; 
     max-height: 90vh; 
     overflow-y: auto; /* Scroll solo aquí si el contenido es largo */
-    
     box-sizing: border-box;
 }
 
