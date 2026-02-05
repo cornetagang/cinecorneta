@@ -1,10 +1,10 @@
 // ===========================================================
-// CINE CORNETA - SCRIPT PRINCIPAL OPTIMIZADO
-// Versión: 8.3 (03 de Feberero 2026)
+// CINE CORNETA - SCRIPT PRINCIPAL
+// Versión: 8.3.1 (05 de Feberero 2026)
 // ===========================================================
 
 // ===========================================================
-// 1. IMPORTS (Aquí estaba el fallo, faltaba importar la Clase)
+// 1. IMPORTS
 // ===========================================================
 import { API_URL, firebaseConfig, UI } from './core/config.js';
 import { logError, ErrorHandler } from './utils/logger.js';
@@ -947,7 +947,14 @@ function populateFilters(type) {
     if (letterVisual) letterVisual.style.display = 'block';
     
     // VISIBILIDAD PEDIDOS (Siempre visible en pelis/series)
-    if (requestVisual) requestVisual.style.display = 'block';
+    if (requestVisual) {
+        // Si estamos en 'movie' o 'series' lo mostramos, si es Saga lo ocultamos
+        if (type === 'movie' || type === 'series') {
+            requestVisual.style.display = 'block';
+        } else {
+            requestVisual.style.display = 'none';
+        }
+    }
 
     // Sort Buttons
     const ucmButtons = document.getElementById('ucm-sort-buttons');
@@ -1077,25 +1084,27 @@ function populateFilters(type) {
 
     if (confSortBtn === 'no' && sortList) {
         sortList.innerHTML = '';
-        
-        // 🔥 FIX 1: Limpiamos el select oculto para poder llenarlo
+
         if (DOM.sortBy) DOM.sortBy.innerHTML = ''; 
         
-        // Todas las opciones de ordenamiento disponibles
         const sortOptions = [
-            {val:'recent', label:'Recientes'}, 
-            {val:'year-desc', label:'Año (Descendente)'}, 
-            {val:'year-asc', label:'Año (Ascendente)'},
+            {val:'recent', label:'Recientes'},
             {val:'title-asc', label:'Título (A-Z)'}, 
-            {val:'title-desc', label:'Título (Z-A)'}
+            {val:'title-desc', label:'Título (Z-A)'},
+            {val:'year-desc', label:'Año (Desc.)'}, 
+            {val:'year-asc', label:'Año (Asc.)'}
         ];
+
+        if (type !== 'series') {
+            sortOptions.push(
+                {val:'duration-asc', label:'- Duración'}, 
+                {val:'duration-desc', label:'+ Duración'}
+            );
+        }
         
         sortOptions.forEach(o => {
-            // Esto crea el menú visual (lo que ya tenías)
             sortList.appendChild(createItem(o.val, o.label, 'sort'));
 
-            // 🔥 FIX 2: Esto llena el cerebro oculto (DOM.sortBy)
-            // Sin esto, DOM.sortBy.value = 'title-asc' FALLABA silenciosamente
             if (DOM.sortBy) {
                 const option = document.createElement('option');
                 option.value = o.val;
@@ -1326,6 +1335,34 @@ async function applyAndDisplayFilters(type) {
         if (sortByValue === 'year-desc') return (Number(bData.year) || 0) - (Number(aData.year) || 0);
         if (sortByValue === 'title-asc') return (aData.title || '').localeCompare(bData.title || '');
         if (sortByValue === 'title-desc') return (bData.title || '').localeCompare(aData.title || '');
+
+        if (sortByValue === 'duration-asc' || sortByValue === 'duration-desc') {
+            const getMinutes = (item) => {
+                // Buscamos la duración en cualquier columna posible
+                const d = String(item.duration || item.duracion || '').toLowerCase().trim();
+                if (!d) return 0;
+
+                let minutes = 0;
+                // Caso 1: Formato "1h 45m"
+                const h = d.match(/(\d+)\s*h/);
+                const m = d.match(/(\d+)\s*m/);
+                if (h) minutes += parseInt(h[1]) * 60;
+                if (m) minutes += parseInt(m[1]);
+
+                // Caso 2: Formato "105 min" o solo numero "105"
+                if (!h && !m) {
+                    const num = parseInt(d.replace(/\D/g, '')); // Quita letras, deja números
+                    if (!isNaN(num)) minutes = num;
+                }
+                return minutes;
+            };
+
+            const minA = getMinutes(aData);
+            const minB = getMinutes(bData);
+
+            if (sortByValue === 'duration-asc') return minA - minB; // Cortas primero
+            if (sortByValue === 'duration-desc') return minB - minA; // Largas primero
+        }
 
         return 0;
     });
@@ -1794,8 +1831,9 @@ function renderCurrentPage() {
                 type = 'movie';
             }
         } else {
-            // Para Búsqueda global o filtros mixtos, verificamos si existe en la colección de series
-            if (appState.content.series[id]) {
+            // 🔥 CORRECCIÓN: Detectamos si es serie mirando la lista principal O la propiedad 'type' del item
+            // Esto arregla series dentro de Universos (como Ben 10)
+            if (appState.content.series[id] || item.type === 'series' || item.type === 'serie') {
                 type = 'series';
             }
         }
@@ -2138,7 +2176,22 @@ function setupSearch() {
             return;
         }
         isSearchActive = true;
-        const allContent = { ...appState.content.movies, ...appState.content.series, ...appState.content.ucm };
+        
+        // 1. Empezamos con lo básico
+        let allContent = { ...appState.content.movies, ...appState.content.series };
+
+        // 2. 🔥 AGREGAMOS TODAS LAS SAGAS AL BUSCADOR
+        if (appState.content.sagas) {
+            Object.values(appState.content.sagas).forEach(sagaItems => {
+                if (sagaItems) {
+                    Object.assign(allContent, sagaItems);
+                }
+            });
+        }
+
+        // 3. (Opcional) Si usas UCM antiguo
+        if (appState.content.ucm) Object.assign(allContent, appState.content.ucm);
+
         const results = Object.entries(allContent).filter(([id, item]) => item.title.toLowerCase().includes(searchTerm));
         displaySearchResults(results);
     });
@@ -2404,7 +2457,7 @@ async function openDetailsModal(id, type, triggerElement = null) {
         });
 
         // 2. RENDERIZADO BÁSICO
-        const isSeries = (type === 'series' || !!appState.content.series[id] || data.type === 'series');
+        const isSeries = (type === 'series' || !!appState.content.series[id] || data.type === 'series' || data.type === 'serie');
         
         document.getElementById('details-title').textContent = data.title || '';
         
@@ -2463,8 +2516,10 @@ async function openDetailsModal(id, type, triggerElement = null) {
             }
 
             // D. IDIOMA Y GÉNEROS (Para todos)
+            const langVal = data.language || data.idioma || data.audio;
+
             const metaItems = [
-                { val: data.language, class: 'meta-pill' },
+                { val: langVal, class: 'meta-pill' }, // Aquí pasamos el valor encontrado
                 { val: data.genres ? data.genres.replace(/;/g, ', ') : null, class: 'meta-pill' }
             ];
 
@@ -2915,7 +2970,17 @@ function addToHistoryIfLoggedIn(contentId, type, episodeInfo = {}) {
     if (!user) return;
 
     const isSeries = type.includes('series');
-    const itemData = isSeries ? appState.content.series[contentId] : appState.content.movies[contentId];
+    
+    // 🔥 CORRECCIÓN: Usamos el buscador inteligente para encontrar pelis dentro de sagas
+    // Asegúrate de que findContentData sea accesible aquí (está al final del archivo)
+    let itemData = findContentData(contentId); 
+
+    if (!itemData) {
+        // Fallback manual por si acaso
+        if (isSeries) itemData = appState.content.series[contentId];
+        else itemData = appState.content.movies[contentId];
+    }
+
     if (!itemData) return;
 
     // 1. Empezamos con el póster general de la serie/película
@@ -3860,7 +3925,7 @@ window.ErrorHandler = ErrorHandler;
 window.ContentManager = ContentManager;
 window.cacheManager = cacheManager;
 
-console.log('✅ Cine Corneta v8.3 cargado correctamente');
+console.log('✅ Cine Corneta v8.3.1 cargado correctamente');
 // ===========================================================
 // COMPATIBILIDAD: Funciones que ahora están en el módulo
 // ===========================================================
