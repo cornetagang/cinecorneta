@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL
-// Versión: 8.3.1 (05 de Feberero 2026)
+// Versión: 8.3.2 (08 de Feberero 2026)
 // ===========================================================
 
 // ===========================================================
@@ -1240,7 +1240,9 @@ async function applyAndDisplayFilters(type) {
     // Datos
     let content = Object.entries(sourceData);
     const isDynamicSaga = (type !== 'movie' && type !== 'series');
-    if (isDynamicSaga) content = content.reverse();
+    
+    // 🔥 SOLUCIÓN SIMPLE: Guardar el orden tal como viene del Excel
+    // JavaScript moderno garantiza que Object.entries() mantiene el orden de inserción
     content.forEach((item, index) => { item[1]._originalIndex = index; });
 
     // --- APLICAR FILTROS ---
@@ -1297,6 +1299,28 @@ async function applyAndDisplayFilters(type) {
         const idA = a[0]; const idB = b[0];
         const aData = a[1]; const bData = b[1];
 
+        let result = 0; // Variable para almacenar el resultado del ordenamiento
+
+        // 🔥 PARA SAGAS DINÁMICAS: Usar el orden del Excel como criterio PRINCIPAL
+        if (isDynamicSaga) {
+            // Función para obtener el valor de ordenamiento
+            const getOrderValue = (data) => {
+                const orderVal = data.order || data.number || data.id || data.stage || data.episode;
+                if (orderVal !== undefined) {
+                    // Si es número, usarlo directamente
+                    const numVal = Number(orderVal);
+                    if (!isNaN(numVal)) return numVal;
+                }
+                // Si no hay columna de orden o es texto (como "pelicula"), usar el índice original
+                return data._originalIndex || 0;
+            };
+            
+            result = getOrderValue(aData) - getOrderValue(bData);
+            
+            // Si ya hay un resultado claro, devolverlo sin aplicar otros criterios
+            if (result !== 0) return result;
+        }
+
         if (sortByValue === 'recent' || sortByValue === 'release') {
             
             // Detectamos tipos
@@ -1310,33 +1334,44 @@ async function applyAndDisplayFilters(type) {
             // 1. SI TIENEN FECHAS DISTINTAS (O HORAS DISTINTAS)
             // Gana el número más alto (el más reciente)
             if (timeA !== timeB) {
-                return timeB - timeA; 
+                result = timeB - timeA; 
             }
 
             // 2. SI ES EMPATE EXACTO (Mismo día y hora, o sin hora)
             // Aquí usamos tu jerarquía como desempate: Estreno > Temp > Cap
-            if (timeA > 0) { 
+            else if (timeA > 0) { 
                 const getScore = (id, data, t) => {
                     if (isDateRecent(data.date_added)) return 3; // Estreno
                     if (t === 'series' && hasRecentSeasonFromPosters(id)) return 2; // Temp
                     if (t === 'series' && hasRecentEpisodes(id)) return 1; // Cap
                     return 0;
                 };
-                return getScore(idB, bData, typeB) - getScore(idA, aData, typeA);
+                result = getScore(idB, bData, typeB) - getScore(idA, aData, typeA);
             }
 
             // 3. SI NO SON NUEVOS -> Ranking Normal
-            return (Number(bData.tr) || 0) - (Number(aData.tr) || 0);
+            else {
+                result = (Number(bData.tr) || 0) - (Number(aData.tr) || 0);
+            }
         }
 
         // ... resto de ordenamientos (A-Z, Año, etc) ...
-        if (sortByValue === 'chronological') return (Number(aData.cronologia) || 9999) - (Number(bData.cronologia) || 9999);
-        if (sortByValue === 'year-asc') return (Number(aData.year) || 9999) - (Number(bData.year) || 9999);
-        if (sortByValue === 'year-desc') return (Number(bData.year) || 0) - (Number(aData.year) || 0);
-        if (sortByValue === 'title-asc') return (aData.title || '').localeCompare(bData.title || '');
-        if (sortByValue === 'title-desc') return (bData.title || '').localeCompare(aData.title || '');
-
-        if (sortByValue === 'duration-asc' || sortByValue === 'duration-desc') {
+        else if (sortByValue === 'chronological') {
+            result = (Number(aData.cronologia) || 9999) - (Number(bData.cronologia) || 9999);
+        }
+        else if (sortByValue === 'year-asc') {
+            result = (Number(aData.year) || 9999) - (Number(bData.year) || 9999);
+        }
+        else if (sortByValue === 'year-desc') {
+            result = (Number(bData.year) || 0) - (Number(aData.year) || 0);
+        }
+        else if (sortByValue === 'title-asc') {
+            result = (aData.title || '').localeCompare(bData.title || '');
+        }
+        else if (sortByValue === 'title-desc') {
+            result = (bData.title || '').localeCompare(aData.title || '');
+        }
+        else if (sortByValue === 'duration-asc' || sortByValue === 'duration-desc') {
             const getMinutes = (item) => {
                 // Buscamos la duración en cualquier columna posible
                 const d = String(item.duration || item.duracion || '').toLowerCase().trim();
@@ -1360,12 +1395,13 @@ async function applyAndDisplayFilters(type) {
             const minA = getMinutes(aData);
             const minB = getMinutes(bData);
 
-            if (sortByValue === 'duration-asc') return minA - minB; // Cortas primero
-            if (sortByValue === 'duration-desc') return minB - minA; // Largas primero
+            if (sortByValue === 'duration-asc') result = minA - minB; // Cortas primero
+            if (sortByValue === 'duration-desc') result = minB - minA; // Largas primero
         }
 
-        return 0;
+        return result;
     });
+
 
     // 5.5 EXPANSIÓN CRONOLÓGICA (Solo si se eligió ese orden)
     if (sortByValue === 'chronological') {
@@ -3925,7 +3961,7 @@ window.ErrorHandler = ErrorHandler;
 window.ContentManager = ContentManager;
 window.cacheManager = cacheManager;
 
-console.log('✅ Cine Corneta v8.3.1 cargado correctamente');
+console.log('✅ Cine Corneta v8.3.2 cargado correctamente');
 // ===========================================================
 // COMPATIBILIDAD: Funciones que ahora están en el módulo
 // ===========================================================
