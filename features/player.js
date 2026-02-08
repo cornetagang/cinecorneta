@@ -235,11 +235,6 @@ function populateSeasonGrid(seriesId) {
     // Obtenemos datos usando 'shared'
     const episodesData = shared.appState.content.seriesEpisodes[seriesId] || {};
     const postersData = shared.appState.content.seasonPosters[seriesId] || {};
-    
-    // 🔴 ERROR ANTERIOR: Solo buscaba en la lista de series normal
-    // const seriesInfo = shared.appState.content.series[seriesId]; 
-
-    // 🟢 CORRECCIÓN: Usamos el buscador inteligente que busca en Sagas también
     const seriesInfo = findContentData(seriesId); 
     
     // Seguridad extra: Si por alguna razón no lo encuentra, salimos para no romper la app
@@ -257,12 +252,88 @@ function populateSeasonGrid(seriesId) {
     const posterSeasons = Object.keys(postersData);
     const allSeasons = [...new Set([...episodeSeasons, ...posterSeasons])];
 
-    const seasonsMapped = allSeasons.map(k => {
-        const numMatch = String(k).replace(/\D/g, '');
-        const num = numMatch ? parseInt(numMatch, 10) : 0;
-        return { key: k, num };
-    }).sort((a, b) => a.num - b.num);
+    // 🔥 ORDENAMIENTO INTELIGENTE CON DETECCIÓN DE HUECOS
+    // Separar números y texto
+    const numericSeasons = [];
+    const textSeasons = [];
+    
+    allSeasons.forEach(key => {
+        const asNum = Number(key);
+        if (!isNaN(asNum) && String(asNum) === String(key).trim()) {
+            numericSeasons.push({ key, value: asNum });
+        } else {
+            textSeasons.push(key);
+        }
+    });
+    
+    // Ordenar números
+    numericSeasons.sort((a, b) => a.value - b.value);
+    
+    // Detectar huecos en la numeración
+    const seasonsMapped = [];
+    const numbers = numericSeasons.map(s => s.value);
+    
+    // Agregar números en orden
+    for (let i = 0; i < numericSeasons.length; i++) {
+        const current = numericSeasons[i];
+        seasonsMapped.push({ 
+            key: current.key, 
+            num: current.value 
+        });
+        
+        // ¿Hay un hueco después de este número?
+        const next = numericSeasons[i + 1];
+        if (next && next.value - current.value > 1) {
+            // Hay un hueco (ej: después del 2 viene el 4, falta el 3)
+            // Insertar textos (películas/especiales) en el hueco
+            if (textSeasons.length > 0) {
+                const textSeason = textSeasons.shift();
+                seasonsMapped.push({ 
+                    key: textSeason, 
+                    num: current.value + 0.5 
+                });
+            }
+        }
+    }
+    
+    // Agregar textos restantes al final
+    textSeasons.forEach(key => {
+        const lastNum = numbers.length > 0 ? numbers[numbers.length - 1] : 0;
+        seasonsMapped.push({ 
+            key, 
+            num: lastNum + 1000 
+        });
+    });
 
+    const totalSeasons = seasonsMapped.length;
+
+    // ============================================
+    // 🔥 LÓGICA INTELIGENTE DE LAYOUT (JAVASCRIPT)
+    // ============================================
+    let columns = 5; // Default: máximo 5 columnas
+    
+    if (totalSeasons <= 5) {
+        // 1-5 temporadas: todas en una fila
+        columns = totalSeasons;
+    } else if (totalSeasons === 6) {
+        // 6 temporadas: 2 filas de 3
+        columns = 3;
+    } else if (totalSeasons === 7 || totalSeasons === 8) {
+        // 7-8 temporadas: 2 filas de 4
+        columns = 4;
+    } else {
+        // 9+ temporadas: máximo 5 por fila
+        columns = 5;
+    }
+
+    // Aplicar layout calculado directamente al grid
+    container.style.gridTemplateColumns = `repeat(${columns}, 200px)`;
+    container.style.justifyContent = 'center';
+    container.style.maxWidth = `${columns * 200 + (columns - 1) * 20}px`; // columnas × ancho + gaps
+
+    // ============================================
+    // RENDERIZAR TARJETAS
+    // ============================================
     seasonsMapped.forEach(({ key: seasonKey, num: seasonNum }) => {
         const rawEpisodes = episodesData[seasonKey];
         const episodes = rawEpisodes ? (Array.isArray(rawEpisodes) ? rawEpisodes : Object.values(rawEpisodes)) : [];
@@ -296,9 +367,6 @@ function populateSeasonGrid(seriesId) {
             if (isLocked) {
                 shared.ErrorHandler.show('content', 'Temporada no disponible aún.');
             } else {
-                // Asegúrate de que esta función esté disponible en el ámbito
-                // Si da error, usa window.renderEpisodePlayer o expórtala
-                // En tu estructura actual, está definida abajo en este mismo archivo, así que está bien.
                 renderEpisodePlayer(seriesId, seasonKey);
             }
         };
@@ -961,45 +1029,4 @@ function calculateFinishTime(durationStr) {
     const endTime = new Date(now.getTime() + durationMs);
 
     return endTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
-}
-
-// ==========================================
-// HELPER: PANTALLA COMPLETA (Con Giro Automático)
-// ==========================================
-async function toggleFullScreen(element) {
-    const target = element || document.documentElement;
-    const doc = document;
-
-    const isFullScreen = doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement || doc.msFullscreenElement;
-
-    if (!isFullScreen) {
-        // ENTRAR EN PANTALLA COMPLETA
-        const requestMethod = target.requestFullscreen || target.webkitRequestFullscreen || target.webkitEnterFullscreen || target.mozRequestFullScreen || target.msRequestFullscreen;
-        
-        if (requestMethod) {
-            try {
-                await requestMethod.call(target);
-                
-                // 🔥 GIRO AUTOMÁTICO: Intentar bloquear en horizontal
-                if (screen.orientation && screen.orientation.lock) {
-                    await screen.orientation.lock('landscape').catch(err => {
-                        console.warn("El bloqueo de orientación no es compatible o fue denegado:", err);
-                    });
-                }
-            } catch (err) {
-                console.error("Error al intentar entrar en pantalla completa:", err);
-            }
-        }
-    } else {
-        // SALIR DE PANTALLA COMPLETA
-        const exitMethod = doc.exitFullscreen || doc.webkitExitFullscreen || doc.mozCancelFullScreen || doc.msExitFullscreen;
-        
-        if (exitMethod) {
-            // 🔥 LIBERAR ORIENTACIÓN: Volver a permitir giro normal
-            if (screen.orientation && screen.orientation.unlock) {
-                screen.orientation.unlock();
-            }
-            exitMethod.call(doc);
-        }
-    }
 }
