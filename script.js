@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL
-// Versión: 8.3.2 (08 de Feberero 2026)
+// Versión: 8.3.3 (08 de Feberero 2026)
 // ===========================================================
 
 // ===========================================================
@@ -8,8 +8,6 @@
 // ===========================================================
 import { API_URL, firebaseConfig, UI } from './core/config.js';
 import { logError, ErrorHandler } from './utils/logger.js';
-
-// 👇 ESTOS SON LOS QUE FALTABAN PARA QUE FUNCIONE EL "new ..."
 import CacheManager from './utils/cache-manager.js';
 import ModalManager from './utils/modal-manager.js';
 import ContentManager from './utils/content-manager.js';
@@ -1240,6 +1238,9 @@ async function applyAndDisplayFilters(type) {
     // Datos
     let content = Object.entries(sourceData);
     const isDynamicSaga = (type !== 'movie' && type !== 'series');
+    
+    // 🔄 Para universos: invertir para respetar orden de arriba hacia abajo del Excel
+    if (isDynamicSaga) content.reverse();
     
     // 🔥 SOLUCIÓN SIMPLE: Guardar el orden tal como viene del Excel
     // JavaScript moderno garantiza que Object.entries() mantiene el orden de inserción
@@ -3961,7 +3962,7 @@ window.ErrorHandler = ErrorHandler;
 window.ContentManager = ContentManager;
 window.cacheManager = cacheManager;
 
-console.log('✅ Cine Corneta v8.3.2 cargado correctamente');
+console.log('✅ Cine Corneta v8.3.3 cargado correctamente');
 // ===========================================================
 // COMPATIBILIDAD: Funciones que ahora están en el módulo
 // ===========================================================
