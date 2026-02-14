@@ -611,7 +611,7 @@ function openEpisode(seriesId, season, newEpisodeIndex) {
             type: 'series',
             episodeInfo: { season: season, index: newEpisodeIndex, title: episode.title || '' }
         };
-    }, 20000); 
+    }, 3000); // 🔥 CORREGIDO: 3 segundos en lugar de 20 
 
     shared.DOM.seriesPlayerModal.querySelectorAll(`.episode-card.active`).forEach(c => c.classList.remove('active'));
     const activeCard = shared.DOM.seriesPlayerModal.querySelector(`#episode-card-${seriesId}-${season}-${newEpisodeIndex}`);
