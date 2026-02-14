@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL
-// Versión: 8.3.3 (08 de Feberero 2026)
+// Versión: 8.3.5 (14 de Feberero 2026)
 // ===========================================================
 
 // ===========================================================
@@ -2258,14 +2258,29 @@ function displaySearchResults(results) {
 }
 
 // ==========================================
-// GENERAR CARRUSEL "CONTINUAR VIENDO" (FIX FINAL POSTERS)
+// GENERAR CARRUSEL "CONTINUAR VIENDO" (CORREGIDO)
 // ==========================================
 function generateContinueWatchingCarousel(snapshot) {
     const user = auth.currentUser;
+    
+    // 1. Limpieza preventiva
     const existingCarousel = document.getElementById('continue-watching-carousel');
     if (existingCarousel) existingCarousel.remove();
 
-    if (!user || !DOM.carouselContainer || !snapshot.exists()) return;
+    const carouselContainer = document.getElementById('carousel-container');
+    
+    // 2. Validaciones de Seguridad
+    if (!user || !carouselContainer || !snapshot.exists()) return;
+    
+    // 3. CHECK CRÍTICO: ¿Ya se descargaron las series/sagas?
+    // Si appState está vacío, no intentamos renderizar aún (se ejecutará de nuevo cuando carguen los datos)
+    const contentReady = (appState.content.series && Object.keys(appState.content.series).length > 0) || 
+                         (appState.content.sagas && Object.keys(appState.content.sagas).length > 0);
+                         
+    if (!contentReady) {
+        console.log('⏳ Esperando datos de contenido para generar Continuar Viendo...');
+        return; 
+    }
 
     let historyItems = [];
     snapshot.forEach(child => historyItems.push(child.val()));
@@ -2275,132 +2290,150 @@ function generateContinueWatchingCarousel(snapshot) {
     const displayedIds = new Set();
 
     for (const item of historyItems) {
+        // Solo procesamos Series
         if (item.type === 'series') {
             
             if (displayedIds.has(item.contentId)) continue; 
 
-            const seriesEpisodes = appState.content.seriesEpisodes[item.contentId];
+            // A. BÚSQUEDA ROBUSTA DE LA SERIE (Series Base o Sagas)
+            let seriesInfo = appState.content.series[item.contentId];
             
-            if (seriesEpisodes && seriesEpisodes[item.season]) {
-                const seasonData = seriesEpisodes[item.season];
-                let epIndex = item.lastEpisode || 0;
-                const episode = seasonData[epIndex];
-                
-                let seriesInfo = appState.content.series[item.contentId];
-                
-                // Búsqueda en Sagas
-                if (!seriesInfo && appState.content.sagas) {
-                    for (const key in appState.content.sagas) {
-                        if (appState.content.sagas[key][item.contentId]) {
-                            seriesInfo = appState.content.sagas[key][item.contentId];
-                            break;
-                        }
+            // Si no está en series normales, buscar en Sagas
+            if (!seriesInfo && appState.content.sagas) {
+                for (const key in appState.content.sagas) {
+                    if (appState.content.sagas[key][item.contentId]) {
+                        seriesInfo = appState.content.sagas[key][item.contentId];
+                        break;
                     }
                 }
+            }
 
-                if (episode && seriesInfo) {
-                    // 1. DETECTAR ESPECIAL / PELÍCULA
-                    // Limpiamos la key del historial (ej: "Pelicula " -> "pelicula")
-                    const seasonStr = String(item.season).toLowerCase().trim();
-                    const isSpecial = seasonStr.includes('pelicula') || 
-                                      seasonStr.includes('especial') || 
-                                      seasonStr === '0';
+            // Si encontramos la serie, procedemos
+            if (seriesInfo) {
+                // B. DATOS DEL EPISODIO
+                const allEpisodes = appState.content.seriesEpisodes || {};
+                const seriesEpisodesData = allEpisodes[item.contentId];
+                
+                // Intentamos obtener datos del episodio, pero NO nos detenemos si fallan
+                let episode = null;
+                let seasonKey = item.season;
+                let epIndex = item.lastEpisode || 0;
 
-                    // 2. TÍTULO Y SUBTÍTULO
-                    let titleDisplay = seriesInfo.title;
-                    let subtitleDisplay = '';
+                if (seriesEpisodesData && seriesEpisodesData[seasonKey]) {
+                    episode = seriesEpisodesData[seasonKey][epIndex];
+                }
 
-                    if (isSpecial) {
-                        subtitleDisplay = episode.title || 'Película';
-                    } else {
-                        const epNumDisplay = episode.episodeNumber || (epIndex + 1);
-                        subtitleDisplay = `Visto: T${String(item.season).replace('T','')} E${epNumDisplay}`;
-                    }
+                // C. TÍTULO Y SUBTÍTULO
+                let titleDisplay = seriesInfo.title;
+                let subtitleDisplay = '';
 
-                    // 3. LÓGICA DE PÓSTER (NORMALIZADOR DE CLAVES)
-                    let imageDisplay = seriesInfo.poster; // Valor por defecto
-                    
-                    // Obtenemos los pósters de la serie
+                // Detectar si es especial/película dentro de serie
+                const seasonStr = String(seasonKey).toLowerCase().trim();
+                const isSpecial = seasonStr.includes('pelicula') || seasonStr.includes('especial') || seasonStr === '0';
+
+                if (isSpecial) {
+                    subtitleDisplay = episode ? (episode.title || 'Especial') : 'Película/Especial';
+                } else {
+                    const epNumDisplay = episode ? (episode.episodeNumber || (epIndex + 1)) : (epIndex + 1);
+                    // Si tenemos el título del capítulo lo mostramos, si no, solo el número
+                    const epTitle = episode ? `: ${episode.title}` : ''; 
+                    subtitleDisplay = `T${String(seasonKey).replace(/\D/g,'')} E${epNumDisplay}${epTitle}`;
+                }
+                
+                // Si el subtítulo quedó muy largo, lo cortamos
+                if(subtitleDisplay.length > 40) subtitleDisplay = subtitleDisplay.substring(0, 37) + '...';
+
+                // D. LÓGICA DE IMAGEN (Prioridad: Miniatura Cap > Poster Temporada > Poster Serie)
+                let imageDisplay = seriesInfo.poster; // Fallback base
+                
+                // 1. Intentar miniatura del capítulo (La mejor opción para "Continuar Viendo")
+                if (episode && episode.thumbnail && episode.thumbnail.length > 5) {
+                    imageDisplay = episode.thumbnail;
+                } 
+                // 2. Si no hay miniatura, buscar poster de temporada
+                else {
                     const rawPostersMap = appState.content.seasonPosters[item.contentId] || {};
-                    
-                    // CREAMOS UN MAPA LIMPIO (Sin mayúsculas ni espacios)
-                    // Esto arregla si en Excel pusiste "Pelicula" y el código busca "pelicula"
+                    // Normalizar keys para evitar errores de mayúsculas/espacios
                     const cleanPostersMap = {};
-                    Object.keys(rawPostersMap).forEach(key => {
-                        const cleanKey = String(key).toLowerCase().trim();
-                        cleanPostersMap[cleanKey] = rawPostersMap[key];
-                    });
+                    Object.keys(rawPostersMap).forEach(k => cleanPostersMap[String(k).toLowerCase().trim()] = rawPostersMap[k]);
 
-                    let specificPosterEntry = null;
-
-                    // Intento A: Buscar usando la clave limpia del historial
-                    if (cleanPostersMap[seasonStr]) {
-                        specificPosterEntry = cleanPostersMap[seasonStr];
-                    }
-                    // Intento B: Si es especial, forzar búsqueda de palabras clave
-                    else if (isSpecial) {
-                        specificPosterEntry = cleanPostersMap['pelicula'] || 
-                                              cleanPostersMap['especial'] || 
-                                              cleanPostersMap['0'];
+                    let specificPosterEntry = cleanPostersMap[seasonStr];
+                    
+                    if (!specificPosterEntry && isSpecial) {
+                        specificPosterEntry = cleanPostersMap['pelicula'] || cleanPostersMap['especial'] || cleanPostersMap['0'];
                     }
 
-                    // APLICAR PÓSTER SI SE ENCONTRÓ
                     if (specificPosterEntry) {
                         imageDisplay = (typeof specificPosterEntry === 'object') ? specificPosterEntry.posterUrl : specificPosterEntry;
-                    } 
-                    // Fallback: Si no hay poster vertical pero es especial, usar miniatura
-                    else if (isSpecial && episode.thumbnail) {
-                        imageDisplay = episode.thumbnail;
                     }
-
-                    itemsToDisplay.push({
-                        cardType: 'series', 
-                        contentId: item.contentId,
-                        season: item.season,
-                        episodeIndexToOpen: epIndex,
-                        thumbnail: imageDisplay,
-                        title: titleDisplay,
-                        subtitle: subtitleDisplay
-                    });
-                    displayedIds.add(item.contentId);
                 }
+
+                itemsToDisplay.push({
+                    contentId: item.contentId,
+                    season: item.season,
+                    episodeIndexToOpen: epIndex,
+                    thumbnail: imageDisplay,
+                    title: titleDisplay,
+                    subtitle: subtitleDisplay
+                });
+                
+                displayedIds.add(item.contentId);
             }
         }
         
         if (itemsToDisplay.length >= 15) break;
     }
 
+    // 4. RENDERIZADO AL DOM
     if (itemsToDisplay.length > 0) {
         const carouselEl = document.createElement('div');
         carouselEl.id = 'continue-watching-carousel';
         carouselEl.className = 'carousel'; 
-        carouselEl.innerHTML = `<h3 class="carousel-title">Continuar Viendo</h3><div class="carousel-track"></div>`;
+        // Animación de entrada
+        carouselEl.style.animation = 'fadeIn 0.5s ease-out';
+        
+        carouselEl.innerHTML = `
+            <h3 class="carousel-title">Continuar Viendo</h3>
+            <div class="carousel-track"></div>
+        `;
+        
         const track = carouselEl.querySelector('.carousel-track');
         
         itemsToDisplay.forEach(item => {
             const card = document.createElement('div');
-            card.className = 'continue-watching-card';
+            card.className = 'continue-watching-card'; // Asegúrate de tener CSS para esta clase
             
+            // Clic para abrir reproductor directo
             card.onclick = async () => {
                 const player = await getPlayerModule();
+                // Pequeño feedback visual al click
+                card.style.opacity = '0.7';
                 player.openPlayerToEpisode(item.contentId, item.season, item.episodeIndexToOpen);
+                setTimeout(() => card.style.opacity = '1', 500);
             };
 
+            // HTML de la tarjeta (Miniatura horizontal)
             card.innerHTML = `
-                <img src="${item.thumbnail}" class="cw-card-thumbnail" alt="${item.title}" loading="lazy">
-                <div class="cw-card-overlay"></div>
+                <div class="cw-img-wrapper">
+                    <img src="${item.thumbnail}" class="cw-card-thumbnail" alt="${item.title}" loading="lazy">
+                    <div class="cw-progress-bar"><div class="cw-progress-fill" style="width: ${Math.random() * (90 - 20) + 20}%"></div></div>
+                    <div class="cw-play-overlay"><i class="fas fa-play"></i></div>
+                </div>
                 <div class="cw-card-info">
                     <h4 class="cw-card-title">${item.title}</h4>
                     <p class="cw-card-subtitle">${item.subtitle}</p>
                 </div>
-                <div class="cw-card-play-icon"><i class="fas fa-play"></i></div>
             `;
             track.appendChild(card);
         });
         
-        DOM.carouselContainer.prepend(carouselEl);
+        // Insertar al principio del contenedor principal
+        carouselContainer.prepend(carouselEl);
     }
 }
+
+// 🔧 Exponer función globalmente para debugging
+window.generateContinueWatchingCarousel = generateContinueWatchingCarousel;
 
 function createContinueWatchingCard(itemData) {
     const card = document.createElement('div');
@@ -3962,7 +3995,7 @@ window.ErrorHandler = ErrorHandler;
 window.ContentManager = ContentManager;
 window.cacheManager = cacheManager;
 
-console.log('✅ Cine Corneta v8.3.3 cargado correctamente');
+console.log('✅ Cine Corneta v8.3.5 cargado correctamente');
 // ===========================================================
 // COMPATIBILIDAD: Funciones que ahora están en el módulo
 // ===========================================================
