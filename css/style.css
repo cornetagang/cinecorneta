@@ -2184,103 +2184,164 @@ body.modal-open { overflow: hidden; }
     border: 1px solid rgba(235, 68, 90, 0.2);
 }
 
-/* ================================== */
-/* CARRUSEL "CONTINUAR VIENDO"        */
-/* ================================== */
+/* =========================================
+   CARRUSEL CONTINUAR VIENDO (Sincronizado con JS)
+   ========================================= */
 
+/* El contenedor de la tarjeta */
 .continue-watching-card {
-    position: relative;
-    width: 280px;
-    aspect-ratio: 16 / 9;
+    flex: 0 0 auto;
+    width: 260px; /* Un poco más ancho que las pelis normales */
+    margin-right: 15px;
+    cursor: pointer;
     border-radius: 8px;
     overflow: hidden;
-    cursor: pointer;
-    background-color: var(--panel-dark);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
-    transition: transform 0.3s ease;
-    flex-shrink: 0;
+    background: #1a1a1a;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    position: relative;
 }
 
 .continue-watching-card:hover {
-    transform: translateY(5px) scale(1);
-    z-index: 10;
+    transform: scale(1.05);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+    z-index: 2;
 }
 
+/* Wrapper de la imagen para poder poner cosas encima */
+.cw-img-wrapper {
+    position: relative;
+    width: 100%;
+    height: 146px; /* Aspect ratio 16:9 aprox */
+}
+
+/* La imagen en sí */
 .cw-card-thumbnail {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    opacity: 0.8;
+    transition: opacity 0.3s;
 }
 
-.cw-card-overlay {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 50%);
+.continue-watching-card:hover .cw-card-thumbnail {
+    opacity: 1;
 }
 
-.cw-card-info {
-    position: absolute;
-    bottom: 15px;
-    left: 15px;
-    right: 15px;
-    color: white;
-}
-
-.cw-card-title {
-    font-size: 1.1rem;
-    font-weight: bold;
-    margin: 0 0 5px 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.cw-card-subtitle {
-    font-size: 0.85rem;
-    font-weight: bold;
-    margin: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.cw-card-progress-bar-container {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 5px;
-    background-color: rgba(255, 255, 255, 0.3);
-}
-
-.cw-card-progress-bar {
-    height: 100%;
-    background-color: var(--primary-red);
-    border-radius: 0 2px 2px 0;
-}
-
-.cw-card-play-icon {
+/* Icono de Play gigante al centro (Solo aparece al hover) */
+.cw-play-overlay {
     position: absolute;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%) scale(0.5);
     width: 50px;
     height: 50px;
-    background-color: rgba(0, 0, 0, 0.6);
-    border: 2px solid white;
+    background: rgba(0, 0, 0, 0.6);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.2rem;
-    color: white;
+    border: 2px solid white;
     opacity: 0;
-    transition: opacity 0.3s ease, transform 0.3s ease;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-.continue-watching-card:hover .cw-card-play-icon {
+.cw-play-overlay i {
+    color: white;
+    font-size: 20px;
+    margin-left: 4px; /* Ajuste óptico */
+}
+
+.continue-watching-card:hover .cw-play-overlay {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1.1);
+    transform: translate(-50%, -50%) scale(1);
+}
+
+/* Textos debajo de la imagen */
+.cw-card-info {
+    padding: 10px;
+    background: linear-gradient(to top, #141414 0%, #1a1a1a 100%);
+}
+
+.cw-card-title {
+    font-size: 0.95rem;
+    color: white;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 600;
+}
+
+.cw-card-subtitle {
+    font-size: 0.8rem;
+    color: #aaa;
+    margin: 4px 0 0 0;
+}
+
+/* =========================================
+   CARRUSEL CONTINUAR VIENDO (FIX ALINEACIÓN)
+   ========================================= */
+
+/* 1. El contenedor principal ocupa todo el ancho */
+.carousel {
+    display: block;        /* Asegura bloque completo */
+    width: 100%;           /* Ocupa el 100% de la pantalla */
+    margin-bottom: 40px;   /* Separación con lo de abajo */
+    position: relative;    /* Para posicionar flechas si las pones después */
+    overflow: hidden;      /* Evita scroll horizontal en la página entera */
+}
+
+/* 2. El título pegado a la izquierda */
+.carousel-title {
+    text-align: left;
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin-bottom: 15px;
+    color: white;
+}
+
+/* 3. La pista (Track) es la CLAVE */
+.carousel-track {
+    display: flex;              /* Activa Flexbox */
+    flex-wrap: nowrap;          /* IMPIDE que bajen de línea (fila única) */
+    justify-content: flex-start; /* 🔥 FUERZA alineación a la IZQUIERDA */
+    align-items: center;        /* Centra verticalmente */
+    
+    width: 100%;                /* Ocupa todo el ancho disponible */
+    overflow-x: auto;           /* Permite SCROLL horizontal */
+    overflow-y: hidden;         /* Oculta scroll vertical */
+
+    scroll-behavior: smooth;    /* Suaviza el deslizamiento */
+    
+    /* Opcional: Estiliza la barra de scroll */
+    scrollbar-width: thin;      /* Firefox */
+    scrollbar-color: #e50914 #141414; /* Color rojo y fondo oscuro */
+}
+
+/* Estilo para navegadores Webkit (Chrome, Safari, Edge) */
+.carousel-track::-webkit-scrollbar {
+    height: 6px;                /* Altura de la barrita */
+}
+.carousel-track::-webkit-scrollbar-track {
+    background: #141414;        /* Fondo del riel */
+}
+.carousel-track::-webkit-scrollbar-thumb {
+    background-color: #333;     /* Color de la barra */
+    border-radius: 10px;
+}
+
+/* 4. Asegurar que las tarjetas no se encojan */
+.continue-watching-card {
+    flex: 0 0 auto;             /* 🔥 IMPORTANTE: No encoger, no estirar */
+    width: 260px;               /* Ancho fijo de la tarjeta */
+    margin-right: 15px;         /* Espacio entre tarjetas */
+    
+    /* (El resto de estilos visuales que te di antes...) */
+    border-radius: 8px;
+    overflow: hidden;
+    background: #1a1a1a;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, z-index 0s;
+    position: relative;
 }
 
 /* ======================================================= */
@@ -2654,14 +2715,24 @@ body.modal-open { overflow: hidden; }
         display: none;
     }
     #series-player-modal .season-grid {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
+        display: grid; /* Cambiamos flex por grid */
+        grid-template-columns: repeat(2, 1fr); /* Forzamos 2 columnas iguales */
         gap: 15px;
+        justify-content: center;
     }
     #series-player-modal .season-poster-card {
-        width: clamp(120px, 35vw, 150px);
+        aspect-ratio: 2/3;
+        width: 100% !important; /* Ahora sí funciona perfecto, llena su mitad */
+        height: auto !important;
+        position: relative;
+        cursor: pointer;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+        transition: transform 0.28s ease, box-shadow 0.28s ease;
+        background: #111;
     }
+
     #history-container, #my-list-container {
         padding-top: 30px;
     }
