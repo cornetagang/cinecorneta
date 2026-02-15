@@ -2579,9 +2579,19 @@ async function openDetailsModal(id, type, triggerElement = null) {
             // D. IDIOMA Y GÉNEROS (Para todos)
             const langVal = data.language || data.idioma || data.audio;
 
+            // Normalizar géneros: puede venir como string o array
+            let genresVal = null;
+            if (data.genres) {
+                if (Array.isArray(data.genres)) {
+                    genresVal = data.genres.join(', ');
+                } else if (typeof data.genres === 'string') {
+                    genresVal = data.genres.replace(/;/g, ', ');
+                }
+            }
+
             const metaItems = [
-                { val: langVal, class: 'meta-pill' }, // Aquí pasamos el valor encontrado
-                { val: data.genres ? data.genres.replace(/;/g, ', ') : null, class: 'meta-pill' }
+                { val: langVal, class: 'meta-pill' },
+                { val: genresVal, class: 'meta-pill' }
             ];
 
             metaItems.forEach(item => {
@@ -2617,7 +2627,7 @@ async function openDetailsModal(id, type, triggerElement = null) {
                 vetadaMsg.className = 'vetada-message';
                 vetadaMsg.innerHTML = `
                     <i class="fas fa-lock"></i>
-                    <span>Contenido no disponible</span>
+                    <span>No disponible</span>
                 `;
                 detailsButtons.appendChild(vetadaMsg);
                 
