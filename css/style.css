@@ -3897,7 +3897,7 @@ body.tab-inactive iframe {
     padding: 25px;
     display: flex;
     gap: 20px;
-    height: 220px; /* 🟢 Altura fija para mantener el orden de la grilla */
+    height: 240px; /* 🟢 Aumentado para acomodar 2 líneas de título */
     position: relative;
     transition: all 0.4s ease;
     overflow: hidden;
@@ -3928,9 +3928,14 @@ body.tab-inactive iframe {
     font-size: 1.5rem; 
     color: white; 
     margin: 0; 
-    white-space: nowrap; 
-    overflow: hidden; 
-    text-overflow: ellipsis; 
+    margin-bottom: 5px;
+    line-height: 1.2;
+    /* Permitir hasta 2 líneas */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .review-user { 
@@ -4050,6 +4055,27 @@ body.tab-inactive iframe {
 }
 
 /* =========================================
+   FIX DEFINITIVO PARA CORTAR TEXTO
+   ========================================= */
+
+/* Ajuste visual para el botón */
+.read-more-trigger {
+    display: block;        /* Que ocupe su propia línea */
+    margin-top: 8px;       /* Espacio con el texto */
+    font-size: 0.85rem;
+    color: #aaa;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-decoration: underline;
+    transition: color 0.2s ease;
+}
+
+.read-more-trigger:hover {
+    color: #e50914; /* Rojo al pasar el mouse */
+}
+
+/* =========================================
    ARREGLO DE RESEÑAS EN MÓVIL
    ========================================= */
 @media (max-width: 768px) {
@@ -4062,26 +4088,57 @@ body.tab-inactive iframe {
         gap: 15px !important;
     }
 
-    /* 2. La tarjeta de la reseña: Altura automática */
+    /* 2. La tarjeta de la reseña: Altura automática pero limitada */
     .review-card, .user-review-card {
         width: 100% !important;
-        height: auto !important;     /* 🔥 CLAVE: Se ajusta al tamaño del texto */
-        min-height: 0 !important;    /* Evita alturas mínimas raras */
+        height: auto !important;
+        min-height: 0 !important;
         margin-bottom: 10px;
     }
 
-    /* 3. El texto de la reseña: Que se lea todo */
-    .review-text, .review-body, .card-text {
-        white-space: normal !important; /* Permite saltos de línea */
-        overflow: visible !important;   /* Muestra todo el texto, no lo recorta */
-        display: block !important;      /* Rompe cualquier flexbox raro en el texto */
-        font-size: 0.9rem;              /* Tamaño legible en móvil */
+    /* 3. ✅ MANTENER el truncado en móviles */
+    .review-text {
+        font-size: 0.9rem;
         line-height: 1.4;
+        /* NO sobrescribimos el truncado, dejamos que .review-text-clamped funcione */
     }
     
     /* 4. Cabecera de la reseña (Autor/Estrellas) */
     .review-header {
         flex-wrap: wrap; /* Si el nombre es largo, que baje */
+    }
+    
+    /* 5. Botón "Leer reseña completa" visible en móviles */
+    .read-more-trigger {
+        display: block;
+        margin-top: 8px;
+        font-size: 0.9rem; /* Un poco más grande en móvil */
+        padding: 5px 0;
+    }
+    
+    /* 6. Modal de reseña completa responsive */
+    #full-review-modal .auth-modal-content {
+        max-width: 95% !important;
+        margin: 10px;
+    }
+    
+    #read-review-header {
+        height: 200px !important; /* Más compacto en móvil */
+    }
+    
+    #read-review-header > div:last-child {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 10px !important;
+    }
+    
+    #read-review-poster {
+        width: 80px !important;
+        height: 120px !important;
+    }
+    
+    #read-review-movie-title {
+        font-size: 1.8rem !important;
     }
 }
 
