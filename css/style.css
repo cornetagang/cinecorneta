@@ -4037,7 +4037,7 @@ body.tab-inactive iframe {
     padding: 25px;
     display: flex;
     gap: 20px;
-    height: 240px; /* 🟢 Aumentado para acomodar 2 líneas de título */
+    height: 260px; /* 🟢 Aumentado para acomodar 3 líneas de título */
     position: relative;
     transition: all 0.4s ease;
     overflow: hidden;
@@ -4065,14 +4065,14 @@ body.tab-inactive iframe {
 
 .review-movie-title { 
     font-family: 'Bebas Neue'; 
-    font-size: 1.5rem; 
+    font-size: 1.35rem; /* Reducido de 1.5rem para evitar corte */
     color: white; 
     margin: 0; 
     margin-bottom: 5px;
-    line-height: 1.2;
-    /* Permitir hasta 2 líneas */
+    line-height: 1.15; /* Más compacto */
+    /* Permitir hasta 3 líneas */
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -4119,6 +4119,8 @@ body.tab-inactive iframe {
     -webkit-line-clamp: 3; /* Solo 3 líneas visibles en la tarjeta */
     -webkit-box-orient: vertical; 
     overflow: hidden;
+    text-overflow: ellipsis;
+    word-break: break-word; /* Prevenir desbordamiento */
 }
 
 .btn-read-more { 
@@ -4280,6 +4282,18 @@ body.tab-inactive iframe {
     #read-review-movie-title {
         font-size: 1.8rem !important;
     }
+}
+
+/* ======================================================= */
+/* OCULTAR SCROLLBAR DEL MODAL DE RESEÑA COMPLETA        */
+/* ======================================================= */
+#full-review-modal .auth-modal-content > div[style*="overflow-y"] {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* Internet Explorer 10+ */
+}
+
+#full-review-modal .auth-modal-content > div[style*="overflow-y"]::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
 }
 
 /* ======================================================= */
