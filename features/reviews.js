@@ -1,8 +1,8 @@
 // ===========================================================
 // MÓDULO DE RESEÑAS (REVIEWS)
 // ===========================================================
-// Versión: 2.1
-// Fecha: 2 de Febrero 2026
+// Versión: 2.0
+// Fecha: 1 de Febrero 2026
 // ===========================================================
 
 let appState, DOM, auth, db, ErrorHandler, ModalManager, openConfirmationModal;
@@ -393,6 +393,7 @@ async function handleReviewSubmit(e) {
             contentType: contentType, // 🔥 GUARDAMOS EL TIPO AHORA
             contentTitle: itemData ? itemData.title : 'Desconocido',
             poster: itemData ? itemData.poster : '',
+            banner: itemData ? itemData.banner : '', // 🔥 GUARDAMOS EL BANNER
             stars: parseInt(rating),
             text: text,
             timestamp: firebase.database.ServerValue.TIMESTAMP
@@ -487,31 +488,35 @@ function findContentData(contentId) {
 }
 
 // ===========================================================
-// RENDERIZADO: GRID DE RESEÑAS
+// RENDERIZADO: GRID DE RESEÑAS (CON LÓGICA DE "LEER MÁS")
 // ===========================================================
 export function renderReviewsGrid() {
-    const grid = DOM.reviewsGrid;
+    const grid = DOM.reviewsGrid; // O document.getElementById('reviews-grid-container')
     if (!grid) return;
 
+    // Estado de carga inicial
     grid.innerHTML = `
         <div style="grid-column: 1/-1; text-align: center; padding: 50px;">
             <p class="loading-text">Cargando reseñas...</p>
         </div>
     `;
 
-    db.ref('reviews').limitToLast(30).on('value', snapshot => {
+    // Escuchar cambios en Firebase
+    db.ref('reviews').limitToLast(50).on('value', snapshot => {
+        // Limpiar grid
         grid.innerHTML = '';
         
         if (!snapshot.exists()) {
             grid.innerHTML = `
-                <p style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 40px;">
-                    Aún no hay reseñas publicadas.
-                </p>
+                <div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 40px;">
+                    <i class="far fa-comment-dots" style="font-size: 2rem; margin-bottom: 15px; display:block;"></i>
+                    <p>Aún no hay reseñas. ¡Sé el primero en opinar!</p>
+                </div>
             `;
             return;
         }
 
-        // Obtener todas las reseñas
+        // 1. Obtener y ordenar datos
         const reviews = [];
         snapshot.forEach(child => {
             const data = child.val();
@@ -519,11 +524,25 @@ export function renderReviewsGrid() {
             reviews.push(data);
         });
 
-        // Renderizar de más reciente a más antigua
-        reviews.reverse().forEach(review => {
+        // Ordenar: Más recientes primero
+        reviews.reverse();
+
+        // 2. Generar el HTML
+        // Usamos un fragmento para mejor rendimiento
+        const fragment = document.createDocumentFragment();
+
+        reviews.forEach(review => {
             const card = createReviewCard(review);
-            grid.appendChild(card);
+            fragment.appendChild(card);
         });
+
+        grid.appendChild(fragment);
+
+        // 3. 🔥 ACTIVAR EL SISTEMA DE TRUNCADO (LEER MÁS)
+        // Se ejecuta después de que los elementos están en el DOM
+        setTimeout(() => {
+            setupReviewTruncation();
+        }, 100);
     });
 }
 
@@ -531,66 +550,120 @@ export function renderReviewsGrid() {
 window.renderReviews = renderReviewsGrid;
 
 // ===========================================================
-// RENDERIZADO: CREAR TARJETA DE RESEÑA
+// AUXILIAR: CREAR TARJETA (LIMPIA)
 // ===========================================================
 function createReviewCard(review) {
     const card = document.createElement('div');
-    card.className = 'review-card';
+    card.className = 'review-card'; // Asegúrate de tener CSS para esto
+    
+    // 🔥 Almacenar datos de la reseña en la tarjeta para usarlos después
+    card.dataset.reviewData = JSON.stringify(review);
 
-    // HTML de estrellas
+    // Estrellas
     const starsHTML = 
-        '<i class="fas fa-star"></i>'.repeat(review.stars) + 
-        '<i class="far fa-star"></i>'.repeat(5 - review.stars);
+        '<i class="fas fa-star" style="color:#e50914;"></i>'.repeat(review.stars) + 
+        '<i class="far fa-star" style="color:#444;"></i>'.repeat(5 - review.stars);
 
-    // Fecha formateada
+    // Fecha
     const date = review.timestamp 
-        ? new Date(review.timestamp).toLocaleDateString('es-ES', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric'
-        })
+        ? new Date(review.timestamp).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })
         : 'Reciente';
 
-    // Verificar si es admin
-    const isAdmin = auth.currentUser && auth.currentUser.email === 'baquezadat@gmail.com';
+    // Botón borrar (Solo admin)
+    const isAdmin = auth.currentUser && auth.currentUser.email === 'baquezadat@gmail.com'; // Tu email
     const deleteBtnHTML = isAdmin 
-        ? `<button class="btn-delete-review" onclick="deleteReview('${review.id}')">
+        ? `<button class="btn-delete-review" onclick="deleteReview('${review.id}')" title="Borrar reseña">
              <i class="fas fa-trash-alt"></i>
            </button>` 
         : '';
 
-    // Botón "Leer más" si el texto es largo
-    const isLongText = review.text && review.text.length > 120;
-    const displayText = isLongText 
-        ? review.text.substring(0, 120) + '...' 
-        : review.text;
-    
-    const readMoreBtn = isLongText 
-        ? `<button class="btn-read-more" onclick='openFullReview(${JSON.stringify(review).replace(/'/g, "&apos;")})'>
-             Leer reseña completa
-           </button>` 
-        : '';
-
-    // Construir HTML
+    // HTML de la tarjeta
+    // NOTA: Ponemos el texto COMPLETO. El JS de truncado se encarga de ocultarlo si es largo.
     card.innerHTML = `
-        <img src="${review.poster}" 
+        <img src="${review.poster || 'img/default-poster.png'}" 
              class="review-poster" 
-             loading="lazy"
+             loading="lazy" 
+             alt="${review.contentTitle}"
              onerror="this.src='https://res.cloudinary.com/djhgmmdjx/image/upload/v1759209689/u71QEFc_bet4rv.png'">
+        
         <div class="review-content">
             <h3 class="review-movie-title">${review.contentTitle}</h3>
             <p class="review-user">
-                @${review.userName} 
-                <span class="review-date-tag">${date}</span>
+                @${review.userName}
+                <span class="review-date-tag">• ${date}</span>
             </p>
             <div class="review-stars">${starsHTML}</div>
-            <p class="review-text">"${displayText}"</p>
-            ${readMoreBtn}
-            ${deleteBtnHTML}
+            <p class="review-text">${review.text}</p>
         </div>
+        ${deleteBtnHTML}
     `;
 
     return card;
+}
+
+// ===========================================================
+// LÓGICA: TRUNCADO INTELIGENTE (LEER MÁS / MENOS)
+// ===========================================================
+function setupReviewTruncation() {
+    const reviewCards = document.querySelectorAll('.review-card');
+
+    reviewCards.forEach(card => {
+        const textEl = card.querySelector('.review-text');
+        if (!textEl) return;
+
+        // Limpiar estado previo
+        const existingBtn = card.querySelector('.read-more-trigger');
+        if (existingBtn) existingBtn.remove();
+
+        // Esperar a que el elemento esté completamente renderizado
+        setTimeout(() => {
+            // Verificar nuevamente que el elemento existe
+            if (!textEl || !textEl.scrollHeight || !textEl.clientHeight) return;
+            
+            // 🔥 DETECCIÓN INTELIGENTE: Verificar si el texto está siendo truncado visualmente
+            // Comparamos el scrollHeight (altura total del contenido) con clientHeight (altura visible)
+            const isTruncated = textEl.scrollHeight > textEl.clientHeight + 2; // +2 para margen de error
+            
+            if (isTruncated) {
+                // 1. Creamos botón
+                const btn = document.createElement('button');
+                btn.className = 'read-more-trigger';
+                btn.textContent = 'Leer reseña completa';
+                
+                // Estilos inline básicos
+                btn.style.marginTop = '8px';
+                btn.style.background = 'none';
+                btn.style.border = 'none';
+                btn.style.color = '#888';
+                btn.style.cursor = 'pointer';
+                btn.style.fontSize = '0.85rem';
+                btn.style.fontWeight = '600';
+                btn.style.transition = 'color 0.3s ease';
+
+                // 2. 🔥 Evento Click - ABRIR MODAL CON LA RESEÑA COMPLETA
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    
+                    // Obtener datos de la reseña desde el atributo data
+                    const reviewData = JSON.parse(card.dataset.reviewData);
+                    
+                    // Abrir modal con reseña completa
+                    openFullReview(reviewData);
+                };
+                
+                // Hover effect
+                btn.addEventListener('mouseenter', () => {
+                    btn.style.color = '#e50914';
+                });
+                btn.addEventListener('mouseleave', () => {
+                    btn.style.color = '#888';
+                });
+
+                // Insertar después del contenedor de texto
+                textEl.parentNode.appendChild(btn);
+            }
+        }, 50); // Pequeño delay para asegurar que el DOM esté listo
+    });
 }
 
 // ===========================================================
@@ -609,21 +682,46 @@ export function openFullReview(reviewData) {
     const text = document.getElementById('read-review-text');
     const stars = document.getElementById('read-review-stars');
 
-    if (header) header.style.backgroundImage = `url(${reviewData.poster})`;
+    // 🔥 BUSCAR BANNER DINÁMICAMENTE si no existe en la reseña guardada
+    let bannerToUse = reviewData.banner;
+    
+    if (!bannerToUse && reviewData.contentId) {
+        // Buscar el contenido actual para obtener el banner
+        const contentData = findContentData(reviewData.contentId);
+        if (contentData && contentData.banner) {
+            bannerToUse = contentData.banner;
+        }
+    }
+    
+    // Usar banner como fondo, si no existe usar poster
+    const backgroundImage = bannerToUse || reviewData.poster;
+    if (header) header.style.backgroundImage = `url(${backgroundImage})`;
+    
+    // Poster sigue siendo el poster normal
     if (poster) poster.src = reviewData.poster;
+    
     if (title) title.textContent = reviewData.contentTitle;
     if (user) user.textContent = `@${reviewData.userName}`;
     if (date) date.textContent = reviewData.timestamp 
-        ? new Date(reviewData.timestamp).toLocaleDateString('es-ES')
+        ? new Date(reviewData.timestamp).toLocaleDateString('es-ES', { 
+            day: 'numeric', 
+            month: 'long', 
+            year: 'numeric' 
+        })
         : 'Reciente';
     if (text) text.textContent = reviewData.text;
     if (stars) stars.innerHTML = 
         '<i class="fas fa-star"></i>'.repeat(reviewData.stars) + 
         '<i class="far fa-star"></i>'.repeat(5 - reviewData.stars);
 
-    // Mostrar modal
-    modal.classList.add('show');
-    document.body.classList.add('modal-open');
+    // Mostrar modal usando ModalManager si está disponible
+    if (ModalManager && typeof ModalManager.open === 'function') {
+        ModalManager.open(modal, { closeOnEsc: true });
+    } else {
+        // Fallback si ModalManager no está disponible
+        modal.classList.add('show');
+        document.body.classList.add('modal-open');
+    }
 }
 
 window.openFullReview = openFullReview;
