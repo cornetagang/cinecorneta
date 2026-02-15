@@ -1,8 +1,8 @@
 // ===========================================================
 // MÓDULO DE RESEÑAS (REVIEWS)
 // ===========================================================
-// Versión: 2.0
-// Fecha: 1 de Febrero 2026
+// Versión: 2.6
+// Fecha: 15 de Febrero 2026
 // ===========================================================
 
 let appState, DOM, auth, db, ErrorHandler, ModalManager, openConfirmationModal;
@@ -622,7 +622,14 @@ function setupReviewTruncation() {
             
             // 🔥 DETECCIÓN INTELIGENTE: Verificar si el texto está siendo truncado visualmente
             // Comparamos el scrollHeight (altura total del contenido) con clientHeight (altura visible)
-            const isTruncated = textEl.scrollHeight > textEl.clientHeight + 2; // +2 para margen de error
+            const isTruncated = textEl.scrollHeight > textEl.clientHeight; // Sin margen - detección directa
+            
+            console.log('Verificando truncado:', {
+                scrollHeight: textEl.scrollHeight,
+                clientHeight: textEl.clientHeight,
+                isTruncated: isTruncated,
+                text: textEl.textContent.substring(0, 30) + '...'
+            });
             
             if (isTruncated) {
                 // 1. Creamos botón
@@ -662,7 +669,7 @@ function setupReviewTruncation() {
                 // Insertar después del contenedor de texto
                 textEl.parentNode.appendChild(btn);
             }
-        }, 50); // Pequeño delay para asegurar que el DOM esté listo
+        }, 100); // Mayor delay para asegurar que el DOM esté completamente renderizado
     });
 }
 
