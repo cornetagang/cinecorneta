@@ -133,6 +133,7 @@ const appState = {
         sagasList: [],   // Lista de botones (orden, logos, colores)
         seriesEpisodes: {},
         seasonPosters: {},
+        seasonOrder: {}, // 🔥 Orden original de temporadas por serie
         metadata: { movies: {}, series: {} },
         averages: {}     // 🔥 Promedios de ratings (se llena desde el módulo de reviews)
     },
@@ -361,6 +362,32 @@ async function fetchInitialDataWithCache() {
         appState.content.series = data.series || {};
         appState.content.seriesEpisodes = data.episodes || {};
         appState.content.seasonPosters = data.posters || {};
+        
+        // 🔥 PRESERVAR ORDEN ORIGINAL DE TEMPORADAS
+        // Crear un índice de orden para cada serie basado en el orden de llegada
+        appState.content.seasonOrder = {};
+        
+        // Para episodios
+        for (const seriesId in data.episodes) {
+            const seasons = data.episodes[seriesId];
+            // Guardar el orden exacto en que llegan las claves
+            appState.content.seasonOrder[seriesId] = Object.keys(seasons);
+        }
+        
+        // Fusionar con posters si hay claves adicionales
+        for (const seriesId in data.posters) {
+            const posterSeasons = Object.keys(data.posters[seriesId]);
+            if (appState.content.seasonOrder[seriesId]) {
+                // Agregar claves que no estén ya en el orden
+                posterSeasons.forEach(key => {
+                    if (!appState.content.seasonOrder[seriesId].includes(key)) {
+                        appState.content.seasonOrder[seriesId].push(key);
+                    }
+                });
+            } else {
+                appState.content.seasonOrder[seriesId] = posterSeasons;
+            }
+        }
         
         // Procesamos la lista de sagas
         appState.content.sagasList = Object.values(data.sagas_list || {});
