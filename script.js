@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL
-// Versión: 8.3.6 (14 de Feberero 2026)
+// Versión: 8.3.7 (15 de Feberero 2026)
 // ===========================================================
 
 // ===========================================================
@@ -2688,7 +2688,6 @@ async function openDetailsModal(id, type, triggerElement = null) {
                     }
                 };
                 detailsButtons.appendChild(playBtn);
-            }
 
             // --- BOTÓN 2: TEMPORADAS O RANDOM (Solo Series) ---
             if (isSeries) {
@@ -2751,7 +2750,7 @@ async function openDetailsModal(id, type, triggerElement = null) {
                 }
             }
 
-            // --- BOTÓN 3: MI LISTA ---
+            // --- BOTÓN 3: MI LISTA (Solo si NO está vetada) ---
             if (auth.currentUser) {
                 const inList = appState.user.watchlist.has(id);
                 const listBtn = document.createElement('button');
@@ -2765,6 +2764,7 @@ async function openDetailsModal(id, type, triggerElement = null) {
                 };
                 detailsButtons.appendChild(listBtn);
             }
+            } // Fin del else (película NO vetada)
 
             // --- BOTÓN 4: RESEÑAR (CIRCULAR AL LADO DE MI LISTA) ---
             const reviewBtn = document.createElement('button');
@@ -4057,7 +4057,7 @@ window.ErrorHandler = ErrorHandler;
 window.ContentManager = ContentManager;
 window.cacheManager = cacheManager;
 
-console.log('✅ Cine Corneta v8.3.6 cargado correctamente');
+console.log('✅ Cine Corneta v8.3.7 cargado correctamente');
 // ===========================================================
 // COMPATIBILIDAD: Funciones que ahora están en el módulo
 // ===========================================================
