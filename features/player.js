@@ -682,6 +682,16 @@ export function openPlayerModal(movieId, movieTitle) {
             return;
         }
 
+        // 🚫 VERIFICAR SI LA PELÍCULA ESTÁ VETADA
+        if (movieData.estado && movieData.estado.toLowerCase() === 'vetada') {
+            console.warn('⚠️ Intento de reproducir película vetada:', movieId);
+            shared.ErrorHandler.show(
+                shared.ErrorHandler.types.CONTENT, 
+                'Esta película no está disponible para reproducción.'
+            );
+            return; // Bloquear completamente la reproducción
+        }
+
         const hasSpanish = !!(movieData.videoId_es && movieData.videoId_es.trim());
         const hasEnglish = !!(movieData.videoId_en && movieData.videoId_en.trim());
         const hasMultipleLangs = hasSpanish && hasEnglish;
