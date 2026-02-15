@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL
-// Versión: 8.3.5 (14 de Feberero 2026)
+// Versión: 8.3.6 (14 de Feberero 2026)
 // ===========================================================
 
 // ===========================================================
@@ -3035,61 +3035,58 @@ function updateUIAfterAuthStateChange(user) {
     }
 }
 
+// ==========================================
+// FUNCIÓN CORREGIDA: HISTORIAL INTELIGENTE (SOBRESCRIBE PROGRESO)
+// ==========================================
 function addToHistoryIfLoggedIn(contentId, type, episodeInfo = {}) {
     const user = auth.currentUser;
     if (!user) return;
 
-    const isSeries = type.includes('series');
-    
-    // 🔥 CORRECCIÓN: Usamos el buscador inteligente para encontrar pelis dentro de sagas
-    // Asegúrate de que findContentData sea accesible aquí (está al final del archivo)
-    let itemData = findContentData(contentId); 
-
-    if (!itemData) {
-        // Fallback manual por si acaso
-        if (isSeries) itemData = appState.content.series[contentId];
-        else itemData = appState.content.movies[contentId];
+    // Buscamos info de la serie/peli
+    let itemData = null;
+    if (typeof findContentData === 'function') {
+        itemData = findContentData(contentId);
+    } 
+    if (!itemData && appState.content.series[contentId]) {
+        itemData = appState.content.series[contentId];
     }
-
+    if (!itemData && appState.content.movies[contentId]) {
+        itemData = appState.content.movies[contentId];
+    }
     if (!itemData) return;
 
-    // 1. Empezamos con el póster general de la serie/película
+    // Configurar imagen
     let posterUrl = itemData.poster;
+    const isSeries = type === 'series' || type === 'serie';
 
-    // 2. Si es una serie y estamos viendo una temporada específica, intentamos buscar su póster
+    // Intentar póster específico de temporada si existe
     if (isSeries && episodeInfo.season) {
-        // Buscamos la entrada en seasonPosters
         const seasonPosterEntry = appState.content.seasonPosters[contentId]?.[episodeInfo.season];
-
         if (seasonPosterEntry) {
-            // === CORRECCIÓN AQUÍ ===
-            if (typeof seasonPosterEntry === 'object') {
-                // Si es un objeto (ej: { posterUrl: "...", date: "..." }), extraemos solo la URL
-                posterUrl = seasonPosterEntry.posterUrl || seasonPosterEntry.poster || posterUrl;
-            } else {
-                // Si ya es un texto (formato antiguo), lo usamos directamente
-                posterUrl = seasonPosterEntry;
-            }
+            posterUrl = (typeof seasonPosterEntry === 'object') ? seasonPosterEntry.posterUrl : seasonPosterEntry;
         }
     }
-    
-    // Generamos la clave única para el historial
-    const historyKey = isSeries ? `${contentId}_${episodeInfo.season}` : contentId;
-    const historyTitle = isSeries ? `${itemData.title}: T${String(episodeInfo.season).replace('T', '')}` : itemData.title;
-    
-    // Objeto final a guardar en Firebase
+
+    // 🔥 LA SOLUCIÓN DEFINITIVA 🔥
+    // Usamos SOLAMENTE el ID de la serie. 
+    // Esto obliga a Firebase a SOBRESCRIBIR cualquier dato anterior de esta serie.
+    const historyKey = contentId; 
+
+    // Título dinámico
+    const historyTitle = isSeries ? `${itemData.title}: T${episodeInfo.season}` : itemData.title;
+
     const historyEntry = {
-        type,
-        contentId,
+        type: isSeries ? 'series' : 'movie',
+        contentId: contentId,
         title: historyTitle,
-        poster: posterUrl, // Ahora aseguramos que esto sea un String URL limpio
-        viewedAt: firebase.database.ServerValue.TIMESTAMP,
-        season: isSeries ? episodeInfo.season : null,
-        lastEpisode: isSeries ? episodeInfo.index : null
+        poster: posterUrl,
+        viewedAt: firebase.database.ServerValue.TIMESTAMP, // Actualiza la hora para que salga primero
+        season: isSeries ? episodeInfo.season : null,       // Guarda TU temporada actual
+        lastEpisode: isSeries ? episodeInfo.index : null    // Guarda TU capítulo actual
     };
 
-    const userHistoryRef = db.ref(`users/${user.uid}/history/${historyKey}`);
-    userHistoryRef.set(historyEntry);
+    // Guardamos pisando lo anterior
+    db.ref(`users/${user.uid}/history/${historyKey}`).set(historyEntry);
 }
 
 // ===========================================================
@@ -3995,7 +3992,7 @@ window.ErrorHandler = ErrorHandler;
 window.ContentManager = ContentManager;
 window.cacheManager = cacheManager;
 
-console.log('✅ Cine Corneta v8.3.5 cargado correctamente');
+console.log('✅ Cine Corneta v8.3.6 cargado correctamente');
 // ===========================================================
 // COMPATIBILIDAD: Funciones que ahora están en el módulo
 // ===========================================================
