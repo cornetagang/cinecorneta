@@ -6,6 +6,17 @@ import { logError } from '../utils/logger.js';
 
 let shared; 
 
+// ===========================================================
+// 🔥 CONFIGURACIÓN DE ORDEN MANUAL DE TEMPORADAS
+// ===========================================================
+// Para series donde las películas/especiales deben ir en posiciones específicas
+// que no siguen el orden alfanumérico de JavaScript
+const SEASON_ORDER_OVERRIDES = {
+    'jujutsu': ['pelicula', '1', '2', '3'],
+    // Agregar más series aquí según sea necesario:
+    // 'initialD': ['1', '2', 'pelicula', '4', '5'],
+};
+
 // 1. INICIALIZACIÓN
 export function initPlayer(dependencies) {
     shared = dependencies;
@@ -247,62 +258,32 @@ function populateSeasonGrid(seriesId) {
 
     container.innerHTML = '';
 
-    // 1. Unir temporadas de Episodios + Temporadas de Posters
-    const episodeSeasons = Object.keys(episodesData);
-    const posterSeasons = Object.keys(postersData);
-    const allSeasons = [...new Set([...episodeSeasons, ...posterSeasons])];
-
-    // 🔥 ORDENAMIENTO INTELIGENTE CON DETECCIÓN DE HUECOS
-    // Separar números y texto
-    const numericSeasons = [];
-    const textSeasons = [];
+    // 1. Obtener temporadas con el orden correcto
+    // 🔥 PRIORIDAD: Override manual > Orden preservado > Object.keys()
+    let allSeasons;
     
-    allSeasons.forEach(key => {
-        const asNum = Number(key);
-        if (!isNaN(asNum) && String(asNum) === String(key).trim()) {
-            numericSeasons.push({ key, value: asNum });
-        } else {
-            textSeasons.push(key);
-        }
-    });
-    
-    // Ordenar números
-    numericSeasons.sort((a, b) => a.value - b.value);
-    
-    // Detectar huecos en la numeración
-    const seasonsMapped = [];
-    const numbers = numericSeasons.map(s => s.value);
-    
-    // Agregar números en orden
-    for (let i = 0; i < numericSeasons.length; i++) {
-        const current = numericSeasons[i];
-        seasonsMapped.push({ 
-            key: current.key, 
-            num: current.value 
-        });
-        
-        // ¿Hay un hueco después de este número?
-        const next = numericSeasons[i + 1];
-        if (next && next.value - current.value > 1) {
-            // Hay un hueco (ej: después del 2 viene el 4, falta el 3)
-            // Insertar textos (películas/especiales) en el hueco
-            if (textSeasons.length > 0) {
-                const textSeason = textSeasons.shift();
-                seasonsMapped.push({ 
-                    key: textSeason, 
-                    num: current.value + 0.5 
-                });
-            }
-        }
+    if (SEASON_ORDER_OVERRIDES[seriesId]) {
+        // MÁXIMA PRIORIDAD: Orden manual hardcodeado
+        allSeasons = SEASON_ORDER_OVERRIDES[seriesId];
+        console.log(`🎯 Usando orden MANUAL para ${seriesId}:`, allSeasons);
+    } else if (shared.appState.content.seasonOrder && shared.appState.content.seasonOrder[seriesId]) {
+        // Segunda opción: Orden preservado del servidor
+        allSeasons = shared.appState.content.seasonOrder[seriesId];
+        console.log(`📺 Usando orden preservado para ${seriesId}:`, allSeasons);
+    } else {
+        // Fallback: combinar claves de episodios y posters
+        const episodeSeasons = Object.keys(episodesData);
+        const posterSeasons = Object.keys(postersData);
+        allSeasons = [...new Set([...episodeSeasons, ...posterSeasons])];
+        console.log(`⚠️ Usando Object.keys() para ${seriesId}:`, allSeasons);
     }
-    
-    // Agregar textos restantes al final
-    textSeasons.forEach(key => {
-        const lastNum = numbers.length > 0 ? numbers[numbers.length - 1] : 0;
-        seasonsMapped.push({ 
-            key, 
-            num: lastNum + 1000 
-        });
+
+    // Mapear a estructura del grid
+    const seasonsMapped = allSeasons.map((key, index) => {
+        return { 
+            key: key,           // Clave original ("pelicula", "1", "2"...)
+            num: index + 1      // Número secuencial para layout
+        };
     });
 
     const totalSeasons = seasonsMapped.length;
