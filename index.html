@@ -530,15 +530,14 @@
     </div>
 
     <div id="full-review-modal" class="modal">
-        <div class="auth-modal-content" style="max-width: 600px; padding: 0; overflow: hidden; border-radius: 20px;">
+        <div class="auth-modal-content" style="max-width: 700px; padding: 0; overflow: hidden; border-radius: 20px;">
             <button class="close-btn" onclick="closeAllModals()">&times;</button>
-            <div id="read-review-header" style="height: 200px; background-size: cover; background-position: center; position: relative;">
-                <div style="position: absolute; inset: 0; background: linear-gradient(to top, #181818, transparent);"></div>
-                <div style="position: absolute; bottom: 20px; left: 30px; display: flex; gap: 20px; align-items: flex-end;">
-                    <img id="read-review-poster" src="" style="width: 100px; height: 150px; border-radius: 10px; box-shadow: 0 10px 20px rgba(0,0,0,0.5);">
+            <div id="read-review-header" style="height: 250px; background-size: cover; background-position: center; position: relative;">
+                <div style="position: absolute; inset: 0; background: linear-gradient(to top, #181818 0%, transparent 60%, rgba(0,0,0,0.4) 100%);"></div>
+                <div style="position: absolute; bottom: 20px; left: 30px; display: flex; gap: 20px; align-items: flex-end; z-index: 1;">
+                    <img id="read-review-poster" src="" style="width: 100px; height: 150px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.7);">
                     <div>
-                        <h2 id="read-review-movie-title" style="font-family: 'Bebas Neue'; font-size: 2.5rem; margin: 0; color: white;"></h2>
-                        <p id="read-review-user" style="color: var(--primary-red); font-weight: bold; margin: 0;"></p>
+                        <h2 id="read-review-movie-title" style="font-family: 'Bebas Neue'; font-size: 2.5rem; margin: 0; color: white; text-shadow: 2px 2px 8px rgba(0,0,0,0.8);"></h2>
                     </div>
                 </div>
             </div>
@@ -546,7 +545,8 @@
                 <div id="read-review-stars" style="color: #ffd700; font-size: 1.2rem; margin-bottom: 20px;"></div>
                 <p id="read-review-text" style="color: #eee; line-height: 1.8; font-size: 1.1rem; font-style: italic; white-space: pre-wrap;"></p>
             </div>
-            <div style="padding: 20px 30px; background: #111; border-top: 1px solid #222; text-align: right;">
+            <div style="padding: 20px 30px; background: #111; border-top: 1px solid #222; display: flex; justify-content: space-between; align-items: center;">
+                <p id="read-review-user" style="color: var(--primary-red); font-weight: bold; margin: 0; font-size: 0.95rem;"></p>
                 <span id="read-review-date" style="color: #555; font-size: 0.9rem; font-weight: bold;"></span>
             </div>
         </div>
