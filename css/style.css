@@ -228,6 +228,33 @@ body.modal-open { overflow: hidden; }
 .btn-play:hover { background: linear-gradient(to right, var(--secondary-red), var(--primary-red)); color: var(--text-on-accent, white); transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0, 0, 0, 0.5); }
 .btn-info:hover { background-color: rgba(109, 109, 110, 0.5); transform: translateY(-2px); }
 
+/* 🔥 MENSAJE DE CONTENIDO VETADO */
+.vetada-message {
+    background: linear-gradient(135deg, #1a1a1a, #4a0000);
+    border: 2px solid #ff4444;
+    color: #ff4444;
+    padding: 15px 25px;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-shadow: 0 0 10px rgba(255, 68, 68, 0.5);
+    cursor: not-allowed;
+    user-select: none;
+    transition: all 0.3s ease;
+}
+
+.vetada-message:hover {
+    border-color: #ff6666;
+    box-shadow: 0 0 20px rgba(255, 68, 68, 0.3);
+}
+
+.vetada-message i {
+    font-size: 1.2rem;
+}
+
 .carousel {
     width: fit-content;
     max-width: 94%;
@@ -3850,6 +3877,13 @@ body.tab-inactive iframe {
 .badge-estreno { background: linear-gradient(45deg, #00C9FF, #92FE9D); color: #000; text-shadow: none; }
 .badge-season  { background: linear-gradient(45deg, #8E2DE2, #4A00E0); color: #fff; }
 .badge-episode { background: #E50914; color: #fff; }
+.badge-vetada  { 
+    background: linear-gradient(135deg, #1a1a1a, #4a0000); 
+    color: #ff4444; 
+    border: 1px solid #ff4444;
+    font-weight: 900;
+    text-shadow: 0 0 10px rgba(255, 68, 68, 0.5);
+}
 
 .movie-card:hover .badges-container {
     transform: scale(1.05);
