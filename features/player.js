@@ -976,9 +976,44 @@ export function openPlayerToEpisode(seriesId, seasonNum, episodeIndex) {
  * @param {string} seasonNum - Número/clave de temporada
  * @param {string|number} episodeNum - Número del episodio (1-indexed en la hoja)
  */
-export function playEpisode(seriesId, seasonNum, episodeNum) {
-    const episodeIndex = parseInt(episodeNum) - 1;
-    openPlayerToEpisode(seriesId, seasonNum, episodeIndex);
+function playEpisode(seriesId, seasonKey, episodeIndex) {
+    // 1. Validar que existan los datos
+    const allEpisodes = shared.appState.content.seriesEpisodes[seriesId];
+    if (!allEpisodes || !allEpisodes[seasonKey] || !allEpisodes[seasonKey][episodeIndex]) {
+        console.error('Episodio no encontrado');
+        return;
+    }
+
+    const episode = allEpisodes[seasonKey][episodeIndex];
+    
+    // 2. Actualizar variables de estado (para saber dónde estamos)
+    state.currentSeriesId = seriesId;
+    state.currentSeason = seasonKey;
+    state.currentEpisodeIndex = episodeIndex;
+
+    // 3. Actualizar la interfaz (Título, descripción, botones)
+    updatePlayerUI(episode, seasonKey, episodeIndex, allEpisodes[seasonKey].length);
+
+    // 4. Cargar el iframe del video
+    const iframe = document.getElementById('series-iframe');
+    if (iframe) {
+        // Usar la URL directa o buscar en servidor si es necesario
+        iframe.src = episode.videoUrl || episode.url; 
+    }
+
+    // 5. Marcar visualmente el episodio activo en la lista
+    highlightCurrentEpisode(seasonKey, episodeIndex);
+
+    // 🔥 AÑADIR ESTO AL FINAL: GUARDADO AUTOMÁTICO 🔥
+    // Esto asegura que apenas cargue el video, se guarde en "Continuar Viendo"
+    if (shared.appState && typeof shared.appState.addToHistoryIfLoggedIn === 'function') {
+        shared.appState.addToHistoryIfLoggedIn(seriesId, 'series', {
+            season: seasonKey,
+            index: episodeIndex,
+            title: episode.title
+        });
+        console.log(`✅ Historial actualizado: ${episode.title}`);
+    }
 }
 
 // ==========================================
