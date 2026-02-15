@@ -967,6 +967,8 @@ export function openPlayerToEpisode(seriesId, seasonNum, episodeIndex) {
  * @param {string} seasonNum - Número/clave de temporada
  * @param {string|number} episodeNum - Número del episodio (1-indexed en la hoja)
  */
+// NOTA: Esta función está obsoleta. Usa openPlayerToEpisode() en su lugar.
+// Mantenida aquí por compatibilidad pero no debe usarse.
 function playEpisode(seriesId, seasonKey, episodeIndex) {
     // 1. Validar que existan los datos
     const allEpisodes = shared.appState.content.seriesEpisodes[seriesId];
@@ -997,8 +999,8 @@ function playEpisode(seriesId, seasonKey, episodeIndex) {
 
     // 🔥 AÑADIR ESTO AL FINAL: GUARDADO AUTOMÁTICO 🔥
     // Esto asegura que apenas cargue el video, se guarde en "Continuar Viendo"
-    if (shared.appState && typeof shared.appState.addToHistoryIfLoggedIn === 'function') {
-        shared.appState.addToHistoryIfLoggedIn(seriesId, 'series', {
+    if (shared.addToHistoryIfLoggedIn && typeof shared.addToHistoryIfLoggedIn === 'function') {
+        shared.addToHistoryIfLoggedIn(seriesId, 'series', {
             season: seasonKey,
             index: episodeIndex,
             title: episode.title
