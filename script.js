@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL
-// Versión: 8.3.7 (15 de Feberero 2026)
+// Versión: 8.3.8 (tarde 15 de Feberero 2026)
 // ===========================================================
 
 // ===========================================================
@@ -2290,173 +2290,127 @@ function displaySearchResults(results) {
 function generateContinueWatchingCarousel(snapshot) {
     const user = auth.currentUser;
     
+    console.log('🎬 generateContinueWatchingCarousel - Nueva implementación simplificada');
+    
     // 1. Limpieza preventiva
     const existingCarousel = document.getElementById('continue-watching-carousel');
-    if (existingCarousel) existingCarousel.remove();
+    if (existingCarousel) {
+        console.log('🗑️ Eliminando carrusel existente');
+        existingCarousel.remove();
+    }
 
     const carouselContainer = document.getElementById('carousel-container');
     
-    // 2. Validaciones de Seguridad
-    if (!user || !carouselContainer || !snapshot.exists()) return;
+    // 2. Validaciones básicas
+    if (!user) {
+        console.warn('⚠️ No hay usuario logueado');
+        return;
+    }
+    if (!carouselContainer) {
+        console.warn('⚠️ No se encontró carousel-container');
+        return;
+    }
+    if (!snapshot.exists()) {
+        console.warn('⚠️ No hay datos en el historial');
+        return;
+    }
     
-    // 3. CHECK CRÍTICO: ¿Ya se descargaron las series/sagas?
-    // Si appState está vacío, no intentamos renderizar aún (se ejecutará de nuevo cuando carguen los datos)
-    const contentReady = (appState.content.series && Object.keys(appState.content.series).length > 0) || 
-                         (appState.content.sagas && Object.keys(appState.content.sagas).length > 0);
-                         
-    if (!contentReady) {
-        console.log('⏳ Esperando datos de contenido para generar Continuar Viendo...');
-        return; 
+    console.log('✅ Validaciones pasadas, procesando historial...');
+
+    // 3. Obtener datos del historial (MISMA FUENTE que la página de Historial)
+    let historyItems = [];
+    snapshot.forEach(child => {
+        const item = child.val();
+        historyItems.push({
+            key: child.key,
+            ...item
+        });
+    });
+    
+    // Ordenar por más reciente primero
+    historyItems.reverse();
+    
+    console.log(`📝 Total items en historial: ${historyItems.length}`);
+    
+    // 4. Filtrar solo SERIES (omitir películas)
+    const seriesOnly = historyItems.filter(item => item.type === 'series');
+    console.log(`📺 Series en historial: ${seriesOnly.length}`);
+    
+    // 5. Tomar máximo 15 series (las más recientes)
+    const seriesToShow = seriesOnly.slice(0, 15);
+    console.log(`🎯 Series a mostrar: ${seriesToShow.length}`);
+    
+    if (seriesToShow.length === 0) {
+        console.warn('⚠️ No hay series para mostrar en "Continuar Viendo"');
+        return;
     }
 
-    let historyItems = [];
-    snapshot.forEach(child => historyItems.push(child.val()));
-    historyItems.reverse(); // Más reciente primero
-
-    const itemsToDisplay = [];
-    const displayedIds = new Set();
-
-    for (const item of historyItems) {
-        // Solo procesamos Series
-        if (item.type === 'series') {
-            
-            if (displayedIds.has(item.contentId)) continue; 
-
-            // A. BÚSQUEDA ROBUSTA DE LA SERIE (Series Base o Sagas)
-            let seriesInfo = appState.content.series[item.contentId];
-            
-            // Si no está en series normales, buscar en Sagas
-            if (!seriesInfo && appState.content.sagas) {
-                for (const key in appState.content.sagas) {
-                    if (appState.content.sagas[key][item.contentId]) {
-                        seriesInfo = appState.content.sagas[key][item.contentId];
-                        break;
-                    }
+    // 6. Crear carrusel
+    const carouselEl = document.createElement('div');
+    carouselEl.id = 'continue-watching-carousel';
+    carouselEl.className = 'carousel'; 
+    
+    carouselEl.innerHTML = `
+        <h3 class="carousel-title">Continuar Viendo</h3>
+        <div class="carousel-track"></div>
+    `;
+    
+    const track = carouselEl.querySelector('.carousel-track');
+    
+    // 7. Crear tarjetas (reutilizando createMovieCardElement)
+    seriesToShow.forEach(historyItem => {
+        console.log(`  📌 ${historyItem.title}`);
+        
+        // Buscar datos de la serie
+        let seriesData = findContentData(historyItem.contentId);
+        
+        if (!seriesData) {
+            console.warn(`    ⚠️ No se encontraron datos para ${historyItem.contentId}`);
+            return;
+        }
+        
+        // 🔥 NUEVO: Obtener datos del episodio específico
+        let episodeData = null;
+        let episodeThumbnail = null;
+        let episodeTitle = null;
+        
+        if (historyItem.season != null && historyItem.lastEpisode != null) {
+            const seriesEpisodes = appState.content.seriesEpisodes[historyItem.contentId];
+            if (seriesEpisodes && seriesEpisodes[historyItem.season]) {
+                const episodes = seriesEpisodes[historyItem.season];
+                if (episodes && episodes[historyItem.lastEpisode]) {
+                    episodeData = episodes[historyItem.lastEpisode];
+                    episodeThumbnail = episodeData.thumbnail || episodeData.poster;
+                    episodeTitle = episodeData.title;
+                    console.log(`    📺 Episodio encontrado: ${episodeTitle}`);
                 }
-            }
-
-            // Si encontramos la serie, procedemos
-            if (seriesInfo) {
-                // B. DATOS DEL EPISODIO
-                const allEpisodes = appState.content.seriesEpisodes || {};
-                const seriesEpisodesData = allEpisodes[item.contentId];
-                
-                // Intentamos obtener datos del episodio, pero NO nos detenemos si fallan
-                let episode = null;
-                let seasonKey = item.season;
-                let epIndex = item.lastEpisode || 0;
-
-                if (seriesEpisodesData && seriesEpisodesData[seasonKey]) {
-                    episode = seriesEpisodesData[seasonKey][epIndex];
-                }
-
-                // C. TÍTULO Y SUBTÍTULO
-                let titleDisplay = seriesInfo.title;
-                let subtitleDisplay = '';
-
-                // Detectar si es especial/película dentro de serie
-                const seasonStr = String(seasonKey).toLowerCase().trim();
-                const isSpecial = seasonStr.includes('pelicula') || seasonStr.includes('especial') || seasonStr === '0';
-
-                if (isSpecial) {
-                    subtitleDisplay = episode ? (episode.title || 'Especial') : 'Película/Especial';
-                } else {
-                    const epNumDisplay = episode ? (episode.episodeNumber || (epIndex + 1)) : (epIndex + 1);
-                    // Si tenemos el título del capítulo lo mostramos, si no, solo el número
-                    const epTitle = episode ? `: ${episode.title}` : ''; 
-                    subtitleDisplay = `T${String(seasonKey).replace(/\D/g,'')} E${epNumDisplay}${epTitle}`;
-                }
-                
-                // Si el subtítulo quedó muy largo, lo cortamos
-                if(subtitleDisplay.length > 40) subtitleDisplay = subtitleDisplay.substring(0, 37) + '...';
-
-                // D. LÓGICA DE IMAGEN (Prioridad: Miniatura Cap > Poster Temporada > Poster Serie)
-                let imageDisplay = seriesInfo.poster; // Fallback base
-                
-                // 1. Intentar miniatura del capítulo (La mejor opción para "Continuar Viendo")
-                if (episode && episode.thumbnail && episode.thumbnail.length > 5) {
-                    imageDisplay = episode.thumbnail;
-                } 
-                // 2. Si no hay miniatura, buscar poster de temporada
-                else {
-                    const rawPostersMap = appState.content.seasonPosters[item.contentId] || {};
-                    // Normalizar keys para evitar errores de mayúsculas/espacios
-                    const cleanPostersMap = {};
-                    Object.keys(rawPostersMap).forEach(k => cleanPostersMap[String(k).toLowerCase().trim()] = rawPostersMap[k]);
-
-                    let specificPosterEntry = cleanPostersMap[seasonStr];
-                    
-                    if (!specificPosterEntry && isSpecial) {
-                        specificPosterEntry = cleanPostersMap['pelicula'] || cleanPostersMap['especial'] || cleanPostersMap['0'];
-                    }
-
-                    if (specificPosterEntry) {
-                        imageDisplay = (typeof specificPosterEntry === 'object') ? specificPosterEntry.posterUrl : specificPosterEntry;
-                    }
-                }
-
-                itemsToDisplay.push({
-                    contentId: item.contentId,
-                    season: item.season,
-                    episodeIndexToOpen: epIndex,
-                    thumbnail: imageDisplay,
-                    title: titleDisplay,
-                    subtitle: subtitleDisplay
-                });
-                
-                displayedIds.add(item.contentId);
             }
         }
         
-        if (itemsToDisplay.length >= 15) break;
-    }
-
-    // 4. RENDERIZADO AL DOM
-    if (itemsToDisplay.length > 0) {
-        const carouselEl = document.createElement('div');
-        carouselEl.id = 'continue-watching-carousel';
-        carouselEl.className = 'carousel'; 
-        // Animación de entrada
-        carouselEl.style.animation = 'fadeIn 0.5s ease-out';
+        // Crear tarjeta usando la función existente con source: 'continuar-viendo'
+        const card = createMovieCardElement(
+            historyItem.contentId, 
+            seriesData, 
+            'series', 
+            'carousel', 
+            false, 
+            {
+                source: 'continuar-viendo',
+                season: historyItem.season,
+                lastEpisode: historyItem.lastEpisode,
+                episodeThumbnail: episodeThumbnail,
+                episodeTitle: episodeTitle,
+                seriesTitle: historyItem.title,
+                historyKey: historyItem.key  // 🔥 NUEVO: Para poder borrar del historial
+            }
+        );
         
-        carouselEl.innerHTML = `
-            <h3 class="carousel-title">Continuar Viendo</h3>
-            <div class="carousel-track"></div>
-        `;
-        
-        const track = carouselEl.querySelector('.carousel-track');
-        
-        itemsToDisplay.forEach(item => {
-            const card = document.createElement('div');
-            card.className = 'continue-watching-card'; // Asegúrate de tener CSS para esta clase
-            
-            // Clic para abrir reproductor directo
-            card.onclick = async () => {
-                const player = await getPlayerModule();
-                // Pequeño feedback visual al click
-                card.style.opacity = '0.7';
-                player.openPlayerToEpisode(item.contentId, item.season, item.episodeIndexToOpen);
-                setTimeout(() => card.style.opacity = '1', 500);
-            };
-
-            // HTML de la tarjeta (Miniatura horizontal)
-            card.innerHTML = `
-                <div class="cw-img-wrapper">
-                    <img src="${item.thumbnail}" class="cw-card-thumbnail" alt="${item.title}" loading="lazy">
-                    <div class="cw-progress-bar"><div class="cw-progress-fill" style="width: ${Math.random() * (90 - 20) + 20}%"></div></div>
-                    <div class="cw-play-overlay"><i class="fas fa-play"></i></div>
-                </div>
-                <div class="cw-card-info">
-                    <h4 class="cw-card-title">${item.title}</h4>
-                    <p class="cw-card-subtitle">${item.subtitle}</p>
-                </div>
-            `;
-            track.appendChild(card);
-        });
-        
-        // Insertar al principio del contenedor principal
-        carouselContainer.prepend(carouselEl);
-    }
+        track.appendChild(card);
+    });
+    
+    // 8. Insertar al principio
+    carouselContainer.prepend(carouselEl);
+    console.log('✅ Carrusel "Continuar Viendo" insertado exitosamente');
 }
 
 // 🔧 Exponer función globalmente para debugging
@@ -2572,7 +2526,16 @@ async function openDetailsModal(id, type, triggerElement = null) {
 
         document.getElementById('details-synopsis').textContent = fullSynopsis;
         
-        if (posterImg) posterImg.src = data.poster || '';
+        // 🔥 NUEVO: Aplicar filtro grayscale si es película vetada
+        const isVetada = !isSeries && data.estado && data.estado.toLowerCase() === 'vetada';
+        if (posterImg) {
+            posterImg.src = data.poster || '';
+            if (isVetada) {
+                posterImg.style.filter = 'grayscale(100%)';
+            } else {
+                posterImg.style.filter = 'none';
+            }
+        }
 
         // 3. GESTIÓN DE METADATOS (Diferente para Series y Pelis)
         const detailsMeta = modal.querySelector('.details-meta');
@@ -2593,8 +2556,9 @@ async function openDetailsModal(id, type, triggerElement = null) {
                 detailsMeta.appendChild(ratingBadge); 
             }
 
-            // --- EXCEPCIÓN: SOLO SERIES MUESTRAN PEDIDO Y AÑO AQUÍ ---
-            if (isSeries) {
+            // --- MOSTRAR PEDIDO Y AÑO PARA: SERIES O PELÍCULAS VETADAS ---
+            const isVetada = !isSeries && data.estado && data.estado.toLowerCase() === 'vetada';
+            if (isSeries || isVetada) {
                 // B. PEDIDO
                 if (data.pedido) {
                     const requestPill = document.createElement('span');
@@ -2653,7 +2617,7 @@ async function openDetailsModal(id, type, triggerElement = null) {
                 vetadaMsg.className = 'vetada-message';
                 vetadaMsg.innerHTML = `
                     <i class="fas fa-lock"></i>
-                    <span>No disponible</span>
+                    <span>Contenido no disponible</span>
                 `;
                 detailsButtons.appendChild(vetadaMsg);
                 
@@ -2731,7 +2695,7 @@ async function openDetailsModal(id, type, triggerElement = null) {
 
                         ModalManager.closeAll();
                         const player = await getPlayerModule();
-                        player.playEpisode(id, selected.season, selected.episodeNum);
+                        player.openPlayerToEpisode(id, selected.season, selected.episodeIndex);
                     };
                     detailsButtons.appendChild(randomBtn);
                 }
@@ -3552,9 +3516,11 @@ function setupRealtimeHistoryListener(user) {
         appState.user.historyListenerRef = db.ref(`users/${user.uid}/history`).orderByChild('viewedAt');
         
         appState.user.historyListenerRef.on('value', (snapshot) => {
+            console.log('🔔 Historial actualizado - Regenerando carrusel...');
             clearTimeout(appState.player.historyUpdateDebounceTimer);
 
             appState.player.historyUpdateDebounceTimer = setTimeout(() => {
+                console.log('📺 Items en historial:', snapshot.numChildren());
                 generateContinueWatchingCarousel(snapshot);
                 if (DOM.historyContainer && DOM.historyContainer.style.display === 'block') {
                     renderHistory();
@@ -3699,25 +3665,28 @@ function createMovieCardElement(id, data, type, layout = 'carousel', lazy = fals
     let badgesAccumulator = ''; 
     const isNewContent = isDateRecent(data.date_added);
 
-    if (type === 'series') {
-        const hasNewSeason = hasRecentSeasonFromPosters(id); // Detecta si hay temporada nueva
-        const hasNewEp = hasRecentEpisodes(id);              // Detecta si hay cap nuevo
-        
-        if (isNewContent) badgesAccumulator += `<div class="new-episode-badge badge-estreno">ESTRENO</div>`;
-        if (hasNewSeason) badgesAccumulator += `<div class="new-episode-badge badge-season">NUEVA TEMP</div>`;
-        
-        // Solo mostramos "NUEVO CAP" si no estamos mostrando ya "NUEVA TEMP" (para no tapar la imagen)
-        if (hasNewEp && !hasNewSeason) badgesAccumulator += `<div class="new-episode-badge badge-episode">NUEVO CAP</div>`;
-    } else {
-        // Películas
-        
-        // 🔥 NUEVA ETIQUETA: VETADA
-        if (data.estado && data.estado.toLowerCase() === 'vetada') {
-            badgesAccumulator += `<div class="new-episode-badge badge-vetada">VETADA</div>`;
-        }
-        // Estreno (solo si NO está vetada)
-        else if (isNewContent) {
-            badgesAccumulator += `<div class="new-episode-badge badge-estreno">ESTRENO</div>`;
+    // 🔥 NO mostrar badges en "Continuar Viendo"
+    if (options.source !== 'continuar-viendo') {
+        if (type === 'series') {
+            const hasNewSeason = hasRecentSeasonFromPosters(id); // Detecta si hay temporada nueva
+            const hasNewEp = hasRecentEpisodes(id);              // Detecta si hay cap nuevo
+            
+            if (isNewContent) badgesAccumulator += `<div class="new-episode-badge badge-estreno">ESTRENO</div>`;
+            if (hasNewSeason) badgesAccumulator += `<div class="new-episode-badge badge-season">NUEVA TEMP</div>`;
+            
+            // Solo mostramos "NUEVO CAP" si no estamos mostrando ya "NUEVA TEMP" (para no tapar la imagen)
+            if (hasNewEp && !hasNewSeason) badgesAccumulator += `<div class="new-episode-badge badge-episode">NUEVO CAP</div>`;
+        } else {
+            // Películas
+            
+            // 🔥 NUEVA ETIQUETA: VETADA
+            if (data.estado && data.estado.toLowerCase() === 'vetada') {
+                badgesAccumulator += `<div class="new-episode-badge badge-vetada">VETADA</div>`;
+            }
+            // Estreno (solo si NO está vetada)
+            else if (isNewContent) {
+                badgesAccumulator += `<div class="new-episode-badge badge-estreno">ESTRENO</div>`;
+            }
         }
     }
 
@@ -3727,11 +3696,14 @@ function createMovieCardElement(id, data, type, layout = 'carousel', lazy = fals
     // --- Clic Principal (Abrir Detalles o Reproductor) ---
     card.onclick = (e) => {
         // Ignorar si el clic fue en el botón de borrar/lista
-        if (e.target.closest('.btn-watchlist') || e.target.closest('.btn-remove-history')) return;
+        if (e.target.closest('.btn-watchlist') || e.target.closest('.btn-remove-history') || e.target.closest('.btn-remove-continue-watching')) return;
         
         const seasonMatch = data.title.match(/\(T(\d+)\)$/);
         if (seasonMatch) {
             (async () => { const player = await getPlayerModule(); player.openSeriesPlayerDirectlyToSeason(id, seasonMatch[1]); })();
+        } else if (options.source === 'continuar-viendo' && type === 'series' && options.season != null && options.lastEpisode != null) {
+            // 🔥 NUEVO: "Continuar Viendo" abre el episodio exacto donde se quedó
+            (async () => { const player = await getPlayerModule(); player.openPlayerToEpisode(id, options.season, options.lastEpisode); })();
         } else if (options.source === 'history' && type === 'series' && options.season) {
             (async () => { const player = await getPlayerModule(); player.openSeriesPlayerDirectlyToSeason(id, options.season); })();
         } else {
@@ -3741,7 +3713,11 @@ function createMovieCardElement(id, data, type, layout = 'carousel', lazy = fals
     
     // --- Botón de Lista / Borrar ---
     let watchlistBtnHTML = '';
-    if(auth.currentUser && options.source !== 'history'){
+    
+    // 🔥 NUEVO: Si es "Continuar Viendo", mostrar botón de borrar (X)
+    if (options.source === 'continuar-viendo' && options.historyKey) {
+        watchlistBtnHTML = `<button class="btn-remove-continue-watching" data-history-key="${options.historyKey}"><i class="fas fa-times"></i></button>`;
+    } else if(auth.currentUser && options.source !== 'history'){
         const isInList = appState.user.watchlist.has(id);
         
         // Lógica de ícono: X si es Mi Lista, Check si no
@@ -3755,6 +3731,12 @@ function createMovieCardElement(id, data, type, layout = 'carousel', lazy = fals
 
     // --- Imagen ---
     let imageUrl = data.poster;
+    
+    // 🔥 NUEVO: Si viene de "continuar viendo" y tiene miniatura de episodio, usar esa
+    if (options.source === 'continuar-viendo' && options.episodeThumbnail) {
+        imageUrl = options.episodeThumbnail;
+    }
+    
     if (typeof imageUrl === 'object' && imageUrl?.posterUrl) imageUrl = imageUrl.posterUrl;
     if (!imageUrl) imageUrl = data.banner || '';
 
@@ -3763,6 +3745,12 @@ function createMovieCardElement(id, data, type, layout = 'carousel', lazy = fals
         const placeholder = card.querySelector('.img-container-placeholder');
         if(placeholder) placeholder.replaceWith(img);
         card.classList.add('img-loaded');
+        
+        // 🔥 NUEVO: Aplicar filtro grayscale si es película vetada
+        const isVetada = type === 'movie' && data.estado && data.estado.toLowerCase() === 'vetada';
+        if (isVetada) {
+            img.style.filter = 'grayscale(100%)';
+        }
     };
     img.src = imageUrl; 
     img.alt = data.title;
@@ -3775,7 +3763,28 @@ function createMovieCardElement(id, data, type, layout = 'carousel', lazy = fals
 
     card.innerHTML = `${ribbonHTML}<div class="img-container-placeholder"></div>${ratingHTML}${watchlistBtnHTML}`;
 
-    // 🔥 ESTO ES LO QUE FALTA: Darle vida al botón
+    // 🔥 NUEVO: Agregar superposición de información para "Continuar Viendo"
+    if (options.source === 'continuar-viendo' && (options.episodeTitle || options.seriesTitle)) {
+        const overlay = document.createElement('div');
+        overlay.className = 'continue-watching-overlay';
+        
+        let episodeInfo = '';
+        if (options.season != null && options.lastEpisode != null) {
+            const episodeNum = parseInt(options.lastEpisode) + 1; // +1 porque los índices empiezan en 0
+            episodeInfo = `T${options.season} E${episodeNum}`;
+        }
+        
+        overlay.innerHTML = `
+            <div class="cw-overlay-content">
+                <p class="cw-series-title">${options.seriesTitle || data.title}</p>
+                <p class="cw-episode-number">${episodeInfo}</p>
+                ${options.episodeTitle ? `<p class="cw-episode-title">${options.episodeTitle}</p>` : ''}
+            </div>
+        `;
+        card.appendChild(overlay);
+    }
+
+    // 🔥 Event listeners para botones
     const watchBtn = card.querySelector('.btn-watchlist');
     if (watchBtn) {
         watchBtn.onclick = (e) => {
@@ -3784,8 +3793,61 @@ function createMovieCardElement(id, data, type, layout = 'carousel', lazy = fals
             handleWatchlistClick(watchBtn);
         };
     }
+    
+    // 🔥 NUEVO: Event listener para botón de borrar de "Continuar Viendo"
+    const removeBtn = card.querySelector('.btn-remove-continue-watching');
+    if (removeBtn) {
+        removeBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // 🔥 Mostrar modal de confirmación
+            const seriesTitle = options.seriesTitle || data.title;
+            openConfirmationModal(
+                'Eliminar de Continuar Viendo',
+                `¿Estás seguro de que quieres eliminar "${seriesTitle}" de tu historial?`,
+                () => removeFromContinueWatching(removeBtn.dataset.historyKey, card)
+            );
+        };
+    }
 
     return card;
+}
+
+// 🔥 NUEVA FUNCIÓN: Remover de "Continuar Viendo" (borrar del historial)
+async function removeFromContinueWatching(historyKey, cardElement) {
+    const user = auth.currentUser;
+    if (!user || !historyKey) return;
+    
+    try {
+        // 1. Animación de salida
+        cardElement.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+        cardElement.style.opacity = '0';
+        cardElement.style.transform = 'scale(0.8) translateY(20px)';
+        
+        // 2. Borrar de Firebase
+        await db.ref(`users/${user.uid}/history/${historyKey}`).remove();
+        
+        // 3. Remover del DOM después de la animación
+        setTimeout(() => {
+            if (cardElement.parentNode) {
+                cardElement.remove();
+            }
+            
+            // 4. Si no quedan tarjetas, regenerar el carrusel o eliminarlo
+            const carousel = document.getElementById('continue-watching-carousel');
+            if (carousel) {
+                const track = carousel.querySelector('.carousel-track');
+                if (track && track.children.length === 0) {
+                    carousel.remove();
+                }
+            }
+        }, 400);
+        
+        console.log('✅ Removido de Continuar Viendo:', historyKey);
+    } catch (error) {
+        console.error('❌ Error al remover de Continuar Viendo:', error);
+    }
 }
 
 // Obtiene el momento exacto (Fecha + Hora) de la última actualización
@@ -4057,7 +4119,7 @@ window.ErrorHandler = ErrorHandler;
 window.ContentManager = ContentManager;
 window.cacheManager = cacheManager;
 
-console.log('✅ Cine Corneta v8.3.7 cargado correctamente');
+console.log('✅ Cine Corneta v8.3.8 cargado correctamente');
 // ===========================================================
 // COMPATIBILIDAD: Funciones que ahora están en el módulo
 // ===========================================================
