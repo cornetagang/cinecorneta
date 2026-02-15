@@ -2644,21 +2644,51 @@ async function openDetailsModal(id, type, triggerElement = null) {
         if (detailsButtons) {
             detailsButtons.innerHTML = '';
 
-            // --- BOTÓN 1: REPRODUCIR ---
-            const playBtn = document.createElement('button');
-            playBtn.className = 'btn btn-play';
-            playBtn.innerHTML = `<i class="fas fa-play"></i> Ver ahora`;
-            playBtn.onclick = async () => {
-                ModalManager.closeAll();
-                const player = await getPlayerModule();
+            // 🔥 VERIFICAR SI LA PELÍCULA ESTÁ VETADA
+            const isVetada = !isSeries && data.estado && data.estado.toLowerCase() === 'vetada';
+
+            if (isVetada) {
+                // --- PELÍCULA VETADA: Mostrar mensaje en lugar de botón ---
+                const vetadaMsg = document.createElement('div');
+                vetadaMsg.className = 'vetada-message';
+                vetadaMsg.innerHTML = `
+                    <i class="fas fa-lock"></i>
+                    <span>No disponible</span>
+                `;
+                detailsButtons.appendChild(vetadaMsg);
                 
-                if (isSeries) {
-                    player.openSeriesPlayer(id);
-                } else {
-                    player.openPlayerModal(id, data.title);
-                }
-            };
-            detailsButtons.appendChild(playBtn);
+                // Agregar estilo inline por si no existe en CSS
+                vetadaMsg.style.cssText = `
+                    background: linear-gradient(135deg, #1a1a1a, #4a0000);
+                    border: 2px solid #ff4444;
+                    color: #ff4444;
+                    padding: 15px 25px;
+                    border-radius: 8px;
+                    font-size: 1rem;
+                    font-weight: 700;
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    text-shadow: 0 0 10px rgba(255, 68, 68, 0.5);
+                    cursor: not-allowed;
+                `;
+            } else {
+                // --- BOTÓN 1: REPRODUCIR (Solo si NO está vetada) ---
+                const playBtn = document.createElement('button');
+                playBtn.className = 'btn btn-play';
+                playBtn.innerHTML = `<i class="fas fa-play"></i> Ver ahora`;
+                playBtn.onclick = async () => {
+                    ModalManager.closeAll();
+                    const player = await getPlayerModule();
+                    
+                    if (isSeries) {
+                        player.openSeriesPlayer(id);
+                    } else {
+                        player.openPlayerModal(id, data.title);
+                    }
+                };
+                detailsButtons.appendChild(playBtn);
+            }
 
             // --- BOTÓN 2: TEMPORADAS O RANDOM (Solo Series) ---
             if (isSeries) {
@@ -3680,7 +3710,15 @@ function createMovieCardElement(id, data, type, layout = 'carousel', lazy = fals
         if (hasNewEp && !hasNewSeason) badgesAccumulator += `<div class="new-episode-badge badge-episode">NUEVO CAP</div>`;
     } else {
         // Películas
-        if (isNewContent) badgesAccumulator += `<div class="new-episode-badge badge-estreno">ESTRENO</div>`;
+        
+        // 🔥 NUEVA ETIQUETA: VETADA
+        if (data.estado && data.estado.toLowerCase() === 'vetada') {
+            badgesAccumulator += `<div class="new-episode-badge badge-vetada">VETADA</div>`;
+        }
+        // Estreno (solo si NO está vetada)
+        else if (isNewContent) {
+            badgesAccumulator += `<div class="new-episode-badge badge-estreno">ESTRENO</div>`;
+        }
     }
 
     let ribbonHTML = badgesAccumulator !== '' ? `<div class="badges-container">${badgesAccumulator}</div>` : '';
