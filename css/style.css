@@ -4049,6 +4049,42 @@ body.tab-inactive iframe {
     align-items: center;
 }
 
+/* =========================================
+   ARREGLO DE RESEÑAS EN MÓVIL
+   ========================================= */
+@media (max-width: 768px) {
+
+    /* 1. Forzar que la cuadrícula de reseñas sea de 1 sola columna */
+    .reviews-grid, .reviews-container {
+        grid-template-columns: 1fr !important; /* Una reseña debajo de otra */
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 15px !important;
+    }
+
+    /* 2. La tarjeta de la reseña: Altura automática */
+    .review-card, .user-review-card {
+        width: 100% !important;
+        height: auto !important;     /* 🔥 CLAVE: Se ajusta al tamaño del texto */
+        min-height: 0 !important;    /* Evita alturas mínimas raras */
+        margin-bottom: 10px;
+    }
+
+    /* 3. El texto de la reseña: Que se lea todo */
+    .review-text, .review-body, .card-text {
+        white-space: normal !important; /* Permite saltos de línea */
+        overflow: visible !important;   /* Muestra todo el texto, no lo recorta */
+        display: block !important;      /* Rompe cualquier flexbox raro en el texto */
+        font-size: 0.9rem;              /* Tamaño legible en móvil */
+        line-height: 1.4;
+    }
+    
+    /* 4. Cabecera de la reseña (Autor/Estrellas) */
+    .review-header {
+        flex-wrap: wrap; /* Si el nombre es largo, que baje */
+    }
+}
+
 /* ======================================================= */
 /* RATING MINIMALISTA INTEGRADO (ESTILO PREMIUM)           */
 /* ======================================================= */
