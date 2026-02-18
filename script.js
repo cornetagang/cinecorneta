@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL
-// Versión: 8.3.8 (tarde 15 de Feberero 2026)
+// Versión: 8.3.9 (Noche 17 de Feberero 2026)
 // ===========================================================
 
 // ===========================================================
@@ -638,28 +638,20 @@ async function handleFilterClick(event) {
 // ===========================================================
 // FUNCIÓN SWITCHVIEW (CORREGIDA PARA RULETA)
 // ===========================================================
-// 1. Función auxiliar para iluminar los botones del menú
 function updateActiveNav(filter) {
-    // Si es Ruleta, NO tocamos el menú (para que siga iluminado donde estabas)
     if (filter === 'roulette') return;
 
-    // 🔥 FIX: Limpiamos la clase 'active' de TODOS los enlaces (incluyendo el dropdown)
-    // Antes solo limpiabas .main-nav, por eso el dropdown se quedaba "pegado"
     document.querySelectorAll('a[data-filter]').forEach(link => {
         link.classList.remove('active');
     });
     
     if (filter) {
-        // Iluminar el nuevo botón activo
         const selector = `a[data-filter="${filter}"]`;
         document.querySelectorAll(selector).forEach(link => link.classList.add('active'));
     }
 }
 
-// 2. Función Principal de Cambio de Vista
 async function switchView(filter) {
-    // 🔥 FIX RULETA: Si es ruleta, abrimos el modal y SALIMOS.
-    // No ocultamos el fondo (return) para que parezca un popup sobre la web.
     if (filter === 'roulette') {
         const roulette = await getRouletteModule();
         roulette.openRouletteModal();
@@ -693,6 +685,8 @@ async function switchView(filter) {
 
     const filterControls = document.getElementById('filter-controls');
     if (filterControls) filterControls.style.display = 'none';
+    document.body.classList.remove('has-saga-bg');
+    document.body.style.removeProperty('--saga-banner');
 
     // 🔥 FIX: Ocultar explícitamente los botones de Sagas/Universos
     // Esto evita que salgan en el buscador o en otras secciones
@@ -787,10 +781,19 @@ async function switchView(filter) {
     const isDynamicSaga = appState.content.sagas && appState.content.sagas[filter];
 
     if (filter === 'movie' || filter === 'series' || isDynamicSaga) {
-        if(DOM.gridContainer) DOM.gridContainer.style.display = 'block';
-        if(filterControls) filterControls.style.display = 'flex';
-        
-        const backBtn = document.getElementById('back-to-sagas-btn');
+    if(DOM.gridContainer) DOM.gridContainer.style.display = 'block';
+    if(filterControls) filterControls.style.display = 'flex';
+
+    // 🔥 Fondo dinámico de la saga
+    if (isDynamicSaga) {
+        const sagaConfig = appState.content.sagasList.find(s => s.id === filter);
+        if (sagaConfig?.banner) {
+            document.body.style.setProperty('--saga-banner', `url(${sagaConfig.banner})`);
+            document.body.classList.add('has-saga-bg');
+        }
+    }
+
+    const backBtn = document.getElementById('back-to-sagas-btn');
         if (backBtn) {
             backBtn.style.display = isDynamicSaga ? 'flex' : 'none';
             backBtn.onclick = () => switchView('sagas');
@@ -983,11 +986,26 @@ function populateFilters(type) {
 
     // Sort Buttons
     const ucmButtons = document.getElementById('ucm-sort-buttons');
+    const isDynamicSaga = (type !== 'movie' && type !== 'series');
+
     if (ucmButtons) {
         ucmButtons.style.display = (confSortBtn === 'si') ? 'flex' : 'none';
-        if (sortVisual) sortVisual.style.display = (confSortBtn === 'si') ? 'none' : 'block';
+        if (sortVisual) {
+            if (confSortBtn === 'si') {
+            // Tiene botones UCM → ocultar dropdown de orden
+            sortVisual.style.display = 'none';
+        } else if (isDynamicSaga && confSortBtn === 'no') {
+            // Saga dinámica con sort_buttons=no → ocultar también el dropdown
+            sortVisual.style.display = 'none';
+        } else {
+            // Películas / Series normales → mostrar dropdown
+            sortVisual.style.display = 'block';
+        }
+    }
     } else {
-        if (sortVisual) sortVisual.style.display = 'block';
+        if (sortVisual) {
+            sortVisual.style.display = (isDynamicSaga && confSortBtn === 'no') ? 'none' : 'block';
+        }
     }
 
     // --- POBLAR LISTAS ---
@@ -2256,10 +2274,23 @@ function setupSearch() {
         // 3. (Opcional) Si usas UCM antiguo
         if (appState.content.ucm) Object.assign(allContent, appState.content.ucm);
 
-        const results = Object.entries(allContent).filter(([id, item]) => item.title.toLowerCase().includes(searchTerm));
-        displaySearchResults(results);
-    });
-}
+        // Filtrar por término de búsqueda
+        const filtered = Object.entries(allContent).filter(([id, item]) => 
+        item.title && item.title.toLowerCase().includes(searchTerm)
+        );
+
+        // 🔥 Deduplicar por título (quedarse con la primera aparición)
+        const seenTitles = new Set();
+        const results = filtered.filter(([id, item]) => {
+        const titleKey = item.title.toLowerCase().trim();
+            if (seenTitles.has(titleKey)) return false;
+                seenTitles.add(titleKey);
+            return true;
+        });
+
+    displaySearchResults(results);
+        });
+    }
 
 function displaySearchResults(results) {
     switchView('search');
@@ -4129,7 +4160,7 @@ window.ErrorHandler = ErrorHandler;
 window.ContentManager = ContentManager;
 window.cacheManager = cacheManager;
 
-console.log('✅ Cine Corneta v8.3.8 cargado correctamente');
+console.log('✅ Cine Corneta v8.3.9 cargado correctamente');
 // ===========================================================
 // COMPATIBILIDAD: Funciones que ahora están en el módulo
 // ===========================================================
