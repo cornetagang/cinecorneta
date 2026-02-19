@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL
-// Versión: 8.3.9 (Noche 17 de Feberero 2026)
+// Versión: 8.3.8 (tarde 15 de Feberero 2026)
 // ===========================================================
 
 // ===========================================================
@@ -1144,6 +1144,11 @@ function populateFilters(type) {
                 {val:'duration-desc', label:'+ Duración'}
             );
         }
+
+        sortOptions.push(
+            {val:'rating-desc', label:'★ Mayor Reseña'},
+            {val:'rating-asc',  label:'★ Menor Reseña'}
+        );
         
         sortOptions.forEach(o => {
             sortList.appendChild(createItem(o.val, o.label, 'sort'));
@@ -1443,6 +1448,18 @@ async function applyAndDisplayFilters(type) {
 
             if (sortByValue === 'duration-asc') result = minA - minB; // Cortas primero
             if (sortByValue === 'duration-desc') result = minB - minA; // Largas primero
+        }
+        else if (sortByValue === 'rating-desc' || sortByValue === 'rating-asc') {
+            const ratingA = parseFloat(appState.content.averages[idA]) || 0;
+            const ratingB = parseFloat(appState.content.averages[idB]) || 0;
+            const hasA = ratingA > 0;
+            const hasB = ratingB > 0;
+            // Sin reseña siempre al final
+            if (!hasA && !hasB) result = 0;
+            else if (!hasA) result = 1;
+            else if (!hasB) result = -1;
+            else if (sortByValue === 'rating-desc') result = ratingB - ratingA;
+            else result = ratingA - ratingB;
         }
 
         return result;
@@ -2584,7 +2601,23 @@ async function openDetailsModal(id, type, triggerElement = null) {
                 } else {
                     ratingBadge.innerHTML = `<i class="fas fa-star" style="color:#ffd700"></i> ${modalRating}`;
                 }
-                detailsMeta.appendChild(ratingBadge); 
+                detailsMeta.appendChild(ratingBadge);
+
+                // Contador de reseñas → botón que abre el modal de reseñas
+                const reviewCount = appState.content.reviewCounts && appState.content.reviewCounts[id];
+                if (reviewCount) {
+                    const countBadge = document.createElement('button');
+                    countBadge.className = 'modal-review-count';
+                    countBadge.innerHTML = `<i class="fas fa-comment-dots" style="margin-right:5px; color:#a78bfa;"></i>${reviewCount} ${reviewCount === 1 ? 'reseña' : 'reseñas'}`;
+                    countBadge.title = 'Ver todas las reseñas';
+                    countBadge.addEventListener('click', () => {
+                        const contentTitle = data.title || '';
+                        if (reviewsModule && reviewsModule.openContentReviews) {
+                            reviewsModule.openContentReviews(id, contentTitle);
+                        }
+                    });
+                    detailsMeta.appendChild(countBadge);
+                }
             }
 
             // --- MOSTRAR PEDIDO Y AÑO PARA: SERIES O PELÍCULAS VETADAS ---
@@ -4160,7 +4193,7 @@ window.ErrorHandler = ErrorHandler;
 window.ContentManager = ContentManager;
 window.cacheManager = cacheManager;
 
-console.log('✅ Cine Corneta v8.3.9 cargado correctamente');
+console.log('✅ Cine Corneta v8.3.8 cargado correctamente');
 // ===========================================================
 // COMPATIBILIDAD: Funciones que ahora están en el módulo
 // ===========================================================
