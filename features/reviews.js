@@ -491,32 +491,25 @@ function findContentData(contentId) {
 // RENDERIZADO: GRID DE RESEÑAS (CON LÓGICA DE "LEER MÁS")
 // ===========================================================
 export function renderReviewsGrid() {
-    const grid = DOM.reviewsGrid; // O document.getElementById('reviews-grid-container')
+    const grid = DOM.reviewsGrid;
     if (!grid) return;
 
-    // Estado de carga inicial
-    grid.innerHTML = `
-        <div style="grid-column: 1/-1; text-align: center; padding: 50px;">
-            <p class="loading-text">Cargando reseñas...</p>
-        </div>
-    `;
+    grid.className = 'reviews-list';
+    grid.innerHTML = `<div class="reviews-loading"><i class="fas fa-spinner fa-spin"></i> Cargando reseñas...</div>`;
 
-    // Escuchar cambios en Firebase
-    db.ref('reviews').limitToLast(50).on('value', snapshot => {
-        // Limpiar grid
+    db.ref('reviews').limitToLast(50).on('value', async snapshot => {
         grid.innerHTML = '';
-        
+
         if (!snapshot.exists()) {
             grid.innerHTML = `
-                <div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 40px;">
-                    <i class="far fa-comment-dots" style="font-size: 2rem; margin-bottom: 15px; display:block;"></i>
+                <div class="reviews-empty">
+                    <i class="far fa-comment-dots"></i>
                     <p>Aún no hay reseñas. ¡Sé el primero en opinar!</p>
                 </div>
             `;
             return;
         }
 
-        // 1. Obtener y ordenar datos
         const reviews = [];
         snapshot.forEach(child => {
             const data = child.val();
@@ -524,25 +517,107 @@ export function renderReviewsGrid() {
             reviews.push(data);
         });
 
-        // Ordenar: Más recientes primero
         reviews.reverse();
 
-        // 2. Generar el HTML
-        // Usamos un fragmento para mejor rendimiento
-        const fragment = document.createDocumentFragment();
+        // --- Estadísticas ---
+        _renderStatsPanel(reviews);
 
+        // --- Pre-cargar conteos de comentarios ---
+        const commentCountsSnap = await db.ref('review_comments').once('value');
+        const commentCounts = {};
+        if (commentCountsSnap.exists()) {
+            commentCountsSnap.forEach(child => {
+                commentCounts[child.key] = child.numChildren();
+            });
+        }
+
+        const fragment = document.createDocumentFragment();
         reviews.forEach(review => {
-            const card = createReviewCard(review);
+            const card = createReviewCard(review, commentCounts[review.id] || 0);
             fragment.appendChild(card);
         });
 
         grid.appendChild(fragment);
+    });
+}
 
-        // 3. 🔥 ACTIVAR EL SISTEMA DE TRUNCADO (LEER MÁS)
-        // Se ejecuta después de que los elementos están en el DOM
-        setTimeout(() => {
-            setupReviewTruncation();
-        }, 100);
+function _renderStatsPanel(reviews) {
+    const panel = document.getElementById('reviews-stats-panel');
+    if (!panel) return;
+
+    const total = reviews.length;
+    const avg = (reviews.reduce((s, r) => s + (r.stars || 0), 0) / total).toFixed(1);
+
+    // Distribución por estrella
+    const dist = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    reviews.forEach(r => { if (dist[r.stars] !== undefined) dist[r.stars]++; });
+
+    const avgEl = document.getElementById('rsp-avg');
+    const starsEl = document.getElementById('rsp-stars');
+    const countEl = document.getElementById('rsp-count');
+    const barsEl = document.getElementById('rsp-bars');
+
+    if (avgEl) avgEl.textContent = avg;
+    if (starsEl) {
+        const full = Math.round(parseFloat(avg));
+        starsEl.innerHTML =
+            '<i class="fas fa-star"></i>'.repeat(full) +
+            '<i class="far fa-star"></i>'.repeat(5 - full);
+    }
+    if (countEl) countEl.textContent = `${total} reseña${total !== 1 ? 's' : ''}`;
+    if (barsEl) {
+        barsEl.innerHTML = [5, 4, 3, 2, 1].map(n => {
+            const pct = total > 0 ? Math.round((dist[n] / total) * 100) : 0;
+            return `
+                <div class="rsp-bar-row">
+                    <span class="rsp-bar-label">${n} <i class="fas fa-star"></i></span>
+                    <div class="rsp-bar-track">
+                        <div class="rsp-bar-fill" style="width:${pct}%"></div>
+                    </div>
+                    <span class="rsp-bar-pct">${dist[n]}</span>
+                </div>`;
+        }).join('');
+    }
+
+    panel.style.display = 'flex';
+
+    // Mostrar filtros y hacer las barras clickeables
+    const filterPanel = document.getElementById('reviews-star-filter');
+    if (filterPanel) filterPanel.style.display = 'block';
+
+    // Hacer barras clickeables (misma lógica que botones)
+    document.querySelectorAll('.rsp-bar-row').forEach(row => {
+        const stars = row.querySelector('.rsp-bar-label')?.textContent?.trim().charAt(0);
+        if (stars) {
+            row.style.cursor = 'pointer';
+            row.addEventListener('click', () => _applyStarFilter(parseInt(stars)));
+        }
+    });
+
+    // Botones de filtro
+    document.querySelectorAll('.rsf-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.rsf-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const val = btn.dataset.stars;
+            _applyStarFilter(val === 'all' ? 'all' : parseInt(val));
+        });
+    });
+}
+
+function _applyStarFilter(stars) {
+    // Sync botones
+    document.querySelectorAll('.rsf-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.stars === String(stars));
+    });
+
+    document.querySelectorAll('.review-card').forEach(card => {
+        if (stars === 'all') {
+            card.style.display = '';
+        } else {
+            const data = card.dataset.reviewData ? JSON.parse(card.dataset.reviewData) : null;
+            card.style.display = (data && data.stars === stars) ? '' : 'none';
+        }
     });
 }
 
@@ -550,53 +625,159 @@ export function renderReviewsGrid() {
 window.renderReviews = renderReviewsGrid;
 
 // ===========================================================
-// AUXILIAR: CREAR TARJETA (LIMPIA)
+// AUXILIAR: CREAR TARJETA ESTILO IMDB
 // ===========================================================
-function createReviewCard(review) {
+function createReviewCard(review, initialCommentCount = 0) {
     const card = document.createElement('div');
-    card.className = 'review-card'; // Asegúrate de tener CSS para esto
-    
-    // 🔥 Almacenar datos de la reseña en la tarjeta para usarlos después
+    card.className = 'review-card';
     card.dataset.reviewData = JSON.stringify(review);
 
-    // Estrellas
-    const starsHTML = 
-        '<i class="fas fa-star" style="color:#e50914;"></i>'.repeat(review.stars) + 
-        '<i class="far fa-star" style="color:#444;"></i>'.repeat(5 - review.stars);
+    const starsHTML =
+        '<i class="fas fa-star"></i>'.repeat(review.stars) +
+        '<i class="far fa-star"></i>'.repeat(5 - review.stars);
 
-    // Fecha
-    const date = review.timestamp 
-        ? new Date(review.timestamp).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })
+    const date = review.timestamp
+        ? new Date(review.timestamp).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })
         : 'Reciente';
 
-    // Botón borrar (Solo admin)
-    const isAdmin = auth.currentUser && auth.currentUser.email === 'baquezadat@gmail.com'; // Tu email
-    const deleteBtnHTML = isAdmin 
-        ? `<button class="btn-delete-review" onclick="deleteReview('${review.id}')" title="Borrar reseña">
-             <i class="fas fa-trash-alt"></i>
-           </button>` 
+    const isAdmin = auth.currentUser && auth.currentUser.email === 'baquezadat@gmail.com';
+    const isOwner = auth.currentUser && auth.currentUser.uid === review.userId;
+
+    const deleteBtnHTML = (isAdmin || isOwner)
+        ? `<button class="btn-delete-review" onclick="deleteReview('${review.id}')" title="Borrar reseña"><i class="fas fa-trash-alt"></i></button>`
         : '';
 
-    // HTML de la tarjeta
-    // NOTA: Ponemos el texto COMPLETO. El JS de truncado se encarga de ocultarlo si es largo.
+    const MAX_CHARS = 300;
+    const fullText = review.text || '';
+    const isTruncated = fullText.length > MAX_CHARS;
+    const shortText = isTruncated ? fullText.substring(0, MAX_CHARS).trimEnd() + '…' : fullText;
+
     card.innerHTML = `
-        <img src="${review.poster || 'img/default-poster.png'}" 
-             class="review-poster" 
-             loading="lazy" 
-             alt="${review.contentTitle}"
-             onerror="this.src='https://res.cloudinary.com/djhgmmdjx/image/upload/v1759209689/u71QEFc_bet4rv.png'">
-        
-        <div class="review-content">
-            <h3 class="review-movie-title">${review.contentTitle}</h3>
-            <p class="review-user">
-                @${review.userName}
-                <span class="review-date-tag">• ${date}</span>
-            </p>
-            <div class="review-stars">${starsHTML}</div>
-            <p class="review-text">${review.text}</p>
+        <div class="rc-poster-col">
+            <img src="${review.poster || ''}" class="rc-poster"
+                 onerror="this.src='https://res.cloudinary.com/djhgmmdjx/image/upload/v1759209689/u71QEFc_bet4rv.png'"
+                 alt="${review.contentTitle}">
         </div>
-        ${deleteBtnHTML}
+        <div class="rc-main">
+            <div class="rc-header">
+                <div class="rc-header-left">
+                    <h3 class="rc-movie-title">${review.contentTitle}</h3>
+                    <div class="rc-stars">${starsHTML}<span class="rc-stars-num">${review.stars}/5</span></div>
+                </div>
+                <div class="rc-header-right">
+                    ${deleteBtnHTML}
+                </div>
+            </div>
+            <p class="rc-text">${shortText}</p>
+            ${isTruncated ? `<button class="rc-read-more">Leer reseña completa <i class="fas fa-chevron-down"></i></button>` : ''}
+            <div class="rc-footer">
+                <div class="rc-author">
+                    <i class="fas fa-user-circle rc-author-icon"></i>
+                    <span class="rc-author-name">@${review.userName}</span>
+                    <span class="rc-date">${date}</span>
+                </div>
+                <button class="rc-comment-toggle" data-review-id="${review.id}">
+                    <i class="far fa-comment"></i>
+                    <span>${initialCommentCount > 0 ? `${initialCommentCount} comentario${initialCommentCount !== 1 ? 's' : ''}` : 'Comentar'}</span>
+                </button>
+            </div>
+            <div class="rc-comments-area" style="display:none;">
+                <div class="crm-comments-list" id="comments-${review.id}">
+                    <div class="crm-comments-loading"><i class="fas fa-spinner fa-spin"></i></div>
+                </div>
+                ${auth.currentUser ? `
+                <div class="crm-comment-input-row">
+                    <i class="fas fa-user-circle crm-comment-input-avatar"></i>
+                    <div class="crm-comment-input-wrap">
+                        <textarea class="crm-comment-input" placeholder="Añade un comentario..." rows="1"></textarea>
+                        <button class="crm-comment-send" data-review-id="${review.id}">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>` : `<p class="crm-login-hint"><i class="fas fa-lock"></i> Inicia sesión para comentar</p>`}
+            </div>
+        </div>
     `;
+
+    // Expandir texto
+    if (isTruncated) {
+        const btn = card.querySelector('.rc-read-more');
+        const textEl = card.querySelector('.rc-text');
+        let expanded = false;
+        btn.addEventListener('click', () => {
+            expanded = !expanded;
+            textEl.textContent = expanded ? fullText : shortText;
+            btn.innerHTML = expanded
+                ? 'Mostrar menos <i class="fas fa-chevron-up"></i>'
+                : 'Leer reseña completa <i class="fas fa-chevron-down"></i>';
+        });
+    }
+
+    // Toggle comentarios
+    const commentToggle = card.querySelector('.rc-comment-toggle');
+    const commentsArea = card.querySelector('.rc-comments-area');
+    let commentsLoaded = false;
+
+    commentToggle.addEventListener('click', () => {
+        const isOpen = commentsArea.style.display !== 'none';
+        commentsArea.style.display = isOpen ? 'none' : 'block';
+        const spanEl = commentToggle.querySelector('span');
+        const iconEl = commentToggle.querySelector('i');
+        if (isOpen) {
+            spanEl.textContent = initialCommentCount > 0 ? `${initialCommentCount} comentario${initialCommentCount !== 1 ? 's' : ''}` : 'Comentar';
+            iconEl.className = 'far fa-comment';
+        } else {
+            spanEl.textContent = 'Ocultar';
+            iconEl.className = 'fas fa-comment';
+        }
+
+        if (!isOpen && !commentsLoaded) {
+            commentsLoaded = true;
+            loadComments(review.id, card, (count) => {
+                // Actualizar label con conteo real
+                if (commentsArea.style.display === 'none') {
+                    spanEl.textContent = count > 0 ? `${count} comentario${count !== 1 ? 's' : ''}` : 'Comentar';
+                }
+            });
+        }
+    });
+
+    // Enviar comentario
+    if (auth.currentUser) {
+        const sendBtn = card.querySelector('.crm-comment-send');
+        const inputEl = card.querySelector('.crm-comment-input');
+
+        inputEl.addEventListener('input', () => {
+            inputEl.style.height = 'auto';
+            inputEl.style.height = inputEl.scrollHeight + 'px';
+        });
+        inputEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendBtn.click(); }
+        });
+        sendBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const text = inputEl.value.trim();
+            if (!text) return;
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            try {
+                await db.ref(`review_comments/${review.id}`).push({
+                    userId: auth.currentUser.uid,
+                    userName: auth.currentUser.displayName || 'Usuario',
+                    text,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                });
+                inputEl.value = '';
+                inputEl.style.height = 'auto';
+                if (!commentsLoaded) { commentsLoaded = true; loadComments(review.id, card); }
+            } catch (err) {
+                console.error('[Comments]', err);
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
+            }
+        });
+    }
 
     return card;
 }
@@ -792,6 +973,13 @@ function setupRatingsListener() {
             newAverages[contentId] = (data.sum / data.count).toFixed(1);
         }
 
+        // Guardar conteos de reseñas por contenido
+        const newCounts = {};
+        for (const contentId in ratingsData) {
+            newCounts[contentId] = ratingsData[contentId].count;
+        }
+        appState.content.reviewCounts = newCounts;
+
         // Actualizar en appState
         appState.content.averages = newAverages;
         
@@ -828,6 +1016,285 @@ export function getStarsHTML(rating, isSmall = true) {
 }
 
 // ===========================================================
+// MODAL: VER TODAS LAS RESEÑAS DE UN CONTENIDO
+// ===========================================================
+export async function openContentReviews(contentId, contentTitle) {
+    const modal = document.getElementById('content-reviews-modal');
+    if (!modal) return;
+
+    // Resetear estado
+    const crmList = document.getElementById('crm-list');
+    const crmLoading = document.getElementById('crm-loading');
+    const crmEmpty = document.getElementById('crm-empty');
+    const crmTitle = document.getElementById('crm-title');
+    const crmPoster = document.getElementById('crm-poster');
+    const crmHeader = document.getElementById('crm-header');
+    const crmAvg = document.getElementById('crm-avg');
+    const crmCount = document.getElementById('crm-count');
+
+    if (crmList) crmList.innerHTML = '';
+    if (crmLoading) crmLoading.style.display = 'flex';
+    if (crmEmpty) crmEmpty.style.display = 'none';
+    if (crmTitle) crmTitle.textContent = contentTitle || '';
+
+    // Buscar datos del contenido para poster y banner
+    const contentData = findContentData(contentId);
+    if (contentData) {
+        if (crmPoster) crmPoster.src = contentData.poster || '';
+        if (crmHeader && (contentData.banner || contentData.poster)) {
+            crmHeader.style.backgroundImage = `url(${contentData.banner || contentData.poster})`;
+        }
+    }
+
+    // Abrir modal
+    if (ModalManager && typeof ModalManager.open === 'function') {
+        ModalManager.open(modal, { closeOnEsc: true, nested: true });
+    } else {
+        modal.classList.add('show');
+        document.body.classList.add('modal-open');
+    }
+
+    const MAX_CHARS = 220;
+
+    try {
+        // Fetch TODAS las reseñas y filtrar por contentId en cliente
+        // (evita necesidad de índice en Firebase)
+        const snapshot = await db.ref('reviews').once('value');
+        if (crmLoading) crmLoading.style.display = 'none';
+
+        const reviews = [];
+        if (snapshot.exists()) {
+            snapshot.forEach(child => {
+                const rev = child.val();
+                if (rev.contentId === contentId) {
+                    reviews.push({ id: child.key, ...rev });
+                }
+            });
+        }
+
+        if (reviews.length === 0) {
+            if (crmEmpty) crmEmpty.style.display = 'flex';
+            return;
+        }
+
+        // Ordenar más antiguos primero
+        reviews.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+        // Stats
+        const avg = (reviews.reduce((s, r) => s + r.stars, 0) / reviews.length).toFixed(1);
+        if (crmAvg) crmAvg.innerHTML = `<i class="fas fa-star"></i> ${avg}`;
+        if (crmCount) crmCount.textContent = `${reviews.length} ${reviews.length === 1 ? 'reseña' : 'reseñas'}`;
+
+        const isAdmin = auth.currentUser && auth.currentUser.email === 'baquezadat@gmail.com';
+        const currentUser = auth.currentUser;
+
+        reviews.forEach(review => {
+            const starsHTML =
+                '<i class="fas fa-star"></i>'.repeat(review.stars) +
+                '<i class="far fa-star"></i>'.repeat(5 - review.stars);
+
+            const date = review.timestamp
+                ? new Date(review.timestamp).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })
+                : 'Reciente';
+
+            const fullText = review.text || '';
+            const isTruncated = fullText.length > MAX_CHARS;
+            const shortText = isTruncated ? fullText.substring(0, MAX_CHARS).trimEnd() + '…' : fullText;
+
+            const card = document.createElement('div');
+            card.className = 'crm-review-card';
+            card.innerHTML = `
+                <div class="crm-card-header">
+                    <div class="crm-card-user">
+                        <i class="fas fa-user-circle crm-user-icon"></i>
+                        <span class="crm-username">@${review.userName}</span>
+                        <span class="crm-date">${date}</span>
+                    </div>
+                    <div class="crm-card-stars">${starsHTML}</div>
+                </div>
+                <p class="crm-card-text">${shortText}</p>
+                ${isTruncated ? `<button class="crm-read-more">Leer reseña completa <i class="fas fa-chevron-down"></i></button>` : ''}
+                <div class="crm-comments-section">
+                    <button class="crm-toggle-comments" data-review-id="${review.id}">
+                        <i class="far fa-comment"></i>
+                        <span class="crm-comments-label">Ver comentarios</span>
+                    </button>
+                    <div class="crm-comments-area" style="display:none;">
+                        <div class="crm-comments-list" id="comments-${review.id}">
+                            <div class="crm-comments-loading"><i class="fas fa-spinner fa-spin"></i></div>
+                        </div>
+                        ${currentUser ? `
+                        <div class="crm-comment-input-row">
+                            <i class="fas fa-user-circle crm-comment-input-avatar"></i>
+                            <div class="crm-comment-input-wrap">
+                                <textarea class="crm-comment-input" placeholder="Escribe un comentario..." rows="1"></textarea>
+                                <button class="crm-comment-send" data-review-id="${review.id}">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
+                        </div>` : `<p class="crm-login-hint"><i class="fas fa-lock"></i> Inicia sesión para comentar</p>`}
+                    </div>
+                </div>
+            `;
+
+            // Toggle expandir/colapsar texto
+            if (isTruncated) {
+                const btn = card.querySelector('.crm-read-more');
+                const textEl = card.querySelector('.crm-card-text');
+                let expanded = false;
+                btn.addEventListener('click', () => {
+                    expanded = !expanded;
+                    textEl.textContent = expanded ? fullText : shortText;
+                    btn.innerHTML = expanded
+                        ? 'Mostrar menos <i class="fas fa-chevron-up"></i>'
+                        : 'Leer reseña completa <i class="fas fa-chevron-down"></i>';
+                });
+            }
+
+            // Toggle comentarios
+            const toggleBtn = card.querySelector('.crm-toggle-comments');
+            const commentsArea = card.querySelector('.crm-comments-area');
+            let commentsLoaded = false;
+            let commentsListener = null;
+
+            toggleBtn.addEventListener('click', () => {
+                const isOpen = commentsArea.style.display !== 'none';
+                commentsArea.style.display = isOpen ? 'none' : 'block';
+                toggleBtn.querySelector('.crm-comments-label').textContent = isOpen ? 'Ver comentarios' : 'Ocultar comentarios';
+                toggleBtn.querySelector('i').className = isOpen ? 'far fa-comment' : 'fas fa-comment';
+
+                if (!isOpen && !commentsLoaded) {
+                    commentsLoaded = true;
+                    loadComments(review.id, card);
+                }
+            });
+
+            // Enviar comentario
+            if (currentUser) {
+                const sendBtn = card.querySelector('.crm-comment-send');
+                const inputEl = card.querySelector('.crm-comment-input');
+
+                // Auto-resize textarea
+                inputEl.addEventListener('input', () => {
+                    inputEl.style.height = 'auto';
+                    inputEl.style.height = inputEl.scrollHeight + 'px';
+                });
+
+                // Enter para enviar (Shift+Enter = salto de línea)
+                inputEl.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendBtn.click();
+                    }
+                });
+
+                sendBtn.addEventListener('click', async () => {
+                    const text = inputEl.value.trim();
+                    if (!text) return;
+
+                    sendBtn.disabled = true;
+                    sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+                    try {
+                        await db.ref(`review_comments/${review.id}`).push({
+                            userId: currentUser.uid,
+                            userName: currentUser.displayName || 'Usuario',
+                            text,
+                            timestamp: firebase.database.ServerValue.TIMESTAMP
+                        });
+                        inputEl.value = '';
+                        inputEl.style.height = 'auto';
+
+                        // Cargar si no estaban cargados aún
+                        if (!commentsLoaded) {
+                            commentsLoaded = true;
+                            loadComments(review.id, card);
+                        }
+                    } catch (err) {
+                        console.error('[Comments] Error al enviar:', err);
+                    } finally {
+                        sendBtn.disabled = false;
+                        sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
+                    }
+                });
+            }
+
+            if (crmList) crmList.appendChild(card);
+        });
+
+    } catch (err) {
+        if (crmLoading) crmLoading.style.display = 'none';
+        console.error('[ContentReviews] Error al cargar reseñas:', err);
+        if (crmEmpty) crmEmpty.style.display = 'flex';
+    }
+}
+
+// ===========================================================
+// COMENTARIOS DE RESEÑAS
+// ===========================================================
+function loadComments(reviewId, card, onCountUpdate = null) {
+    const listEl = card.querySelector(`#comments-${reviewId}`);
+    if (!listEl) return;
+
+    const isAdmin = auth.currentUser && auth.currentUser.email === 'baquezadat@gmail.com';
+    const currentUid = auth.currentUser ? auth.currentUser.uid : null;
+
+    db.ref(`review_comments/${reviewId}`).orderByChild('timestamp').on('value', snapshot => {
+        listEl.innerHTML = '';
+
+        if (!snapshot.exists()) {
+            listEl.innerHTML = `<p class="crm-no-comments">Sé el primero en comentar.</p>`;
+            if (onCountUpdate) onCountUpdate(0);
+            return;
+        }
+
+        const comments = [];
+        snapshot.forEach(child => comments.push({ id: child.key, ...child.val() }));
+
+        if (onCountUpdate) onCountUpdate(comments.length);
+
+        comments.forEach(comment => {
+            const date = comment.timestamp
+                ? new Date(comment.timestamp).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })
+                : '';
+
+            const canDelete = isAdmin || currentUid === comment.userId;
+            const deleteBtn = canDelete
+                ? `<button class="crm-comment-delete" onclick="deleteReviewComment('${reviewId}','${comment.id}')" title="Borrar comentario"><i class="fas fa-trash-alt"></i></button>`
+                : '';
+
+            const el = document.createElement('div');
+            el.className = 'crm-comment-item';
+            el.innerHTML = `
+                <i class="fas fa-user-circle crm-comment-avatar"></i>
+                <div class="crm-comment-bubble">
+                    <div class="crm-comment-meta">
+                        <span class="crm-comment-user">@${comment.userName}</span>
+                        <span class="crm-comment-date">${date}</span>
+                        ${deleteBtn}
+                    </div>
+                    <p class="crm-comment-text">${comment.text}</p>
+                </div>
+            `;
+            listEl.appendChild(el);
+        });
+    });
+}
+
+export function deleteReviewComment(reviewId, commentId) {
+    openConfirmationModal('¿Borrar comentario?', 'Esta acción no se puede deshacer.', async () => {
+        try {
+            await db.ref(`review_comments/${reviewId}/${commentId}`).remove();
+        } catch (err) {
+            console.error('[Comments] Error al borrar:', err);
+        }
+    });
+}
+window.deleteReviewComment = deleteReviewComment;
+
+window.openContentReviews = openContentReviews;
+
+// ===========================================================
 // EXPORTACIONES
 // ===========================================================
 export default {
@@ -835,6 +1302,7 @@ export default {
     renderReviewsGrid,
     openReviewModal,
     openFullReview,
+    openContentReviews,
     deleteReview,
     getStarsHTML
 };
