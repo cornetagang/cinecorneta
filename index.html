@@ -140,16 +140,46 @@
             </div>
 
             <div id="reviews-container" style="display: none;">
-                <div class="content-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; padding: 0 4vw;">
-                    <div>
-                        <h2 style="font-family: 'Bebas Neue', sans-serif; font-size: 3.5rem; color: var(--text-light); margin: 0;">Reseñas Profesionales</h2>
-                        <p style="color: var(--text-muted); font-size: 1.1rem; margin: 5px 0 0 0;">Opiniones reales de expertos en la materia.</p>
+                <div class="reviews-page-header">
+                    <div class="reviews-page-header-inner">
+                        <div class="reviews-title-block">
+                            <h2 class="reviews-page-title">Reseñas</h2>
+                            <p class="reviews-page-subtitle">Reseñas hechas por profesionales en la materia</p>
+                        </div>
+                        <button id="open-review-modal-btn" class="btn-primary" style="padding: 13px 28px; font-size: 1rem; flex-shrink:0;">
+                            <i class="fas fa-edit"></i> Escribir Reseña
+                        </button>
                     </div>
-                    <button id="open-review-modal-btn" class="btn-primary" style="padding: 15px 30px; font-size: 1.1rem;">
-                        <i class="fas fa-edit"></i> Escribir Reseña
-                    </button>
                 </div>
-                <div id="reviews-grid" class="reviews-grid"></div>
+                <div class="reviews-two-col">
+                    <!-- Columna izquierda: Stats fijos -->
+                    <aside class="reviews-sidebar">
+                        <div id="reviews-stats-panel" class="reviews-stats-panel" style="display:none;">
+                            <div class="rsp-avg-block">
+                                <span class="rsp-big-num" id="rsp-avg">—</span>
+                                <div>
+                                    <div class="rsp-stars" id="rsp-stars"></div>
+                                    <span class="rsp-count" id="rsp-count"></span>
+                                </div>
+                            </div>
+                            <div class="rsp-bars" id="rsp-bars"></div>
+                        </div>
+                        <!-- Filtro por estrellas -->
+                        <div id="reviews-star-filter" class="reviews-star-filter" style="display:none;">
+                            <p class="rsf-label">Filtrar por estrellas</p>
+                            <div class="rsf-buttons">
+                                <button class="rsf-btn active" data-stars="all">Todas</button>
+                                <button class="rsf-btn" data-stars="5"><i class="fas fa-star"></i> 5</button>
+                                <button class="rsf-btn" data-stars="4"><i class="fas fa-star"></i> 4</button>
+                                <button class="rsf-btn" data-stars="3"><i class="fas fa-star"></i> 3</button>
+                                <button class="rsf-btn" data-stars="2"><i class="fas fa-star"></i> 2</button>
+                                <button class="rsf-btn" data-stars="1"><i class="fas fa-star"></i> 1</button>
+                            </div>
+                        </div>
+                    </aside>
+                    <!-- Columna derecha: Lista de reseñas -->
+                    <div id="reviews-grid" class="reviews-grid"></div>
+                </div>
             </div>
 
             <div id="live-tv-section" style="display: none;">
@@ -548,6 +578,36 @@
             <div style="padding: 20px 30px; background: #111; border-top: 1px solid #222; display: flex; justify-content: space-between; align-items: center;">
                 <p id="read-review-user" style="color: var(--primary-red); font-weight: bold; margin: 0; font-size: 0.95rem;"></p>
                 <span id="read-review-date" style="color: #555; font-size: 0.9rem; font-weight: bold;"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: RESEÑAS DE UN CONTENIDO ESPECÍFICO -->
+    <div id="content-reviews-modal" class="modal">
+        <div class="content-reviews-modal-inner">
+            <button class="close-btn" onclick="closeAllModals()">&times;</button>
+            <div id="crm-header" class="crm-header">
+                <div class="crm-header-overlay"></div>
+                <div class="crm-header-info">
+                    <img id="crm-poster" src="" alt="" class="crm-poster">
+                    <div>
+                        <h2 id="crm-title" class="crm-title"></h2>
+                        <div class="crm-meta">
+                            <span id="crm-avg" class="crm-avg-badge"></span>
+                            <span id="crm-count" class="crm-count-text"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="crm-body" class="crm-body">
+                <div id="crm-loading" class="crm-loading">
+                    <i class="fas fa-spinner fa-spin"></i> Cargando reseñas...
+                </div>
+                <div id="crm-list" class="crm-list"></div>
+                <div id="crm-empty" class="crm-empty" style="display:none;">
+                    <i class="far fa-comment-dots"></i>
+                    <p>Aún no hay reseñas para este título.</p>
+                </div>
             </div>
         </div>
     </div>
