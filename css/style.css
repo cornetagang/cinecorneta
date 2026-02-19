@@ -4034,7 +4034,10 @@ body.tab-inactive iframe {
 /* RESEÑAS: DISEÑO FINAL Y LIMPIO     */
 /* ================================== */
 #reviews-container { 
-    padding: 20px 4vw; 
+    padding: 0;
+    overflow-x: hidden;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 /* ===========================================================
@@ -6392,10 +6395,69 @@ button.modal-review-count:hover {
 .review-card:hover { background: rgba(255,255,255,0.02); }
 
 @media (max-width: 860px) {
-    .reviews-two-col { flex-direction: column; gap: 24px; }
-    .reviews-sidebar { width: 100%; position: static; }
-    .reviews-stats-panel { flex-direction: row; flex-wrap: wrap; }
+    .reviews-page-header { padding: 24px 16px 16px; }
+    
+    .reviews-two-col {
+        flex-direction: column;
+        gap: 20px;
+        padding: 0 16px 60px;
+        width: 100%;
+        box-sizing: border-box;
+        overflow-x: hidden;
+    }
+    
+    .reviews-sidebar {
+        width: 100%;
+        position: static;
+    }
+    
+    .reviews-stats-panel {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+
+    /* Barras en mobile: asegura que se rendericen */
+    .rsp-bars {
+        width: 100%;
+        min-width: 0;
+        flex: 1;
+    }
+
+    .rsp-bar-track {
+        min-width: 60px;
+    }
+    
     .rsp-big-num { font-size: 3rem; }
+
+    /* Filtro estrella horizontal en mobile */
+    .rsf-buttons {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .rsf-btn {
+        flex: 1;
+        min-width: 50px;
+        justify-content: center;
+        padding: 8px 6px;
+    }
+
+    .reviews-list {
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+    }
+
+    .review-card {
+        padding: 24px 16px;
+        box-sizing: border-box;
+        width: 100%;
+    }
+
+    .rc-text {
+        font-size: 0.9rem;
+    }
 }
 
 /* ===========================================================
