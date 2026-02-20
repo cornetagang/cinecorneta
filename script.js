@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL
-// Versión: 8.4 (noche 19 de Feberero 2026)
+// Versión: 8.3.8 (tarde 15 de Feberero 2026)
 // ===========================================================
 
 // ===========================================================
@@ -474,8 +474,8 @@ async function fetchInitialDataWithCache() {
         // 🔥 Inicializar módulo de reviews ANTES de setupRatingsListener
         await getReviewsModule();
         
-        // 🔥 Verificar notificaciones de pedidos agregados
-        getRequestsModule().then(m => m.checkAddedNotifications());
+        // 🔥 Una sola notificación por sesión
+        getRequestsModule().then(m => m.checkSessionNotification());
         
         await setupAndShow(cachedMetadata?.movies, cachedMetadata?.series);
         refreshDataInBackground(); // Actualiza silenciosamente por si acaso
@@ -534,8 +534,8 @@ async function fetchInitialDataWithCache() {
             // 🔥 Inicializar módulo de reviews
             await getReviewsModule();
             
-            // 🔥 Verificar notificaciones de pedidos agregados
-            getRequestsModule().then(m => m.checkAddedNotifications());
+            // 🔥 Una sola notificación por sesión
+            getRequestsModule().then(m => m.checkSessionNotification());
             
             if (!localStorage.getItem('local_last_update')) {
                 localStorage.setItem('local_last_update', Date.now());
@@ -3146,9 +3146,8 @@ function updateUIAfterAuthStateChange(user) {
         setupRealtimeHistoryListener(user);
         getProfileModule();
 
-        // Notificaciones de pedidos al iniciar sesión
+        // Solo aviso de pendientes para admin (el banner de sesión ya salió al cargar)
         getRequestsModule().then(m => {
-            m.checkAddedNotifications();
             setTimeout(() => m.checkPendingNotifications(), 500);
         });
 
@@ -4245,7 +4244,7 @@ window.ErrorHandler = ErrorHandler;
 window.ContentManager = ContentManager;
 window.cacheManager = cacheManager;
 
-console.log('✅ Cine Corneta v8.4 cargado correctamente');
+console.log('✅ Cine Corneta v8.3.8 cargado correctamente');
 // ===========================================================
 // COMPATIBILIDAD: Funciones que ahora están en el módulo
 // ===========================================================
@@ -4607,4 +4606,3 @@ observer.observe(document.body, {
     childList: true,
     subtree: true
 });
-
