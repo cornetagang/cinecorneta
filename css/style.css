@@ -1533,6 +1533,31 @@ body.modal-open { overflow: hidden; }
         z-index: 9998 !important;
         pointer-events: none !important;
     }
+
+    /* ✅ FIX: El modal debe dejar espacio al nav inferior + safe area (Samsung con botones) */
+    .modal {
+        padding-bottom: calc(60px + env(safe-area-inset-bottom));
+        align-items: center;
+    }
+
+    /* ✅ FIX details-panel: altura que descuenta el nav inferior */
+    .details-panel {
+        max-height: calc(100dvh - 80px - env(safe-area-inset-bottom));
+        height: auto;
+    }
+
+    /* ✅ FIX details-content: scroll interno que tampoco desborda */
+    .details-content {
+        max-height: calc(100dvh - 80px - env(safe-area-inset-bottom));
+    }
+
+    /* ✅ FIX series player: también respeta el nav */
+    #series-player-modal.player-layout-view {
+        padding-bottom: calc(60px + env(safe-area-inset-bottom));
+    }
+    #series-player-modal .season-grid-container {
+        max-height: calc(100dvh - 80px - env(safe-area-inset-bottom));
+    }
 }
 
 /* ================================== */
