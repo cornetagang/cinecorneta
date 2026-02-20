@@ -203,6 +203,15 @@ export function renderSettings() {
                         <i class="fas fa-sync-alt spin-hover"></i> ACTUALIZAR TODO AHORA
                     </button>
                 </div>
+
+                <div style="margin-top: 30px; border-top: 1px dashed #333; padding-top: 25px;">
+                    <h3 style="color: #E50914; display: flex; align-items: center; gap: 10px; margin-top: 0; font-family: 'Bebas Neue'; letter-spacing: 1px;">
+                        <i class="fas fa-bullhorn"></i> HISTORIAL DE AVISOS
+                    </h3>
+                    <div id="announcement-log-list" style="display: flex; flex-direction: column; gap: 10px;">
+                        <p style="color: #555; font-size: 0.85rem;">Cargando...</p>
+                    </div>
+                </div>
             `;
 
             wrapper.appendChild(adminZone);
@@ -254,11 +263,69 @@ export function renderSettings() {
                     btn.innerHTML = 'Error. Reintentar.';
                 }
             };
+
+            // 4. HISTORIAL DE AVISOS
+            loadAnnouncementLog();
         }
     }
 }
 
-// 5. HELPERS
+// 5. HISTORIAL DE AVISOS (admin)
+async function loadAnnouncementLog() {
+    const container = document.getElementById('announcement-log-list');
+    if (!container) return;
+
+    try {
+        const snap = await shared.db.ref('system_metadata/announcement_log')
+            .orderByChild('timestamp')
+            .limitToLast(20)
+            .once('value');
+
+        if (!snap.exists()) {
+            container.innerHTML = '<p style="color: #555; font-size: 0.85rem;">No hay avisos publicados aún.</p>';
+            return;
+        }
+
+        const items = [];
+        snap.forEach(c => items.push({ id: c.key, ...c.val() }));
+        items.reverse(); // más reciente primero
+
+        container.innerHTML = '';
+        items.forEach(item => {
+            const date = item.timestamp
+                ? new Date(item.timestamp).toLocaleString('es-CL', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                : '';
+
+            const el = document.createElement('div');
+            el.style.cssText = 'background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px;';
+            el.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+                    <span style="color: #fff; font-size: 0.88rem; font-weight: 600;">${item.text}</span>
+                    <button data-id="${item.id}" class="ann-log-delete-btn" style="background: none; border: none; color: #555; cursor: pointer; font-size: 0.8rem; flex-shrink: 0; padding: 0;" title="Eliminar del log">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                ${item.subtitle ? `<span style="color: #888; font-size: 0.8rem;">${item.subtitle}</span>` : ''}
+                <span style="color: #444; font-size: 0.75rem;">${date}</span>
+            `;
+
+            el.querySelector('.ann-log-delete-btn').onclick = async () => {
+                await shared.db.ref(`system_metadata/announcement_log/${item.id}`).remove();
+                el.remove();
+                if (container.children.length === 0) {
+                    container.innerHTML = '<p style="color: #555; font-size: 0.85rem;">No hay avisos publicados aún.</p>';
+                }
+            };
+
+            container.appendChild(el);
+        });
+
+    } catch(e) {
+        container.innerHTML = '<p style="color: #555; font-size: 0.85rem;">Error al cargar el historial.</p>';
+    }
+}
+
+// 6. HELPERS
 function showFeedbackMessage(message, type) {
     const feedbackElement = document.getElementById('settings-feedback');
     if (!feedbackElement) return;
