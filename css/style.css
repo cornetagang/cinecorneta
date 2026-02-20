@@ -6801,6 +6801,120 @@ button.modal-review-count:hover {
 }
 .req-unsilence-btn:hover { border-color: #E50914; color: #E50914; }
 
+/* ── Tarjeta de aviso en la lista de pedidos ── */
+#announcement-card-wrapper {
+    margin-bottom: 12px;
+}
+
+.announcement-list-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    background: linear-gradient(135deg, #1a1208, #1c1510);
+    border: 1px solid rgba(229, 9, 20, 0.35);
+    border-radius: 12px;
+    padding: 16px 20px;
+    transition: border-color 0.2s;
+}
+
+.announcement-list-card:hover {
+    border-color: rgba(229, 9, 20, 0.6);
+}
+
+.ann-card-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1;
+    min-width: 0;
+}
+
+.ann-card-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    background: rgba(229, 9, 20, 0.15);
+    border: 1px solid rgba(229, 9, 20, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: #E50914;
+    font-size: 1rem;
+}
+
+.ann-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.ann-card-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: #E50914;
+}
+
+.ann-card-title {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    color: #fff;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ann-card-subtitle {
+    font-size: 0.85rem;
+    color: #aaa;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ann-card-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.ann-card-date {
+    font-size: 0.78rem;
+    color: #555;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+}
+
+.ann-card-delete-btn {
+    background: transparent;
+    border: 1px solid #333;
+    border-radius: 7px;
+    color: #555;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.75rem;
+    transition: border-color 0.2s, color 0.2s;
+}
+
+.ann-card-delete-btn:hover {
+    border-color: #E50914;
+    color: #E50914;
+}
+
 /* ─── Modal agregar: botones de sección ─── */
 .req-section-btn {
     padding: 7px 18px; border-radius: 20px;
