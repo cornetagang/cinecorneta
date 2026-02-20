@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL
-// Versión: 8.3.8 (tarde 15 de Feberero 2026)
+// Versión: 8.4 (noche 19 de Feberero 2026)
 // ===========================================================
 
 // ===========================================================
@@ -4245,7 +4245,7 @@ window.ErrorHandler = ErrorHandler;
 window.ContentManager = ContentManager;
 window.cacheManager = cacheManager;
 
-console.log('✅ Cine Corneta v8.3.8 cargado correctamente');
+console.log('✅ Cine Corneta v8.4 cargado correctamente');
 // ===========================================================
 // COMPATIBILIDAD: Funciones que ahora están en el módulo
 // ===========================================================
@@ -4607,3 +4607,4 @@ observer.observe(document.body, {
     childList: true,
     subtree: true
 });
+
