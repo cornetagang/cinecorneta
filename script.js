@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL
-// Versión: 8.3.8 (tarde 15 de Feberero 2026)
+// Versión: 8.9.4 (tarde 20 de Feberero 2026)
 // ===========================================================
 
 // ===========================================================
@@ -302,12 +302,6 @@ document.addEventListener('DOMContentLoaded', () => {
     updateThemeAssets();
     fetchInitialDataWithCache();
     checkResetPasswordMode();
-
-    // Orientación automática en pantalla completa
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
-    document.addEventListener('msfullscreenchange', handleFullscreenChange);
 });
 
 function preloadImage(url) {
@@ -366,7 +360,7 @@ async function fetchInitialDataWithCache() {
                     if (window.cacheManager) {
                         window.cacheManager.clearAll();
                     } else {
-                        localStorage.clear();
+                        safeClearLocalStorage();
                     }
                     localStorage.setItem('local_last_update', serverLastUpdate);
                     
@@ -1875,12 +1869,7 @@ function handleFullscreenChange() {
             screen.orientation.unlock();
         }
     };
-    const fullscreenEl = document.fullscreenElement
-        || document.webkitFullscreenElement
-        || document.mozFullScreenElement
-        || document.msFullscreenElement;
-
-    if (fullscreenEl) {
+    if (document.fullscreenElement) {
         lockOrientation();
     } else {
         unlockOrientation();
@@ -2566,7 +2555,7 @@ function closeAllModals() {
 
         // Borramos caché vieja para asegurar datos frescos
         if (window.cacheManager) window.cacheManager.clearAll();
-        else localStorage.clear();
+        else safeClearLocalStorage();
         
         // Pequeño delay visual y RECARGA FORZADA
         setTimeout(() => {
@@ -4154,7 +4143,15 @@ export function findContentData(id) {
     return null;
 }
 
-window.adminForceUpdate = () => { localStorage.clear(); location.reload(); };
+function safeClearLocalStorage() {
+    const keysToPreserve = ['notifViewCounts', 'annViewCounts', 'silencedRequests', 'seenAddedRequests', 'addedNotifViewCounts'];
+    const saved = {};
+    keysToPreserve.forEach(k => { const v = localStorage.getItem(k); if (v !== null) saved[k] = v; });
+    localStorage.clear();
+    Object.entries(saved).forEach(([k, v]) => localStorage.setItem(k, v));
+}
+
+window.adminForceUpdate = () => { safeClearLocalStorage(); location.reload(); };
 
 // ==========================================
 // 8. MANEJO DE RECUPERACIÓN DE CONTRASEÑA (NIVEL PROFESIONAL)
@@ -4255,7 +4252,7 @@ window.ErrorHandler = ErrorHandler;
 window.ContentManager = ContentManager;
 window.cacheManager = cacheManager;
 
-console.log('✅ Cine Corneta v8.3.8 cargado correctamente');
+console.log('✅ Cine Corneta v8.9.4 cargado correctamente');
 // ===========================================================
 // COMPATIBILIDAD: Funciones que ahora están en el módulo
 // ===========================================================
