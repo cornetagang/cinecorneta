@@ -302,6 +302,12 @@ document.addEventListener('DOMContentLoaded', () => {
     updateThemeAssets();
     fetchInitialDataWithCache();
     checkResetPasswordMode();
+
+    // Orientación automática en pantalla completa
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('msfullscreenchange', handleFullscreenChange);
 });
 
 function preloadImage(url) {
@@ -1869,7 +1875,12 @@ function handleFullscreenChange() {
             screen.orientation.unlock();
         }
     };
-    if (document.fullscreenElement) {
+    const fullscreenEl = document.fullscreenElement
+        || document.webkitFullscreenElement
+        || document.mozFullScreenElement
+        || document.msFullscreenElement;
+
+    if (fullscreenEl) {
         lockOrientation();
     } else {
         unlockOrientation();
