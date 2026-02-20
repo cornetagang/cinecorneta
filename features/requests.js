@@ -14,6 +14,7 @@ export function initRequests(dependencies) {
     if (isInitialized) return;
     shared = dependencies;
     isInitialized = true;
+    try { ['seenAddedRequests','annViewCounts','addedNotifViewCounts'].forEach(k=>localStorage.removeItem(k)); } catch {}
 }
 
 // -------------------------------------------------------
@@ -239,9 +240,6 @@ export async function renderRequestsSection() {
     const annBtn = document.getElementById('req-announcement-btn');
     if (annBtn) annBtn.onclick = openAnnouncementModal;
 
-    // Mostrar aviso activo a todos (banner flotante)
-    await checkCustomAnnouncement();
-
     // Tabs de filtro
     let currentStatus = 'all';
     document.querySelectorAll('.req-tab-btn').forEach(btn => {
@@ -362,14 +360,14 @@ function buildAnnouncementCard(ann, isAdmin) {
 
     if (isAdmin) {
         card.querySelector('.ann-card-delete-btn').onclick = async () => {
+            // Borrar del log (fuente de verdad única)
             await shared.db.ref(`system_metadata/announcement_log/${ann.id}`).remove();
-            // Si era el aviso activo, borrarlo también
-            const activeSnap = await shared.db.ref('system_metadata/custom_announcement').once('value');
-            if (activeSnap.exists() && activeSnap.val().text === ann.text && activeSnap.val().timestamp === ann.timestamp) {
-                await shared.db.ref('system_metadata/custom_announcement').remove();
-                try { localStorage.removeItem('seenCustomAnnouncement'); } catch {}
-                _clearAllBanners();
-            }
+            // Limpiar contador de vistas de este aviso
+            try {
+                const counts = JSON.parse(localStorage.getItem('annViewCounts') || '{}');
+                delete counts[ann.id];
+                localStorage.setItem('annViewCounts', JSON.stringify(counts));
+            } catch {}
             showToast('Aviso eliminado', 'success');
             const activeTab = document.querySelector('.req-tab-btn.active');
             loadAndRenderRequests(activeTab?.dataset.status || 'all', true);
@@ -604,23 +602,16 @@ async function updateRequestStatus(id, newStatus, reqData, customNotif = null) {
         };
         showToast(toastMsg[newStatus] || 'Actualizado', 'success');
 
-        // Si se marca como agregada: limpiar del "visto" y mostrar banner YA
+        // Feedback inmediato al admin + pre-incrementar para no repetir en recarga
         if (newStatus === 'added') {
-            // Quitar de seen por si acaso el admin la había marcado antes
-            try {
-                const seenKey = 'seenAddedRequests';
-                const seen = JSON.parse(localStorage.getItem(seenKey) || '[]').filter(s => s !== id);
-                localStorage.setItem(seenKey, JSON.stringify(seen));
-            } catch {}
-            // Mostrar banner inmediatamente con el aviso personalizado
             const t = customNotif?.title    || reqData.movieName;
             const s = customNotif?.subtitle || 'Ya disponible en el cine 🎬';
-            showRequestsBanner({
-                icon: 'fa-film',
-                title: t,
-                subtitle: s,
-                onClose: null
-            });
+            try {
+                const counts = JSON.parse(localStorage.getItem('notifViewCounts') || '{}');
+                counts['req_' + id] = (counts['req_' + id] || 0) + 1;
+                localStorage.setItem('notifViewCounts', JSON.stringify(counts));
+            } catch {}
+            showRequestsBanner({ icon: 'fa-film', title: t, subtitle: s, onClose: null });
         }
 
         const activeTab = document.querySelector('.req-tab-btn.active');
@@ -741,30 +732,7 @@ window.silenceRequest = silenceRequest;
 // NOTIFICACIÓN PEDIDOS AGREGADOS (todos, 48h)
 // -------------------------------------------------------
 export async function checkAddedNotifications() {
-    try {
-        const TWO_DAYS = 2 * 24 * 60 * 60 * 1000;
-        const now = Date.now();
-        const snap = await shared.db.ref('requests').orderByChild('status').equalTo('added').once('value');
-        if (!snap.exists()) return;
-        const seenKey = 'seenAddedRequests';
-        let seen = [];
-        try { seen = JSON.parse(localStorage.getItem(seenKey) || '[]'); } catch { seen = []; }
-        const items = [];
-        snap.forEach(c => {
-            const d = c.val();
-            if (d.addedTimestamp && now - d.addedTimestamp <= TWO_DAYS && !seen.includes(c.key))
-                items.push({ id: c.key, title: d.notificationTitle || d.movieName, subtitle: d.notificationSubtitle || null });
-        });
-        if (!items.length) return;
-        showRequestsBanner({
-            icon: 'fa-film',
-            title: items.length > 1 ? '¡Nuevos pedidos agregados!' : items[0].title,
-            subtitle: items.length > 1
-                ? `${items.length} pedidos ya están disponibles en el cine 🎬`
-                : (items[0].subtitle || 'Ya disponible en el cine 🎬'),
-            onClose: () => localStorage.setItem(seenKey, JSON.stringify([...seen, ...items.map(i => i.id)]))
-        });
-    } catch(e) { console.error('Error notif agregados:', e); }
+    // Reemplazado por checkSessionNotification()
 }
 
 // -------------------------------------------------------
@@ -877,14 +845,8 @@ function _clearAllBanners() {
 async function openAnnouncementModal() {
     document.getElementById('req-announcement-modal')?.remove();
 
-    let currentTitle = '', currentSubtitle = '';
-    try {
-        const snap = await shared.db.ref('system_metadata/custom_announcement').once('value');
-        if (snap.exists()) {
-            currentTitle    = snap.val().text     || '';
-            currentSubtitle = snap.val().subtitle || '';
-        }
-    } catch(e) {}
+    // El modal siempre empieza limpio — los avisos son registros históricos
+    const currentTitle = '', currentSubtitle = '';
 
     const modal = document.createElement('div');
     modal.id = 'req-announcement-modal';
@@ -923,7 +885,7 @@ async function openAnnouncementModal() {
                 <p id="ann-preview-subtitle" style="color: #aaa; font-size: 0.82rem; margin: 0; display: none;"></p>
             </div>
 
-            <div style="display: flex; gap: 10px; margin-bottom: ${currentTitle ? '10px' : '0'};">
+            <div style="display: flex; gap: 10px;">
                 <button id="ann-confirm-btn" class="btn-primary" style="flex: 1; padding: 13px; font-size: 1rem; background: #E50914; font-weight: 700;">
                     <i class="fas fa-bullhorn"></i> Publicar
                 </button>
@@ -931,10 +893,6 @@ async function openAnnouncementModal() {
                     <i class="fas fa-times"></i> Cancelar
                 </button>
             </div>
-            ${currentTitle ? `
-            <button id="ann-delete-btn" style="width: 100%; padding: 10px; background: transparent; border: 1px solid #333; border-radius: 8px; color: #888; font-size: 0.85rem; cursor: pointer; margin-top: 0;">
-                <i class="fas fa-trash"></i> Eliminar aviso activo
-            </button>` : ''}
         </div>
     `;
 
@@ -964,7 +922,7 @@ async function openAnnouncementModal() {
     modal.querySelector('#ann-cancel-btn').onclick = close;
     modal.addEventListener('click', e => { if (e.target === modal) close(); });
 
-    // Publicar y guardar en log
+    // Publicar — solo guarda en el log, sin nodo "activo"
     modal.querySelector('#ann-confirm-btn').onclick = async () => {
         const text     = titleInput.value.trim();
         const subtitle = subtitleInput.value.trim() || null;
@@ -973,143 +931,88 @@ async function openAnnouncementModal() {
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Publicando...';
         btn.disabled  = true;
 
-        const timestamp = firebase.database.ServerValue.TIMESTAMP;
-
-        // Guardar aviso activo
-        await shared.db.ref('system_metadata/custom_announcement').set({ text, subtitle, timestamp });
-
-        // Guardar en log histórico
-        await shared.db.ref('system_metadata/announcement_log').push({
+        const newRef = shared.db.ref('system_metadata/announcement_log').push();
+        await newRef.set({
             text, subtitle,
-            timestamp,
+            timestamp: firebase.database.ServerValue.TIMESTAMP,
             publishedBy: shared.auth.currentUser?.email || 'admin'
         });
+        try {
+            const counts = JSON.parse(localStorage.getItem('notifViewCounts') || '{}');
+            counts['ann_' + newRef.key] = 1;
+            localStorage.setItem('notifViewCounts', JSON.stringify(counts));
+        } catch {}
 
         close();
         showToast('Aviso publicado', 'success');
-        // Limpiar el "visto" para que el nuevo aviso se muestre a todos
-        try { localStorage.removeItem('seenCustomAnnouncement'); } catch {}
-        // Obtener el timestamp real guardado para pasarlo al banner
-        const savedSnap = await shared.db.ref('system_metadata/custom_announcement').once('value');
-        const savedTs = savedSnap.val()?.timestamp || null;
-        showCustomAnnouncementBanner(text, subtitle, savedTs);
-        // Refrescar: si estamos en tab avisos modo exclusivo, si no al tope de la lista
+        // Refrescar lista
         const activeTabNow = document.querySelector('.req-tab-btn.active');
-        if (activeTabNow?.dataset.status === 'announcements') {
-            await renderAnnouncementCard(true);
-        } else {
-            await renderAnnouncementCard();
-        }
+        const isAdminNow = shared.auth.currentUser && ADMIN_EMAILS.includes(shared.auth.currentUser.email);
+        await loadAndRenderRequests(activeTabNow?.dataset.status || 'all', isAdminNow);
     };
+}
 
-    // Eliminar aviso activo
-    modal.querySelector('#ann-delete-btn')?.addEventListener('click', async () => {
-        await shared.db.ref('system_metadata/custom_announcement').remove();
-        try { localStorage.removeItem('seenCustomAnnouncement'); } catch {}
-        _clearAllBanners();
-        close();
-        showToast('Aviso eliminado', 'success');
-        // Quitar la tarjeta de aviso de la lista
-        document.getElementById('announcement-card-wrapper')?.remove();
-    });
+
+// -------------------------------------------------------
+// BANNER AL ENTRAR: muestra el aviso más reciente del log si no fue visto
+// -------------------------------------------------------
+const ANN_MAX_VIEWS = 2; // veces que se muestra cada aviso por cuenta
+
+export async function checkCustomAnnouncement() {
+    // Reemplazado por checkSessionNotification()
 }
 
 // -------------------------------------------------------
-// TARJETA DE AVISO EN LA LISTA (visible para todos)
+// SISTEMA UNIFICADO: 1 banner por sesión de apertura del cine
+// Sin importar si hay o no sesión iniciada, siempre 1 banner.
+// Prioridad: pedidos agregados recientes > aviso personalizado
 // -------------------------------------------------------
-async function renderAnnouncementCard(onlyMode = false) {
-    // Siempre limpiar primero para evitar duplicados
-    document.getElementById('announcement-card-wrapper')?.remove();
-
-    const listEl = document.getElementById('requests-list');
-    if (!listEl) return;
-
+export async function checkSessionNotification() {
     try {
-        const snap = await shared.db.ref('system_metadata/custom_announcement').once('value');
+        const MAX  = ANN_MAX_VIEWS;
+        const KEY  = 'notifViewCounts';
+        let counts = {};
+        try { counts = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch {}
 
-        if (!snap.exists() || !snap.val().text) {
-            // En tab exclusivo de avisos, mostrar estado vacío
-            if (onlyMode) {
-                listEl.innerHTML = '<p style="color: #666; text-align: center; padding: 40px 0;">No hay avisos publicados.</p>';
-            }
-            return;
-        }
-
-        const { text, subtitle, timestamp } = snap.val();
-        const isAdmin = shared.auth.currentUser && ADMIN_EMAILS.includes(shared.auth.currentUser.email);
-
-        const date = formatDateTime(timestamp);
-
-        const wrapper = document.createElement('div');
-        wrapper.id = 'announcement-card-wrapper';
-        wrapper.innerHTML = `
-            <div class="announcement-list-card">
-                <div class="ann-card-left">
-                    <div class="ann-card-icon"><i class="fas fa-bullhorn"></i></div>
-                    <div class="ann-card-body">
-                        <span class="ann-card-label">Aviso</span>
-                        <p class="ann-card-title">${escapeHtml(text)}</p>
-                        ${subtitle ? `<p class="ann-card-subtitle">${escapeHtml(subtitle)}</p>` : ''}
-                    </div>
-                </div>
-                <div class="ann-card-right">
-                    ${date ? `<span class="ann-card-date"><i class="fas fa-calendar"></i> ${date}</span>` : ''}
-                    ${isAdmin ? `<button class="ann-card-delete-btn" title="Eliminar aviso"><i class="fas fa-trash"></i></button>` : ''}
-                </div>
-            </div>
-        `;
-
-        // Insertar al principio de la lista
-        listEl.insertBefore(wrapper, listEl.firstChild);
-
-        // Admin: botón eliminar inline
-        if (isAdmin) {
-            wrapper.querySelector('.ann-card-delete-btn').onclick = async () => {
-                await shared.db.ref('system_metadata/custom_announcement').remove();
-                try { localStorage.removeItem('seenCustomAnnouncement'); } catch {}
-                _clearAllBanners();
-                wrapper.remove();
-                showToast('Aviso eliminado', 'success');
-                // Si estamos en tab de avisos, mostrar estado vacío
-                if (onlyMode) {
-                    listEl.innerHTML = '<p style="color: #666; text-align: center; padding: 40px 0;">No hay avisos publicados.</p>';
-                }
-            };
-        }
-    } catch(e) {}
-}
-
-// -------------------------------------------------------
-// AVISO PERSONALIZADO — CHECK AL ENTRAR (todos)
-// -------------------------------------------------------
-async function checkCustomAnnouncement() {
-    try {
-        const snap = await shared.db.ref('system_metadata/custom_announcement').once('value');
-        if (!snap.exists()) return;
-        const { text, subtitle, timestamp } = snap.val();
-        if (!text) return;
-
-        // Solo mostrar el banner si el usuario no lo ha visto ya
-        const seenKey = 'seenCustomAnnouncement';
-        let seenTimestamp;
-        try { seenTimestamp = localStorage.getItem(seenKey); } catch { seenTimestamp = null; }
-        if (seenTimestamp && seenTimestamp === String(timestamp)) return;
-
-        showCustomAnnouncementBanner(text, subtitle || null, timestamp);
-    } catch(e) {}
-}
-
-function showCustomAnnouncementBanner(text, subtitle, timestamp) {
-    showRequestsBanner({
-        icon: 'fa-bullhorn',
-        title: text,
-        subtitle,
-        onClose: () => {
-            if (timestamp) {
-                try { localStorage.setItem('seenCustomAnnouncement', String(timestamp)); } catch {}
+        // — Prioridad 1: pedido agregado en últimas 48h —
+        const TWO_DAYS = 172800000;
+        const now = Date.now();
+        const addedSnap = await shared.db.ref('requests')
+            .orderByChild('status').equalTo('added').once('value');
+        if (addedSnap.exists()) {
+            const pending = [];
+            addedSnap.forEach(c => {
+                const d = c.val(), ck = 'req_' + c.key;
+                if (d.addedTimestamp && (now - d.addedTimestamp) <= TWO_DAYS && (counts[ck] || 0) < MAX)
+                    pending.push({ ck, title: d.notificationTitle || d.movieName, subtitle: d.notificationSubtitle || null });
+            });
+            if (pending.length > 0) {
+                pending.forEach(p => { counts[p.ck] = (counts[p.ck] || 0) + 1; });
+                localStorage.setItem(KEY, JSON.stringify(counts));
+                showRequestsBanner({
+                    icon: 'fa-film',
+                    title:    pending.length > 1 ? '¡Nuevos pedidos agregados!' : pending[0].title,
+                    subtitle: pending.length > 1
+                        ? pending.length + ' pedidos ya están disponibles en el cine 🎬'
+                        : (pending[0].subtitle || 'Ya disponible en el cine 🎬'),
+                    onClose: null
+                });
+                return;
             }
         }
-    });
+
+        // — Prioridad 2: aviso personalizado del admin —
+        const annSnap = await shared.db.ref('system_metadata/announcement_log')
+            .orderByChild('timestamp').limitToLast(1).once('value');
+        if (!annSnap.exists()) return;
+        let latest = null;
+        annSnap.forEach(c => { latest = { ck: 'ann_' + c.key, ...c.val() }; });
+        if (!latest?.text || (counts[latest.ck] || 0) >= MAX) return;
+        counts[latest.ck] = (counts[latest.ck] || 0) + 1;
+        localStorage.setItem(KEY, JSON.stringify(counts));
+        showRequestsBanner({ icon: 'fa-bullhorn', title: latest.text, subtitle: latest.subtitle || null, onClose: null });
+
+    } catch(e) { console.error('checkSessionNotification:', e); }
 }
 
 // -------------------------------------------------------
