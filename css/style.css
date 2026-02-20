@@ -1533,31 +1533,6 @@ body.modal-open { overflow: hidden; }
         z-index: 9998 !important;
         pointer-events: none !important;
     }
-
-    /* ✅ FIX: El modal debe dejar espacio al nav inferior + safe area (Samsung con botones) */
-    .modal {
-        padding-bottom: calc(60px + env(safe-area-inset-bottom));
-        align-items: center;
-    }
-
-    /* ✅ FIX details-panel: altura que descuenta el nav inferior */
-    .details-panel {
-        max-height: calc(100dvh - 80px - env(safe-area-inset-bottom));
-        height: auto;
-    }
-
-    /* ✅ FIX details-content: scroll interno que tampoco desborda */
-    .details-content {
-        max-height: calc(100dvh - 80px - env(safe-area-inset-bottom));
-    }
-
-    /* ✅ FIX series player: también respeta el nav */
-    #series-player-modal.player-layout-view {
-        padding-bottom: calc(60px + env(safe-area-inset-bottom));
-    }
-    #series-player-modal .season-grid-container {
-        max-height: calc(100dvh - 80px - env(safe-area-inset-bottom));
-    }
 }
 
 /* ================================== */
@@ -2726,8 +2701,33 @@ body.modal-open { overflow: hidden; }
         padding: 20px 15px; 
     }
 
-    .details-panel { height: auto; max-height: 90vh; width: 95%; max-width: 400px; display: flex; align-items: flex-start; }
-    .details-content { padding: 20px; flex-direction: column; align-items: center; gap: 15px; overflow-y: auto; height: 100%; max-height: 85vh; }
+    /* ── BOTTOM SHEET en móvil: sube desde abajo, ignora la barra URL ── */
+    .modal {
+        align-items: flex-end;          /* el panel se pega al fondo */
+        padding-bottom: calc(60px + env(safe-area-inset-bottom)); /* espacio nav + botones Samsung */
+    }
+
+    .details-panel {
+        width: 100%;
+        max-width: 100%;
+        height: auto;
+        /* 85svh = small viewport height: excluye barra URL y nav del sistema */
+        max-height: calc(85svh - env(safe-area-inset-bottom));
+        border-radius: 20px 20px 0 0;  /* esquinas redondeadas solo arriba */
+        display: flex;
+        align-items: flex-start;
+    }
+
+    .details-content {
+        padding: 20px;
+        flex-direction: column;
+        align-items: center;
+        gap: 15px;
+        overflow-y: auto;
+        width: 100%;
+        max-height: calc(85svh - env(safe-area-inset-bottom));
+        -webkit-overflow-scrolling: touch; /* scroll suave en iOS */
+    }
     .details-poster { width: 60%; max-width: 200px; margin-top: 25px; }
     .details-poster img { margin-top: 0; }
     
@@ -2861,9 +2861,9 @@ body.modal-open { overflow: hidden; }
     .btn-primary { width: 100%; }
     
     #series-player-modal.player-layout-view {
-
-        align-items: flex-start;
+        align-items: flex-end;          /* bottom sheet */
         overflow-y: auto;
+        padding-bottom: calc(60px + env(safe-area-inset-bottom));
     }
     
     #series-player-modal.player-layout-view .player-layout-container { 
@@ -2878,10 +2878,12 @@ body.modal-open { overflow: hidden; }
 
     #series-player-modal.season-grid-view {
         overflow: hidden;
+        align-items: flex-end;
+        padding-bottom: calc(60px + env(safe-area-inset-bottom));
     }
     #series-player-modal .season-grid-container {
         overflow-y: auto;
-        max-height: 80vh;
+        max-height: calc(85svh - env(safe-area-inset-bottom));
         width: 90vw;
         padding: 20px 15px;
         scrollbar-width: none;
