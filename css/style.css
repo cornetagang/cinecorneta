@@ -7318,3 +7318,30 @@ button.modal-review-count:hover {
     .universes-rest-grid { grid-template-columns: repeat(5, 1fr); }
     .universe-card--featured { min-height: 340px; }
 }
+/* ================================== */
+/* HEADER COMPACTO (1024px - 1400px)  */
+/* Laptops 1366x768 y similares       */
+/* ================================== */
+@media (min-width: 1024px) and (max-width: 1400px) {
+    .main-header { padding: 12px 20px; }
+
+    .header-left { gap: 18px; }
+    .header-right { gap: 18px; }
+
+    /* Nav links: solo un toque menos */
+    .main-nav ul { gap: 4px; }
+    .main-nav a {
+        font-size: 0.9rem;
+        padding: 7px 11px;
+    }
+
+    /* Search levemente más pequeño */
+    #search-input { width: 175px; }
+    #search-input:focus { width: 220px; }
+
+    /* Botón usuario levemente más compacto */
+    .user-greeting-btn {
+        font-size: 0.88rem;
+        padding: 8px 16px;
+    }
+}
