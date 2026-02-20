@@ -13,6 +13,7 @@ import ModalManager from './utils/modal-manager.js';
 import ContentManager from './utils/content-manager.js';
 import ThemeManager, { updateThemeAssets } from './utils/theme-manager.js';
 import LazyImageLoader from './utils/lazy-loader.js';
+import { initUniverses, renderUniversesHub } from './features/universes.js';
 
 // Instancias vacías (se llenan abajo)
 let cacheManager;
@@ -77,6 +78,8 @@ let playerModule = null;
 let profileModule = null;
 let rouletteModule = null;
 let reviewsModule = null; // 🔥 NUEVO
+let requestsModule = null;
+let universesModule = null;
 
 async function getPlayerModule() {
     if (playerModule) return playerModule;
@@ -119,6 +122,24 @@ async function getReviewsModule() {
         appState, DOM, auth, db, ErrorHandler, ModalManager, openConfirmationModal
     });
     reviewsModule = module;
+    return module;
+}
+
+async function getRequestsModule() {
+    if (requestsModule) return requestsModule;
+    const module = await import('./features/requests.js');
+    module.initRequests({
+        appState, DOM, auth, db, ErrorHandler
+    });
+    requestsModule = module;
+    return module;
+}
+
+async function getUniversesModule() {
+    if (universesModule) return universesModule;
+    const module = await import('./features/universes.js');
+    module.initUniverses({ appState, switchView });
+    universesModule = module;
     return module;
 }
 
@@ -453,6 +474,9 @@ async function fetchInitialDataWithCache() {
         // 🔥 Inicializar módulo de reviews ANTES de setupRatingsListener
         await getReviewsModule();
         
+        // 🔥 Verificar notificaciones de pedidos agregados
+        getRequestsModule().then(m => m.checkAddedNotifications());
+        
         await setupAndShow(cachedMetadata?.movies, cachedMetadata?.series);
         refreshDataInBackground(); // Actualiza silenciosamente por si acaso
         
@@ -509,6 +533,9 @@ async function fetchInitialDataWithCache() {
             
             // 🔥 Inicializar módulo de reviews
             await getReviewsModule();
+            
+            // 🔥 Verificar notificaciones de pedidos agregados
+            getRequestsModule().then(m => m.checkAddedNotifications());
             
             if (!localStorage.getItem('local_last_update')) {
                 localStorage.setItem('local_last_update', Date.now());
@@ -676,6 +703,7 @@ async function switchView(filter) {
         document.getElementById('profile-hub-container'),
         document.getElementById('sagas-hub-container'),
         document.getElementById('reviews-container'),
+        document.getElementById('requests-container'),
         document.getElementById('live-tv-section')
     ];
 
@@ -772,7 +800,7 @@ async function switchView(filter) {
         const hub = document.getElementById('sagas-hub-container');
         if (hub) {
             hub.style.display = 'block';
-            renderSagasHub();
+            getUniversesModule().then(m => m.renderUniversesHub());
         }
         return;
     }
@@ -835,6 +863,19 @@ async function switchView(filter) {
                 reviewsModule.renderReviewsGrid();
             }
         }
+        return;
+    }
+
+    // 7b. PEDIDOS
+    if (filter === 'requests') {
+        const reqContainer = document.getElementById('requests-container');
+        if (reqContainer) {
+            reqContainer.style.display = 'block';
+            reqContainer.style.padding = '30px clamp(15px, 4vw, 60px)';
+        }
+        const reqModule = await getRequestsModule();
+        reqModule.renderRequestsSection();
+        window.scrollTo(0, 0);
         return;
     }
 
@@ -1676,10 +1717,13 @@ function setupEventListeners() {
             // 🔥 EXCEPCIÓN: Si es el modal de reseñas, SOLO cierra ese y no toca el resto
             if (btn.closest('#review-form-modal')) {
                 e.preventDefault();
-                e.stopPropagation(); // Evita que el evento suba y cierre todo
+                e.stopPropagation();
                 const reviewModal = document.getElementById('review-form-modal');
                 if (reviewModal) reviewModal.classList.remove('show');
-                return; // Terminamos aquí, el reproductor de fondo sigue vivo
+                const cinemaOpen = document.getElementById('cinema')?.classList.contains('show');
+                const seriesOpen = document.getElementById('series-player-modal')?.classList.contains('show');
+                if (!cinemaOpen && !seriesOpen) document.body.classList.remove('modal-open');
+                return;
             }
 
             // Comportamiento normal para el resto (cierra todo)
@@ -1700,8 +1744,10 @@ function setupEventListeners() {
             // 🔥 EXCEPCIÓN: Si clicamos fuera del modal de reseñas
             if (e.target.id === 'review-form-modal') {
                 e.target.classList.remove('show');
-                // IMPORTANTE: No quitamos 'modal-open' del body porque el reproductor sigue abajo
-                return; 
+                const cinemaOpen = document.getElementById('cinema')?.classList.contains('show');
+                const seriesOpen = document.getElementById('series-player-modal')?.classList.contains('show');
+                if (!cinemaOpen && !seriesOpen) document.body.classList.remove('modal-open');
+                return;
             }
 
             ModalManager.closeAll();
@@ -3100,6 +3146,12 @@ function updateUIAfterAuthStateChange(user) {
         setupRealtimeHistoryListener(user);
         getProfileModule();
 
+        // Notificaciones de pedidos al iniciar sesión
+        getRequestsModule().then(m => {
+            m.checkAddedNotifications();
+            setTimeout(() => m.checkPendingNotifications(), 500);
+        });
+
         // Redirección forzada al inicio y corrección visual del botón
         resetNavigationActiveState(); // <--- Aquí aplicamos el fix
         switchView('all'); 
@@ -4487,13 +4539,6 @@ document.addEventListener('click', function(e) {
         return;
     }
     
-    // También buscar por texto
-    if (target.innerText && target.innerText.includes('Cerrar Sesión')) {
-        e.preventDefault();
-        e.stopPropagation();
-        mostrarModalLogout();
-        return;
-    }
 }, true);
 
 // MÉTODO 2: Listeners directos (BACKUP)
