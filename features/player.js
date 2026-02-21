@@ -13,6 +13,7 @@ let shared;
 // que no siguen el orden alfanumérico de JavaScript
 const SEASON_ORDER_OVERRIDES = {
     'jujutsu': ['pelicula', '1', '2', '3'],
+    'invencible': ['especial', '1', '2', '3', '4'],
     // Agregar más series aquí según sea necesario:
     // 'initialD': ['1', '2', 'pelicula', '4', '5'],
 };
