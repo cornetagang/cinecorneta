@@ -15,7 +15,7 @@ export function initRoulette(dependencies) {
     isInitialized = true;
 }
 
-async function loadWatchedFromFirebase() {
+export async function loadWatchedFromFirebase() {
     const user = shared.auth?.currentUser;
     if (!user || !shared.db) return;
     try {
