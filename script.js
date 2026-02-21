@@ -3011,6 +3011,8 @@ async function openDetailsModal(id, type, triggerElement = null) {
             // --- BOTÓN 5: OJO RULETA (solo películas, solo logueados) ---
             if (!isSeries && auth.currentUser) {
                 const roulette = await getRouletteModule();
+                // Sincronizar desde Firebase antes de leer el estado
+                if (roulette.loadWatchedFromFirebase) await roulette.loadWatchedFromFirebase();
                 const isWatched = roulette.isMovieWatched ? roulette.isMovieWatched(id) : false;
                 const eyeBtn = document.createElement('button');
                 eyeBtn.className = `btn btn-icon-only btn-roulette-eye ${isWatched ? 'is-watched' : ''}`;
