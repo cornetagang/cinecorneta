@@ -66,6 +66,10 @@
                                 <a href="#" data-filter="settings">
                                     <i class="fas fa-cog" style="width: 18px;"></i> Ajustes de Cuenta
                                 </a>
+                                <a href="#" id="reports-nav-link" data-filter="reports" style="display: none;">
+                                    <i class="fas fa-flag" style="width: 18px;"></i> Reportes
+                                    <span id="reports-badge" class="dropdown-reports-badge" style="display:none;"></span>
+                                </a>
                                 <a href="#" id="logout-btn" data-action="logout">
                                     <i class="fas fa-sign-out-alt" style="width: 18px;"></i> Cerrar Sesión
                                 </a>
@@ -185,6 +189,7 @@
 
             <!-- SECCIÓN PEDIDOS -->
             <div id="requests-container" class="content-container" style="display: none;"></div>
+            <div id="reports-container" class="content-container" style="display: none;"></div>
 
             <div id="live-tv-section" style="display: none;">
                 <div class="live-bg-layer" id="live-bg-image"></div>
@@ -448,7 +453,17 @@
                 <div id="roulette-carousel-track" class="roulette-carousel-track"></div>
                 <div class="roulette-selector"></div>
             </div>
-            <button id="spin-roulette-btn" class="btn-spin">Girar</button>
+            <div class="roulette-actions">
+                <button id="roulette-btn-ver" class="roulette-action-btn" disabled>
+                    <i class="fas fa-play"></i> Ver
+                </button>
+                <button id="spin-roulette-btn" class="btn-spin">
+                    <i class="fas fa-dice"></i> Girar
+                </button>
+                <button id="roulette-btn-vista" class="roulette-action-btn" disabled>
+                    <i class="fas fa-eye-slash"></i> Vista
+                </button>
+            </div>
         </div>
     </div>
 
