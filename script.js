@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL
-// Versión: 8.9.4 (tarde 20 de Feberero 2026)
+// Versión: 8.3.8 (tarde 15 de Feberero 2026)
 // ===========================================================
 
 // ===========================================================
@@ -80,6 +80,7 @@ let rouletteModule = null;
 let reviewsModule = null; // 🔥 NUEVO
 let requestsModule = null;
 let universesModule = null;
+let reportsModule = null;
 
 async function getPlayerModule() {
     if (playerModule) return playerModule;
@@ -109,7 +110,8 @@ async function getRouletteModule() {
     if (rouletteModule) return rouletteModule;
     const module = await import('./features/roulette.js');
     module.initRoulette({
-        appState, DOM, createMovieCardElement, openDetailsModal
+        appState, DOM, createMovieCardElement, openDetailsModal, auth, db,
+        getPlayerModule, addToHistoryIfLoggedIn
     });
     rouletteModule = module;
     return module;
@@ -140,6 +142,14 @@ async function getUniversesModule() {
     const module = await import('./features/universes.js');
     module.initUniverses({ appState, switchView });
     universesModule = module;
+    return module;
+}
+
+async function getReportsModule() {
+    if (reportsModule) return reportsModule;
+    const module = await import('./features/reports.js?v=' + Date.now());
+    module.initReports({ appState, DOM, auth, db, ErrorHandler });
+    reportsModule = module;
     return module;
 }
 
@@ -174,7 +184,8 @@ const appState = {
         activeSeriesId: null,
         pendingHistorySave: null,
         episodeOpenTimer: null,
-        historyUpdateDebounceTimer: null
+        historyUpdateDebounceTimer: null,
+        movieHistoryTimer: null
     },
     flags: {
         isLoadingMore: false,
@@ -298,10 +309,70 @@ document.addEventListener('DOMContentLoaded', () => {
     modalManager = ModalManager;
     contentManager = ContentManager;
 
+    // Parchear ModalManager.closeAll para cancelar el timer de ruleta al cerrar
+    const _originalCloseAll = ModalManager.closeAll.bind(ModalManager);
+    ModalManager.closeAll = () => {
+        if (appState?.player?.movieHistoryTimer) {
+            clearTimeout(appState.player.movieHistoryTimer);
+            appState.player.movieHistoryTimer = null;
+        }
+        _originalCloseAll();
+    };
+
     // Actualizar tema (función standalone)
     updateThemeAssets();
     fetchInitialDataWithCache();
     checkResetPasswordMode();
+
+    // ── Observer: orientación automática en fullscreen ──
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('msfullscreenchange', handleFullscreenChange);
+
+    // ── Observer: botón de reporte en cinema player ──
+    const cinemaEl = document.getElementById('cinema');
+    if (cinemaEl) {
+        new MutationObserver(async mutations => {
+            for (const m of mutations) {
+                if (m.type === 'attributes' && m.attributeName === 'class' && cinemaEl.classList.contains('show')) {
+                    const titleEl = cinemaEl.querySelector('#cinema-title');
+                    const contentTitle = titleEl?.textContent || '';
+                    const contentId = cinemaEl.dataset.contentId || '';
+                    const controls = cinemaEl.querySelector('.cinema-controls');
+                    if (controls && contentTitle) {
+                        const reports = await getReportsModule();
+                        reports.injectReportButtonInCinema(contentId, contentTitle);
+                    }
+                }
+            }
+        }).observe(cinemaEl, { attributes: true });
+    }
+
+    // ── Observer: botón de reporte en series player ──
+    const seriesModal = document.getElementById('series-player-modal');
+    if (seriesModal) {
+        // 1. Inyectar botón cuando el modal se abre
+        new MutationObserver(async mutations => {
+            for (const m of mutations) {
+                if (m.type !== 'attributes' || m.attributeName !== 'class') continue;
+                if (seriesModal.classList.contains('show')) {
+                    const rptMod = await getReportsModule();
+                    setTimeout(() => rptMod.syncSeriesReportButton(), 400);
+                }
+            }
+        }).observe(seriesModal, { attributes: true });
+
+        // 2. Actualizar botón cuando el usuario cambia de episodio (click en Anterior/Siguiente o en episodio)
+        seriesModal.addEventListener('click', async e => {
+            const isNavBtn   = e.target.closest('.episode-nav-btn');
+            const isEpisode  = e.target.closest('.episode-card, .episode-item, [data-episode]');
+            if (isNavBtn || isEpisode) {
+                const rptMod = await getReportsModule();
+                setTimeout(() => rptMod.syncSeriesReportButton(), 350);
+            }
+        });
+    }
 });
 
 function preloadImage(url) {
@@ -360,7 +431,7 @@ async function fetchInitialDataWithCache() {
                     if (window.cacheManager) {
                         window.cacheManager.clearAll();
                     } else {
-                        safeClearLocalStorage();
+                        localStorage.clear();
                     }
                     localStorage.setItem('local_last_update', serverLastUpdate);
                     
@@ -704,6 +775,7 @@ async function switchView(filter) {
         document.getElementById('sagas-hub-container'),
         document.getElementById('reviews-container'),
         document.getElementById('requests-container'),
+        document.getElementById('reports-container'),
         document.getElementById('live-tv-section')
     ];
 
@@ -875,6 +947,27 @@ async function switchView(filter) {
         }
         const reqModule = await getRequestsModule();
         reqModule.renderRequestsSection();
+        window.scrollTo(0, 0);
+        return;
+    }
+
+    // 7c. REPORTES (solo admin)
+    if (filter === 'reports') {
+        const rptContainer = document.getElementById('reports-container');
+        if (rptContainer) {
+            rptContainer.style.display = 'block';
+            rptContainer.style.padding = '30px clamp(15px, 4vw, 60px)';
+            rptContainer.innerHTML = `
+                <div class="reports-page-header">
+                    <h1 class="reports-page-title"><i class="fas fa-flag"></i> Reportes</h1>
+                    <p class="reports-page-subtitle">Problemas reportados por los usuarios</p>
+                </div>
+                <div id="reports-admin-body"></div>
+            `;
+            const rptBody = document.getElementById('reports-admin-body');
+            const rptMod = await getReportsModule();
+            await rptMod.renderAdminReports(rptBody);
+        }
         window.scrollTo(0, 0);
         return;
     }
@@ -2542,7 +2635,12 @@ function closeAllModals() {
     document.body.classList.remove('modal-open');
 
     if (typeof shared !== 'undefined' && shared.appState && shared.appState.player) {
-         shared.appState.player.activeSeriesId = null;
+        shared.appState.player.activeSeriesId = null;
+        // Cancelar timer de ruleta para que no marque como vista si el user cierra antes de 30 min
+        if (shared.appState.player.movieHistoryTimer) {
+            clearTimeout(shared.appState.player.movieHistoryTimer);
+            shared.appState.player.movieHistoryTimer = null;
+        }
     }
 
     // 🔥 FIX MÓVIL: Leemos la bandera desde localStorage (Disco)
@@ -2555,7 +2653,7 @@ function closeAllModals() {
 
         // Borramos caché vieja para asegurar datos frescos
         if (window.cacheManager) window.cacheManager.clearAll();
-        else safeClearLocalStorage();
+        else localStorage.clear();
         
         // Pequeño delay visual y RECARGA FORZADA
         setTimeout(() => {
@@ -2879,7 +2977,32 @@ async function openDetailsModal(id, type, triggerElement = null) {
                 }, 100);
             };
             detailsButtons.appendChild(reviewBtn);
-        }
+
+            // --- BOTÓN 5: OJO RULETA (solo películas, solo logueados) ---
+            if (!isSeries && auth.currentUser) {
+                const roulette = await getRouletteModule();
+                const isWatched = roulette.isMovieWatched ? roulette.isMovieWatched(id) : false;
+                const eyeBtn = document.createElement('button');
+                eyeBtn.className = `btn btn-icon-only btn-roulette-eye ${isWatched ? 'is-watched' : ''}`;
+                eyeBtn.innerHTML = `<i class="fas ${isWatched ? 'fa-eye' : 'fa-eye-slash'}"></i>`;
+                eyeBtn.title = isWatched ? 'Quitar de vistas (volverá a la ruleta)' : 'Marcar como vista (no saldrá en la ruleta)';
+                eyeBtn.onclick = async () => {
+                    const nowWatched = eyeBtn.classList.contains('is-watched');
+                    if (nowWatched) {
+                        await roulette.unmarkMovieFromRoulette(id);
+                        eyeBtn.classList.remove('is-watched');
+                        eyeBtn.innerHTML = `<i class="fas fa-eye-slash"></i>`;
+                        eyeBtn.title = 'Marcar como vista (no saldrá en la ruleta)';
+                    } else {
+                        await roulette.markMovieAsWatched(id);
+                        eyeBtn.classList.add('is-watched');
+                        eyeBtn.innerHTML = `<i class="fas fa-eye"></i>`;
+                        eyeBtn.title = 'Quitar de vistas (volverá a la ruleta)';
+                    }
+                };
+                detailsButtons.appendChild(eyeBtn);
+            }
+        } // Fin if (detailsButtons)
 
         modal.classList.add('show');
         document.body.classList.add('modal-open');
@@ -3151,6 +3274,30 @@ function updateUIAfterAuthStateChange(user) {
             setTimeout(() => m.checkPendingNotifications(), 500);
         });
 
+        // Mostrar link de Reportes en dropdown solo para admin
+        const ADMIN_EMAIL_REPORTS = 'baquezadat@gmail.com';
+        const reportsNavLink = document.getElementById('reports-nav-link');
+        if (reportsNavLink) {
+            if (user.email === ADMIN_EMAIL_REPORTS) {
+                reportsNavLink.style.display = 'flex';
+                // Badge en tiempo real — se actualiza al agregar/resolver reportes
+                firebase.database().ref('reports').orderByChild('status').equalTo('pending').on('value', snap => {
+                    const badge = document.getElementById('reports-badge');
+                    if (badge) {
+                        const count = snap.numChildren();
+                        if (count > 0) {
+                            badge.textContent = count;
+                            badge.style.display = 'inline-flex';
+                        } else {
+                            badge.style.display = 'none';
+                        }
+                    }
+                });
+            } else {
+                reportsNavLink.style.display = 'none';
+            }
+        }
+
         // Redirección forzada al inicio y corrección visual del botón
         resetNavigationActiveState(); // <--- Aquí aplicamos el fix
         switchView('all'); 
@@ -3159,6 +3306,10 @@ function updateUIAfterAuthStateChange(user) {
         // --- USUARIO DESCONECTADO (INVITADO) ---
         loggedInElements.forEach(el => el && (el.style.display = 'none'));
         loggedOutElements.forEach(el => el && (el.style.display = 'flex'));
+
+        // Ocultar link de Reportes
+        const reportsNavLinkOut = document.getElementById('reports-nav-link');
+        if (reportsNavLinkOut) reportsNavLinkOut.style.display = 'none';
         
         // Mostrar menú de invitado en móvil
         if (hubLoggedIn) hubLoggedIn.style.display = 'none';
@@ -3242,8 +3393,16 @@ async function removeFromHistory(entryKey) {
     const user = auth.currentUser;
     if (!user) return;
 
-    // 1. Borrar de la base de datos
-    await db.ref(`users/${user.uid}/history/${entryKey}`).remove();
+    // 1. Borrar de history Y de roulette_watched
+    await Promise.all([
+        db.ref(`users/${user.uid}/history/${entryKey}`).remove(),
+        db.ref(`users/${user.uid}/roulette_watched/${entryKey}`).remove()
+    ]);
+    // Sincronizar memoria interna del módulo roulette
+    try {
+        const roulette = await getRouletteModule();
+        if (roulette.unmarkMovieFromRoulette) await roulette.unmarkMovieFromRoulette(entryKey);
+    } catch(e) {}
 
     // 2. Efecto Visual "Soft" (Desvanecer tarjeta)
     const historyGrid = DOM.historyContainer.querySelector('.grid');
@@ -4143,15 +4302,7 @@ export function findContentData(id) {
     return null;
 }
 
-function safeClearLocalStorage() {
-    const keysToPreserve = ['notifViewCounts', 'annViewCounts', 'silencedRequests', 'seenAddedRequests', 'addedNotifViewCounts'];
-    const saved = {};
-    keysToPreserve.forEach(k => { const v = localStorage.getItem(k); if (v !== null) saved[k] = v; });
-    localStorage.clear();
-    Object.entries(saved).forEach(([k, v]) => localStorage.setItem(k, v));
-}
-
-window.adminForceUpdate = () => { safeClearLocalStorage(); location.reload(); };
+window.adminForceUpdate = () => { localStorage.clear(); location.reload(); };
 
 // ==========================================
 // 8. MANEJO DE RECUPERACIÓN DE CONTRASEÑA (NIVEL PROFESIONAL)
@@ -4252,7 +4403,7 @@ window.ErrorHandler = ErrorHandler;
 window.ContentManager = ContentManager;
 window.cacheManager = cacheManager;
 
-console.log('✅ Cine Corneta v8.9.4 cargado correctamente');
+console.log('✅ Cine Corneta v8.3.8 cargado correctamente');
 // ===========================================================
 // COMPATIBILIDAD: Funciones que ahora están en el módulo
 // ===========================================================
