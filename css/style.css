@@ -1312,6 +1312,11 @@ body.modal-open { overflow: hidden; }
     background-color: #333;
 }
 
+.episode-card:hover .episode-description {
+    -webkit-line-clamp: unset;
+    max-height: 300px;
+}
+
 .episode-card.active {
     border-color: var(--primary-red);
     background-color: #282828;
@@ -7583,6 +7588,11 @@ button.modal-review-count:hover {
         font-size: 0.72rem;
         -webkit-line-clamp: 1;
         max-height: 18px;
+    }
+
+    #series-player-modal .episode-card:hover .episode-description {
+        -webkit-line-clamp: unset;
+        max-height: 200px;
     }
 
     /* Botón de temporadas: ocultar en landscape para ahorrar espacio */
