@@ -117,6 +117,7 @@ export const ContentManager = {
         if (sources.includes('sagas') && content.sagas) {
             for (const sagaKey in content.sagas) {
                 const sagaData = content.sagas[sagaKey];
+                if (!sagaData) continue;
                 for (const [id, data] of Object.entries(sagaData)) {
                     if (matches(data.title || '')) {
                         results.push({ 
@@ -156,6 +157,7 @@ export const ContentManager = {
         if (content.sagas) {
             for (const sagaKey in content.sagas) {
                 const sagaData = content.sagas[sagaKey];
+                if (!sagaData) continue;
                 for (const [id, data] of Object.entries(sagaData)) {
                     if ((data.type || 'movie') === type) {
                         ids.push(id);
