@@ -13,7 +13,6 @@ let shared;
 // que no siguen el orden alfanumérico de JavaScript
 const SEASON_ORDER_OVERRIDES = {
     'jujutsu': ['pelicula', '1', '2', '3'],
-    'invencible': ['especial', '1', '2', '3', '4'],
     // Agregar más series aquí según sea necesario:
     // 'initialD': ['1', '2', 'pelicula', '4', '5'],
 };
@@ -280,11 +279,10 @@ function populateSeasonGrid(seriesId) {
     }
 
     // Mapear a estructura del grid
-    const seasonsMapped = allSeasons.map((key, index) => {
-        return { 
-            key: key,           // Clave original ("pelicula", "1", "2"...)
-            num: index + 1      // Número secuencial para layout
-        };
+    // num: si la clave es numérica usamos ese número, si no (especial, pelicula...) usamos 0
+    const seasonsMapped = allSeasons.map((key) => {
+        const num = !isNaN(key) ? Number(key) : 0;
+        return { key, num };
     });
 
     const totalSeasons = seasonsMapped.length;
