@@ -12,6 +12,19 @@
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/style.css">
+    <style>
+        .cinema-title-above {
+            margin: 0 0 10px 0 !important;
+            padding: 0 !important;
+            text-align: center !important;
+            font-size: 1.8rem !important;
+            line-height: 1.2 !important;
+            color: #fff !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+        }
+    </style>
 
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 </head>
@@ -421,6 +434,7 @@
         <button class="close-btn">&times;</button>
         <div class="movie-player-layout-container">
             <div class="movie-player-container">
+                <h2 id="cinema-title" class="movie-player-title cinema-title-above"></h2>
                 <div class="screen"><iframe src="" allowfullscreen></iframe></div>
                 <div class="movie-lang-selection">
                     <button class="lang-select-btn active" data-lang="original">Original</button>
@@ -432,7 +446,6 @@
                     <img id="cinema-poster" src="" alt="Poster">
                 </div>
                 <div class="movie-details-info">
-                    <h2 id="cinema-title" class="movie-player-title"></h2>
                     <div class="movie-meta-info">
                         <span id="cinema-requester"></span>
                         <span id="cinema-year"></span>
@@ -566,13 +579,9 @@
                     <div id="review-movie-options" class="custom-options-list"></div>
                 </div>
 
-                <label style="text-align: left; margin-bottom: 5px; color: var(--text-muted); margin-top: 15px;">Calificación:</label>
-                <div class="star-rating-input" style="display: flex; gap: 15px; justify-content: center; margin-bottom: 20px; font-size: 2rem;">
-                    <i class="fas fa-star star-option" data-value="1"></i>
-                    <i class="fas fa-star star-option" data-value="2"></i>
-                    <i class="fas fa-star star-option" data-value="3"></i>
-                    <i class="fas fa-star star-option" data-value="4"></i>
-                    <i class="fas fa-star star-option" data-value="5"></i>
+                <label style="text-align: left; margin-bottom: 5px; color: var(--text-muted); margin-top: 15px;">Calificación: <span id="review-rating-label" style="color:#f5c518; font-weight:600;"></span></label>
+                <div class="star-rating-input" id="star-rating-input" style="display: flex; gap: 8px; justify-content: center; margin-bottom: 20px; font-size: 2rem;">
+                    <!-- Generado por JS: setupStarRating() -->
                 </div>
                 <input type="hidden" id="review-rating-value" value="0">
                 
@@ -609,7 +618,7 @@
     <!-- MODAL: RESEÑAS DE UN CONTENIDO ESPECÍFICO -->
     <div id="content-reviews-modal" class="modal">
         <div class="content-reviews-modal-inner">
-            <button class="close-btn" onclick="closeAllModals()">&times;</button>
+            <button class="close-btn" onclick="(function(){ var m=document.getElementById('content-reviews-modal'); if(m) m.classList.remove('show'); if(!document.querySelector('.modal.show')) document.body.classList.remove('modal-open'); })()">&times;</button>
             <div id="crm-header" class="crm-header">
                 <div class="crm-header-overlay"></div>
                 <div class="crm-header-info">
