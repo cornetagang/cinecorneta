@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL
-// Versión: 8.9 (21 de Feberero 2026)
+// Versión: 8.9.1 (21de Feberero 2026)
 // ===========================================================
 
 // ===========================================================
@@ -2541,8 +2541,16 @@ function generateContinueWatchingCarousel(snapshot) {
     
     console.log(`📝 Total items en historial: ${historyItems.length}`);
     
-    // 4. Filtrar solo SERIES (omitir películas)
-    const seriesOnly = historyItems.filter(item => item.type === 'series');
+    // 4. Filtrar solo SERIES (omitir películas y excluir especiales/películas de serie)
+    const SPECIAL_KEYWORDS = ['pelicula', 'película', 'especial', 'tespecial', 'movie', 'special', 'ova'];
+    const isSpecialSeason = (season) => {
+        if (season == null) return false;
+        const s = String(season).toLowerCase();
+        return SPECIAL_KEYWORDS.some(kw => s.includes(kw));
+    };
+    const seriesOnly = historyItems.filter(item =>
+        item.type === 'series' && !isSpecialSeason(item.season)
+    );
     console.log(`📺 Series en historial: ${seriesOnly.length}`);
     
     // 5. Tomar máximo 15 series (las más recientes)
@@ -4425,7 +4433,7 @@ window.ErrorHandler = ErrorHandler;
 window.ContentManager = ContentManager;
 window.cacheManager = cacheManager;
 
-console.log('✅ Cine Corneta v8.9 cargado correctamente');
+console.log('✅ Cine Corneta v8.9.1 cargado correctamente');
 // ===========================================================
 // COMPATIBILIDAD: Funciones que ahora están en el módulo
 // ===========================================================
