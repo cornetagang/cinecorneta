@@ -181,29 +181,91 @@ function setupContextualUI(isPreselected) {
 // ===========================================================
 // UI: SISTEMA DE ESTRELLAS
 // ===========================================================
+function buildStarHalfHTML(val) {
+    // Devuelve HTML de estrella según valor: 0=vacía, 0.5=media, 1=llena
+    if (val >= 1)  return '<i class="fas fa-star"></i>';
+    if (val >= 0.5) return '<i class="fas fa-star-half-alt"></i>';
+    return '<i class="far fa-star"></i>';
+}
+
+function renderStarsFromValue(value) {
+    let html = '';
+    for (let i = 1; i <= 5; i++) {
+        const diff = value - (i - 1);
+        html += buildStarHalfHTML(diff);
+    }
+    return html;
+}
+
 function setupStarRating() {
-    const stars = document.querySelectorAll('.star-option');
+    const container = document.getElementById('star-rating-input');
     const ratingInput = document.getElementById('review-rating-value');
-    
-    stars.forEach(star => {
-        star.onclick = () => {
-            const value = parseInt(star.dataset.value);
-            if (ratingInput) ratingInput.value = value;
-            updateStarVisuals(value);
-        };
+    const ratingLabel = document.getElementById('review-rating-label');
+    if (!container || !ratingInput) return;
+
+    // Construir 5 wrappers, cada uno con mitad izquierda y mitad derecha
+    container.innerHTML = '';
+    for (let i = 1; i <= 5; i++) {
+        const wrapper = document.createElement('span');
+        wrapper.className = 'star-wrapper';
+        wrapper.style.cssText = 'position:relative; display:inline-block; cursor:pointer; color:#f5c518;';
+        wrapper.innerHTML = '<i class="far fa-star star-icon" style="font-size:2rem; pointer-events:none;"></i>';
+
+        // Mitad izquierda → valor i - 0.5
+        const leftHalf = document.createElement('span');
+        leftHalf.className = 'star-half-zone';
+        leftHalf.dataset.value = (i - 0.5).toFixed(1);
+        leftHalf.style.cssText = 'position:absolute; left:0; top:0; width:50%; height:100%; z-index:1;';
+
+        // Mitad derecha → valor i
+        const rightHalf = document.createElement('span');
+        rightHalf.className = 'star-half-zone';
+        rightHalf.dataset.value = i.toFixed(1);
+        rightHalf.style.cssText = 'position:absolute; right:0; top:0; width:50%; height:100%; z-index:1;';
+
+        wrapper.appendChild(leftHalf);
+        wrapper.appendChild(rightHalf);
+        container.appendChild(wrapper);
+    }
+
+    // Hover preview
+    container.addEventListener('mouseover', (e) => {
+        const zone = e.target.closest('.star-half-zone');
+        if (zone) updateStarVisuals(parseFloat(zone.dataset.value), true);
+    });
+    container.addEventListener('mouseleave', () => {
+        const current = parseFloat(ratingInput.value) || 0;
+        updateStarVisuals(current, false);
+    });
+
+    // Click → fijar valor
+    container.addEventListener('click', (e) => {
+        const zone = e.target.closest('.star-half-zone');
+        if (!zone) return;
+        const val = parseFloat(zone.dataset.value);
+        ratingInput.value = val;
+        updateStarVisuals(val, false);
+        if (ratingLabel) ratingLabel.textContent = `${val}/5`;
     });
 }
 
-function updateStarVisuals(value) {
-    const stars = document.querySelectorAll('.star-option');
-    stars.forEach(star => {
-        const starValue = parseInt(star.dataset.value);
-        if (starValue <= value) {
-            star.classList.add('selected', 'fas');
-            star.classList.remove('far');
+function updateStarVisuals(value, isHover = false) {
+    const wrappers = document.querySelectorAll('.star-wrapper');
+    wrappers.forEach((wrapper, index) => {
+        const icon = wrapper.querySelector('.star-icon');
+        if (!icon) return;
+        const diff = value - index; // cuánto "rellena" esta estrella
+        icon.className = 'star-icon';
+        icon.style.cssText = 'font-size:2rem; pointer-events:none;';
+        if (diff >= 1) {
+            icon.classList.add('fas', 'fa-star');
+        } else if (diff >= 0.5) {
+            icon.classList.add('fas', 'fa-star-half-alt');
         } else {
-            star.classList.remove('selected', 'fas');
-            star.classList.add('far');
+            icon.classList.add('far', 'fa-star');
+        }
+        if (isHover) {
+            icon.style.opacity = '0.85';
         }
     });
 }
@@ -214,10 +276,12 @@ function resetReviewForm() {
     const ratingInput = document.getElementById('review-rating-value');
     const hiddenInput = document.getElementById('review-selected-id');
     const textInput = document.getElementById('review-text-input');
+    const ratingLabel = document.getElementById('review-rating-label');
     
     if (ratingInput) ratingInput.value = '0';
     if (hiddenInput) hiddenInput.value = '';
     if (textInput) textInput.value = '';
+    if (ratingLabel) ratingLabel.textContent = '';
     
     updateStarVisuals(0);
 }
@@ -400,7 +464,7 @@ async function handleReviewSubmit(e) {
             contentTitle: itemData ? itemData.title : 'Desconocido',
             poster: itemData ? itemData.poster : '',
             banner: itemData ? itemData.banner : '', // 🔥 GUARDAMOS EL BANNER
-            stars: parseInt(rating),
+            stars: parseFloat(rating),
             text: text,
             timestamp: firebase.database.ServerValue.TIMESTAMP
         });
@@ -554,9 +618,13 @@ function _renderStatsPanel(reviews) {
     const total = reviews.length;
     const avg = (reviews.reduce((s, r) => s + (r.stars || 0), 0) / total).toFixed(1);
 
-    // Distribución por estrella
+    // Distribución: agrupar en enteros (0.5 y 1.5 → 1, 2.5 → 2, 3.5 → 3, 4.5 → 4, 5 → 5)
     const dist = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
-    reviews.forEach(r => { if (dist[r.stars] !== undefined) dist[r.stars]++; });
+    const groupRating = (stars) => Math.max(1, Math.floor(stars || 0));
+    reviews.forEach(r => {
+        const group = groupRating(r.stars);
+        if (dist[group] !== undefined) dist[group]++;
+    });
 
     const avgEl = document.getElementById('rsp-avg');
     const starsEl = document.getElementById('rsp-stars');
@@ -565,22 +633,20 @@ function _renderStatsPanel(reviews) {
 
     if (avgEl) avgEl.textContent = avg;
     if (starsEl) {
-        const full = Math.round(parseFloat(avg));
-        starsEl.innerHTML =
-            '<i class="fas fa-star"></i>'.repeat(full) +
-            '<i class="far fa-star"></i>'.repeat(5 - full);
+        starsEl.innerHTML = renderStarsFromValue(parseFloat(avg));
     }
     if (countEl) countEl.textContent = `${total} reseña${total !== 1 ? 's' : ''}`;
     if (barsEl) {
         barsEl.innerHTML = [5, 4, 3, 2, 1].map(n => {
-            const pct = total > 0 ? Math.round((dist[n] / total) * 100) : 0;
+            const count = dist[n] || 0;
+            const pct = total > 0 ? Math.round((count / total) * 100) : 0;
             return `
-                <div class="rsp-bar-row">
+                <div class="rsp-bar-row" data-stars="${n}">
                     <span class="rsp-bar-label">${n} <i class="fas fa-star"></i></span>
                     <div class="rsp-bar-track">
                         <div class="rsp-bar-fill" style="width:${pct}%"></div>
                     </div>
-                    <span class="rsp-bar-pct">${dist[n]}</span>
+                    <span class="rsp-bar-pct">${count}</span>
                 </div>`;
         }).join('');
     }
@@ -593,10 +659,10 @@ function _renderStatsPanel(reviews) {
 
     // Hacer barras clickeables (misma lógica que botones)
     document.querySelectorAll('.rsp-bar-row').forEach(row => {
-        const stars = row.querySelector('.rsp-bar-label')?.textContent?.trim().charAt(0);
-        if (stars) {
+        const starsVal = parseFloat(row.dataset.stars);
+        if (!isNaN(starsVal)) {
             row.style.cursor = 'pointer';
-            row.addEventListener('click', () => _applyStarFilter(parseInt(stars)));
+            row.addEventListener('click', () => _applyStarFilter(starsVal));
         }
     });
 
@@ -606,7 +672,7 @@ function _renderStatsPanel(reviews) {
             document.querySelectorAll('.rsf-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             const val = btn.dataset.stars;
-            _applyStarFilter(val === 'all' ? 'all' : parseInt(val));
+            _applyStarFilter(val === 'all' ? 'all' : parseFloat(val));
         });
     });
 }
@@ -617,12 +683,16 @@ function _applyStarFilter(stars) {
         b.classList.toggle('active', b.dataset.stars === String(stars));
     });
 
+    // Agrupa: 0.5/1/1.5 → 1, 2/2.5 → 2, 3/3.5 → 3, 4/4.5 → 4, 5 → 5
+    const groupRating = (s) => Math.max(1, Math.floor(s || 0));
+
     document.querySelectorAll('.review-card').forEach(card => {
         if (stars === 'all') {
             card.style.display = '';
         } else {
             const data = card.dataset.reviewData ? JSON.parse(card.dataset.reviewData) : null;
-            card.style.display = (data && data.stars === stars) ? '' : 'none';
+            const group = data ? groupRating(data.stars) : null;
+            card.style.display = (group === stars) ? '' : 'none';
         }
     });
 }
@@ -638,9 +708,7 @@ function createReviewCard(review, initialCommentCount = 0) {
     card.className = 'review-card';
     card.dataset.reviewData = JSON.stringify(review);
 
-    const starsHTML =
-        '<i class="fas fa-star"></i>'.repeat(review.stars) +
-        '<i class="far fa-star"></i>'.repeat(5 - review.stars);
+    const starsHTML = renderStarsFromValue(review.stars || 0);
 
     const date = review.timestamp
         ? new Date(review.timestamp).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -904,9 +972,7 @@ export function openFullReview(reviewData) {
         })
         : 'Reciente';
     if (text) text.textContent = reviewData.text;
-    if (stars) stars.innerHTML = 
-        '<i class="fas fa-star"></i>'.repeat(reviewData.stars) + 
-        '<i class="far fa-star"></i>'.repeat(5 - reviewData.stars);
+    if (stars) stars.innerHTML = renderStarsFromValue(reviewData.stars || 0);
 
     // Mostrar modal usando ModalManager si está disponible
     if (ModalManager && typeof ModalManager.open === 'function') {
