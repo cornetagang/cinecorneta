@@ -490,7 +490,12 @@ async function renderEpisodePlayer(seriesId, seasonNum, startAtIndex = null) {
                         </div>
                     </div>
                     <div class="episode-sidebar">
-                        <div class="sidebar-header"> ${backButtonHTML} <h2>Episodios</h2> </div>
+                        <div class="sidebar-header">
+                            ${backButtonHTML}
+                            <div class="sidebar-title-row">
+                                <h2>Episodios</h2>
+                            </div>
+                        </div>
                         <div id="episode-list-${seriesId}" class="episode-list-container"></div>
                     </div>
                 </div>
@@ -862,12 +867,9 @@ export function openPlayerModal(movieId, movieTitle) {
 function loadMovieInPlayer(videoId, movieId, movieData) {
     const iframe = shared.DOM.cinemaModal.querySelector('iframe');
     if (!iframe) return;
-    
-    // Cargar video
+
+    // Cargar video (el timer ya fue iniciado desde el botón "Ver ahora" en detalles)
     iframe.src = `https://drive.google.com/file/d/${videoId}/preview`;
-    
-    // Registrar en historial
-    shared.addToHistoryIfLoggedIn(movieId, 'movie');
 }
 
 // Helper para configurar controles adicionales (Mi Lista + Reseñas)
