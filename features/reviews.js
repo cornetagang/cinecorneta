@@ -1,8 +1,8 @@
 // ===========================================================
 // MÓDULO DE RESEÑAS (REVIEWS)
 // ===========================================================
-// Versión: 2.8
-// Fecha: 19 de Febrero 2026
+// Versión: 2.6
+// Fecha: 15 de Febrero 2026
 // ===========================================================
 
 let appState, DOM, auth, db, ErrorHandler, ModalManager, openConfirmationModal;
@@ -18,8 +18,10 @@ let reviewContext = {
 // ===========================================================
 // INICIALIZACIÓN
 // ===========================================================
+let isInitialized = false;
+
 export function initReviews(dependencies) {
-    // Inyectar dependencias
+    // Actualizar dependencias siempre (por si cambia el usuario)
     appState = dependencies.appState;
     DOM = dependencies.DOM;
     auth = dependencies.auth;
@@ -27,6 +29,10 @@ export function initReviews(dependencies) {
     ErrorHandler = dependencies.ErrorHandler;
     ModalManager = dependencies.ModalManager;
     openConfirmationModal = dependencies.openConfirmationModal;
+
+    // Solo registrar listeners una vez para evitar duplicados
+    if (isInitialized) return;
+    isInitialized = true;
 
     console.log('⭐ Módulo de Reseñas Inicializado');
 
