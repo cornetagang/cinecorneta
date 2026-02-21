@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL
-// Versión: 8.3.8 (tarde 15 de Feberero 2026)
+// Versión: 8.9 (21 de Feberero 2026)
 // ===========================================================
 
 // ===========================================================
@@ -184,8 +184,7 @@ const appState = {
         activeSeriesId: null,
         pendingHistorySave: null,
         episodeOpenTimer: null,
-        historyUpdateDebounceTimer: null,
-        movieHistoryTimer: null
+        historyUpdateDebounceTimer: null
     },
     flags: {
         isLoadingMore: false,
@@ -455,29 +454,52 @@ async function fetchInitialDataWithCache() {
         appState.content.seriesEpisodes = data.episodes || {};
         appState.content.seasonPosters = data.posters || {};
         
-        // 🔥 PRESERVAR ORDEN ORIGINAL DE TEMPORADAS
-        // Crear un índice de orden para cada serie basado en el orden de llegada
+        // 🔥 ORDEN INTELIGENTE DE TEMPORADAS
+        // Ordena automáticamente: claves no-numéricas primero (en su posición del sheet),
+        // luego numéricas ordenadas como números. Elimina la necesidad de overrides manuales.
         appState.content.seasonOrder = {};
-        
+
+        // Función de ordenamiento: respeta el orden del sheet pero corrige el bug de JS
+        // que pone las claves numéricas primero y las no-numéricas (especial, pelicula) al final
+        // Ordena temporadas usando el campo 'orden' del sheet si existe,
+        // si no, fallback automático (no-numéricos primero, luego numéricos)
+        function smartSeasonSort(keys, postersData) {
+            if (postersData) {
+                const withOrder = keys.filter(k => postersData[k]?.orden !== undefined && postersData[k]?.orden !== '');
+                if (withOrder.length > 0) {
+                    return keys.slice().sort((a, b) => {
+                        const oA = postersData[a]?.orden !== undefined && postersData[a]?.orden !== '' ? Number(postersData[a].orden) : 999;
+                        const oB = postersData[b]?.orden !== undefined && postersData[b]?.orden !== '' ? Number(postersData[b].orden) : 999;
+                        return oA - oB;
+                    });
+                }
+            }
+            // Fallback: no-numéricos primero, luego numéricos ordenados
+            const nonNumeric = keys.filter(k => isNaN(k));
+            const numeric = keys.filter(k => !isNaN(k)).sort((a, b) => Number(a) - Number(b));
+            return [...nonNumeric, ...numeric];
+        }
+
         // Para episodios
         for (const seriesId in data.episodes) {
             const seasons = data.episodes[seriesId];
-            // Guardar el orden exacto en que llegan las claves
-            appState.content.seasonOrder[seriesId] = Object.keys(seasons);
+            const postersData = data.posters?.[seriesId];
+            appState.content.seasonOrder[seriesId] = smartSeasonSort(Object.keys(seasons), postersData);
         }
-        
+
         // Fusionar con posters si hay claves adicionales
         for (const seriesId in data.posters) {
             const posterSeasons = Object.keys(data.posters[seriesId]);
+            const postersData = data.posters[seriesId];
             if (appState.content.seasonOrder[seriesId]) {
-                // Agregar claves que no estén ya en el orden
                 posterSeasons.forEach(key => {
                     if (!appState.content.seasonOrder[seriesId].includes(key)) {
                         appState.content.seasonOrder[seriesId].push(key);
                     }
                 });
+                appState.content.seasonOrder[seriesId] = smartSeasonSort(appState.content.seasonOrder[seriesId], postersData);
             } else {
-                appState.content.seasonOrder[seriesId] = posterSeasons;
+                appState.content.seasonOrder[seriesId] = smartSeasonSort(posterSeasons, postersData);
             }
         }
         
@@ -4403,7 +4425,7 @@ window.ErrorHandler = ErrorHandler;
 window.ContentManager = ContentManager;
 window.cacheManager = cacheManager;
 
-console.log('✅ Cine Corneta v8.3.8 cargado correctamente');
+console.log('✅ Cine Corneta v8.9 cargado correctamente');
 // ===========================================================
 // COMPATIBILIDAD: Funciones que ahora están en el módulo
 // ===========================================================
