@@ -338,27 +338,26 @@ function loadAllContentOptions() {
     const optionsList = document.getElementById('review-movie-options');
     const searchInput = document.getElementById('review-movie-search');
     const hiddenInput = document.getElementById('review-selected-id');
+    const contentTypeInput = document.getElementById('review-content-type');
     
     if (!optionsList) return;
 
-    optionsList.innerHTML = '<div class="loading-option">Cargando...</div>';
     let allOptions = [];
 
     // 1. Pelis
-    if (appState.content.movies) Object.values(appState.content.movies).forEach(m => allOptions.push(m));
+    if (appState.content.movies) Object.entries(appState.content.movies).forEach(([id, m]) => allOptions.push({ ...m, id }));
 
-    // 2. Series + Películas Internas
+    // 2. Series
     if (appState.content.series) {
         Object.entries(appState.content.series).forEach(([id, serie]) => {
-            allOptions.push(serie); // La serie normal
-
-            // 🔥 BUSCAMOS LITERAL "pelicula"
-            const episodes = appState.content.seriesEpisodes[id];
+            allOptions.push({ ...serie, id });
+            const episodes = appState.content.seriesEpisodes?.[id];
             if (episodes && episodes['pelicula']) {
                 const specialData = episodes['pelicula'][0];
                 allOptions.push({
-                    id: `${id}_pelicula`, // ID Virtual
+                    id: `${id}_pelicula`,
                     title: specialData.title || `${serie.title} (Película)`,
+                    poster: serie.poster || '',
                     type: 'movie',
                     _isSpecial: true
                 });
@@ -366,32 +365,75 @@ function loadAllContentOptions() {
         });
     }
 
-    // 3. Otros
-    if (appState.content.sagas) Object.values(appState.content.sagas).forEach(g => Object.values(g).forEach(i => allOptions.push(i)));
-    if (appState.content.ucm) Object.values(appState.content.ucm).forEach(i => allOptions.push(i));
+    // 3. Sagas y UCM
+    if (appState.content.sagas) Object.values(appState.content.sagas).forEach(g => Object.entries(g).forEach(([id, i]) => allOptions.push({ ...i, id })));
+    if (appState.content.ucm)   Object.entries(appState.content.ucm).forEach(([id, i]) => allOptions.push({ ...i, id }));
 
-    // Render
     allOptions.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
-    optionsList.innerHTML = '';
+
     const uniqueIds = new Set();
+    const renderOptions = (term = '') => {
+        optionsList.innerHTML = '';
+        let count = 0;
+        for (const item of allOptions) {
+            if (uniqueIds.has(item.id)) continue;
+            if (term && !(item.title || '').toLowerCase().includes(term)) continue;
+            uniqueIds.add(item.id);
+            count++;
 
-    if (allOptions.length === 0) {
-        optionsList.innerHTML = '<div class="empty-option">Vacío</div>'; return;
-    }
+            const div = document.createElement('div');
+            div.className = 'custom-option custom-option-rich';
+            div.innerHTML = `
+                <img src="${item.poster || ''}" alt="" loading="lazy">
+                <span class="custom-option-title">${item.title || item.id}${item._isSpecial ? ' <em style="font-size:0.75rem;color:#aaa;">(Película)</em>' : ''}</span>
+            `;
+            div.onclick = () => {
+                if (searchInput) searchInput.value = item.title || '';
+                if (hiddenInput) hiddenInput.value = item.id;
+                if (contentTypeInput) contentTypeInput.value = item.type || 'movie';
+                optionsList.classList.remove('show');
 
-    allOptions.forEach((item) => {
-        if (uniqueIds.has(item.id)) return;
-        uniqueIds.add(item.id);
+                // Mostrar display de selección con poster
+                const display = document.getElementById('review-selected-display');
+                const titleEl = document.getElementById('review-selected-title');
+                const inputContainer = document.querySelector('.custom-select-input-container');
+                if (display) {
+                    display.style.display = 'flex';
+                    display.style.alignItems = 'center';
+                    display.style.gap = '10px';
+                    // Insertar poster en el display si no existe ya
+                    let posterEl = display.querySelector('.review-selected-poster');
+                    if (!posterEl) {
+                        posterEl = document.createElement('img');
+                        posterEl.className = 'review-selected-poster';
+                        posterEl.style.cssText = 'width:32px;height:46px;object-fit:cover;border-radius:4px;flex-shrink:0;';
+                        display.insertBefore(posterEl, display.firstChild);
+                    }
+                    posterEl.src = item.poster || '';
+                    if (titleEl) titleEl.textContent = item.title || item.id;
+                }
+                if (inputContainer) inputContainer.style.display = 'none';
+            };
+            optionsList.appendChild(div);
+            if (!term && count >= 80) break; // Sin búsqueda, limitar a 80
+        }
+        uniqueIds.clear();
+        if (count === 0) {
+            optionsList.innerHTML = '<div class="empty-option">Sin resultados</div>';
+        }
+    };
 
-        const div = document.createElement('div');
-        div.className = 'custom-option';
-        div.textContent = item.title + (item._isSpecial ? ' (Película)' : '');
-        div.onclick = () => {
-            if (searchInput) searchInput.value = item.title;
-            if (hiddenInput) hiddenInput.value = item.id;
-            optionsList.classList.remove('show');
-        };
-        optionsList.appendChild(div);
+    // Primera carga
+    renderOptions();
+    optionsList.classList.add('show');
+
+    // Búsqueda en tiempo real: reemplazar el handler de input
+    if (searchInput._richHandlerAttached) return;
+    searchInput._richHandlerAttached = true;
+    searchInput.addEventListener('input', (e) => {
+        const term = e.target.value.toLowerCase().trim();
+        optionsList.classList.add('show');
+        renderOptions(term);
     });
 }
 
@@ -618,7 +660,7 @@ function _renderStatsPanel(reviews) {
     const total = reviews.length;
     const avg = (reviews.reduce((s, r) => s + (r.stars || 0), 0) / total).toFixed(1);
 
-    // Distribución: agrupar en enteros (0.5 y 1.5 → 1, 2.5 → 2, 3.5 → 3, 4.5 → 4, 5 → 5)
+    // Distribución: agrupar en enteros (0.5/1.5 → 1, 2.5 → 2, 3.5 → 3, 4.5 → 4, 5 → 5)
     const dist = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
     const groupRating = (stars) => Math.max(1, Math.floor(stars || 0));
     reviews.forEach(r => {
@@ -678,12 +720,10 @@ function _renderStatsPanel(reviews) {
 }
 
 function _applyStarFilter(stars) {
-    // Sync botones
     document.querySelectorAll('.rsf-btn').forEach(b => {
         b.classList.toggle('active', b.dataset.stars === String(stars));
     });
 
-    // Agrupa: 0.5/1/1.5 → 1, 2/2.5 → 2, 3/3.5 → 3, 4/4.5 → 4, 5 → 5
     const groupRating = (s) => Math.max(1, Math.floor(s || 0));
 
     document.querySelectorAll('.review-card').forEach(card => {
