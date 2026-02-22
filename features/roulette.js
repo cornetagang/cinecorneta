@@ -8,6 +8,10 @@ let isInitialized = false;
 // Set de IDs vistos en memoria (sincronizado con Firebase)
 let watchedMovieIds = new Set();
 
+// Estado del modo personalizado
+let customMode = false;
+let customPool = []; // Array de { id, data }
+
 export function initRoulette(dependencies) {
     if (isInitialized) return;
     shared = dependencies;
@@ -15,7 +19,7 @@ export function initRoulette(dependencies) {
     isInitialized = true;
 }
 
-export async function loadWatchedFromFirebase() {
+async function loadWatchedFromFirebase() {
     const user = shared.auth?.currentUser;
     if (!user || !shared.db) return;
     try {
@@ -73,9 +77,167 @@ function setupRouletteLogic() {
 
     const setActionButtons = (enabled) => {
         if (btnVer)   btnVer.disabled   = !enabled;
-        if (btnVista) btnVista.disabled = !enabled;
+        if (btnVista) btnVista.disabled = !enabled || customMode;
     };
 
+    // -------------------------------------------------------
+    // MODO TOGGLE
+    // -------------------------------------------------------
+    const btnModeNormal = shared.DOM.rouletteModal.querySelector('#roulette-mode-normal');
+    const btnModeCustom = shared.DOM.rouletteModal.querySelector('#roulette-mode-custom');
+    const customPanel   = shared.DOM.rouletteModal.querySelector('#custom-roulette-panel');
+    const rouletteTitle = shared.DOM.rouletteModal.querySelector('#roulette-title');
+
+    const switchMode = (toCustom) => {
+        customMode = toCustom;
+        btnModeNormal?.classList.toggle('active', !toCustom);
+        btnModeCustom?.classList.toggle('active', toCustom);
+        if (customPanel) customPanel.style.display = toCustom ? 'block' : 'none';
+        if (btnVista)    btnVista.style.display     = toCustom ? 'none'  : '';
+        if (rouletteTitle) rouletteTitle.textContent = toCustom ? 'Ruleta Personalizada' : 'Película Aleatoria';
+
+        // Limpiar carrusel y estado al cambiar modo
+        spinDone = false;
+        selectedMovie = null;
+        setActionButtons(false);
+        const track = shared.DOM.rouletteModal.querySelector('#roulette-carousel-track');
+        if (track) {
+            track.style.transition = 'none';
+            track.style.transform  = 'translateX(0px)';
+            track.innerHTML = '';
+        }
+        spinButton.disabled = false;
+
+        if (toCustom) {
+            updateCustomHint();
+        } else {
+            loadRouletteMovies();
+        }
+    };
+
+    btnModeNormal?.addEventListener('click', () => { if (customMode) switchMode(false); });
+    btnModeCustom?.addEventListener('click', () => { if (!customMode) switchMode(true); });
+
+    // -------------------------------------------------------
+    // LÓGICA DEL BUSCADOR (modo personalizado)
+    // -------------------------------------------------------
+    const searchInput   = shared.DOM.rouletteModal.querySelector('#crp-search-input');
+    const suggestionsEl = shared.DOM.rouletteModal.querySelector('#crp-suggestions');
+    const chipsEl       = shared.DOM.rouletteModal.querySelector('#crp-chips');
+    const hintEl        = shared.DOM.rouletteModal.querySelector('#crp-hint');
+
+    const getFullPool = () => {
+        const pool = { ...shared.appState.content.movies };
+        if (shared.appState.content.sagas) {
+            for (const sagaData of Object.values(shared.appState.content.sagas)) {
+                if (!sagaData) continue;
+                for (const [id, item] of Object.entries(sagaData)) {
+                    if ((item.type || 'movie') === 'movie') pool[id] = item;
+                }
+            }
+        }
+        return pool;
+    };
+
+    const updateCustomHint = () => {
+        if (!hintEl) return;
+        if (customPool.length === 0) {
+            hintEl.textContent = 'Agrega al menos 2 películas para girar';
+        } else if (customPool.length === 1) {
+            hintEl.textContent = 'Agrega al menos 1 película más para girar';
+        } else {
+            hintEl.textContent = `${customPool.length} películas en la ruleta`;
+        }
+        spinButton.disabled = customPool.length < 2;
+    };
+
+    const renderChips = () => {
+        if (!chipsEl) return;
+        chipsEl.innerHTML = '';
+        customPool.forEach(({ id, data }) => {
+            const chip = document.createElement('div');
+            chip.className = 'crp-chip';
+            chip.innerHTML = `
+                <img src="${data.poster || ''}" alt="">
+                <span class="crp-chip-title">${data.title || id}</span>
+                <button class="crp-chip-remove" title="Quitar"><i class="fas fa-times"></i></button>
+            `;
+            chip.querySelector('.crp-chip-remove').addEventListener('click', (e) => {
+                e.stopPropagation();
+                customPool = customPool.filter(m => m.id !== id);
+                renderChips();
+                updateCustomHint();
+                // Actualizar carrusel en tiempo real
+                spinDone = false;
+                selectedMovie = null;
+                setActionButtons(false);
+                loadRouletteMovies();
+            });
+            chipsEl.appendChild(chip);
+        });
+    };
+
+    const addToCustomPool = (id, data) => {
+        if (customPool.some(m => m.id === id)) return;
+        customPool.push({ id, data });
+        renderChips();
+        updateCustomHint();
+        if (searchInput) searchInput.value = '';
+        if (suggestionsEl) suggestionsEl.style.display = 'none';
+        // Actualizar carrusel en tiempo real
+        spinDone = false;
+        selectedMovie = null;
+        setActionButtons(false);
+        loadRouletteMovies();
+    };
+
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            const q = searchInput.value.trim().toLowerCase();
+            if (!q || q.length < 2) {
+                if (suggestionsEl) suggestionsEl.style.display = 'none';
+                return;
+            }
+            const pool = getFullPool();
+            const results = Object.entries(pool)
+                .filter(([, d]) => (d.title || '').toLowerCase().includes(q))
+                .slice(0, 10);
+
+            if (!results.length) {
+                if (suggestionsEl) suggestionsEl.style.display = 'none';
+                return;
+            }
+            suggestionsEl.innerHTML = results.map(([id, d]) => {
+                const already = customPool.some(m => m.id === id);
+                return `
+                    <div class="crp-suggestion-item" data-id="${id}">
+                        <img src="${d.poster || ''}" alt="" loading="lazy">
+                        <span>${d.title || id}</span>
+                        ${already ? '<span class="crp-suggestion-already">✓</span>' : ''}
+                    </div>`;
+            }).join('');
+            suggestionsEl.style.display = 'block';
+
+            suggestionsEl.querySelectorAll('.crp-suggestion-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const id = item.dataset.id;
+                    const pool = getFullPool();
+                    addToCustomPool(id, pool[id]);
+                });
+            });
+        });
+
+        // Cerrar sugerencias al hacer click fuera
+        document.addEventListener('click', (e) => {
+            if (suggestionsEl && !searchInput.contains(e.target) && !suggestionsEl.contains(e.target)) {
+                suggestionsEl.style.display = 'none';
+            }
+        });
+    }
+
+    // -------------------------------------------------------
+    // CARGAR CARRUSEL (normal o personalizado)
+    // -------------------------------------------------------
     const loadRouletteMovies = async () => {
         const rouletteTrack = shared.DOM.rouletteModal.querySelector('#roulette-carousel-track');
         if (!rouletteTrack) return;
@@ -84,7 +246,6 @@ function setupRouletteLogic() {
         setActionButtons(false);
         selectedMovie = null;
 
-        // Resetear texto del botón "Vista" al estado neutro
         if (btnVista) btnVista.innerHTML = `<i class="fas fa-eye-slash"></i> Vista`;
 
         rouletteTrack.classList.remove('is-spinning');
@@ -93,13 +254,48 @@ function setupRouletteLogic() {
         rouletteTrack.style.transform = 'translateX(0px)';
         rouletteTrack.innerHTML = '';
 
+        // ---- MODO PERSONALIZADO ----
+        if (customMode) {
+            if (customPool.length < 2) {
+                spinButton.disabled = true;
+                return;
+            }
+            const shuffled = [...customPool].sort(() => Math.random() - 0.5);
+            // Repetir el pool hasta tener ~35 elementos para la animación
+            const repeated = [];
+            while (repeated.length < 35) {
+                for (const item of shuffled) {
+                    repeated.push(item);
+                    if (repeated.length >= 35) break;
+                }
+            }
+            const finalPickIndex = Math.floor(repeated.length * 0.6);
+            selectedMovie = repeated[finalPickIndex];
+
+            repeated.forEach((item, index) => {
+                const card = shared.createMovieCardElement(item.id, item.data, 'movie', 'roulette', false);
+                if (index === finalPickIndex) card.dataset.winner = 'true';
+                rouletteTrack.appendChild(card);
+            });
+
+            setTimeout(() => {
+                const wrapperWidth = rouletteTrack.parentElement.offsetWidth;
+                const card = rouletteTrack.querySelector('.movie-card');
+                if (!card) return;
+                const cardWidth = card.offsetWidth + 20;
+                const startOffset = wrapperWidth / 2 - cardWidth * 2.5;
+                rouletteTrack.style.transform = `translateX(${startOffset}px)`;
+            }, 50);
+            return;
+        }
+
+        // ---- MODO NORMAL ----
         if (!shared.appState.content.movies || Object.keys(shared.appState.content.movies).length < 10) {
             rouletteTrack.innerHTML = `<p>No hay suficientes películas.</p>`;
             spinButton.disabled = true;
             return;
         }
 
-        // Pool completo: movies + sagas con type movie
         const fullPool = { ...shared.appState.content.movies };
         if (shared.appState.content.sagas) {
             for (const sagaData of Object.values(shared.appState.content.sagas)) {
@@ -110,7 +306,6 @@ function setupRouletteLogic() {
             }
         }
 
-        // Excluir vistas
         const availableIds = Object.keys(fullPool).filter(id => {
             if (watchedMovieIds.has(id)) return false;
             const estado = fullPool[id]?.estado;
@@ -124,11 +319,8 @@ function setupRouletteLogic() {
             return;
         }
 
-        // Mezclar y tomar hasta 35 sin repetir
         const shuffled = [...availableIds].sort(() => Math.random() - 0.5);
         const batchIds = shuffled.slice(0, Math.min(35, availableIds.length));
-
-        // Ganador al 60% del array para que haya pelis a la izquierda
         const finalPickIndex = Math.floor(batchIds.length * 0.6);
         selectedMovie = { id: batchIds[finalPickIndex], data: fullPool[batchIds[finalPickIndex]] };
 
@@ -138,7 +330,6 @@ function setupRouletteLogic() {
             rouletteTrack.appendChild(card);
         });
 
-        // Posición inicial mostrando varias pelis a la izquierda
         setTimeout(() => {
             const wrapperWidth = rouletteTrack.parentElement.offsetWidth;
             const card = rouletteTrack.querySelector('.movie-card');
@@ -151,12 +342,11 @@ function setupRouletteLogic() {
 
     // GIRAR
     spinButton.addEventListener('click', async () => {
-        // Si ya giró antes, recargar lote nuevo antes de animar
-        if (spinDone) {
+        // Si ya giró antes O si no hay película seleccionada aún, recargar carrusel
+        if (spinDone || !selectedMovie) {
             spinDone = false;
             setActionButtons(false);
             await loadRouletteMovies();
-            // Pequeña pausa para que el DOM se actualice
             await new Promise(r => setTimeout(r, 80));
         }
         if (!selectedMovie) return;
@@ -248,6 +438,28 @@ export async function openRouletteModal() {
     if (shared.DOM.rouletteModal) {
         document.body.classList.add('modal-open');
         shared.DOM.rouletteModal.classList.add('show');
+
+        // Resetear a modo normal cada vez que se abre
+        customMode = false;
+        customPool = []; // Limpiar películas de la sesión anterior
+        const btnModeNormal = shared.DOM.rouletteModal.querySelector('#roulette-mode-normal');
+        const btnModeCustom = shared.DOM.rouletteModal.querySelector('#roulette-mode-custom');
+        const customPanel   = shared.DOM.rouletteModal.querySelector('#custom-roulette-panel');
+        const btnVista      = shared.DOM.rouletteModal.querySelector('#roulette-btn-vista');
+        const rouletteTitle = shared.DOM.rouletteModal.querySelector('#roulette-title');
+        if (btnModeNormal) btnModeNormal.classList.add('active');
+        if (btnModeCustom) btnModeCustom.classList.remove('active');
+        if (customPanel)   customPanel.style.display = 'none';
+        if (btnVista)      btnVista.style.display = '';
+        if (rouletteTitle) rouletteTitle.textContent = 'Película Aleatoria';
+        // Limpiar chips y hint del modo personalizado
+        const chipsEl = shared.DOM.rouletteModal.querySelector('#crp-chips');
+        const hintEl  = shared.DOM.rouletteModal.querySelector('#crp-hint');
+        const searchEl = shared.DOM.rouletteModal.querySelector('#crp-search-input');
+        if (chipsEl) chipsEl.innerHTML = '';
+        if (hintEl)  hintEl.textContent = 'Agrega al menos 2 películas para girar';
+        if (searchEl) searchEl.value = '';
+
         await loadWatchedFromFirebase();
         if (window.loadRouletteMovies) window.loadRouletteMovies();
     }
