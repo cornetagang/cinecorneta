@@ -461,7 +461,29 @@
     <div id="roulette-modal" class="modal">
         <div class="roulette-modal-content">
             <button class="close-btn">&times;</button>
-            <h2>Película Aleatoria</h2>
+            <h2 id="roulette-title">Película Aleatoria</h2>
+
+            <!-- Toggle de modo -->
+            <div class="roulette-mode-toggle">
+                <button id="roulette-mode-normal" class="roulette-mode-btn active">
+                    <i class="fas fa-random"></i> Normal
+                </button>
+                <button id="roulette-mode-custom" class="roulette-mode-btn">
+                    <i class="fas fa-list-ul"></i> Personalizada
+                </button>
+            </div>
+
+            <!-- Panel de ruleta personalizada -->
+            <div id="custom-roulette-panel" style="display:none;">
+                <div class="crp-search-wrapper">
+                    <input type="text" id="crp-search-input" class="crp-search-input" placeholder="Buscar película del catálogo...">
+                    <div id="crp-suggestions" class="crp-suggestions"></div>
+                </div>
+                <div id="crp-chips" class="crp-chips"></div>
+                <p id="crp-hint" class="crp-hint">Agrega al menos 2 películas para girar</p>
+            </div>
+
+            <!-- Carrusel (compartido entre modos) -->
             <div class="roulette-carousel-wrapper">
                 <div id="roulette-carousel-track" class="roulette-carousel-track"></div>
                 <div class="roulette-selector"></div>
@@ -618,7 +640,7 @@
     <!-- MODAL: RESEÑAS DE UN CONTENIDO ESPECÍFICO -->
     <div id="content-reviews-modal" class="modal">
         <div class="content-reviews-modal-inner">
-            <button class="close-btn" onclick="(function(){ var m=document.getElementById('content-reviews-modal'); if(m) m.classList.remove('show'); if(!document.querySelector('.modal.show')) document.body.classList.remove('modal-open'); })()">&times;</button>
+            <button class="close-btn" onclick="closeAllModals()">&times;</button>
             <div id="crm-header" class="crm-header">
                 <div class="crm-header-overlay"></div>
                 <div class="crm-header-info">
