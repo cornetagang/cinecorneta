@@ -3383,7 +3383,8 @@ body.modal-open { overflow: hidden; }
 /* ======================================================= */
 @media (max-width: 768px) {
     #details-buttons {
-        flex-wrap: wrap; /* Permitir que bajen si no caben */
+        flex-wrap: wrap;
+        gap: 10px; /* Gap uniforme en todos los botones */
     }
     
     /* En móvil, el botón de Play ocupa todo el ancho */
@@ -3403,22 +3404,25 @@ body.modal-open { overflow: hidden; }
     /* El botón de reseñar va junto al botón de Mi Lista */
     #details-buttons .btn-review.btn-icon-only {
         order: 3;
-        flex: 0 0 45px;   /* Mismo tamaño que el botón de lista */
-        width: 45px;
-        height: 45px;
+        flex: 0 0 48px;
+        width: 48px;
+        height: 48px;
     }
 
     /* El botón de "visto" va junto a los íconos */
     #details-buttons .btn-roulette-eye {
         order: 3;
-        flex: 0 0 45px;
-        width: 45px;
-        height: 45px;
+        flex: 0 0 48px;
+        width: 48px;
+        height: 48px;
     }
 
-    /* El botón de lista se queda al final */
+    /* El botón de lista se queda al final, mismo tamaño */
     #details-buttons .btn-watchlist {
         order: 4;
+        flex: 0 0 48px;
+        width: 48px;
+        height: 48px;
     }
 }
 
@@ -4137,6 +4141,18 @@ body.tab-inactive iframe {
     font-weight: 900;
     text-shadow: 0 0 10px rgba(255, 68, 68, 0.5);
 }
+.badge-proximamente {
+    background: linear-gradient(135deg, #0d1b2a, #1a3a5c);
+    color: #4a9eff;
+    border: 1px solid #4a9eff;
+    font-weight: 900;
+}
+.badge-mantenimiento {
+    background: linear-gradient(135deg, #1a1500, #3a2e00);
+    color: #f5a623;
+    border: 1px solid #f5a623;
+    font-weight: 900;
+}
 
 .movie-card:hover .badges-container {
     transform: scale(1.05);
@@ -4161,6 +4177,11 @@ body.tab-inactive iframe {
     color: rgba(255,255,255,0.6);
     z-index: 5;
     text-shadow: 0 4px 10px rgba(0,0,0,0.8);
+}
+
+/* Engranaje para mantenimiento */
+.season-poster-card.en-mantenimiento::before {
+    content: '\f013'; /* fa-cog */
 }
 
 /* ================================== */
