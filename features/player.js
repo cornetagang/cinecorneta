@@ -404,8 +404,8 @@ async function renderEpisodePlayer(seriesId, seasonNum, startAtIndex = null) {
         // Generar HTML de controles (Solo si hay opciones)
         let langControlsHTML = hasLangOptions 
             ? `<div class="lang-controls">
-                 <button class="lang-btn-movie ${initialLang === 'en' ? 'active' : ''}" data-lang="en">Original</button>
-                 <button class="lang-btn-movie ${initialLang === 'es' ? 'active' : ''}" data-lang="es">Español</button>
+                 <button class="lang-btn-movie ${initialLang === 'en' ? 'active' : ''}" data-lang="en">Orig.</button>
+                 <button class="lang-btn-movie ${initialLang === 'es' ? 'active' : ''}" data-lang="es">Lat.</button>
                </div>` 
             : '';
         
@@ -572,6 +572,11 @@ function populateEpisodeList(seriesId, seasonNum) {
         card.className = 'episode-card';
         card.id = `episode-card-${seriesId}-${seasonNum}-${index}`;
         card.addEventListener('click', () => openEpisode(seriesId, seasonNum, index));
+        card.addEventListener('mouseenter', () => {
+            setTimeout(() => {
+                card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 150); // Espera que empiece la animación CSS
+        });
 
         card.innerHTML = `
             <img src="${episode.thumbnail || ''}" alt="${episode.title || ''}" class="episode-card-thumb" loading="lazy">
