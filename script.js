@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL
-// Versión: 8.9.1 (21de Feberero 2026)
+// Versión: 8.9.3 (23 de Feberero 2026)
 // ===========================================================
 
 // ===========================================================
@@ -2816,9 +2816,10 @@ async function openDetailsModal(id, type, triggerElement = null) {
                 }
             }
 
-            // --- MOSTRAR PEDIDO Y AÑO PARA: SERIES O PELÍCULAS VETADAS ---
+            // --- MOSTRAR PEDIDO Y AÑO PARA: SERIES, PELÍCULAS VETADAS O PRÓXIMAS ---
             const isVetada = !isSeries && data.estado && data.estado.toLowerCase() === 'vetada';
-            if (isSeries || isVetada) {
+            const isProximamente = !isSeries && data.estado && data.estado.toLowerCase() !== 'vetada' && data.estado.toLowerCase() !== 'mantenimiento' && data.estado.trim() !== '';
+            if (isSeries || isVetada || isProximamente) {
                 // B. PEDIDO
                 if (data.pedido) {
                     const requestPill = document.createElement('span');
@@ -2878,8 +2879,22 @@ async function openDetailsModal(id, type, triggerElement = null) {
         if (detailsButtons) {
             detailsButtons.innerHTML = '';
 
-            // 🔥 VERIFICAR SI LA PELÍCULA ESTÁ VETADA
+            // Helper: genera el texto de "Próximamente" según el valor del estado
+            const getProximamenteLabel = (estado) => {
+                if (!estado) return null;
+                const val = estado.trim();
+                const lower = val.toLowerCase();
+                if (lower === 'vetada') return null;
+                if (lower === 'mantenimiento') return null; // Mantenimiento tiene su propio bloque
+                if (lower === 'proximamente' || lower === 'próximamente') return 'Próximamente';
+                if (/\d/.test(val)) return `Próximamente el ${val}`;
+                return `Próximamente en ${val}`;
+            };
+
+            // 🔥 VERIFICAR ESTADO
             const isVetada = !isSeries && data.estado && data.estado.toLowerCase() === 'vetada';
+            const isMantenimiento = !isSeries && data.estado && data.estado.toLowerCase() === 'mantenimiento';
+            const proximamenteLabel = !isSeries && data.estado ? getProximamenteLabel(data.estado) : null;
 
             if (isVetada) {
                 // --- PELÍCULA VETADA: Mostrar mensaje en lugar de botón ---
@@ -2906,6 +2921,51 @@ async function openDetailsModal(id, type, triggerElement = null) {
                     text-shadow: 0 0 10px rgba(255, 68, 68, 0.5);
                     cursor: not-allowed;
                 `;
+            } else if (proximamenteLabel) {
+                // --- PRÓXIMAMENTE: Mostrar candado con fecha ---
+                const proxMsg = document.createElement('div');
+                proxMsg.className = 'vetada-message proximamente-message';
+                proxMsg.innerHTML = `
+                    <i class="fas fa-clock"></i>
+                    <span>${proximamenteLabel}</span>
+                `;
+                proxMsg.style.cssText = `
+                    background: linear-gradient(135deg, #0d1b2a, #1a3a5c);
+                    border: 2px solid #4a9eff;
+                    color: #4a9eff;
+                    padding: 15px 25px;
+                    border-radius: 8px;
+                    font-size: 1rem;
+                    font-weight: 700;
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    cursor: not-allowed;
+                    width: 100%;
+                    justify-content: center;
+                `;
+                detailsButtons.appendChild(proxMsg);
+            } else if (isMantenimiento) {
+                // --- MANTENIMIENTO ---
+                const mantMsg = document.createElement('div');
+                mantMsg.className = 'vetada-message mantenimiento-message';
+                mantMsg.innerHTML = `<i class="fas fa-wrench"></i><span>En mantenimiento</span>`;
+                mantMsg.style.cssText = `
+                    background: linear-gradient(135deg, #1a1500, #3a2e00);
+                    border: 2px solid #f5a623;
+                    color: #f5a623;
+                    padding: 15px 25px;
+                    border-radius: 8px;
+                    font-size: 1rem;
+                    font-weight: 700;
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    cursor: not-allowed;
+                    width: 100%;
+                    justify-content: center;
+                `;
+                detailsButtons.appendChild(mantMsg);
             } else {
                 // --- BOTÓN 1: REPRODUCIR (Solo si NO está vetada) ---
                 const playBtn = document.createElement('button');
@@ -4019,7 +4079,15 @@ function createMovieCardElement(id, data, type, layout = 'carousel', lazy = fals
             if (data.estado && data.estado.toLowerCase() === 'vetada') {
                 badgesAccumulator += `<div class="new-episode-badge badge-vetada">VETADA</div>`;
             }
-            // Estreno (solo si NO está vetada)
+            // 🔧 MANTENIMIENTO
+            else if (data.estado && data.estado.toLowerCase() === 'mantenimiento') {
+                badgesAccumulator += `<div class="new-episode-badge badge-mantenimiento">MANT.</div>`;
+            }
+            // 🔒 PRÓXIMAMENTE
+            else if (data.estado && data.estado.trim() !== '') {
+                badgesAccumulator += `<div class="new-episode-badge badge-proximamente">PRÓXIMO</div>`;
+            }
+            // Estreno (solo si NO está vetada ni próxima)
             else if (isNewContent) {
                 badgesAccumulator += `<div class="new-episode-badge badge-estreno">ESTRENO</div>`;
             }
@@ -4455,7 +4523,7 @@ window.ErrorHandler = ErrorHandler;
 window.ContentManager = ContentManager;
 window.cacheManager = cacheManager;
 
-console.log('✅ Cine Corneta v8.9.1 cargado correctamente');
+console.log('✅ Cine Corneta v8.9.3 cargado correctamente');
 // ===========================================================
 // COMPATIBILIDAD: Funciones que ahora están en el módulo
 // ===========================================================
