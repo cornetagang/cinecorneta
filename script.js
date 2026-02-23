@@ -78,6 +78,15 @@ let playerModule = null;
 let profileModule = null;
 let rouletteModule = null;
 let reviewsModule = null; // 🔥 NUEVO
+let iptvModule = null;
+
+async function getIPTVModule() {
+    if (iptvModule) return iptvModule;
+    const module = await import('./features/iptv.js');
+    module.setupIPTVSearch();
+    iptvModule = module;
+    return module;
+}
 let requestsModule = null;
 let universesModule = null;
 let reportsModule = null;
@@ -798,7 +807,8 @@ async function switchView(filter) {
         document.getElementById('reviews-container'),
         document.getElementById('requests-container'),
         document.getElementById('reports-container'),
-        document.getElementById('live-tv-section')
+        document.getElementById('live-tv-section'),
+        document.getElementById('iptv-section')
     ];
 
     containers.forEach(el => { 
@@ -829,6 +839,8 @@ async function switchView(filter) {
         window.hlsLiveInstance.destroy();
         window.hlsLiveInstance = null;
     }
+    // Detener IPTV si estaba activo
+    if (iptvModule) iptvModule.destroyIPTV();
 
     // =======================================================
     // D. LÓGICA POR PANTALLA
@@ -878,6 +890,16 @@ async function switchView(filter) {
                 }
             });
         }
+        window.scrollTo(0, 0);
+        return;
+    }
+
+    // 1b. TV EN VIVO - IPTV
+    if (filter === 'iptv') {
+        const iptvSection = document.getElementById('iptv-section');
+        if (iptvSection) iptvSection.style.display = 'block';
+        const mod = await getIPTVModule();
+        mod.initIPTV();
         window.scrollTo(0, 0);
         return;
     }
@@ -3011,8 +3033,6 @@ async function openDetailsModal(id, type, triggerElement = null) {
             // --- BOTÓN 5: OJO RULETA (solo películas, solo logueados) ---
             if (!isSeries && auth.currentUser) {
                 const roulette = await getRouletteModule();
-                // Sincronizar desde Firebase antes de leer el estado
-                if (roulette.loadWatchedFromFirebase) await roulette.loadWatchedFromFirebase();
                 const isWatched = roulette.isMovieWatched ? roulette.isMovieWatched(id) : false;
                 const eyeBtn = document.createElement('button');
                 eyeBtn.className = `btn btn-icon-only btn-roulette-eye ${isWatched ? 'is-watched' : ''}`;
