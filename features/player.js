@@ -149,7 +149,7 @@ export async function openSeriesPlayer(seriesId, forceSeasonGrid = false) {
             const hasEpisodes = eps && (Array.isArray(eps) ? eps.length > 0 : Object.keys(eps).length > 0);
 
             // Condición de Bloqueo (Igual que en la grilla)
-            const isManuallyLocked = (seasonStatus === 'proximamente' || seasonStatus === 'locked');
+            const isManuallyLocked = seasonStatus !== '' && seasonStatus !== 'disponible';
             const isLocked = isManuallyLocked || (!hasEpisodes && seasonStatus !== 'disponible');
 
             // Si NO está bloqueada, ¡esta es la elegida!
@@ -321,12 +321,14 @@ function populateSeasonGrid(seriesId) {
         // Datos del Poster (URL, fecha, estado)
         let posterUrl = seriesInfo.poster || '';
         let seasonStatus = ''; 
+        let seasonStatusRaw = ''; // Valor original sin lowercase
 
         const posterEntry = postersData[seasonKey];
         if (posterEntry) {
             if (typeof posterEntry === 'object') {
                 posterUrl = posterEntry.posterUrl || posterEntry.poster || posterUrl;
-                seasonStatus = String(posterEntry.estado || '').toLowerCase().trim();
+                seasonStatusRaw = String(posterEntry.estado || '').trim();
+                seasonStatus = seasonStatusRaw.toLowerCase();
             } else {
                 posterUrl = posterEntry;
             }
@@ -334,14 +336,14 @@ function populateSeasonGrid(seriesId) {
         
         const totalEpisodes = episodes.length;
 
-        // 🔥 BLOQUEO: Si dice "proximamente" O si no hay episodios cargados
-        const isManuallyLocked = (seasonStatus === 'proximamente' || seasonStatus === 'locked');
+        // 🔥 BLOQUEO: cualquier estado no vacío bloquea la temporada
+        const isManuallyLocked = seasonStatus !== '' && seasonStatus !== 'disponible';
         const isEmpty = (totalEpisodes === 0);
         const isLocked = isManuallyLocked || (isEmpty && seasonStatus !== 'disponible');
 
         // Renderizado de la tarjeta
         const card = document.createElement('div');
-        card.className = `season-poster-card ${isLocked ? 'locked' : ''}`;
+        card.className = `season-poster-card ${isLocked ? 'locked' : ''} ${seasonStatus === 'mantenimiento' ? 'en-mantenimiento' : ''}`;
         
         card.onclick = () => {
             if (isLocked) {
@@ -351,7 +353,23 @@ function populateSeasonGrid(seriesId) {
             }
         };
 
-        const overlayText = isLocked ? "PRÓXIMAMENTE" : (formatSeasonName(seasonKey, seasonNum).includes("Temporada") ? `${totalEpisodes} episodios` : "");
+        // Texto del overlay: muestra fecha o mes si está disponible
+        let overlayText = '';
+        if (isLocked) {
+            if (seasonStatus === 'mantenimiento') {
+                overlayText = 'Mantenimiento';
+            } else if (seasonStatus === 'proximamente' || seasonStatus === 'próximamente') {
+                overlayText = 'PRÓXIMAMENTE';
+            } else if (/\d/.test(seasonStatusRaw)) {
+                overlayText = `Próx. ${seasonStatusRaw}`;
+            } else if (seasonStatusRaw) {
+                overlayText = `Próx. en ${seasonStatusRaw}`;
+            } else {
+                overlayText = 'PRÓXIMAMENTE';
+            }
+        } else if (formatSeasonName(seasonKey, seasonNum).includes("Temporada")) {
+            overlayText = `${totalEpisodes} episodios`;
+        }
 
         card.innerHTML = `
             <img src="${posterUrl}" alt="Temporada ${seasonNum}">
@@ -404,8 +422,8 @@ async function renderEpisodePlayer(seriesId, seasonNum, startAtIndex = null) {
         // Generar HTML de controles (Solo si hay opciones)
         let langControlsHTML = hasLangOptions 
             ? `<div class="lang-controls">
-                 <button class="lang-btn-movie ${initialLang === 'en' ? 'active' : ''}" data-lang="en">Orig.</button>
-                 <button class="lang-btn-movie ${initialLang === 'es' ? 'active' : ''}" data-lang="es">Lat.</button>
+                 <button class="lang-btn-movie ${initialLang === 'en' ? 'active' : ''}" data-lang="en">🌐 VOS</button>
+                 <button class="lang-btn-movie ${initialLang === 'es' ? 'active' : ''}" data-lang="es">🇪🇸 ESP</button>
                </div>` 
             : '';
         
