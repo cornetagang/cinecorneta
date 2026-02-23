@@ -1411,114 +1411,6 @@ body.modal-open { overflow: hidden; }
 .roulette-action-btn:hover:not(:disabled) { background: rgba(255,255,255,0.18); }
 .roulette-action-btn:disabled { opacity: 0.35; cursor: default; }
 
-/* Toggle de modo */
-.roulette-mode-toggle {
-    display: flex;
-    gap: 8px;
-    justify-content: center;
-    margin: 14px 0 0;
-}
-.roulette-mode-btn {
-    background: rgba(255,255,255,0.07);
-    border: 1px solid rgba(255,255,255,0.15);
-    color: var(--text-muted);
-    padding: 7px 18px;
-    border-radius: 20px;
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-.roulette-mode-btn.active {
-    background: var(--primary-red);
-    border-color: var(--primary-red);
-    color: #fff;
-}
-.roulette-mode-btn:hover:not(.active) {
-    background: rgba(255,255,255,0.13);
-    color: var(--text-light);
-}
-
-/* Panel ruleta personalizada */
-#custom-roulette-panel {
-    margin: 14px 0 0;
-    text-align: left;
-}
-.crp-search-wrapper { position: relative; }
-.crp-search-input {
-    width: 100%;
-    padding: 10px 14px;
-    background: rgba(255,255,255,0.07);
-    border: 1px solid rgba(255,255,255,0.15);
-    border-radius: 8px;
-    color: var(--text-light);
-    font-size: 0.95rem;
-    outline: none;
-    box-sizing: border-box;
-    transition: border-color 0.2s;
-}
-.crp-search-input:focus { border-color: var(--primary-red); }
-.crp-suggestions {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0; right: 0;
-    background: #1e1e1e;
-    border: 1px solid rgba(255,255,255,0.15);
-    border-radius: 8px;
-    max-height: 200px;
-    overflow-y: auto;
-    z-index: 100;
-    display: none;
-}
-.crp-suggestion-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
-    cursor: pointer;
-    transition: background 0.15s;
-    font-size: 0.9rem;
-    color: var(--text-light);
-}
-.crp-suggestion-item:hover { background: rgba(255,255,255,0.1); }
-.crp-suggestion-item img {
-    width: 32px;
-    height: 46px;
-    object-fit: cover;
-    border-radius: 3px;
-    flex-shrink: 0;
-}
-.crp-suggestion-item span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.crp-suggestion-already { font-size: 0.75rem; color: var(--primary-red); flex-shrink: 0; }
-
-/* Chips */
-.crp-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.crp-chip {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: rgba(255,255,255,0.09);
-    border: 1px solid rgba(255,255,255,0.18);
-    border-radius: 20px;
-    padding: 5px 10px 5px 6px;
-    font-size: 0.82rem;
-    color: var(--text-light);
-    max-width: 180px;
-    animation: chipIn 0.2s ease;
-}
-@keyframes chipIn {
-    from { opacity: 0; transform: scale(0.85); }
-    to   { opacity: 1; transform: scale(1); }
-}
-.crp-chip img { width: 24px; height: 34px; object-fit: cover; border-radius: 3px; flex-shrink: 0; }
-.crp-chip-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-.crp-chip-remove {
-    background: none; border: none; color: var(--text-muted);
-    cursor: pointer; padding: 0; font-size: 0.85rem; line-height: 1;
-    flex-shrink: 0; transition: color 0.15s;
-}
-.crp-chip-remove:hover { color: var(--primary-red); }
-.crp-hint { font-size: 0.82rem; color: var(--text-muted); text-align: center; margin: 8px 0 0; }
-
 /* Botón ojo en modal de detalles */
 #details-buttons .btn-roulette-eye {
     flex: 0 0 45px !important;
@@ -5528,30 +5420,6 @@ body.low-spec .loading-text {
     background: rgba(255, 255, 255, 0.1) !important;
 }
 
-/* Opción con imagen (buscador de reseñas mejorado) */
-.custom-option-rich {
-    display: flex !important;
-    align-items: center !important;
-    gap: 10px !important;
-    padding: 7px 12px !important;
-    text-align: left !important;
-}
-.custom-option-rich img {
-    width: 30px;
-    height: 43px;
-    object-fit: cover;
-    border-radius: 3px;
-    flex-shrink: 0;
-    background: #2a2a2a;
-}
-.custom-option-title {
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 0.9rem;
-}
-
 /* Estrellas de calificación */
 .star-rating-input {
     display: flex !important;
@@ -5736,23 +5604,35 @@ body.low-spec .loading-text {
     background-color: #0f0518; 
 }
 
-/* 2. CAPA DE FONDO: Totalmente congelada */
+/* 2. CAPA DE FONDO: Fija como wallpaper, el contenido scrollea encima */
 .live-bg-layer {
-    position: fixed;       /* Se queda clavada respecto al contenedor padre */
+    position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: -1;           /* Se va al fondo absoluto */
-    
-    /* Propiedades de la imagen */
+    width: 100vw;
+    height: 100vh;
+    z-index: -2;            /* Detrás de todo */
+
     background-size: cover;
     background-position: center center;
     background-repeat: no-repeat;
-    
-    /* Filtro oscuro para que las letras resalten */
-    filter: brightness(0.3) blur(3px); /* Un poco de blur ayuda a que sea más "fondo" */
-    pointer-events: none;  /* El clic la atraviesa */
+
+    filter: brightness(0.3) blur(4px);
+    pointer-events: none;
+    transform: scale(1.05); /* Evita bordes blancos del blur */
+}
+
+/* 2b. CAPA DE OVERLAY OSCURO sobre el fondo */
+.live-overlay-layer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: -1;            /* Sobre el fondo, debajo del contenido */
+    background: rgba(0, 0, 0, 0.45);
+    pointer-events: none;
+    transition: opacity 1s;
 }
 
 /* 3. CONTENIDO: Se desliza sobre el fondo quieto */
@@ -5888,12 +5768,21 @@ body.low-spec .loading-text {
 .accordion-content {
     max-height: 0;
     overflow: hidden;
-    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), padding 0.4s ease;
     background: rgba(0, 0, 0, 0.2);
 }
 
 .accordion-item.active .accordion-content {
-    max-height: 400px; /* Suficiente espacio para la lista */
+    max-height: 500px;
+}
+
+/* Rotar la flecha al abrir */
+.accordion-item.active .accordion-header i.fa-chevron-down {
+    transform: rotate(180deg);
+    transition: transform 0.3s ease;
+}
+.accordion-header i.fa-chevron-down {
+    transition: transform 0.3s ease;
 }
 
 .accordion-content ul {
@@ -8357,4 +8246,253 @@ button.modal-review-count:hover {
 /* Responsive: en móvil ajustar tamaño */
 @media (max-width: 768px) {
     .btn-report-series { width: 34px; height: 34px; font-size: 12px; }
+}
+/* ============================================================
+   TV EN VIVO - IPTV
+   ============================================================ */
+#iptv-section {
+    position: fixed;
+    inset: 0;
+    z-index: 900;
+
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    padding: 80px 20px 100px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    background-color: #0a0a12;
+}
+
+/* Wrapper del contenido IPTV */
+.iptv-inner-wrapper {
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 2;
+}
+
+
+
+
+
+.iptv-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+.iptv-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem;
+    color: var(--text-light);
+    margin: 0;
+}
+
+.iptv-title i {
+    color: var(--primary-red);
+    margin-right: 8px;
+}
+
+.nav-iptv-btn {
+    color: var(--primary-red) !important;
+    font-weight: 600;
+}
+
+.iptv-search-input {
+    padding: 9px 16px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 20px;
+    color: var(--text-light);
+    font-size: 0.9rem;
+    outline: none;
+    width: 240px;
+    transition: border-color 0.2s;
+}
+.iptv-search-input:focus { border-color: var(--primary-red); }
+
+/* Player */
+.iptv-player-section {
+    margin-bottom: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+}
+
+.iptv-player-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 900px;
+    aspect-ratio: 16/9;
+    background: #000;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.08);
+    margin: 0 auto;
+}
+
+.iptv-video {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: contain;
+    background: #000;
+}
+
+.iptv-buffering {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.6);
+    font-size: 2rem;
+    color: var(--primary-red);
+    z-index: 2;
+}
+
+.iptv-now-playing {
+    padding: 10px 0 0;
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--primary-red);
+    font-weight: 600;
+    width: 100%;
+    max-width: 900px;
+    text-align: left;
+}
+
+/* Barra de grupos */
+.iptv-group-bar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 0 auto 20px auto;
+    max-width: 900px;
+    width: 100%;
+}
+
+/* Centrar grid y estados bajo el player */
+.iptv-channel-grid,
+.iptv-loading,
+.iptv-error {
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+}
+
+.iptv-group-btn {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: var(--text-muted);
+    padding: 6px 14px;
+    border-radius: 16px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+.iptv-group-btn:hover { background: rgba(255,255,255,0.13); color: var(--text-light); }
+.iptv-group-btn.active { background: var(--primary-red); border-color: var(--primary-red); color: #fff; }
+
+/* Loading / Error */
+.iptv-loading, .iptv-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 60px 20px;
+    color: var(--text-muted);
+    font-size: 1rem;
+}
+.iptv-loading i, .iptv-error i { font-size: 2rem; color: var(--primary-red); }
+.iptv-error i { color: #f39c12; }
+
+/* Grilla de canales */
+.iptv-channel-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 12px;
+}
+
+.iptv-channel-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 8px 10px;
+    background: rgba(255,255,255,0.05);
+    border: 2px solid transparent;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+}
+.iptv-channel-card:hover {
+    background: rgba(255,255,255,0.1);
+    transform: translateY(-2px);
+}
+.iptv-channel-card.active {
+    border-color: var(--primary-red);
+    background: rgba(231,76,60,0.12);
+}
+
+.iptv-logo-wrap {
+    width: 64px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.iptv-logo-wrap img {
+    max-width: 64px;
+    max-height: 40px;
+    object-fit: contain;
+    border-radius: 4px;
+}
+.iptv-logo-fallback {
+    width: 64px;
+    height: 40px;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: 1.4rem;
+}
+
+.iptv-channel-name {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    line-height: 1.2;
+    word-break: break-word;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.iptv-channel-card.active .iptv-channel-name { color: var(--text-light); }
+
+.iptv-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: var(--text-muted);
+    padding: 40px;
+}
+
+@media (max-width: 768px) {
+    .iptv-header { flex-direction: column; align-items: flex-start; }
+    .iptv-search-input { width: 100%; }
+    .iptv-channel-grid { grid-template-columns: repeat(auto-fill, minmax(85px, 1fr)); gap: 8px; }
+    .iptv-player-wrap { max-width: 100%; }
 }
