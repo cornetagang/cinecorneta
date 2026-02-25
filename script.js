@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL
-// Versión: 8.9.3 (23 de Feberero 2026)
+// Versión: 8.9.6 (25 de Feberero 2026)
 // ===========================================================
 
 // ===========================================================
@@ -82,7 +82,7 @@ let iptvModule = null;
 
 async function getIPTVModule() {
     if (iptvModule) return iptvModule;
-    const module = await import('./features/iptv.js');
+    const module = await import('./features/iptv.js?v=8');
     module.setupIPTVSearch();
     iptvModule = module;
     return module;
@@ -93,7 +93,7 @@ let reportsModule = null;
 
 async function getPlayerModule() {
     if (playerModule) return playerModule;
-    const module = await import('./features/player.js');
+    const module = await import('./features/player.js?v=8');
     module.initPlayer({
         appState, DOM, ErrorHandler, auth, db,
         addToHistoryIfLoggedIn, 
@@ -106,7 +106,7 @@ async function getPlayerModule() {
 
 async function getProfileModule() {
     if (profileModule) return profileModule;
-    const module = await import('./features/profile.js?v=7');
+    const module = await import('./features/profile.js?v=8');
     module.initProfile({
         appState, DOM, auth, db, switchView, ErrorHandler
     });
@@ -117,7 +117,7 @@ async function getProfileModule() {
 
 async function getRouletteModule() {
     if (rouletteModule) return rouletteModule;
-    const module = await import('./features/roulette.js');
+    const module = await import('./features/roulette.js?v=8');
     module.initRoulette({
         appState, DOM, createMovieCardElement, openDetailsModal, auth, db,
         getPlayerModule, addToHistoryIfLoggedIn
@@ -128,7 +128,7 @@ async function getRouletteModule() {
 
 async function getReviewsModule() {
     if (reviewsModule) return reviewsModule;
-    const module = await import('./features/reviews.js');
+    const module = await import('./features/reviews.js?v=8');
     module.initReviews({
         appState, DOM, auth, db, ErrorHandler, ModalManager, openConfirmationModal
     });
@@ -138,7 +138,7 @@ async function getReviewsModule() {
 
 async function getRequestsModule() {
     if (requestsModule) return requestsModule;
-    const module = await import('./features/requests.js');
+    const module = await import('./features/requests.js?v=8');
     module.initRequests({
         appState, DOM, auth, db, ErrorHandler
     });
@@ -148,7 +148,7 @@ async function getRequestsModule() {
 
 async function getUniversesModule() {
     if (universesModule) return universesModule;
-    const module = await import('./features/universes.js');
+    const module = await import('./features/universes.js?v=8');
     module.initUniverses({ appState, switchView });
     universesModule = module;
     return module;
@@ -436,11 +436,7 @@ async function fetchInitialDataWithCache() {
                 } else {
                     // Si está libre, forzamos recarga inmediata
                     console.log('🚀 Aplicando actualización inmediata...');
-                    if (window.cacheManager) {
-                        window.cacheManager.clearAll();
-                    } else {
-                        localStorage.clear();
-                    }
+                    safeClearStorage();
                     localStorage.setItem('local_last_update', serverLastUpdate);
                     
                     const url = new URL(window.location.href);
@@ -458,6 +454,7 @@ async function fetchInitialDataWithCache() {
     // ⚙️ 3. PROCESAMIENTO DE DATOS
     // =========================================================================
     const processData = (data) => {
+        window.processDataPublic = processData; // Exponer para refresh local
         appState.content.movies = data.allMovies || {};
         appState.content.series = data.series || {};
         appState.content.seriesEpisodes = data.episodes || {};
@@ -2704,8 +2701,7 @@ function closeAllModals() {
         localStorage.removeItem('pending_reload');
 
         // Borramos caché vieja para asegurar datos frescos
-        if (window.cacheManager) window.cacheManager.clearAll();
-        else localStorage.clear();
+        safeClearStorage();
         
         // Pequeño delay visual y RECARGA FORZADA
         setTimeout(() => {
@@ -3405,6 +3401,8 @@ function updateUIAfterAuthStateChange(user) {
                         }
                     }
                 });
+
+                // 🔄 Botón de refresh local (solo admin) - eliminado, ahora está en el panel de perfil
             } else {
                 reportsNavLink.style.display = 'none';
             }
@@ -4422,7 +4420,61 @@ export function findContentData(id) {
     return null;
 }
 
-window.adminForceUpdate = () => { localStorage.clear(); location.reload(); };
+window.adminForceUpdate = () => { safeClearStorage(); location.reload(); };
+
+// 🔄 REFRESH LOCAL: Recarga datos sin recargar la página
+window.adminLocalRefresh = async () => {
+    const btn = document.getElementById('admin-local-refresh-btn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    }
+    try {
+        const [series, episodes, allMovies, posters, sagasListData] = await Promise.all([
+            ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=series`),
+            ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=episodes`),
+            ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=allMovies&order=desc`),
+            ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=PostersTemporadas`),
+            ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=sagas_list`)
+        ]);
+
+        const sagasArray = Object.values(sagasListData || {});
+        const sagasResults = await Promise.all(
+            sagasArray.map(saga =>
+                ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=${saga.id}`)
+                .then(data => ({ id: saga.id, data }))
+            )
+        );
+
+        const freshContent = { allMovies, series, episodes, posters, sagas_list: sagasListData };
+        sagasResults.forEach(item => { freshContent[item.id] = item.data; });
+
+        processDataPublic(freshContent);
+        cacheManager.set(cacheManager.keys.content, freshContent);
+
+        // Re-renderizar la vista actual
+        const activeNav = document.querySelector('[data-filter].active');
+        const currentFilter = activeNav?.dataset.filter || 'all';
+        switchView(currentFilter);
+
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sync-alt"></i>'; }
+        ErrorHandler.show('content', '✓ Datos actualizados localmente', 2000);
+        console.log('✓ Refresh local completado');
+    } catch(e) {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sync-alt"></i>'; }
+        console.error('Error en refresh local:', e);
+    }
+};
+
+// Limpia el caché preservando datos de usuario importantes
+function safeClearStorage() {
+    const preserve = ['silencedRequests', 'notifViewCounts', 'annViewCounts'];
+    const saved = {};
+    preserve.forEach(k => { try { saved[k] = localStorage.getItem(k); } catch {} });
+    localStorage.clear();
+    preserve.forEach(k => { if (saved[k] != null) localStorage.setItem(k, saved[k]); });
+}
+window.safeClearStorage = safeClearStorage;
 
 // ==========================================
 // 8. MANEJO DE RECUPERACIÓN DE CONTRASEÑA (NIVEL PROFESIONAL)
@@ -4523,7 +4575,7 @@ window.ErrorHandler = ErrorHandler;
 window.ContentManager = ContentManager;
 window.cacheManager = cacheManager;
 
-console.log('✅ Cine Corneta v8.9.3 cargado correctamente');
+console.log('✅ Cine Corneta v8.9.6 cargado correctamente');
 // ===========================================================
 // COMPATIBILIDAD: Funciones que ahora están en el módulo
 // ===========================================================
@@ -4610,7 +4662,7 @@ window.openSmartReviewModal = async (contentId, type, title) => {
     // 2. Cargar módulo dinámicamente (si no está cargado)
     // Nota: Usamos la variable reviewsModule que definiste arriba en script.js
     // Si no tienes acceso a ella directamente aquí, importamos de nuevo es seguro.
-    const module = await import('./features/reviews.js');
+    const module = await import('./features/reviews.js?v=8');
     
     // 3. Cerrar modales que estorben (opcional, pero recomendado)
     // Si quieres que el reproductor se cierre al reseñar:
