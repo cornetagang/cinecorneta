@@ -199,9 +199,14 @@ export function renderSettings() {
                         Herramientas de mantenimiento del sistema.
                     </p>
                     
-                    <button id="admin-force-update-btn" class="btn-primary" style="background: #ffd700; color: #000; width: 100%; font-weight: 800;">
-                        <i class="fas fa-sync-alt spin-hover"></i> ACTUALIZAR TODO AHORA
-                    </button>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="admin-force-update-btn" class="btn-primary" style="background: #ffd700; color: #000; flex: 1; font-weight: 800;">
+                            <i class="fas fa-sync-alt spin-hover"></i> ACTUALIZAR TODO AHORA
+                        </button>
+                        <button id="admin-local-refresh-btn2" class="btn-primary" title="Actualiza los datos localmente sin recargar la página" style="background: #1a1a2e; color: #4a9eff; border: 2px solid #4a9eff; flex: 1; font-weight: 800;">
+                            <i class="fas fa-bolt"></i> ACTUALIZAR LOCAL
+                        </button>
+                    </div>
                 </div>
 
                 <div style="margin-top: 30px; border-top: 1px dashed #333; padding-top: 25px;">
@@ -262,6 +267,13 @@ export function renderSettings() {
                     btn.disabled = false;
                     btn.innerHTML = 'Error. Reintentar.';
                 }
+            };
+
+            // 4. 🔄 BOTÓN ACTUALIZAR LOCAL (limpia caché y recarga solo en tu pc)
+            document.getElementById('admin-local-refresh-btn2').onclick = function() {
+                if (window.safeClearStorage) window.safeClearStorage();
+                else localStorage.clear();
+                location.reload();
             };
 
             // 4. HISTORIAL DE AVISOS
