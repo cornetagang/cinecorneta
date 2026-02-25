@@ -1,6 +1,6 @@
 // ===========================================================
 // MÓDULO DE PEDIDOS - requests.js
-// Versión: 1.0.0
+// Versión: 1.4.0
 // ===========================================================
 
 let shared;
@@ -265,11 +265,19 @@ async function loadAndRenderRequests(status, isAdmin) {
     listEl.innerHTML = '<div class="spinner" style="margin: 60px auto;"></div>';
 
     try {
-        // Cargar pedidos
+        // Cargar pedidos - Object.entries es más robusto que forEach
         let requests = [];
-        const reqSnap = await shared.db.ref('requests').orderByChild('timestamp').once('value');
+        const reqSnap = await shared.db.ref('requests').once('value');
         if (reqSnap.exists()) {
-            reqSnap.forEach(child => requests.push({ _type: 'request', id: child.key, ...child.val() }));
+            const raw = reqSnap.val();
+            requests = Object.entries(raw).map(([key, val]) => ({
+                _type: 'request',
+                id: key,
+                movieName: val.movieName || '(Sin título)',
+                status: val.status || 'pending',
+                username: val.username || 'Usuario',
+                ...val
+            }));
         }
 
         // Cargar log de avisos
@@ -294,6 +302,8 @@ async function loadAndRenderRequests(status, isAdmin) {
         // Filtrar pedidos por status
         let filteredRequests = status === 'all' ? requests : requests.filter(r => r.status === status);
 
+        console.log(`[Pedidos] Total cargados: ${requests.length} | Filtro: ${status} | Filtrados: ${filteredRequests.length}`);
+
         // En "all" mezclamos avisos + pedidos; en otros tabs solo pedidos filtrados
         const mixed = status === 'all'
             ? [...filteredRequests, ...announcements]
@@ -310,10 +320,18 @@ async function loadAndRenderRequests(status, isAdmin) {
         }
 
         mixed.forEach(item => {
-            if (item._type === 'announcement') {
-                listEl.appendChild(buildAnnouncementCard(item, isAdmin));
-            } else {
-                listEl.appendChild(buildRequestCard(item, isAdmin));
+            try {
+                if (item._type === 'announcement') {
+                    listEl.appendChild(buildAnnouncementCard(item, isAdmin));
+                } else {
+                    // Garantizar campos mínimos para evitar errores de render
+                    if (!item.movieName) item.movieName = '(Sin título)';
+                    if (!item.status)    item.status    = 'pending';
+                    if (!item.username)  item.username  = 'Usuario';
+                    listEl.appendChild(buildRequestCard(item, isAdmin));
+                }
+            } catch(cardErr) {
+                console.warn('Error renderizando pedido:', item?.id, cardErr);
             }
         });
 
@@ -743,12 +761,12 @@ export async function checkPendingNotifications() {
         const user = shared.auth.currentUser;
         if (!user || !ADMIN_EMAILS.includes(user.email)) return;
         const silenced = getSilenced();
-        const snap = await shared.db.ref('requests').orderByChild('status').equalTo('pending').once('value');
+        const snap = await shared.db.ref('requests').once('value');
         if (!snap.exists()) return;
-        const pending = [];
-        snap.forEach(c => {
-            if (!silenced.includes(c.key)) pending.push({ id: c.key, title: c.val().movieName });
-        });
+        const raw = snap.val();
+        const pending = Object.entries(raw)
+            .filter(([key, val]) => val.status === 'pending' && !silenced.includes(key))
+            .map(([key, val]) => ({ id: key, title: val.movieName }));
         if (!pending.length) return;
         showRequestsBanner({
             icon: 'fa-clock',
@@ -977,13 +995,12 @@ export async function checkSessionNotification() {
         // — Prioridad 1: pedido agregado en últimas 48h —
         const TWO_DAYS = 172800000;
         const now = Date.now();
-        const addedSnap = await shared.db.ref('requests')
-            .orderByChild('status').equalTo('added').once('value');
+        const addedSnap = await shared.db.ref('requests').once('value');
         if (addedSnap.exists()) {
             const pending = [];
-            addedSnap.forEach(c => {
-                const d = c.val(), ck = 'req_' + c.key;
-                if (d.addedTimestamp && (now - d.addedTimestamp) <= TWO_DAYS && (counts[ck] || 0) < MAX)
+            Object.entries(addedSnap.val()).forEach(([key, d]) => {
+                const ck = 'req_' + key;
+                if (d.status === 'added' && d.addedTimestamp && (now - d.addedTimestamp) <= TWO_DAYS && (counts[ck] || 0) < MAX)
                     pending.push({ ck, title: d.notificationTitle || d.movieName, subtitle: d.notificationSubtitle || null });
             });
             if (pending.length > 0) {
