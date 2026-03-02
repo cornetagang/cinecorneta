@@ -1939,7 +1939,7 @@ body.modal-open { overflow: hidden; }
     gap: 10px;
     max-width: 600px;
 }
-.genre-stat-bar { display: flex; align-items: center; gap: 15px; }
+.genre-stat-bar { display: flex; align-items: center; gap: 15px; margin-bottom: 10px; }
 .genre-label { flex-basis: 120px; text-align: right; color: var(--text-light); font-weight: 500;}
 .genre-progress { flex-grow: 1; height: 20px; background-color: #333; border-radius: 10px; overflow: hidden; }
 .genre-progress-fill { height: 100%; background-color: var(--primary-red); width: 0%; transition: width 0.5s ease-in-out; }
@@ -4189,7 +4189,7 @@ body.tab-inactive iframe {
 /* ================================== */
 #reviews-container { 
     padding: 0;
-    overflow-x: hidden;
+    overflow-x: clip;
     width: 100%;
     box-sizing: border-box;
 }
@@ -5628,238 +5628,6 @@ body.low-spec .loading-text {
 }
 
 /* ======================================================= */
-/* 🎸 SECCIÓN FESTIVAL DE VIÑA (FONDO ESTÁTICO TOTAL)      */
-/* ======================================================= */
-
-/* 1. CONTENEDOR PRINCIPAL: Ocupa toda la pantalla fija */
-#live-tv-section {
-    position: fixed;       /* 🔒 CLAVE: Se fija a la pantalla, no fluye con la página */
-    inset: 0;              /* Ocupa 100% ancho y alto */
-    z-index: 900;          /* Encima del contenido normal, pero debajo del Header (1000) */
-    
-    /* Configuración del Scroll Interno */
-    overflow-y: auto;      /* Solo el contenido de aquí se mueve */
-    overflow-x: hidden;
-    
-    /* Espaciado para no chocar con Header y Footer */
-    padding-top: 80px;     
-    padding-bottom: 100px;
-    
-    /* Alineación */
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    
-    /* Fondo de seguridad por si falla la imagen */
-    background-color: #0f0518; 
-}
-
-/* 2. CAPA DE FONDO: Fija como wallpaper, el contenido scrollea encima */
-.live-bg-layer {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    z-index: -2;            /* Detrás de todo */
-
-    background-size: cover;
-    background-position: center center;
-    background-repeat: no-repeat;
-
-    filter: brightness(0.3) blur(4px);
-    pointer-events: none;
-    transform: scale(1.05); /* Evita bordes blancos del blur */
-}
-
-/* 2b. CAPA DE OVERLAY OSCURO sobre el fondo */
-.live-overlay-layer {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    z-index: -1;            /* Sobre el fondo, debajo del contenido */
-    background: rgba(0, 0, 0, 0.45);
-    pointer-events: none;
-    transition: opacity 1s;
-}
-
-/* 3. CONTENIDO: Se desliza sobre el fondo quieto */
-.live-content-wrapper {
-    position: relative;
-    z-index: 5;
-    width: 95%;
-    max-width: 1000px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    
-    /* Animación de entrada suave */
-    animation: fadeUp 0.5s ease-out;
-}
-
-@keyframes fadeUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* --- Ajustes Visuales (Ya los tenías, los mantengo) --- */
-.live-header-container h1 {
-    color: white;
-    text-align: center;
-    font-size: 3rem;
-    text-shadow: 0 0 20px rgba(212, 34, 121, 0.8);
-    margin-bottom: 20px;
-}
-
-.live-player-container {
-    width: 100%;
-    aspect-ratio: 16 / 9;
-    background: #000;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 25px 60px rgba(0,0,0,0.9);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    position: relative;
-}
-
-#embedded-live-video {
-    width: 100%;
-    height: 100%;
-}
-
-.live-footer-container {
-    display: flex;
-    justify-content: flex-start;
-}
-
-.live-status {
-    color: var(--primary-red);
-    font-weight: bold;
-    display: flex;
-    align-items: center;
-    background: rgba(0,0,0,0.8);
-    padding: 5px 15px;
-    border-radius: 20px;
-    border: 1px solid rgba(255,0,0,0.2);
-}
-
-#live-loading-indicator {
-    display: none !important;
-}
-
-.blink-red {
-    display: inline-block;
-    width: 10px;
-    height: 10px;
-    background-color: var(--primary-red);
-    border-radius: 50%;
-    margin-right: 12px;
-    box-shadow: 0 0 10px var(--primary-red);
-    animation: blinkLive 1.5s infinite;
-}
-@keyframes blinkLive { 
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.3; transform: scale(0.9); } 
-}
-
-/* --- Parrilla (Acordeón) --- */
-.festival-schedule-container {
-    background: rgba(20, 20, 20, 0.85); /* Fondo semitransparente */
-    backdrop-filter: blur(10px);        /* Efecto vidrio para modernizar */
-    -webkit-backdrop-filter: blur(10px);
-    border-radius: 12px;
-    padding: 20px;
-    border: 1px solid rgba(212, 34, 121, 0.3);
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-    margin-bottom: 50px;
-}
-
-.schedule-main-title {
-    color: #E50914;
-    margin-top: 0;
-    margin-bottom: 20px;
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 2rem;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-    padding-bottom: 10px;
-}
-
-.accordion-item {
-    margin-bottom: 10px;
-    border-radius: 8px;
-    overflow: hidden;
-    border: 1px solid rgba(255,255,255,0.05);
-    background: rgba(0, 0, 0, 0.3);
-}
-
-.accordion-header {
-    width: 100%;
-    background: rgba(255, 255, 255, 0.05);
-    border: none;
-    color: var(--text-light);
-    padding: 15px 20px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    cursor: pointer;
-    font-family: 'Montserrat', sans-serif;
-    font-weight: bold;
-    transition: all 0.3s ease;
-}
-
-.accordion-header:hover, .accordion-item.active .accordion-header {
-    background: linear-gradient(90deg, #5c269d 0%, #E50914 100%);
-    color: white;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-}
-
-.accordion-content {
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), padding 0.4s ease;
-    background: rgba(0, 0, 0, 0.2);
-}
-
-.accordion-item.active .accordion-content {
-    max-height: 500px;
-}
-
-/* Rotar la flecha al abrir */
-.accordion-item.active .accordion-header i.fa-chevron-down {
-    transform: rotate(180deg);
-    transition: transform 0.3s ease;
-}
-.accordion-header i.fa-chevron-down {
-    transition: transform 0.3s ease;
-}
-
-.accordion-content ul {
-    list-style: none;
-    padding: 15px 20px;
-    margin: 0;
-}
-
-.accordion-content li {
-    padding: 10px 0;
-    color: #e0e0e0;
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-}
-
-.accordion-content li:last-child {
-    border-bottom: none;
-}
-
-/* Iconos de Artistas */
-.accordion-content li i { width: 20px; text-align: center; }
-.accordion-content li i.fa-star { color: #ffd700; text-shadow: 0 0 10px #ffd700; }
-.accordion-content li i.fa-laugh-squint { color: #00f2ff; text-shadow: 0 0 10px #00f2ff; }
-.accordion-content li i.fa-microphone { color: #ff00ea; text-shadow: 0 0 10px #ff00ea; }
-
 /* ================================== */
 /* RESPONSIVE - MODAL DE PELÍCULAS   */
 /* ================================== */
@@ -8302,252 +8070,334 @@ button.modal-review-count:hover {
 @media (max-width: 768px) {
     .btn-report-series { width: 34px; height: 34px; font-size: 12px; }
 }
-/* ============================================================
-   TV EN VIVO - IPTV
-   ============================================================ */
-#iptv-section {
-    position: fixed;
-    inset: 0;
-    z-index: 900;
+/* ===========================================================
+   PAGINACIÓN DE RESEÑAS
+   =========================================================== */
 
-    overflow-y: auto;
-    overflow-x: hidden;
+.reviews-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 0 8px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
 
-    padding: 80px 20px 100px;
+.rp-info {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
 
+.rp-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.rp-pages {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.rp-btn {
+    min-width: 36px;
+    height: 36px;
+    padding: 0 10px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    color: var(--text-light);
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: background 0.18s, border-color 0.18s, color 0.18s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.rp-btn:hover:not(:disabled):not(.rp-active) {
+    background: rgba(255,255,255,0.12);
+    border-color: rgba(255,255,255,0.2);
+}
+
+.rp-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.rp-btn.rp-active {
+    background: var(--primary-red);
+    border-color: var(--primary-red);
+    color: #fff;
+    font-weight: 600;
+    cursor: default;
+}
+
+.rp-dots {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    padding: 0 4px;
+    user-select: none;
+}
+
+.rp-prev,
+.rp-next {
+    font-size: 0.75rem;
+}
+
+@media (max-width: 600px) {
+    .reviews-pagination {
+        flex-direction: column;
+        align-items: center;
+    }
+    .rp-btn {
+        min-width: 32px;
+        height: 32px;
+        font-size: 0.8rem;
+    }
+}
+
+/* ===========================================================
+   EDICIÓN INLINE DE RESEÑA
+   =========================================================== */
+
+.rc-action-btns {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-edit-review {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #aaa;
+    border-radius: 7px;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.75rem;
+    transition: background 0.18s, color 0.18s, border-color 0.18s;
+}
+
+.btn-edit-review:hover {
+    background: rgba(255,255,255,0.13);
+    border-color: rgba(255,255,255,0.25);
+    color: #fff;
+}
+
+/* Editor inline */
+.rc-inline-editor {
     display: flex;
     flex-direction: column;
-    align-items: center;
-
-    background-color: #0a0a12;
+    gap: 10px;
+    margin: 10px 0 8px;
+    animation: fadeIn 0.18s ease;
 }
 
-/* Wrapper del contenido IPTV */
-.iptv-inner-wrapper {
-    width: 100%;
-    max-width: 900px;
-    margin: 0 auto;
+.rc-edit-stars {
+    display: flex;
+    gap: 2px;
+}
+
+.rc-edit-star-wrapper {
     position: relative;
-    z-index: 2;
+    display: inline-block;
+    color: #e50914;
+    font-size: 1.4rem;
+    line-height: 1;
+}
+
+.rc-edit-stars-label {
+    font-size: 0.8rem;
+    color: #888;
+    margin-top: -4px;
+}
+
+.rc-edit-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    color: #fff;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    padding: 12px 14px;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.18s;
+}
+
+.rc-edit-textarea:focus {
+    border-color: rgba(229, 9, 20, 0.5);
+}
+
+.rc-edit-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.rc-edit-save,
+.rc-edit-cancel {
+    padding: 7px 16px;
+    border-radius: 8px;
+    border: none;
+    font-size: 0.82rem;
+    font-family: 'Montserrat', sans-serif;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: opacity 0.18s, background 0.18s;
+}
+
+.rc-edit-save {
+    background: var(--primary-red);
+    color: #fff;
+    font-weight: 600;
+}
+
+.rc-edit-save:hover { opacity: 0.85; }
+.rc-edit-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.rc-edit-cancel {
+    background: rgba(255,255,255,0.07);
+    color: #bbb;
+}
+
+.rc-edit-cancel:hover {
+    background: rgba(255,255,255,0.13);
+    color: #fff;
 }
 
 
+/* ===========================================================
+   BARRA DE PESTAÑAS DE RESEÑAS
+   =========================================================== */
 
-
-
-.iptv-header {
+.reviews-tabs-bar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-    width: 100%;
-}
-
-.iptv-title {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 2rem;
-    color: var(--text-light);
-    margin: 0;
-}
-
-.iptv-title i {
-    color: var(--primary-red);
-    margin-right: 8px;
-}
-
-.nav-iptv-btn {
-    color: var(--primary-red) !important;
-    font-weight: 600;
-}
-
-.iptv-search-input {
-    padding: 9px 16px;
-    background: rgba(255,255,255,0.07);
-    border: 1px solid rgba(255,255,255,0.15);
-    border-radius: 20px;
-    color: var(--text-light);
-    font-size: 0.9rem;
-    outline: none;
-    width: 240px;
-    transition: border-color 0.2s;
-}
-.iptv-search-input:focus { border-color: var(--primary-red); }
-
-/* Player */
-.iptv-player-section {
-    margin-bottom: 24px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-}
-
-.iptv-player-wrap {
-    position: relative;
-    width: 100%;
-    max-width: 900px;
-    aspect-ratio: 16/9;
-    background: #000;
-    border-radius: 12px;
-    overflow: hidden;
-    border: 1px solid rgba(255,255,255,0.08);
+    max-width: 1400px;
     margin: 0 auto;
+    padding: 0 4vw 20px;
+    flex-wrap: wrap;
 }
 
-.iptv-video {
-    width: 100%;
-    height: 100%;
-    display: block;
-    object-fit: contain;
-    background: #000;
-}
-
-.iptv-buffering {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0,0,0,0.6);
-    font-size: 2rem;
-    color: var(--primary-red);
-    z-index: 2;
-}
-
-.iptv-now-playing {
-    padding: 10px 0 0;
-    margin: 0;
-    font-size: 0.95rem;
-    color: var(--primary-red);
-    font-weight: 600;
-    width: 100%;
-    max-width: 900px;
-    text-align: left;
-}
-
-/* Barra de grupos */
-.iptv-group-bar {
+.rv-tabs-left {
     display: flex;
     gap: 8px;
-    flex-wrap: wrap;
-    margin: 0 auto 20px auto;
-    max-width: 900px;
-    width: 100%;
 }
 
-/* Centrar grid y estados bajo el player */
-.iptv-channel-grid,
-.iptv-loading,
-.iptv-error {
-    max-width: 900px;
-    margin-left: auto;
-    margin-right: auto;
-    width: 100%;
-}
-
-.iptv-group-btn {
-    background: rgba(255,255,255,0.07);
-    border: 1px solid rgba(255,255,255,0.15);
-    color: var(--text-muted);
-    padding: 6px 14px;
-    border-radius: 16px;
+.rv-tab {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 18px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.05);
+    color: #aaa;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.82rem;
+    font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.18s;
     white-space: nowrap;
 }
-.iptv-group-btn:hover { background: rgba(255,255,255,0.13); color: var(--text-light); }
-.iptv-group-btn.active { background: var(--primary-red); border-color: var(--primary-red); color: #fff; }
 
-/* Loading / Error */
-.iptv-loading, .iptv-error {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-    padding: 60px 20px;
-    color: var(--text-muted);
-    font-size: 1rem;
-}
-.iptv-loading i, .iptv-error i { font-size: 2rem; color: var(--primary-red); }
-.iptv-error i { color: #f39c12; }
-
-/* Grilla de canales */
-.iptv-channel-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-    gap: 12px;
+.rv-tab:hover:not(.active) {
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+    border-color: rgba(255,255,255,0.2);
 }
 
-.iptv-channel-card {
+.rv-tab.active {
+    background: var(--primary-red);
+    border-color: var(--primary-red);
+    color: #fff;
+    font-weight: 600;
+}
+
+.rv-tab i { font-size: 0.78rem; }
+
+/* Buscador de usuario */
+.rv-tabs-right { flex-shrink: 0; }
+
+.rv-user-search-wrap {
     display: flex;
-    flex-direction: column;
     align-items: center;
     gap: 8px;
-    padding: 14px 8px 10px;
     background: rgba(255,255,255,0.05);
-    border: 2px solid transparent;
-    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 999px;
+    padding: 8px 14px;
+    transition: border-color 0.18s;
+}
+
+.rv-user-search-wrap:focus-within {
+    border-color: rgba(229, 9, 20, 0.45);
+    background: rgba(255,255,255,0.07);
+}
+
+.rv-user-search-icon {
+    color: #666;
+    font-size: 0.78rem;
+    flex-shrink: 0;
+}
+
+.rv-user-search-input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #fff;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.82rem;
+    width: 180px;
+}
+
+.rv-user-search-input::placeholder { color: #555; }
+
+.rv-user-search-clear {
+    background: none;
+    border: none;
+    color: #666;
     cursor: pointer;
-    transition: all 0.2s;
-    text-align: center;
-}
-.iptv-channel-card:hover {
-    background: rgba(255,255,255,0.1);
-    transform: translateY(-2px);
-}
-.iptv-channel-card.active {
-    border-color: var(--primary-red);
-    background: rgba(231,76,60,0.12);
+    padding: 0;
+    font-size: 0.75rem;
+    line-height: 1;
+    transition: color 0.15s;
 }
 
-.iptv-logo-wrap {
-    width: 64px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-.iptv-logo-wrap img {
-    max-width: 64px;
-    max-height: 40px;
-    object-fit: contain;
-    border-radius: 4px;
-}
-.iptv-logo-fallback {
-    width: 64px;
-    height: 40px;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-muted);
-    font-size: 1.4rem;
+.rv-user-search-clear:hover { color: #fff; }
+
+/* ===========================================================
+   BLOQUES DE GÉNEROS POR TIPO (PERFIL)
+   =========================================================== */
+
+.genre-block { margin-bottom: 24px; }
+
+.genre-block-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--primary-red);
+    margin: 0 0 10px 0;
 }
 
-.iptv-channel-name {
-    font-size: 0.72rem;
-    color: var(--text-muted);
-    line-height: 1.2;
-    word-break: break-word;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-.iptv-channel-card.active .iptv-channel-name { color: var(--text-light); }
-
-.iptv-empty {
-    grid-column: 1 / -1;
-    text-align: center;
-    color: var(--text-muted);
-    padding: 40px;
-}
-
-@media (max-width: 768px) {
-    .iptv-header { flex-direction: column; align-items: flex-start; }
-    .iptv-search-input { width: 100%; }
-    .iptv-channel-grid { grid-template-columns: repeat(auto-fill, minmax(85px, 1fr)); gap: 8px; }
-    .iptv-player-wrap { max-width: 100%; }
+@media (max-width: 700px) {
+    .reviews-tabs-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    .rv-user-search-input { width: 140px; }
 }
