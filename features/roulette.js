@@ -34,8 +34,15 @@ async function markAsWatched(movieId) {
     const user = shared.auth?.currentUser;
     if (!user || !shared.db) return;
     watchedMovieIds.add(movieId);
-    // Guardar en roulette_watched Y en historial
-    const movieData = shared.appState.content.movies?.[movieId];
+
+    // Buscar datos en movies Y en sagas
+    let movieData = shared.appState.content.movies?.[movieId];
+    if (!movieData && shared.appState.content.sagas) {
+        for (const sagaData of Object.values(shared.appState.content.sagas)) {
+            if (sagaData?.[movieId]) { movieData = sagaData[movieId]; break; }
+        }
+    }
+
     await Promise.all([
         shared.db.ref(`users/${user.uid}/roulette_watched/${movieId}`).set(true),
         shared.db.ref(`users/${user.uid}/history/${movieId}`).set({
@@ -109,8 +116,22 @@ function setupRouletteLogic() {
         spinButton.disabled = false;
 
         if (toCustom) {
-            updateCustomHint();
+            // Resetear SIEMPRE el pool y toda la UI al entrar en personalizado
+            customPool = [];
+            const _chips  = shared.DOM.rouletteModal.querySelector('#crp-chips');
+            const _hint   = shared.DOM.rouletteModal.querySelector('#crp-hint');
+            const _search = shared.DOM.rouletteModal.querySelector('#crp-search-input');
+            const _sugg   = shared.DOM.rouletteModal.querySelector('#crp-suggestions');
+            const _sel    = shared.DOM.rouletteModal.querySelector('.roulette-selector');
+            if (_chips)  _chips.innerHTML = '';
+            if (_hint)   _hint.textContent = 'Agrega al menos 2 películas para girar';
+            if (_search) _search.value = '';
+            if (_sugg)   _sugg.style.display = 'none';
+            if (_sel)    _sel.style.visibility = 'hidden';
+            spinButton.disabled = true;
         } else {
+            const _sel = shared.DOM.rouletteModal.querySelector('.roulette-selector');
+            if (_sel) _sel.style.visibility = 'visible';
             loadRouletteMovies();
         }
     };
@@ -192,15 +213,16 @@ function setupRouletteLogic() {
     };
 
     if (searchInput) {
+        const normalize = str => str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
         searchInput.addEventListener('input', () => {
-            const q = searchInput.value.trim().toLowerCase();
+            const q = normalize(searchInput.value.trim());
             if (!q || q.length < 2) {
                 if (suggestionsEl) suggestionsEl.style.display = 'none';
                 return;
             }
             const pool = getFullPool();
             const results = Object.entries(pool)
-                .filter(([, d]) => (d.title || '').toLowerCase().includes(q))
+                .filter(([, d]) => normalize(d.title || '').includes(q))
                 .slice(0, 10);
 
             if (!results.length) {
@@ -260,6 +282,9 @@ function setupRouletteLogic() {
                 spinButton.disabled = true;
                 return;
             }
+            // Mostrar selector al tener películas
+            const _sel = shared.DOM.rouletteModal.querySelector('.roulette-selector');
+            if (_sel) _sel.style.visibility = 'visible';
             const shuffled = [...customPool].sort(() => Math.random() - 0.5);
             // Repetir el pool hasta tener ~35 elementos para la animación
             const repeated = [];
@@ -361,11 +386,13 @@ function setupRouletteLogic() {
 
         const wrapperWidth = rouletteTrack.parentElement.offsetWidth;
         const cardWidth = winnerCard.offsetWidth;
-        const targetPosition = (wrapperWidth / 2) - winnerCard.offsetLeft - (cardWidth / 2);
-        const randomJitter = Math.floor(Math.random() * 20) - 10;
+        const centerPosition = (wrapperWidth / 2) - winnerCard.offsetLeft - (cardWidth / 2);
+        const maxOffset = Math.floor(cardWidth * 0.50);
+        const randomJitter = Math.floor(Math.random() * (maxOffset * 2 + 1)) - maxOffset;
+        const duration = 4200 + Math.floor(Math.random() * 800);
 
-        rouletteTrack.style.transition = 'transform 4.5s cubic-bezier(0.1, 0.7, 0.1, 1)';
-        rouletteTrack.style.transform = `translateX(${targetPosition + randomJitter}px)`;
+        rouletteTrack.style.transition = `transform ${duration}ms cubic-bezier(0.05, 0.9, 0.05, 1)`;
+        rouletteTrack.style.transform = `translateX(${centerPosition + randomJitter}px)`;
 
         rouletteTrack.addEventListener('transitionend', () => {
             rouletteTrack.classList.remove('is-spinning');
