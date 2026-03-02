@@ -184,11 +184,11 @@ export function renderSettings() {
                         Herramientas de mantenimiento del sistema.
                     </p>
                     
-                    <div style="display: flex; gap: 10px;">
-                        <button id="admin-force-update-btn" class="btn-primary" style="background: #ffd700; color: #000; flex: 1; font-weight: 800;">
-                            <i class="fas fa-sync-alt spin-hover"></i> ACTUALIZAR TODO AHORA
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button id="admin-force-update-btn" class="btn-primary" style="background: #ffd700; color: #000; flex: 1; min-width: 160px; font-weight: 800;">
+                            <i class="fas fa-sync-alt spin-hover"></i> ACTUALIZAR TODO
                         </button>
-                        <button id="admin-local-refresh-btn2" class="btn-primary" title="Actualiza los datos localmente sin recargar la página" style="background: #1a1a2e; color: #4a9eff; border: 2px solid #4a9eff; flex: 1; font-weight: 800;">
+                        <button id="admin-local-refresh-btn2" class="btn-primary" title="Actualiza los datos localmente sin recargar la página" style="background: #1a1a2e; color: #4a9eff; border: 2px solid #4a9eff; flex: 1; min-width: 160px; font-weight: 800;">
                             <i class="fas fa-bolt"></i> ACTUALIZAR LOCAL
                         </button>
                     </div>
