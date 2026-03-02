@@ -611,6 +611,8 @@ let _commentCounts = {};
 let _activeTab = 'all';
 let _activeStarFilter = 'all';
 let _activeUserFilter = '';
+let _currentPage = 1;
+const REVIEWS_PER_PAGE = 10;
 
 
 export function renderReviewsGrid() {
@@ -679,15 +681,100 @@ function _renderFiltered() {
         if (_activeTab === 'mine') msg = 'Aún no has escrito ninguna reseña.';
         else if (_activeTab === 'user' && _activeUserFilter) msg = `No se encontraron reseñas de "@${_activeUserFilter}".`;
         grid.innerHTML = `<div class="reviews-empty"><i class="far fa-comment-dots"></i><p>${msg}</p></div>`;
+        _renderPagination();
         return;
     }
 
+    const totalPages = Math.ceil(_filteredReviews.length / REVIEWS_PER_PAGE);
+    // Guardar página dentro de rango válido
+    if (_currentPage > totalPages) _currentPage = totalPages;
+    if (_currentPage < 1) _currentPage = 1;
+
+    const start = (_currentPage - 1) * REVIEWS_PER_PAGE;
+    const pageReviews = _filteredReviews.slice(start, start + REVIEWS_PER_PAGE);
+
     const fragment = document.createDocumentFragment();
-    _filteredReviews.forEach(review => {
+    pageReviews.forEach(review => {
         const card = createReviewCard(review, _commentCounts[review.id] || 0);
         fragment.appendChild(card);
     });
     grid.appendChild(fragment);
+
+    _renderPagination();
+}
+
+function _renderPagination() {
+    // Buscar o crear el contenedor de paginación
+    let paginationEl = document.getElementById('reviews-pagination');
+    if (!paginationEl) {
+        paginationEl = document.createElement('div');
+        paginationEl.id = 'reviews-pagination';
+        paginationEl.className = 'reviews-pagination';
+        // Insertar DESPUÉS del contenedor flex de dos columnas, no dentro de él
+        const twoCol = DOM.reviewsGrid.closest('.reviews-two-col');
+        const insertAfter = twoCol || DOM.reviewsGrid;
+        insertAfter.insertAdjacentElement('afterend', paginationEl);
+    }
+
+    const total = _filteredReviews.length;
+    const totalPages = Math.ceil(total / REVIEWS_PER_PAGE);
+
+    if (totalPages <= 1) {
+        paginationEl.innerHTML = '';
+        return;
+    }
+
+    const start = (_currentPage - 1) * REVIEWS_PER_PAGE + 1;
+    const end = Math.min(_currentPage * REVIEWS_PER_PAGE, total);
+
+    // Construir botones de páginas (mostrar hasta 5 páginas alrededor de la actual)
+    let pageButtons = '';
+    const delta = 2;
+    const left = Math.max(1, _currentPage - delta);
+    const right = Math.min(totalPages, _currentPage + delta);
+
+    if (left > 1) {
+        pageButtons += `<button class="rvpag-btn rp-btn" data-page="1">1</button>`;
+        if (left > 2) pageButtons += `<span class="rp-dots">…</span>`;
+    }
+    for (let i = left; i <= right; i++) {
+        pageButtons += `<button class="rvpag-btn rp-btn ${i === _currentPage ? 'rp-active' : ''}" data-page="${i}">${i}</button>`;
+    }
+    if (right < totalPages) {
+        if (right < totalPages - 1) pageButtons += `<span class="rp-dots">…</span>`;
+        pageButtons += `<button class="rvpag-btn rp-btn" data-page="${totalPages}">${totalPages}</button>`;
+    }
+
+    paginationEl.innerHTML = `
+        <div class="rp-divider"></div>
+        <div class="rp-info">${start}–${end} de ${total} reseñas</div>
+        <div class="rp-controls">
+            <button class="rvpag-btn rp-btn rp-arrow rp-prev" data-page="${_currentPage - 1}" ${_currentPage === 1 ? 'disabled' : ''}>
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <div class="rp-pages">${pageButtons}</div>
+            <button class="rvpag-btn rp-btn rp-arrow rp-next" data-page="${_currentPage + 1}" ${_currentPage === totalPages ? 'disabled' : ''}>
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+    `;
+
+    paginationEl.querySelectorAll('.rvpag-btn:not([disabled])').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const page = parseInt(btn.dataset.page);
+            if (page && page !== _currentPage) {
+                _currentPage = page;
+                _renderFiltered();
+                // Scroll suave al tope del grid
+                DOM.reviewsGrid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // Scroll al tope del contenedor de reseñas para leer desde arriba
+                const reviewsContainer = document.getElementById('reviews-container');
+                if (reviewsContainer) {
+                    reviewsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }
+        });
+    });
 }
 
 function _applyAllFilters() {
@@ -707,6 +794,7 @@ function _applyAllFilters() {
     }
 
     _filteredReviews = result;
+    _currentPage = 1;
     _renderFiltered();
 }
 
