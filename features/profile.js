@@ -176,21 +176,6 @@ export function renderSettings() {
             adminZone.style.cssText = 'margin-top: 40px; padding: 25px; border: 1px solid #444; border-radius: 10px; background: #151515;';
 
             adminZone.innerHTML = `
-                <div style="margin-bottom: 30px; border-bottom: 1px dashed #444; padding-bottom: 25px;">
-                    <h3 style="color: #d42279; margin-top: 0; font-family: 'Bebas Neue'; letter-spacing: 1px;">
-                        <i class="fas fa-microphone"></i> GESTIÓN FESTIVAL
-                    </h3>
-                    <div style="margin-bottom: 15px;">
-                        <label style="color: #aaa; font-size: 0.9rem; display:block; margin-bottom: 5px;">Link Señal (.m3u8)</label>
-                        <input type="text" id="admin-live-url" placeholder="https://..." style="background:#222; border:1px solid #444; color:white; width:100%; padding:10px; border-radius:5px;">
-                    </div>
-                    <div style="margin-bottom: 15px;">
-                        <label style="color: #aaa; font-size: 0.9rem; display:block; margin-bottom: 5px;">Fondo (Imagen URL)</label>
-                        <input type="text" id="admin-bg-url" placeholder="https://..." style="background:#222; border:1px solid #444; color:white; width:100%; padding:10px; border-radius:5px;">
-                    </div>
-                    <button id="save-festival-data" class="btn-primary" style="width: 100%; background: #d42279;">GUARDAR FESTIVAL</button>
-                </div>
-
                 <div>
                     <h3 style="color: #ffd700; display: flex; align-items: center; gap: 10px; margin-top: 0;">
                         <i class="fas fa-crown"></i> Panel de Administrador
@@ -220,32 +205,6 @@ export function renderSettings() {
             `;
 
             wrapper.appendChild(adminZone);
-
-            // 1. Cargar datos del Festival
-            shared.db.ref('system_metadata').once('value', (s) => {
-                const d = s.val() || {};
-                if (d.live_festival_url) document.getElementById('admin-live-url').value = d.live_festival_url;
-                if (d.live_background_url) document.getElementById('admin-bg-url').value = d.live_background_url;
-            });
-
-            // 2. Guardar datos del Festival
-            document.getElementById('save-festival-data').onclick = async () => {
-                const btn = document.getElementById('save-festival-data');
-                const originalText = btn.textContent;
-                btn.textContent = "Guardando...";
-                try {
-                    await shared.db.ref('system_metadata').update({
-                        live_festival_url: document.getElementById('admin-live-url').value.trim(),
-                        live_background_url: document.getElementById('admin-bg-url').value.trim()
-                    });
-                    btn.textContent = "¡GUARDADO!";
-                    btn.style.background = "#28a745";
-                    setTimeout(() => { 
-                        btn.textContent = originalText; 
-                        btn.style.background = "#d42279";
-                    }, 2000);
-                } catch (e) { btn.textContent = "ERROR"; }
-            };
 
             // 3. 🔥 LÓGICA BOTÓN MAESTRO ORIGINAL 🔥
             document.getElementById('admin-force-update-btn').onclick = async function() {
@@ -375,7 +334,8 @@ async function calculateAndDisplayUserStats() {
         const history = historySnapshot.val();
         let moviesWatched = 0;
         const seriesWatched = new Set();
-        let genreCounts = {};
+        let movieGenreCounts = {};
+        let seriesGenreCounts = {};
         let totalItemsInHistory = 0;
 
         for (const item of Object.values(history)) {
@@ -383,12 +343,21 @@ async function calculateAndDisplayUserStats() {
             if (item.type === 'movie') moviesWatched++;
             else if (item.type === 'series') seriesWatched.add(item.contentId);
 
-            const content = shared.appState.content.movies[item.contentId] || shared.appState.content.series[item.contentId] || (shared.appState.content.ucm ? shared.appState.content.ucm[item.contentId] : null);
+            // Buscar en todas las fuentes: movies, series, sagas, ucm
+            let content = shared.appState.content.movies?.[item.contentId]
+                || shared.appState.content.series?.[item.contentId]
+                || (shared.appState.content.ucm?.[item.contentId]);
+            if (!content && shared.appState.content.sagas) {
+                for (const sagaItems of Object.values(shared.appState.content.sagas)) {
+                    if (sagaItems?.[item.contentId]) { content = sagaItems[item.contentId]; break; }
+                }
+            }
             
             if (content && content.genres) {
+                const targetMap = item.type === 'series' ? seriesGenreCounts : movieGenreCounts;
                 content.genres.split(';').forEach(g => {
                     const genre = g.trim();
-                    if (genre) genreCounts[genre] = (genreCounts[genre] || 0) + 1;
+                    if (genre) targetMap[genre] = (targetMap[genre] || 0) + 1;
                 });
             }
         }
@@ -399,20 +368,30 @@ async function calculateAndDisplayUserStats() {
 
         if (genreStatsContainer) {
             genreStatsContainer.innerHTML = '';
-            const sortedGenres = Object.entries(genreCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
-            const maxCount = sortedGenres.length > 0 ? sortedGenres[0][1] : 0;
 
-            sortedGenres.forEach(([genre, count]) => {
-                const percentage = maxCount > 0 ? (count / maxCount) * 100 : 0;
-                genreStatsContainer.insertAdjacentHTML('beforeend', `
-                    <div class="genre-stat-bar">
-                        <span class="genre-label">${genre}</span>
-                        <div class="genre-progress">
-                            <div class="genre-progress-fill" style="width: ${percentage}%;"></div>
-                        </div>
-                        <span class="genre-count">${count}</span>
-                    </div>`);
-            });
+            const renderGenreBlock = (title, genreCounts) => {
+                const sorted = Object.entries(genreCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+                if (sorted.length === 0) return;
+                const maxCount = sorted[0][1];
+                const block = document.createElement('div');
+                block.className = 'genre-block';
+                block.innerHTML = `<p class="genre-block-title">${title}</p>` +
+                    sorted.map(([genre, count]) => {
+                        const pct = maxCount > 0 ? (count / maxCount) * 100 : 0;
+                        return `
+                            <div class="genre-stat-bar">
+                                <span class="genre-label">${genre}</span>
+                                <div class="genre-progress">
+                                    <div class="genre-progress-fill" style="width:${pct}%"></div>
+                                </div>
+                                <span class="genre-count">${count}</span>
+                            </div>`;
+                    }).join('');
+                genreStatsContainer.appendChild(block);
+            };
+
+            renderGenreBlock('Géneros — Películas', movieGenreCounts);
+            renderGenreBlock('Géneros — Series', seriesGenreCounts);
         }
     } catch (error) {
         logError(error, 'Profile: Stats Calculation');
