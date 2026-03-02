@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL
-// Versión: 8.9.6 (25 de Feberero 2026)
+// Versión: 8.9.8 (1 de Marzo 2026)
 // ===========================================================
 
 // ===========================================================
@@ -80,13 +80,6 @@ let rouletteModule = null;
 let reviewsModule = null; // 🔥 NUEVO
 let iptvModule = null;
 
-async function getIPTVModule() {
-    if (iptvModule) return iptvModule;
-    const module = await import('./features/iptv.js?v=8');
-    module.setupIPTVSearch();
-    iptvModule = module;
-    return module;
-}
 let requestsModule = null;
 let universesModule = null;
 let reportsModule = null;
@@ -836,70 +829,9 @@ async function switchView(filter) {
         window.hlsLiveInstance.destroy();
         window.hlsLiveInstance = null;
     }
-    // Detener IPTV si estaba activo
-    if (iptvModule) iptvModule.destroyIPTV();
-
     // =======================================================
     // D. LÓGICA POR PANTALLA
     // =======================================================
-
-    // 1. FESTIVAL DE VIÑA (EN VIVO) 🎸
-    if (filter === 'live') {
-        const liveSection = document.getElementById('live-tv-section');
-        const bgLayer = document.getElementById('live-bg-image');
-        const loading = document.getElementById('live-loading-indicator');
-        const videoEl = document.getElementById('embedded-live-video');
-
-        if (liveSection) {
-            liveSection.style.display = 'flex'; 
-            if (loading) loading.style.display = 'block';
-
-            firebase.database().ref('system_metadata').once('value', (snapshot) => {
-                const data = snapshot.val() || {};
-                const liveUrl = data.live_festival_url;
-                const bgUrl = data.live_background_url;
-
-                if (bgUrl && bgLayer) {
-                    bgLayer.style.backgroundImage = `url('${bgUrl}')`;
-                    bgLayer.style.backgroundSize = 'cover';
-                }
-
-                if (!liveUrl) {
-                    if (window.ErrorHandler) ErrorHandler.show('content', 'La señal no está disponible.');
-                    if (loading) loading.style.display = 'none';
-                    return;
-                }
-
-                if (Hls.isSupported()) {
-                    window.hlsLiveInstance = new Hls();
-                    window.hlsLiveInstance.loadSource(liveUrl);
-                    window.hlsLiveInstance.attachMedia(videoEl);
-                    window.hlsLiveInstance.on(Hls.Events.MANIFEST_PARSED, () => {
-                        videoEl.play().catch(e => console.log("Autoplay bloqueado"));
-                        if (loading) loading.style.display = 'none';
-                    });
-                } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
-                    videoEl.src = liveUrl;
-                    videoEl.addEventListener('loadedmetadata', () => {
-                        videoEl.play();
-                        if (loading) loading.style.display = 'none';
-                    });
-                }
-            });
-        }
-        window.scrollTo(0, 0);
-        return;
-    }
-
-    // 1b. TV EN VIVO - IPTV
-    if (filter === 'iptv') {
-        const iptvSection = document.getElementById('iptv-section');
-        if (iptvSection) iptvSection.style.display = 'block';
-        const mod = await getIPTVModule();
-        mod.initIPTV();
-        window.scrollTo(0, 0);
-        return;
-    }
 
     // 2. INICIO (HOME)
     if (filter === 'all') {
@@ -2437,8 +2369,12 @@ function createCarouselSection(title, dataSource) {
 function setupSearch() {
     if (!DOM.searchInput) return;
     let isSearchActive = false;
+
+    // Normaliza tildes y caracteres especiales para búsqueda flexible
+    const norm = str => String(str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
     DOM.searchInput.addEventListener('input', () => {
-        const searchTerm = DOM.searchInput.value.toLowerCase().trim();
+        const searchTerm = norm(DOM.searchInput.value.trim());
         if (searchTerm === '') {
             const gridEl = DOM.gridContainer.querySelector('.grid');
             if (gridEl) {
@@ -2473,13 +2409,13 @@ function setupSearch() {
 
         // Filtrar por término de búsqueda
         const filtered = Object.entries(allContent).filter(([id, item]) => 
-        item.title && item.title.toLowerCase().includes(searchTerm)
+        item.title && norm(item.title).includes(searchTerm)
         );
 
         // 🔥 Deduplicar por título (quedarse con la primera aparición)
         const seenTitles = new Set();
         const results = filtered.filter(([id, item]) => {
-        const titleKey = item.title.toLowerCase().trim();
+        const titleKey = norm(item.title).trim();
             if (seenTitles.has(titleKey)) return false;
                 seenTitles.add(titleKey);
             return true;
@@ -4575,7 +4511,7 @@ window.ErrorHandler = ErrorHandler;
 window.ContentManager = ContentManager;
 window.cacheManager = cacheManager;
 
-console.log('✅ Cine Corneta v8.9.6 cargado correctamente');
+console.log('✅ Cine Corneta v8.9.8 cargado correctamente');
 // ===========================================================
 // COMPATIBILIDAD: Funciones que ahora están en el módulo
 // ===========================================================
