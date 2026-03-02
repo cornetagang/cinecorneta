@@ -51,7 +51,6 @@
                             <li><a href="#" data-filter="roulette">Ruleta</a></li>
                             <li><a href="#" data-filter="reviews">Reseñas</a></li>
                             <li><a href="#" data-filter="requests">Pedidos</a></li>
-                            <li><a href="#" data-filter="iptv" class="nav-iptv-btn"><i class="fas fa-broadcast-tower"></i> Festival</a></li>
                         </ul>
                     </nav>
                 </div>
@@ -169,6 +168,27 @@
                         </button>
                     </div>
                 </div>
+                <!-- Barra de pestañas / filtros de vista -->
+                <div class="reviews-tabs-bar" id="reviews-tabs-bar">
+                    <div class="rv-tabs-left">
+                        <button class="rv-tab active" data-tab="all">
+                            <i class="fas fa-layer-group"></i> Todas
+                        </button>
+                        <button class="rv-tab" data-tab="mine" id="rv-tab-mine">
+                            <i class="fas fa-user"></i> Mis reseñas
+                        </button>
+                    </div>
+                    <div class="rv-tabs-right">
+                        <div class="rv-user-search-wrap">
+                            <i class="fas fa-search rv-user-search-icon"></i>
+                            <input type="text" id="rv-user-search-input" class="rv-user-search-input" placeholder="Buscar por @usuario...">
+                            <button class="rv-user-search-clear" id="rv-user-search-clear" style="display:none;" title="Limpiar búsqueda">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="reviews-two-col">
                     <!-- Columna izquierda: Stats fijos -->
                     <aside class="reviews-sidebar">
@@ -204,186 +224,6 @@
             <div id="requests-container" class="content-container" style="display: none;"></div>
             <div id="reports-container" class="content-container" style="display: none;"></div>
 
-            <div id="live-tv-section" style="display: none;">
-                <div class="live-bg-layer" id="live-bg-image"></div>
-                <div class="live-overlay-layer"></div>
-                
-                <div class="live-content-wrapper">
-                    <div class="live-header-container">
-                        <h1 id="live-section-title" style="font-family: 'Bebas Neue', sans-serif;">FESTIVAL DE VIÑA 2026</h1>
-                    </div>
-
-                    <div class="live-player-container">
-                        <video id="embedded-live-video" controls autoplay playsinline></video>
-                        </div>
-
-                    <div class="live-footer-container">
-                        <p class="live-status"><span class="blink-red"></span> TRANSMISIÓN EN VIVO</p>
-                    </div>
-
-                    <div class="festival-schedule-container">
-                        <h2 class="schedule-main-title"><i class="fas fa-calendar-alt"></i> PROGRAMACIÓN</h2>
-                        
-                        <div class="schedule-accordion">
-                            <div class="accordion-item">
-                                <button class="accordion-header">Domingo 22 de Febrero <i class="fas fa-chevron-down"></i></button>
-                                <div class="accordion-content">
-                                    <ul>
-                                        <li><i class="fas fa-star"></i> Gloria Estefan</li>
-                                        <li><i class="fas fa-laugh-squint"></i> Stefan Kramer</li>
-                                        <li><i class="fas fa-microphone"></i> Matteo Bocelli</li>
-                                    </ul>
-                                </div>
-                            </div>
-                            <div class="accordion-item">
-                                <button class="accordion-header">Lunes 23 de Febrero <i class="fas fa-chevron-down"></i></button>
-                                <div class="accordion-content">
-                                    <ul>
-                                        <li><i class="fas fa-star"></i> Pet Shop Boys</li>
-                                        <li><i class="fas fa-laugh-squint"></i> Rodrigo Villegas</li>
-                                        <li><i class="fas fa-microphone"></i> Bomba Estéreo</li>
-                                    </ul>
-                                </div>
-                            </div>
-                            <div class="accordion-item">
-                                <button class="accordion-header">Martes 24 de Febrero <i class="fas fa-chevron-down"></i></button>
-                                <div class="accordion-content">
-                                    <ul>
-                                        <li><i class="fas fa-star"></i> Jesse & Joy</li>
-                                        <li><i class="fas fa-laugh-squint"></i> Esteban Düch</li>
-                                        <li><i class="fas fa-microphone"></i> NMIXX</li>
-                                    </ul>
-                                </div>
-                            </div>
-                             <div class="accordion-item">
-                                <button class="accordion-header">Miércoles 25 de Febrero <i class="fas fa-chevron-down"></i></button>
-                                <div class="accordion-content">
-                                    <ul>
-                                        <li><i class="fas fa-star"></i> Juanes</li>
-                                        <li><i class="fas fa-laugh-squint"></i> Asskha Sumathra</li>
-                                        <li><i class="fas fa-microphone"></i> Ke Personajes</li>
-                                    </ul>
-                                </div>
-                            </div>
-                             <div class="accordion-item">
-                                <button class="accordion-header">Jueves 26 de Febrero <i class="fas fa-chevron-down"></i></button>
-                                <div class="accordion-content">
-                                    <ul>
-                                        <li><i class="fas fa-star"></i> Mon Laferte</li>
-                                        <li><i class="fas fa-laugh-squint"></i> Piare con P</li>
-                                        <li><i class="fas fa-microphone"></i> Yandel Sinfónico</li>
-                                    </ul>
-                                </div>
-                            </div>
-                             <div class="accordion-item">
-                                <button class="accordion-header">Viernes 27 de Febrero <i class="fas fa-chevron-down"></i></button>
-                                <div class="accordion-content">
-                                    <ul>
-                                        <li><i class="fas fa-star"></i> Paulo Londra</li>
-                                        <li><i class="fas fa-laugh-squint"></i> Pastor Rocha</li>
-                                        <li><i class="fas fa-microphone"></i> Pablo Chill-E</li>
-                                        <li><i class="fas fa-microphone"></i> Milo J</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <!-- SECCIÓN TV EN VIVO (IPTV) -->
-            <div id="iptv-section" style="display:none;">
-                <!-- Fondo del festival (se activa con Mega) -->
-                <div class="live-bg-layer" id="iptv-festival-bg" style="opacity:0;transition:opacity 1s;"></div>
-                <div class="live-overlay-layer" id="iptv-festival-overlay" style="opacity:0;transition:opacity 1s;"></div>
-
-                <div class="iptv-inner-wrapper" style="position:relative;z-index:2;">
-                    <div class="iptv-header">
-                        <h2 class="iptv-title"><i class="fas fa-broadcast-tower"></i> TV en Vivo</h2>
-                        <input type="text" id="iptv-search" class="iptv-search-input" placeholder="Buscar canal...">
-                    </div>
-                    <div id="iptv-player-section" style="display:none;" class="iptv-player-section">
-                        <div class="iptv-player-wrap">
-                            <div id="iptv-buffering" class="iptv-buffering">
-                                <i class="fas fa-circle-notch fa-spin"></i>
-                            </div>
-                            <video id="iptv-video" controls playsinline class="iptv-video"></video>
-                        </div>
-                        <p id="iptv-now-playing" class="iptv-now-playing"></p>
-                    </div>
-                    <div id="iptv-group-bar" class="iptv-group-bar"></div>
-                    <div id="iptv-loading" class="iptv-loading" style="display:none;">
-                        <i class="fas fa-circle-notch fa-spin"></i>
-                        <span>Cargando canales...</span>
-                    </div>
-                    <div id="iptv-error" class="iptv-error" style="display:none;">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <p>No se pudo cargar la lista de canales.</p>
-                    </div>
-                    <div id="iptv-channel-grid" class="iptv-channel-grid"></div>
-
-                    <!-- Panel del festival (se muestra al sintonizar Mega) -->
-                    <div id="iptv-festival-panel" style="display:none;">
-                        <div class="live-footer-container" style="margin-top:16px;">
-                            <p class="live-status"><span class="blink-red"></span> TRANSMISIÓN EN VIVO — FESTIVAL DE VIÑA 2026</p>
-                        </div>
-                        <div class="festival-schedule-container">
-                            <h2 class="schedule-main-title"><i class="fas fa-calendar-alt"></i> PROGRAMACIÓN</h2>
-                            <div class="schedule-accordion">
-                                <div class="accordion-item">
-                                    <button class="accordion-header">Domingo 22 de Febrero <i class="fas fa-chevron-down"></i></button>
-                                    <div class="accordion-content"><ul>
-                                        <li><i class="fas fa-star"></i> Gloria Estefan</li>
-                                        <li><i class="fas fa-laugh-squint"></i> Stefan Kramer</li>
-                                        <li><i class="fas fa-microphone"></i> Matteo Bocelli</li>
-                                    </ul></div>
-                                </div>
-                                <div class="accordion-item">
-                                    <button class="accordion-header">Lunes 23 de Febrero <i class="fas fa-chevron-down"></i></button>
-                                    <div class="accordion-content"><ul>
-                                        <li><i class="fas fa-star"></i> Pet Shop Boys</li>
-                                        <li><i class="fas fa-laugh-squint"></i> Rodrigo Villegas</li>
-                                        <li><i class="fas fa-microphone"></i> Bomba Estéreo</li>
-                                    </ul></div>
-                                </div>
-                                <div class="accordion-item">
-                                    <button class="accordion-header">Martes 24 de Febrero <i class="fas fa-chevron-down"></i></button>
-                                    <div class="accordion-content"><ul>
-                                        <li><i class="fas fa-star"></i> Jesse & Joy</li>
-                                        <li><i class="fas fa-laugh-squint"></i> Esteban Düch</li>
-                                        <li><i class="fas fa-microphone"></i> NMIXX</li>
-                                    </ul></div>
-                                </div>
-                                <div class="accordion-item">
-                                    <button class="accordion-header">Miércoles 25 de Febrero <i class="fas fa-chevron-down"></i></button>
-                                    <div class="accordion-content"><ul>
-                                        <li><i class="fas fa-star"></i> Juanes</li>
-                                        <li><i class="fas fa-laugh-squint"></i> Asskha Sumathra</li>
-                                        <li><i class="fas fa-microphone"></i> Ke Personajes</li>
-                                    </ul></div>
-                                </div>
-                                <div class="accordion-item">
-                                    <button class="accordion-header">Jueves 26 de Febrero <i class="fas fa-chevron-down"></i></button>
-                                    <div class="accordion-content"><ul>
-                                        <li><i class="fas fa-star"></i> Mon Laferte</li>
-                                        <li><i class="fas fa-laugh-squint"></i> Piare con P</li>
-                                        <li><i class="fas fa-microphone"></i> Yandel Sinfónico</li>
-                                    </ul></div>
-                                </div>
-                                <div class="accordion-item">
-                                    <button class="accordion-header">Viernes 27 de Febrero <i class="fas fa-chevron-down"></i></button>
-                                    <div class="accordion-content"><ul>
-                                        <li><i class="fas fa-star"></i> Paulo Londra</li>
-                                        <li><i class="fas fa-laugh-squint"></i> Pastor Rocha</li>
-                                        <li><i class="fas fa-microphone"></i> Pablo Chill-E</li>
-                                        <li><i class="fas fa-microphone"></i> Milo J</li>
-                                    </ul></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                </div>
-            </div>
 
             <div id="my-list-container" style="display: none;">
                 <div class="content-header"><h2>Mi Lista</h2></div>
@@ -410,7 +250,6 @@
                     
                     <h4 style="color: #666; font-size: 0.9rem; margin: 10px 0 10px 5px; text-transform: uppercase;">Explorar</h4>
 
-                    <!--<a href="#" class="profile-hub-menu-item" data-filter="live"> <i class="fas fa-microphone-alt" style="color: #d42279;"></i> <span>Festival de Viña 2026</span> </a>-->
 
                     <a href="#" class="profile-hub-menu-item" data-filter="reviews">
                         <i class="fas fa-star" style="color: #00f2ff;"></i>
@@ -425,11 +264,6 @@
                     <a href="#" class="profile-hub-menu-item" data-filter="roulette">
                         <i class="fas fa-dice" style="color: #ffffff;"></i>
                         <span>Ruleta</span>
-                    </a>
-
-                    <a href="#" class="profile-hub-menu-item" data-filter="iptv">
-                        <i class="fas fa-broadcast-tower" style="color: var(--primary-red);"></i>
-                        <span>TV en Vivo</span>
                     </a>
 
                     <div style="border-top: 1px solid rgba(255,255,255,0.1); margin: 20px 0;"></div>
