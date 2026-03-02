@@ -2254,7 +2254,7 @@ function changeHeroMovie(itemObj) {
         // 1. Botón Play (Detecta si es Serie o Película)
         const playButton = document.createElement('button');
         playButton.className = 'btn btn-play';
-        playButton.innerHTML = '<i class="fas fa-play"></i> Ver Ahora';
+        playButton.innerHTML = `<i class="fas fa-play"></i> ${isMobile ? 'Ver' : 'Ver Ahora'}`;
         playButton.onclick = async () => { 
             const player = await getPlayerModule();
             if (type === 'series') {
@@ -2269,7 +2269,7 @@ function changeHeroMovie(itemObj) {
         // 2. Botón Información
         const infoButton = document.createElement('button');
         infoButton.className = 'btn btn-info';
-        infoButton.textContent = 'Más Información';
+        infoButton.textContent = isMobile ? 'Más Info' : 'Más Información';
         infoButton.onclick = () => openDetailsModal(id, type);
 
         heroButtons.appendChild(playButton);
