@@ -1,8 +1,8 @@
 // ===========================================================
 // MÓDULO DE RESEÑAS (REVIEWS)
 // ===========================================================
-// Versión: 2.6
-// Fecha: 15 de Febrero 2026
+// Versión: 3.0
+// Fecha: 1 de Marzo 2026
 // ===========================================================
 
 let appState, DOM, auth, db, ErrorHandler, ModalManager, openConfirmationModal;
@@ -602,6 +602,17 @@ function findContentData(contentId) {
 // ===========================================================
 // RENDERIZADO: GRID DE RESEÑAS (CON LÓGICA DE "LEER MÁS")
 // ===========================================================
+// ===========================================================
+// ESTADO GLOBAL DE FILTROS
+// ===========================================================
+let _allReviews = [];
+let _filteredReviews = [];
+let _commentCounts = {};
+let _activeTab = 'all';
+let _activeStarFilter = 'all';
+let _activeUserFilter = '';
+
+
 export function renderReviewsGrid() {
     const grid = DOM.reviewsGrid;
     if (!grid) return;
@@ -609,7 +620,7 @@ export function renderReviewsGrid() {
     grid.className = 'reviews-list';
     grid.innerHTML = `<div class="reviews-loading"><i class="fas fa-spinner fa-spin"></i> Cargando reseñas...</div>`;
 
-    db.ref('reviews').limitToLast(50).on('value', async snapshot => {
+    db.ref('reviews').limitToLast(500).on('value', async snapshot => {
         grid.innerHTML = '';
 
         if (!snapshot.exists()) {
@@ -631,26 +642,135 @@ export function renderReviewsGrid() {
 
         reviews.reverse();
 
+        // --- Estado global ---
+        _allReviews = reviews;
+        _filteredReviews = reviews;
+        _activeTab = 'all';
+        _activeStarFilter = 'all';
+        _activeUserFilter = '';
+
         // --- Estadísticas ---
         _renderStatsPanel(reviews);
 
+        // --- Configurar tabs (solo primera vez) ---
+        _setupTabsBar();
+
         // --- Pre-cargar conteos de comentarios ---
         const commentCountsSnap = await db.ref('review_comments').once('value');
-        const commentCounts = {};
+        _commentCounts = {};
         if (commentCountsSnap.exists()) {
             commentCountsSnap.forEach(child => {
-                commentCounts[child.key] = child.numChildren();
+                _commentCounts[child.key] = child.numChildren();
             });
         }
 
-        const fragment = document.createDocumentFragment();
-        reviews.forEach(review => {
-            const card = createReviewCard(review, commentCounts[review.id] || 0);
-            fragment.appendChild(card);
-        });
-
-        grid.appendChild(fragment);
+        _renderFiltered();
     });
+}
+
+function _renderFiltered() {
+    const grid = DOM.reviewsGrid;
+    if (!grid) return;
+
+    grid.innerHTML = '';
+
+    if (_filteredReviews.length === 0) {
+        let msg = 'No hay reseñas que coincidan con los filtros.';
+        if (_activeTab === 'mine') msg = 'Aún no has escrito ninguna reseña.';
+        else if (_activeTab === 'user' && _activeUserFilter) msg = `No se encontraron reseñas de "@${_activeUserFilter}".`;
+        grid.innerHTML = `<div class="reviews-empty"><i class="far fa-comment-dots"></i><p>${msg}</p></div>`;
+        return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    _filteredReviews.forEach(review => {
+        const card = createReviewCard(review, _commentCounts[review.id] || 0);
+        fragment.appendChild(card);
+    });
+    grid.appendChild(fragment);
+}
+
+function _applyAllFilters() {
+    let result = _allReviews;
+    const currentUser = auth.currentUser;
+
+    if (_activeTab === 'mine' && currentUser) {
+        result = result.filter(r => r.userId === currentUser.uid);
+    } else if (_activeTab === 'user' && _activeUserFilter) {
+        const term = _activeUserFilter.toLowerCase();
+        result = result.filter(r => (r.userName || '').toLowerCase().includes(term));
+    }
+
+    if (_activeStarFilter !== 'all') {
+        const groupRating = s => Math.max(1, Math.floor(s || 0));
+        result = result.filter(r => groupRating(r.stars) === _activeStarFilter);
+    }
+
+    _filteredReviews = result;
+    _renderFiltered();
+}
+
+function _setupTabsBar() {
+    const bar = document.getElementById('reviews-tabs-bar');
+    if (!bar || bar.dataset.ready === '1') return;
+    bar.dataset.ready = '1';
+
+    const mineTab = document.getElementById('rv-tab-mine');
+    if (mineTab) mineTab.style.display = auth.currentUser ? '' : 'none';
+
+    bar.querySelectorAll('.rv-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+            bar.querySelectorAll('.rv-tab').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            _activeTab = btn.dataset.tab;
+
+            const input = document.getElementById('rv-user-search-input');
+            const clearBtn = document.getElementById('rv-user-search-clear');
+            if (input) input.value = '';
+            if (clearBtn) clearBtn.style.display = 'none';
+            _activeUserFilter = '';
+
+            _activeStarFilter = 'all';
+            document.querySelectorAll('.rsf-btn').forEach(b => b.classList.toggle('active', b.dataset.stars === 'all'));
+
+            _applyAllFilters();
+        });
+    });
+
+    const searchInput = document.getElementById('rv-user-search-input');
+    const clearBtn    = document.getElementById('rv-user-search-clear');
+
+    if (searchInput) {
+        let debounceTimer;
+        searchInput.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                const term = searchInput.value.trim();
+                _activeUserFilter = term;
+                if (term) {
+                    bar.querySelectorAll('.rv-tab').forEach(b => b.classList.remove('active'));
+                    _activeTab = 'user';
+                } else {
+                    _activeTab = 'all';
+                    bar.querySelectorAll('.rv-tab')[0]?.classList.add('active');
+                }
+                if (clearBtn) clearBtn.style.display = term ? '' : 'none';
+                _applyAllFilters();
+            }, 300);
+        });
+    }
+
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            if (searchInput) searchInput.value = '';
+            clearBtn.style.display = 'none';
+            _activeUserFilter = '';
+            _activeTab = 'all';
+            bar.querySelectorAll('.rv-tab').forEach(b => b.classList.remove('active'));
+            bar.querySelectorAll('.rv-tab')[0]?.classList.add('active');
+            _applyAllFilters();
+        });
+    }
 }
 
 function _renderStatsPanel(reviews) {
@@ -720,21 +840,11 @@ function _renderStatsPanel(reviews) {
 }
 
 function _applyStarFilter(stars) {
+    _activeStarFilter = stars;
     document.querySelectorAll('.rsf-btn').forEach(b => {
         b.classList.toggle('active', b.dataset.stars === String(stars));
     });
-
-    const groupRating = (s) => Math.max(1, Math.floor(s || 0));
-
-    document.querySelectorAll('.review-card').forEach(card => {
-        if (stars === 'all') {
-            card.style.display = '';
-        } else {
-            const data = card.dataset.reviewData ? JSON.parse(card.dataset.reviewData) : null;
-            const group = data ? groupRating(data.stars) : null;
-            card.style.display = (group === stars) ? '' : 'none';
-        }
-    });
+    _applyAllFilters();
 }
 
 // Exponer globalmente
@@ -751,7 +861,12 @@ function createReviewCard(review, initialCommentCount = 0) {
     const starsHTML = renderStarsFromValue(review.stars || 0);
 
     const date = review.timestamp
-        ? new Date(review.timestamp).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })
+        ? (() => {
+            const d = new Date(review.timestamp);
+            const fecha = d.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+            const hora = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+            return `${fecha} · ${hora}`;
+        })()
         : 'Reciente';
 
     const isAdmin = auth.currentUser && auth.currentUser.email === 'baquezadat@gmail.com';
@@ -1206,7 +1321,12 @@ export async function openContentReviews(contentId, contentTitle) {
                 '<i class="far fa-star"></i>'.repeat(5 - review.stars);
 
             const date = review.timestamp
-                ? new Date(review.timestamp).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })
+                ? (() => {
+                    const d = new Date(review.timestamp);
+                    const fecha = d.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+                    const hora = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+                    return `${fecha} · ${hora}`;
+                })()
                 : 'Reciente';
 
             const fullText = review.text || '';
