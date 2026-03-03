@@ -5579,6 +5579,11 @@ body.low-spec .loading-text {
    ============================================ */
 @media (max-width: 768px) {
     /* 1. El contenedor principal ocupa toda la pantalla real */
+    /* En móvil: título va DEBAJO del video */
+    .movie-mode .movie-player-container .screen  { order: 1; }
+    .movie-mode .movie-player-container .movie-lang-selection { order: 2; }
+    .movie-mode .movie-player-title              { order: 3; font-size: 1.1rem; text-align: center; padding: 8px 12px 0; }
+
     #series-player-modal.player-layout-view .player-layout-container.movie-mode {
         width: 100vw;
         height: 100vh;      /* Fallback */
@@ -5604,6 +5609,10 @@ body.low-spec .loading-text {
     }
 
     /* 3. La barra de info ocupa TODO el espacio restante y tiene el SCROLL */
+    .movie-mode .movie-info-sidebar-inner {
+        padding-bottom: 80px; /* espacio para el nav del celular */
+    }
+
     .movie-mode .movie-info-sidebar {
         flex: 1;              /* Ocupa todo el espacio que sobra abajo del video */
         width: 100%;
@@ -6114,7 +6123,14 @@ body.low-spec .loading-text {
     
     .movie-player-title {
         font-size: 1.5rem;
+        order: 3; /* debajo del video en móvil */
+        padding: 4px 12px 0;
+        text-align: center;
     }
+
+    /* Video y lang-btn antes que el título */
+    .movie-player-container .screen       { order: 1; }
+    .movie-player-container .movie-lang-selection { order: 2; }
     
     .movie-meta-info {
         font-size: 0.8rem;
