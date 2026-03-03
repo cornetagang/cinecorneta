@@ -116,14 +116,38 @@ export async function openSeriesPlayer(seriesId, forceSeasonGrid = false) {
         const seriesEpisodes = shared.appState.content.seriesEpisodes[seriesId] || {};
         const postersData = shared.appState.content.seasonPosters[seriesId] || {};
         
-        // 1. Obtenemos TODAS las temporadas (Episodios + Posters) y las ordenamos
+        // 1. Obtenemos TODAS las temporadas ordenadas
+        // PRIORIDAD: Override manual > seasonOrder servidor > campo "orden" > numérico (especiales al final)
         const allSeasonsKeys = [...new Set([...Object.keys(seriesEpisodes), ...Object.keys(postersData)])];
-        
-        const seasonsMapped = allSeasonsKeys.map(k => {
-            const numMatch = String(k).replace(/\D/g, '');
-            const num = numMatch ? parseInt(numMatch, 10) : 0;
-            return { key: k, num };
-        }).sort((a, b) => a.num - b.num);
+
+        let orderedKeys;
+        if (SEASON_ORDER_OVERRIDES[seriesId]) {
+            orderedKeys = SEASON_ORDER_OVERRIDES[seriesId];
+        } else if (shared.appState.content.seasonOrder && shared.appState.content.seasonOrder[seriesId]) {
+            orderedKeys = shared.appState.content.seasonOrder[seriesId];
+        } else {
+            orderedKeys = [...allSeasonsKeys].sort((a, b) => {
+                const posterA = postersData[a];
+                const posterB = postersData[b];
+                const ordenA = posterA && typeof posterA === 'object' && posterA.orden !== undefined && posterA.orden !== ''
+                    ? Number(posterA.orden) : null;
+                const ordenB = posterB && typeof posterB === 'object' && posterB.orden !== undefined && posterB.orden !== ''
+                    ? Number(posterB.orden) : null;
+                if (ordenA !== null && ordenB !== null) return ordenA - ordenB;
+                if (ordenA !== null) return -1;
+                if (ordenB !== null) return 1;
+                const isNumericA = !isNaN(Number(a)) && String(a).trim() !== '';
+                const isNumericB = !isNaN(Number(b)) && String(b).trim() !== '';
+                if (isNumericA && isNumericB) return Number(a) - Number(b);
+                if (isNumericA) return -1;
+                if (isNumericB) return 1;
+                return 0;
+            });
+        }
+
+        const seasonsMapped = orderedKeys
+            .filter(k => allSeasonsKeys.includes(k))
+            .map(k => ({ key: k, num: !isNaN(k) ? Number(k) : 0 }));
 
         // 2. Si forzamos grilla, mostramos grilla directamente
         if (forceSeasonGrid && seasonsMapped.length > 1) {
@@ -461,31 +485,56 @@ async function renderEpisodePlayer(seriesId, seasonNum, startAtIndex = null) {
             : '';
 
         shared.DOM.seriesPlayerModal.className = 'modal show player-layout-view';
-        
+
+        // Calcular hora de término igual que cinema modal
+        const finishTime = movieDuration ? calculateFinishTime(movieDuration) : null;
+        const endTimeHTML = finishTime
+            ? `<span class="meta-tag" style="display:inline-flex;align-items:center;">
+                   <i class="fas fa-flag-checkered" style="color:#ff4d4d;"></i>
+                   <span style="opacity:0.9;margin-left:5px;">Terminas de ver a las <strong style="color:#fff;">${finishTime}</strong> aprox.</span>
+               </span>`
+            : '';
+
+        // Lang controls debajo del video (estilo cinema modal)
+        const movieLangHTML = hasLangOptions
+            ? `<div class="movie-lang-selection">
+                 <button class="lang-select-btn ${initialLang === 'en' ? 'active' : ''}" data-lang="en">Original</button>
+                 <button class="lang-select-btn ${initialLang === 'es' ? 'active' : ''}" data-lang="es">Español</button>
+               </div>`
+            : '';
+
         // =========================================================
-        // MODO A: PELÍCULA / ESPECIAL
+        // MODO A: PELÍCULA / ESPECIAL  (layout idéntico al cinema modal)
         // =========================================================
         if (isSingleMovie) {
             shared.DOM.seriesPlayerModal.innerHTML = `
                 <button class="close-btn">&times;</button>
                 <div class="player-layout-container movie-mode">
-                    <div class="player-container">
+                    <div class="movie-player-container">
+                        <h2 id="cinema-title-${seriesId}" class="movie-player-title cinema-title-above">${displayTitle}</h2>
                         <div class="screen"><iframe id="video-frame-${seriesId}" src="" allowfullscreen></iframe></div>
+                        ${movieLangHTML}
                     </div>
                     <div class="movie-info-sidebar">
-                        ${backButtonHTML}
-                        <div class="sidebar-poster-container">
-                            <img src="${specificPoster}" alt="Poster" class="sidebar-poster-img" onerror="this.src='https://via.placeholder.com/150'">
+                        <div class="movie-info-sidebar-inner">
+                            ${backButtonHTML}
+                            <div class="movie-poster-container">
+                                <img src="${specificPoster}" alt="Poster" onerror="this.src='https://via.placeholder.com/150'">
+                            </div>
+                            <div class="movie-details-info">
+                                <div class="movie-meta-info">
+                                    ${movieRequester ? `<span class="meta-tag request-tag"><i class="fas fa-user-circle"></i> ${movieRequester}</span>` : ''}
+                                    ${movieYear ? `<span class="meta-tag"><i class="fas fa-calendar"></i> ${movieYear}</span>` : ''}
+                                    ${movieDuration ? `<span class="meta-tag"><i class="fas fa-clock"></i> ${movieDuration}</span>` : ''}
+                                    ${endTimeHTML}
+                                </div>
+                                <p id="cinema-synopsis-sp" class="movie-synopsis">${movieSynopsis}</p>
+                                <div class="cinema-controls-sp">
+                                    <button id="btn-review-player-${seriesId}" class="btn btn-review"><i class="fas fa-star"></i> Escribir Reseña</button>
+                                    <button class="btn btn-report-sp"><i class="fas fa-flag"></i> Reportar problema</button>
+                                </div>
+                            </div>
                         </div>
-                        <h2 id="cinema-title-${seriesId}" class="player-title">${displayTitle}</h2>
-                        <div class="movie-metadata">
-                            ${movieRequester ? `<div class="meta-tag request-tag" title="Pedido por ${movieRequester}"><i class="fas fa-user-circle"></i> ${movieRequester}</div>` : ''}
-                            ${movieYear ? `<div class="meta-tag"><i class="fas fa-calendar"></i> ${movieYear}</div>` : ''}
-                            ${movieDuration ? `<div class="meta-tag"><i class="fas fa-clock"></i> ${movieDuration}</div>` : ''}
-                        </div>
-                        <div class="movie-synopsis-container"><p>${movieSynopsis}</p></div>
-                        ${langControlsHTML}
-                        <button id="btn-review-player-${seriesId}" class="btn-review-sidebar"><i class="fas fa-pen-nib"></i> Escribir Reseña</button>
                     </div>
                 </div>
             `;
@@ -527,10 +576,9 @@ async function renderEpisodePlayer(seriesId, seasonNum, startAtIndex = null) {
         // LISTENERS COMUNES
         shared.DOM.seriesPlayerModal.querySelector('.close-btn').onclick = closeSeriesPlayerModal;
         
-        shared.DOM.seriesPlayerModal.querySelectorAll(`.lang-btn-movie`).forEach(btn => {
+        shared.DOM.seriesPlayerModal.querySelectorAll(`.lang-btn-movie, .lang-select-btn`).forEach(btn => {
             btn.onclick = () => {
-                // Actualizar visualmente botones activos
-                shared.DOM.seriesPlayerModal.querySelectorAll('.lang-btn-movie').forEach(b => b.classList.remove('active'));
+                shared.DOM.seriesPlayerModal.querySelectorAll('.lang-btn-movie, .lang-select-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 changeLanguage(seriesId, btn.dataset.lang);
             };
@@ -546,27 +594,55 @@ async function renderEpisodePlayer(seriesId, seasonNum, startAtIndex = null) {
         
         if (reviewBtn) {
             reviewBtn.onclick = () => {
-                // 1. Determinar el título correcto
-                // Si es modo película (isSingleMovie), usamos el título del episodio/película.
-                // Si es serie normal, usamos el título de la serie.
                 let correctTitle = '';
-                let correctType = 'movie'; // Por defecto movie si es Gladiador II
-
+                let correctType = 'movie';
                 if (isSpecialContent || isSingleMovie) {
-                    correctTitle = displayTitle; // Título específico (ej: "Gladiador II")
-                    correctType = 'movie';       // Tratamos como película para reseñas
+                    correctTitle = displayTitle;
+                    correctType = 'movie';
                 } else {
                     correctTitle = seriesInfo.title || displayTitle;
                     correctType = 'series';
                 }
-                
-                // 2. LLAMAR A LA FUNCIÓN GLOBAL QUE CREAMOS EN EL PASO 1
                 if (window.openSmartReviewModal) {
                     window.openSmartReviewModal(seriesId, correctType, correctTitle);
                 } else {
                     console.error("La función window.openSmartReviewModal no está definida en script.js");
                 }
             };
+        }
+
+        // Botón Reportar problema (solo en modo película)
+        const reportBtnSp = shared.DOM.seriesPlayerModal.querySelector('.btn-report-sp');
+        if (reportBtnSp) {
+            reportBtnSp.onclick = async () => {
+                try {
+                    const rptMod = await import('./features/reports.js');
+                    rptMod.openReportModal({ contentId: seriesId, contentTitle: displayTitle, contentType: 'movie' });
+                } catch(e) {
+                    console.error('Error al abrir reporte:', e);
+                }
+            };
+        }
+
+        // Botón Ver más / Ver menos en sinopsis
+        if (isSingleMovie) {
+            const synopsisEl = shared.DOM.seriesPlayerModal.querySelector('#cinema-synopsis-sp');
+            if (synopsisEl) {
+                // Solo mostrar botón si el texto está realmente recortado
+                requestAnimationFrame(() => {
+                    const isClamped = synopsisEl.scrollHeight > synopsisEl.clientHeight + 2;
+                    if (isClamped) {
+                        const toggleBtn = document.createElement('button');
+                        toggleBtn.className = 'synopsis-toggle-btn';
+                        toggleBtn.textContent = 'Leer sinopsis ▾';
+                        toggleBtn.onclick = () => {
+                            const isExpanded = synopsisEl.classList.toggle('expanded');
+                            toggleBtn.textContent = isExpanded ? 'Ver menos ▴' : 'Leer sinopsis ▾';
+                        };
+                        synopsisEl.insertAdjacentElement('afterend', toggleBtn);
+                    }
+                });
+            }
         }
         if (!isSingleMovie) populateEpisodeList(seriesId, seasonNum);
         
