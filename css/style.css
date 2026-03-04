@@ -5579,10 +5579,18 @@ body.low-spec .loading-text {
    ============================================ */
 @media (max-width: 768px) {
     /* 1. El contenedor principal ocupa toda la pantalla real */
-    /* En móvil: título va DEBAJO del video */
-    .movie-mode .movie-player-container .screen  { order: 1; }
-    .movie-mode .movie-player-container .movie-lang-selection { order: 2; }
-    .movie-mode .movie-player-title              { order: 3; font-size: 1.1rem; text-align: center; padding: 8px 12px 0; }
+    /* Título alineado con el close-btn en movie-mode móvil */
+    #series-player-modal.player-layout-view .player-layout-container.movie-mode .movie-player-title {
+        font-size: 1.3rem;
+        line-height: 1.2;
+        text-align: center;
+        min-height: 44px;           /* misma altura que el close-btn (44px) */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 56px 0 16px;     /* espacio a la derecha para no quedar bajo el botón */
+        flex-shrink: 0;
+    }
 
     #series-player-modal.player-layout-view .player-layout-container.movie-mode {
         width: 100vw;
@@ -5733,6 +5741,20 @@ body.low-spec .loading-text {
 
 .custom-option:hover {
     background: rgba(255, 255, 255, 0.1);
+}
+
+.custom-option-rich {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.custom-option-rich img {
+    width: 32px;
+    height: 46px;
+    object-fit: cover;
+    border-radius: 4px;
+    flex-shrink: 0;
 }
 
 /* Estrellas de calificación */
@@ -6123,14 +6145,7 @@ body.low-spec .loading-text {
     
     .movie-player-title {
         font-size: 1.5rem;
-        order: 3; /* debajo del video en móvil */
-        padding: 4px 12px 0;
-        text-align: center;
     }
-
-    /* Video y lang-btn antes que el título */
-    .movie-player-container .screen       { order: 1; }
-    .movie-player-container .movie-lang-selection { order: 2; }
     
     .movie-meta-info {
         font-size: 0.8rem;
