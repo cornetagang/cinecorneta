@@ -1,8 +1,8 @@
 // ===========================================================
 // MÓDULO DE RESEÑAS (REVIEWS)
 // ===========================================================
-// Versión: 3.5
-// Fecha: 4 de Marzo 2026
+// Versión: 3.1
+// Fecha: 1 de Marzo 2026
 // ===========================================================
 
 let appState, DOM, auth, db, ErrorHandler, ModalManager, openConfirmationModal;
@@ -1510,8 +1510,7 @@ export async function openContentReviews(contentId, contentTitle) {
 
         reviews.forEach(review => {
             const starsHTML =
-                '<i class="fas fa-star"></i>'.repeat(review.stars) +
-                '<i class="far fa-star"></i>'.repeat(5 - review.stars);
+                renderStarsFromValue(review.stars);
 
             const date = review.timestamp
                 ? (() => {
