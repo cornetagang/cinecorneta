@@ -4709,18 +4709,44 @@ body.tab-inactive iframe {
 }
 
 /* Botón borrar en review principal */
+/* Contenedor de botones de acción de tarjeta */
+.rc-header-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-edit-review,
 .btn-delete-review {
-    background: transparent;
-    border: none;
-    color: #e50914;
-    font-size: 0.78rem;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
     cursor: pointer;
-    opacity: 0.3;
-    padding: 4px;
-    transition: opacity 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    transition: all 0.2s ease;
     flex-shrink: 0;
 }
 
+.btn-edit-review {
+    background: rgba(0, 200, 255, 0.08);
+    border: 1px solid rgba(0, 200, 255, 0.25);
+    color: #00c8ff;
+}
+.btn-edit-review:hover {
+    background: rgba(0, 200, 255, 0.18);
+    border-color: #00c8ff;
+}
+
+.btn-delete-review {
+    background: rgba(229, 9, 20, 0.08);
+    border: 1px solid rgba(229, 9, 20, 0.25);
+    color: #e50914;
+    opacity: 0.5;
+    padding: 0;
+}
 .btn-delete-review:hover { opacity: 1; }
 
 /* 🟢 ESTRELLAS DEL FORMULARIO (INTERACTIVAS) */
