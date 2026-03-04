@@ -1,8 +1,8 @@
 // ===========================================================
 // MÓDULO DE RESEÑAS (REVIEWS)
 // ===========================================================
-// Versión: 3.0
-// Fecha: 1 de Marzo 2026
+// Versión: 3.5
+// Fecha: 4 de Marzo 2026
 // ===========================================================
 
 let appState, DOM, auth, db, ErrorHandler, ModalManager, openConfirmationModal;
@@ -14,6 +14,9 @@ let reviewContext = {
     contentType: null,
     isPreselected: false
 };
+
+// ID de la reseña que se está editando (null = nueva reseña)
+let editingReviewId = null;
 
 // ===========================================================
 // INICIALIZACIÓN
@@ -271,6 +274,9 @@ function updateStarVisuals(value, isHover = false) {
 }
 
 function resetReviewForm() {
+    editingReviewId = null;
+    const submitBtn = DOM.reviewForm?.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.textContent = 'Publicar Reseña';
     if (DOM.reviewForm) DOM.reviewForm.reset();
     
     const ratingInput = document.getElementById('review-rating-value');
@@ -463,6 +469,21 @@ async function handleReviewSubmit(e) {
     if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Publicando...'; }
 
     try {
+        // Si estamos editando, saltamos verificación de duplicados
+        if (editingReviewId) {
+            await db.ref(`reviews/${editingReviewId}`).update({
+                stars: parseFloat(rating),
+                text: text,
+                editedAt: firebase.database.ServerValue.TIMESTAMP
+            });
+            if (window.showNotification) window.showNotification('¡Reseña actualizada!', 'success');
+            else ErrorHandler.show('success', '¡Reseña actualizada!');
+            ModalManager.closeAll();
+            resetReviewForm();
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Publicar Reseña'; }
+            return;
+        }
+
         // 1. Verificar duplicados (LÓGICA MEJORADA)
         const existing = await db.ref('reviews')
             .orderByChild('userId')
@@ -964,6 +985,10 @@ function createReviewCard(review, initialCommentCount = 0) {
         ? `<button class="btn-delete-review" onclick="deleteReview('${review.id}')" title="Borrar reseña"><i class="fas fa-trash-alt"></i></button>`
         : '';
 
+    const editBtnHTML = isOwner
+        ? `<button class="btn-edit-review" data-review-id="${review.id}" data-stars="${review.stars}" data-content-id="${review.contentId || ''}" data-content-type="${review.contentType || 'movie'}" data-title="${(review.contentTitle || '').replace(/"/g, '&quot;')}" title="Editar reseña"><i class="fas fa-pen"></i></button>`
+        : '';
+
     const MAX_CHARS = 300;
     const fullText = review.text || '';
     const isTruncated = fullText.length > MAX_CHARS;
@@ -982,6 +1007,7 @@ function createReviewCard(review, initialCommentCount = 0) {
                     <div class="rc-stars">${starsHTML}<span class="rc-stars-num">${review.stars}/5</span></div>
                 </div>
                 <div class="rc-header-right">
+                    ${editBtnHTML}
                     ${deleteBtnHTML}
                 </div>
             </div>
@@ -1015,6 +1041,21 @@ function createReviewCard(review, initialCommentCount = 0) {
             </div>
         </div>
     `;
+
+    // Botón editar (usa data attributes para evitar problemas con caracteres especiales)
+    const editBtn = card.querySelector('.btn-edit-review');
+    if (editBtn) {
+        editBtn.addEventListener('click', () => {
+            const rid = editBtn.dataset.reviewId;
+            const stars = parseFloat(editBtn.dataset.stars);
+            const title = editBtn.dataset.title || '';
+            const contentId = editBtn.dataset.contentId || '';
+            const contentType = editBtn.dataset.contentType || 'movie';
+            const rev = (_allReviews || []).find(r => r.id === rid);
+            const text = rev ? (rev.text || '') : '';
+            editReview(rid, stars, text, title, contentId, contentType);
+        });
+    }
 
     // Expandir texto
     if (isTruncated) {
@@ -1232,6 +1273,70 @@ window.openFullReview = openFullReview;
 // ===========================================================
 // ADMIN: ELIMINAR RESEÑA
 // ===========================================================
+export function editReview(reviewId, stars, text, contentTitle, contentId, contentType) {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const reviewModal = document.getElementById('review-form-modal');
+    if (!reviewModal) return;
+
+    resetReviewForm();
+    editingReviewId = reviewId;
+
+    // Ocultar buscador, mostrar título fijo
+    const inputContainer = document.querySelector('.custom-select-input-container');
+    const selectedDisplay = document.getElementById('review-selected-display');
+    const selectedTitle = document.getElementById('review-selected-title');
+    if (inputContainer) inputContainer.style.display = 'none';
+    if (selectedDisplay) selectedDisplay.style.display = 'block';
+    if (selectedTitle) selectedTitle.textContent = contentTitle || 'Editando reseña';
+
+    // Rellenar inputs ocultos para que el submit sepa qué contenido es
+    const hiddenId = document.getElementById('review-selected-id');
+    const hiddenType = document.getElementById('review-content-type');
+    if (hiddenId) hiddenId.value = contentId || reviewId;
+    if (hiddenType) hiddenType.value = contentType || 'movie';
+
+    // Pre-rellenar texto
+    const textInput = document.getElementById('review-text-input');
+    if (textInput) textInput.value = text;
+
+    // Pre-rellenar estrellas
+    const ratingInput = document.getElementById('review-rating-value');
+    const ratingLabel = document.getElementById('review-rating-label');
+    if (ratingInput) {
+        ratingInput.value = stars;
+        // Disparar evento para actualizar visuals
+        setTimeout(() => {
+            if (ratingInput.value) {
+                const val = parseFloat(ratingInput.value);
+                // Actualizar estrellas visuales manualmente
+                const container = document.getElementById('star-rating-input');
+                if (container) {
+                    container.querySelectorAll('.star-wrapper').forEach((wrapper, i) => {
+                        const icon = wrapper.querySelector('.star-icon');
+                        if (!icon) return;
+                        const diff = val - i;
+                        if (diff >= 1) { icon.className = 'fas fa-star star-icon'; icon.style.fontSize = '2rem'; icon.style.pointerEvents = 'none'; }
+                        else if (diff >= 0.5) { icon.className = 'fas fa-star-half-alt star-icon'; icon.style.fontSize = '2rem'; icon.style.pointerEvents = 'none'; }
+                        else { icon.className = 'far fa-star star-icon'; icon.style.fontSize = '2rem'; icon.style.pointerEvents = 'none'; }
+                    });
+                }
+            }
+        }, 50);
+    }
+    if (ratingLabel) ratingLabel.textContent = `${stars}/5`;
+
+    // Cambiar texto del botón submit
+    const submitBtn = DOM.reviewForm?.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.textContent = 'Actualizar Reseña';
+
+    reviewModal.classList.add('show');
+    document.body.classList.add('modal-open');
+}
+
+window.editReview = editReview;
+
 export function deleteReview(reviewId) {
     openConfirmationModal(
         "Eliminar Reseña",
