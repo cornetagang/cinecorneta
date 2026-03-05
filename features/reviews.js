@@ -1,8 +1,8 @@
 // ===========================================================
 // MÓDULO DE RESEÑAS (REVIEWS)
 // ===========================================================
-// Versión: 3.1
-// Fecha: 1 de Marzo 2026
+// Versión: 3.2
+// Fecha: 5 de Marzo 2026
 // ===========================================================
 
 let appState, DOM, auth, db, ErrorHandler, ModalManager, openConfirmationModal;
@@ -1019,10 +1019,16 @@ function createReviewCard(review, initialCommentCount = 0) {
                     <span class="rc-author-name">@${review.userName}</span>
                     <span class="rc-date">${date}</span>
                 </div>
-                <button class="rc-comment-toggle" data-review-id="${review.id}">
-                    <i class="far fa-comment"></i>
-                    <span>${initialCommentCount > 0 ? `${initialCommentCount} comentario${initialCommentCount !== 1 ? 's' : ''}` : 'Comentar'}</span>
-                </button>
+                <div class="rc-footer-actions">
+                    <button class="rc-like-btn" data-review-id="${review.id}">
+                        <i class="far fa-heart"></i>
+                        <span class="rc-like-count">0</span>
+                    </button>
+                    <button class="rc-comment-toggle" data-review-id="${review.id}">
+                        <i class="far fa-comment"></i>
+                        <span>${initialCommentCount > 0 ? `${initialCommentCount} comentario${initialCommentCount !== 1 ? 's' : ''}` : 'Comentar'}</span>
+                    </button>
+                </div>
             </div>
             <div class="rc-comments-area" style="display:none;">
                 <div class="crm-comments-list" id="comments-${review.id}">
@@ -1054,6 +1060,43 @@ function createReviewCard(review, initialCommentCount = 0) {
             const rev = (_allReviews || []).find(r => r.id === rid);
             const text = rev ? (rev.text || '') : '';
             editReview(rid, stars, text, title, contentId, contentType);
+        });
+    }
+
+    // Like button
+    const likeBtn = card.querySelector('.rc-like-btn');
+    const likeCountEl = likeBtn?.querySelector('.rc-like-count');
+    if (likeBtn && likeCountEl) {
+        const reviewId = review.id;
+        const uid = auth.currentUser?.uid;
+        const likesRef = db.ref(`review_likes/${reviewId}`);
+
+        // Escuchar cambios en tiempo real
+        likesRef.on('value', snap => {
+            const likes = snap.val() || {};
+            const count = Object.keys(likes).length;
+            likeCountEl.textContent = count;
+            if (uid && likes[uid]) {
+                likeBtn.classList.add('liked');
+                likeBtn.querySelector('i').className = 'fas fa-heart';
+            } else {
+                likeBtn.classList.remove('liked');
+                likeBtn.querySelector('i').className = 'far fa-heart';
+            }
+        });
+
+        likeBtn.addEventListener('click', async () => {
+            if (!auth.currentUser) {
+                if (window.showNotification) window.showNotification('Inicia sesión para dar like', 'info');
+                return;
+            }
+            const myLikeRef = db.ref(`review_likes/${reviewId}/${uid}`);
+            const snap = await myLikeRef.once('value');
+            if (snap.exists()) {
+                await myLikeRef.remove();
+            } else {
+                await myLikeRef.set(true);
+            }
         });
     }
 
