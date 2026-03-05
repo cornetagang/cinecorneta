@@ -3201,6 +3201,42 @@ body.modal-open { overflow: hidden; }
     #series-player-modal .episode-list-container::-webkit-scrollbar {
         display: none;
     }
+
+    /* Episodios en móvil: grid — miniatura+título arriba, sinopsis abajo full width */
+    .episode-card {
+        display: grid;
+        grid-template-columns: 120px 1fr;
+        grid-template-rows: auto auto;
+        grid-template-areas:
+            "thumb info"
+            "desc  desc";
+        gap: 6px 10px;
+    }
+    .episode-card-thumb {
+        grid-area: thumb;
+        width: 120px;
+        height: 67px;
+    }
+    /* display:contents hace que h3 y .episode-description sean hijos directos del grid */
+    .episode-card-info {
+        grid-area: info;
+        display: contents;
+    }
+    .episode-card-info h3 {
+        grid-area: info;
+        align-self: center;
+        margin: 0;
+    }
+    .episode-description {
+        grid-area: desc;
+        display: block;
+        -webkit-line-clamp: unset;
+        max-height: none;
+        overflow: visible;
+        color: var(--text-muted);
+        font-size: 0.82rem;
+        line-height: 1.4;
+    }
     
     .filter-controls {
         display: grid !important;      /* Forzamos GRID */
@@ -4649,6 +4685,46 @@ body.tab-inactive iframe {
 .rc-read-more:hover { color: #c4b5fd; }
 
 /* Footer: autor + boton comentar */
+/* Likes en reseñas */
+.rc-footer-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.rc-like-btn {
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.85rem;
+    padding: 4px 8px;
+    border-radius: 20px;
+    transition: all 0.2s ease;
+}
+.rc-like-btn:hover {
+    color: #e05555;
+    background: rgba(224, 85, 85, 0.08);
+}
+.rc-like-btn.liked {
+    color: #e05555;
+}
+.rc-like-btn.liked i {
+    animation: likepop 0.25s ease;
+}
+.rc-like-count {
+    font-size: 0.8rem;
+    min-width: 8px;
+}
+@keyframes likepop {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.4); }
+    100% { transform: scale(1); }
+}
+
 .rc-footer {
     display: flex;
     align-items: center;
@@ -4841,6 +4917,8 @@ body.tab-inactive iframe {
     .rc-poster { width: 60px; height: 88px; }
     .rc-movie-title { font-size: 1.2rem; }
     .rc-footer { flex-direction: column; align-items: flex-start; }
+    .rc-author { flex-wrap: wrap; }
+    .rc-date { order: 3; width: 100%; font-size: 0.75rem; margin-top: 2px; color: #888; }
     
     /* 4. Cabecera de la reseña (Autor/Estrellas) */
     .review-header {
