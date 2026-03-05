@@ -1,8 +1,8 @@
 // ===========================================================
 // MÓDULO DE RESEÑAS (REVIEWS)
 // ===========================================================
-// Versión: 3.2
-// Fecha: 5 de Marzo 2026
+// Versión: 3.0
+// Fecha: 1 de Marzo 2026
 // ===========================================================
 
 let appState, DOM, auth, db, ErrorHandler, ModalManager, openConfirmationModal;
@@ -522,11 +522,12 @@ async function handleReviewSubmit(e) {
             userId: user.uid,
             userName: user.displayName || 'Usuario',
             userEmail: user.email,
+            userPhotoURL: user.photoURL || null,
             contentId: contentId,
-            contentType: contentType, // 🔥 GUARDAMOS EL TIPO AHORA
+            contentType: contentType,
             contentTitle: itemData ? itemData.title : 'Desconocido',
             poster: itemData ? itemData.poster : '',
-            banner: itemData ? itemData.banner : '', // 🔥 GUARDAMOS EL BANNER
+            banner: itemData ? itemData.banner : '',
             stars: parseFloat(rating),
             text: text,
             timestamp: firebase.database.ServerValue.TIMESTAMP
@@ -666,11 +667,18 @@ export function renderReviewsGrid() {
         reviews.reverse();
 
         // --- Estado global ---
+        // Solo reiniciar filtros en la primera carga; en actualizaciones en tiempo real
+        // se preserva el filtro activo para no interrumpir al usuario.
+        const isFirstLoad = (_allReviews.length === 0);
         _allReviews = reviews;
-        _filteredReviews = reviews;
-        _activeTab = 'all';
-        _activeStarFilter = 'all';
-        _activeUserFilter = '';
+
+        if (isFirstLoad) {
+            _filteredReviews = reviews;
+            _activeTab = 'all';
+            _activeStarFilter = 'all';
+            _activeUserFilter = '';
+            _currentPage = 1;
+        }
 
         // --- Estadísticas ---
         _renderStatsPanel(reviews);
@@ -687,7 +695,8 @@ export function renderReviewsGrid() {
             });
         }
 
-        _renderFiltered();
+        // Re-aplica el filtro actual (preserva selección del usuario en actualizaciones)
+        _applyAllFilters();
     });
 }
 
@@ -939,12 +948,14 @@ function _renderStatsPanel(reviews) {
 
     // Botones de filtro
     document.querySelectorAll('.rsf-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
+        // Usar onclick en lugar de addEventListener para evitar acumulación de
+        // listeners duplicados cada vez que Firebase dispara una actualización.
+        btn.onclick = () => {
             document.querySelectorAll('.rsf-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             const val = btn.dataset.stars;
             _applyStarFilter(val === 'all' ? 'all' : parseFloat(val));
-        });
+        };
     });
 }
 
@@ -1015,8 +1026,13 @@ function createReviewCard(review, initialCommentCount = 0) {
             ${isTruncated ? `<button class="rc-read-more">Leer reseña completa <i class="fas fa-chevron-down"></i></button>` : ''}
             <div class="rc-footer">
                 <div class="rc-author">
-                    <i class="fas fa-user-circle rc-author-icon"></i>
-                    <span class="rc-author-name">@${review.userName}</span>
+                    ${(() => {
+                        const photo = review.userPhotoURL || (auth.currentUser?.uid === review.userId ? auth.currentUser?.photoURL : null);
+                        return photo
+                            ? `<img src="${photo}" class="rc-author-photo" alt="${review.userName}">`
+                            : `<i class="fas fa-user-circle rc-author-icon"></i>`;
+                    })()}
+                    <span class="rc-author-name rc-author-link" data-userid="${review.userId}" data-username="${review.userName}" data-photo="${review.userPhotoURL || (auth.currentUser?.uid === review.userId ? auth.currentUser?.photoURL : '') || ''}">@${review.userName}</span>
                     <span class="rc-date">${date}</span>
                 </div>
                 <div class="rc-footer-actions">
@@ -1038,17 +1054,41 @@ function createReviewCard(review, initialCommentCount = 0) {
                 <div class="crm-comment-input-row">
                     <i class="fas fa-user-circle crm-comment-input-avatar"></i>
                     <div class="crm-comment-input-wrap">
-                        <textarea class="crm-comment-input" placeholder="Añade un comentario..." rows="1"></textarea>
-                        <button class="crm-comment-send" data-review-id="${review.id}">
-                            <i class="fas fa-paper-plane"></i>
-                        </button>
+                        <div class="crm-media-previews">
+                            <div class="crm-img-preview-wrap" style="display:none;">
+                                <img class="crm-img-preview" src="" alt="preview">
+                                <button class="crm-img-remove" title="Quitar imagen"><i class="fas fa-times"></i></button>
+                            </div>
+                            <div class="crm-gif-preview-wrap" style="display:none;">
+                                <img class="crm-gif-preview" src="" alt="gif preview">
+                                <button class="crm-gif-preview-remove" title="Quitar GIF"><i class="fas fa-times"></i></button>
+                            </div>
+                        </div>
+                        <div class="crm-gif-picker" style="display:none;">
+                            <div class="crm-gif-search-row">
+                                <input type="text" class="crm-gif-search-input" placeholder="Buscar GIF...">
+                                <button class="crm-gif-close" type="button"><i class="fas fa-times"></i></button>
+                            </div>
+                            <div class="crm-gif-results"></div>
+                        </div>
+                        <div class="crm-input-row">
+                            <textarea class="crm-comment-input" placeholder="Añade un comentario..." rows="1"></textarea>
+                            <label class="crm-img-btn" title="Adjuntar imagen">
+                                <i class="fas fa-image"></i>
+                                <input type="file" class="crm-img-input" accept="image/*" style="display:none;">
+                            </label>
+                            <button class="crm-gif-btn" title="Buscar GIF" type="button">GIF</button>
+                            <button class="crm-comment-send" data-review-id="${review.id}">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>` : `<p class="crm-login-hint"><i class="fas fa-lock"></i> Inicia sesión para comentar</p>`}
             </div>
         </div>
     `;
 
-    // Botón editar (usa data attributes para evitar problemas con caracteres especiales)
+    // Botón editar
     const editBtn = card.querySelector('.btn-edit-review');
     if (editBtn) {
         editBtn.addEventListener('click', () => {
@@ -1063,15 +1103,13 @@ function createReviewCard(review, initialCommentCount = 0) {
         });
     }
 
-    // Like button
+    // Botón like
     const likeBtn = card.querySelector('.rc-like-btn');
     const likeCountEl = likeBtn?.querySelector('.rc-like-count');
     if (likeBtn && likeCountEl) {
         const reviewId = review.id;
         const uid = auth.currentUser?.uid;
         const likesRef = db.ref(`review_likes/${reviewId}`);
-
-        // Escuchar cambios en tiempo real
         likesRef.on('value', snap => {
             const likes = snap.val() || {};
             const count = Object.keys(likes).length;
@@ -1084,7 +1122,6 @@ function createReviewCard(review, initialCommentCount = 0) {
                 likeBtn.querySelector('i').className = 'far fa-heart';
             }
         });
-
         likeBtn.addEventListener('click', async () => {
             if (!auth.currentUser) {
                 if (window.showNotification) window.showNotification('Inicia sesión para dar like', 'info');
@@ -1092,11 +1129,8 @@ function createReviewCard(review, initialCommentCount = 0) {
             }
             const myLikeRef = db.ref(`review_likes/${reviewId}/${uid}`);
             const snap = await myLikeRef.once('value');
-            if (snap.exists()) {
-                await myLikeRef.remove();
-            } else {
-                await myLikeRef.set(true);
-            }
+            if (snap.exists()) await myLikeRef.remove();
+            else await myLikeRef.set(true);
         });
     }
 
@@ -1155,24 +1189,216 @@ function createReviewCard(review, initialCommentCount = 0) {
         inputEl.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendBtn.click(); }
         });
+        // Imagen adjunta
+        const imgInput = card.querySelector('.crm-img-input');
+        const imgPreviewWrap = card.querySelector('.crm-img-preview-wrap');
+        const imgPreview = card.querySelector('.crm-img-preview');
+        const imgRemoveBtn = card.querySelector('.crm-img-remove');
+        let pendingImageFile = null;
+
+        if (imgInput) {
+            imgInput.addEventListener('change', () => {
+                const file = imgInput.files[0];
+                if (!file) return;
+                if (file.size > 5 * 1024 * 1024) {
+                    if (window.showNotification) window.showNotification('La imagen no puede superar 5MB', 'error');
+                    return;
+                }
+                pendingImageFile = file;
+                const reader = new FileReader();
+                reader.onload = e => {
+                    imgPreview.src = e.target.result;
+                    imgPreviewWrap.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        if (imgRemoveBtn) {
+            imgRemoveBtn.addEventListener('click', () => {
+                pendingImageFile = null;
+                imgPreviewWrap.style.display = 'none';
+                imgPreview.src = '';
+                if (imgInput) imgInput.value = '';
+            });
+        }
+
+        // GIF picker
+        const gifBtn = card.querySelector('.crm-gif-btn');
+        const gifPicker = card.querySelector('.crm-gif-picker');
+        const gifSearchInput = card.querySelector('.crm-gif-search-input');
+        const gifResults = card.querySelector('.crm-gif-results');
+        const gifClose = card.querySelector('.crm-gif-close');
+        const GIPHY_KEY = 'XYG1rqTv26FibnEq5SRJeGPeAPegvn3q';
+        const GIF_LIMIT = 24;
+        let gifSearchTimeout = null;
+        let pendingGifUrl = null;
+        let gifCurrentQuery = '';
+        let gifOffset = 0;
+        let gifHasMore = true;
+        let gifLoading = false;
+
+        async function searchGifs(query, offset = 0) {
+            const endpoint = query
+                ? `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_KEY}&q=${encodeURIComponent(query)}&limit=${GIF_LIMIT}&offset=${offset}&rating=r`
+                : `https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_KEY}&limit=${GIF_LIMIT}&offset=${offset}&rating=r`;
+            const res = await fetch(endpoint);
+            const data = await res.json();
+            gifHasMore = (data.pagination?.total_count || 0) > offset + GIF_LIMIT;
+            return data.data || [];
+        }
+
+        function appendGifs(gifs) {
+            // Eliminar botón "Cargar más" si existe
+            const oldBtn = gifResults.querySelector('.crm-gif-more-btn');
+            if (oldBtn) oldBtn.remove();
+
+            gifs.forEach(gif => {
+                const img = document.createElement('img');
+                img.src = gif.images.fixed_height_small.url;
+                img.className = 'crm-gif-item';
+                img.addEventListener('click', () => {
+                    pendingGifUrl = gif.images.downsized.url;
+                    const gifPreviewEl = card.querySelector('.crm-gif-preview');
+                    const gifPreviewWrap = card.querySelector('.crm-gif-preview-wrap');
+                    if (gifPreviewEl) gifPreviewEl.src = pendingGifUrl;
+                    if (gifPreviewWrap) gifPreviewWrap.style.display = 'block';
+                    gifPicker.style.display = 'none';
+                });
+                gifResults.appendChild(img);
+            });
+
+            // Botón "Cargar más" si hay más resultados
+            if (gifHasMore) {
+                const moreBtn = document.createElement('button');
+                moreBtn.className = 'crm-gif-more-btn';
+                moreBtn.innerHTML = '<i class="fas fa-plus"></i> Cargar más';
+                moreBtn.addEventListener('click', async () => {
+                    if (gifLoading) return;
+                    gifLoading = true;
+                    moreBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                    gifOffset += GIF_LIMIT;
+                    const more = await searchGifs(gifCurrentQuery, gifOffset);
+                    gifLoading = false;
+                    appendGifs(more);
+                });
+                gifResults.appendChild(moreBtn);
+            }
+        }
+
+        async function renderGifs(query = '') {
+            gifCurrentQuery = query;
+            gifOffset = 0;
+            gifResults.innerHTML = '<div class="crm-gif-loading"><i class="fas fa-spinner fa-spin"></i></div>';
+            const gifs = await searchGifs(query, 0);
+            gifResults.innerHTML = '';
+            appendGifs(gifs);
+        }
+
+        if (gifBtn) {
+            gifBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isOpen = gifPicker.style.display !== 'none';
+                gifPicker.style.display = isOpen ? 'none' : 'block';
+                if (isOpen) {
+                    // Al cerrar: limpiar búsqueda y resultados
+                    if (gifSearchInput) gifSearchInput.value = '';
+                    gifResults.innerHTML = '';
+                    gifCurrentQuery = '';
+                    gifOffset = 0;
+                } else {
+                    // Al abrir: mostrar trending desde cero
+                    if (gifSearchInput) gifSearchInput.value = '';
+                    renderGifs();
+                }
+            });
+        }
+        if (gifClose) gifClose.addEventListener('click', () => {
+            gifPicker.style.display = 'none';
+            if (gifSearchInput) gifSearchInput.value = '';
+            gifResults.innerHTML = '';
+            gifCurrentQuery = '';
+            gifOffset = 0;
+        });
+        if (gifSearchInput) {
+            gifSearchInput.addEventListener('input', () => {
+                clearTimeout(gifSearchTimeout);
+                gifSearchTimeout = setTimeout(() => renderGifs(gifSearchInput.value.trim()), 400);
+            });
+        }
+
+        // Botón quitar imagen
+        if (imgRemoveBtn) {
+            imgRemoveBtn.onclick = () => {
+                pendingImageFile = null;
+                imgPreviewWrap.style.display = 'none';
+                imgPreview.src = '';
+                if (imgInput) imgInput.value = '';
+            };
+        }
+
+        // Botón quitar GIF
+        const gifPreviewRemove = card.querySelector('.crm-gif-preview-remove');
+        const gifPreviewWrapEl = card.querySelector('.crm-gif-preview-wrap');
+        const gifPreviewEl = card.querySelector('.crm-gif-preview');
+        if (gifPreviewRemove) {
+            gifPreviewRemove.onclick = () => {
+                pendingGifUrl = null;
+                if (gifPreviewWrapEl) gifPreviewWrapEl.style.display = 'none';
+                if (gifPreviewEl) gifPreviewEl.src = '';
+            };
+        }
+
         sendBtn.addEventListener('click', async (e) => {
             e.stopPropagation();
             const text = inputEl.value.trim();
-            if (!text) return;
+            const hasContent = text || pendingImageFile || pendingGifUrl;
+            if (!hasContent) return;
             sendBtn.disabled = true;
             sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
             try {
-                await db.ref(`review_comments/${review.id}`).push({
+                let imageUrl = null;
+
+                // Subir imagen a Cloudinary (el gif se guarda por separado)
+                if (pendingImageFile) {
+                    const formData = new FormData();
+                    formData.append('file', pendingImageFile);
+                    formData.append('upload_preset', 'cinecorneta');
+                    formData.append('folder', 'comment_media');
+                    const res = await fetch('https://api.cloudinary.com/v1_1/djhgmmdjx/image/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await res.json();
+                    if (!data.secure_url) throw new Error('Error al subir imagen');
+                    imageUrl = data.secure_url;
+                }
+
+                const commentData = {
                     userId: auth.currentUser.uid,
                     userName: auth.currentUser.displayName || 'Usuario',
-                    text,
+                    text: text || '',
                     timestamp: firebase.database.ServerValue.TIMESTAMP
-                });
+                };
+                if (imageUrl) commentData.imageUrl = imageUrl;
+                if (pendingGifUrl) commentData.gifUrl = pendingGifUrl;
+
+                await db.ref(`review_comments/${review.id}`).push(commentData);
+
                 inputEl.value = '';
                 inputEl.style.height = 'auto';
-                if (!commentsLoaded) { commentsLoaded = true; loadComments(review.id, card); }
+                pendingImageFile = null;
+                pendingGifUrl = null;
+                imgPreviewWrap.style.display = 'none';
+                imgPreview.src = '';
+                if (imgInput) imgInput.value = '';
+                if (gifPreviewWrapEl) gifPreviewWrapEl.style.display = 'none';
+                if (gifPreviewEl) gifPreviewEl.src = '';
+                commentsLoaded = true;
+                loadComments(review.id, card);
             } catch (err) {
                 console.error('[Comments]', err);
+                if (window.showNotification) window.showNotification('Error al enviar el comentario', 'error');
             } finally {
                 sendBtn.disabled = false;
                 sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
@@ -1319,65 +1545,49 @@ window.openFullReview = openFullReview;
 export function editReview(reviewId, stars, text, contentTitle, contentId, contentType) {
     const user = auth.currentUser;
     if (!user) return;
-
     const reviewModal = document.getElementById('review-form-modal');
     if (!reviewModal) return;
-
     resetReviewForm();
     editingReviewId = reviewId;
-
-    // Ocultar buscador, mostrar título fijo
     const inputContainer = document.querySelector('.custom-select-input-container');
     const selectedDisplay = document.getElementById('review-selected-display');
     const selectedTitle = document.getElementById('review-selected-title');
     if (inputContainer) inputContainer.style.display = 'none';
     if (selectedDisplay) selectedDisplay.style.display = 'block';
     if (selectedTitle) selectedTitle.textContent = contentTitle || 'Editando reseña';
-
-    // Rellenar inputs ocultos para que el submit sepa qué contenido es
     const hiddenId = document.getElementById('review-selected-id');
     const hiddenType = document.getElementById('review-content-type');
     if (hiddenId) hiddenId.value = contentId || reviewId;
     if (hiddenType) hiddenType.value = contentType || 'movie';
-
-    // Pre-rellenar texto
     const textInput = document.getElementById('review-text-input');
     if (textInput) textInput.value = text;
-
-    // Pre-rellenar estrellas
     const ratingInput = document.getElementById('review-rating-value');
     const ratingLabel = document.getElementById('review-rating-label');
     if (ratingInput) {
         ratingInput.value = stars;
-        // Disparar evento para actualizar visuals
         setTimeout(() => {
-            if (ratingInput.value) {
-                const val = parseFloat(ratingInput.value);
-                // Actualizar estrellas visuales manualmente
-                const container = document.getElementById('star-rating-input');
-                if (container) {
-                    container.querySelectorAll('.star-wrapper').forEach((wrapper, i) => {
-                        const icon = wrapper.querySelector('.star-icon');
-                        if (!icon) return;
-                        const diff = val - i;
-                        if (diff >= 1) { icon.className = 'fas fa-star star-icon'; icon.style.fontSize = '2rem'; icon.style.pointerEvents = 'none'; }
-                        else if (diff >= 0.5) { icon.className = 'fas fa-star-half-alt star-icon'; icon.style.fontSize = '2rem'; icon.style.pointerEvents = 'none'; }
-                        else { icon.className = 'far fa-star star-icon'; icon.style.fontSize = '2rem'; icon.style.pointerEvents = 'none'; }
-                    });
-                }
+            const val = parseFloat(stars);
+            const container = document.getElementById('star-rating-input');
+            if (container) {
+                container.querySelectorAll('.star-wrapper').forEach((wrapper, i) => {
+                    const icon = wrapper.querySelector('.star-icon');
+                    if (!icon) return;
+                    const diff = val - i;
+                    if (diff >= 1) icon.className = 'fas fa-star star-icon';
+                    else if (diff >= 0.5) icon.className = 'fas fa-star-half-alt star-icon';
+                    else icon.className = 'far fa-star star-icon';
+                    icon.style.fontSize = '2rem';
+                    icon.style.pointerEvents = 'none';
+                });
             }
         }, 50);
     }
     if (ratingLabel) ratingLabel.textContent = `${stars}/5`;
-
-    // Cambiar texto del botón submit
     const submitBtn = DOM.reviewForm?.querySelector('button[type="submit"]');
     if (submitBtn) submitBtn.textContent = 'Actualizar Reseña';
-
     reviewModal.classList.add('show');
     document.body.classList.add('modal-open');
 }
-
 window.editReview = editReview;
 
 export function deleteReview(reviewId) {
@@ -1573,7 +1783,12 @@ export async function openContentReviews(contentId, contentTitle) {
             card.innerHTML = `
                 <div class="crm-card-header">
                     <div class="crm-card-user">
-                        <i class="fas fa-user-circle crm-user-icon"></i>
+                        ${(() => {
+                            const photo = review.userPhotoURL || (auth.currentUser?.uid === review.userId ? auth.currentUser?.photoURL : null);
+                            return photo
+                                ? `<img src="${photo}" class="crm-user-photo" alt="${review.userName}">`
+                                : `<i class="fas fa-user-circle crm-user-icon"></i>`;
+                        })()}
                         <span class="crm-username">@${review.userName}</span>
                         <span class="crm-date">${date}</span>
                     </div>
@@ -1700,13 +1915,15 @@ export async function openContentReviews(contentId, contentTitle) {
 // COMENTARIOS DE RESEÑAS
 // ===========================================================
 function loadComments(reviewId, card, onCountUpdate = null) {
-    const listEl = card.querySelector(`#comments-${reviewId}`);
+    const listEl = card.querySelector(`[id="comments-${reviewId}"]`);
     if (!listEl) return;
 
     const isAdmin = auth.currentUser && auth.currentUser.email === 'baquezadat@gmail.com';
     const currentUid = auth.currentUser ? auth.currentUser.uid : null;
 
-    db.ref(`review_comments/${reviewId}`).orderByChild('timestamp').on('value', snapshot => {
+    // Sin orderByChild para evitar dependencia de índice en Firebase;
+    // el orden cronológico se aplica en cliente.
+    db.ref(`review_comments/${reviewId}`).once('value').then(snapshot => {
         listEl.innerHTML = '';
 
         if (!snapshot.exists()) {
@@ -1716,10 +1933,17 @@ function loadComments(reviewId, card, onCountUpdate = null) {
         }
 
         const comments = [];
-        snapshot.forEach(child => comments.push({ id: child.key, ...child.val() }));
+        snapshot.forEach(child => {
+            const val = child.val();
+            if (val) comments.push({ id: child.key, ...val });
+        });
+
+        // Ordenar por timestamp en cliente (evita necesidad de índice en Firebase)
+        comments.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
 
         if (onCountUpdate) onCountUpdate(comments.length);
 
+        const fragment = document.createDocumentFragment();
         comments.forEach(comment => {
             const date = comment.timestamp
                 ? new Date(comment.timestamp).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -1740,18 +1964,48 @@ function loadComments(reviewId, card, onCountUpdate = null) {
                         <span class="crm-comment-date">${date}</span>
                         ${deleteBtn}
                     </div>
-                    <p class="crm-comment-text">${comment.text}</p>
+                    ${comment.text ? `<p class="crm-comment-text">${comment.text}</p>` : ''}
+                    ${comment.imageUrl ? `<img class="crm-comment-img" src="${comment.imageUrl}" alt="imagen" loading="lazy">` : ''}
+                    ${comment.gifUrl ? `<img class="crm-comment-img crm-comment-gif" src="${comment.gifUrl}" alt="gif" loading="lazy">` : ''}
                 </div>
             `;
-            listEl.appendChild(el);
+            // Lightbox al click en imagen
+            const imgEl = el.querySelector('.crm-comment-img');
+            if (imgEl) {
+                imgEl.addEventListener('click', () => {
+                    const lb = document.createElement('div');
+                    lb.className = 'crm-lightbox';
+                    lb.innerHTML = `<img src="${imgEl.src}" alt="imagen">`;
+                    lb.addEventListener('click', () => lb.remove());
+                    document.body.appendChild(lb);
+                });
+            }
+
+            fragment.appendChild(el);
         });
-    });
+        listEl.appendChild(fragment);
+    }).catch(err => console.error('[Comments] Error cargando:', err));
 }
 
 export function deleteReviewComment(reviewId, commentId) {
     openConfirmationModal('¿Borrar comentario?', 'Esta acción no se puede deshacer.', async () => {
         try {
             await db.ref(`review_comments/${reviewId}/${commentId}`).remove();
+
+            // Eliminar el elemento del DOM inmediatamente sin recargar
+            const listEl = document.getElementById(`comments-${reviewId}`);
+            if (listEl) {
+                const items = listEl.querySelectorAll('.crm-comment-item');
+                items.forEach(item => {
+                    const delBtn = item.querySelector('.crm-comment-delete');
+                    if (delBtn && (delBtn.getAttribute('onclick') || '').includes(commentId)) {
+                        item.remove();
+                    }
+                });
+                if (listEl.querySelectorAll('.crm-comment-item').length === 0) {
+                    listEl.innerHTML = '<p class="crm-no-comments">Sé el primero en comentar.</p>';
+                }
+            }
         } catch (err) {
             console.error('[Comments] Error al borrar:', err);
         }
@@ -1762,6 +2016,124 @@ window.deleteReviewComment = deleteReviewComment;
 window.openContentReviews = openContentReviews;
 
 // ===========================================================
+// MODAL: PERFIL PÚBLICO DE USUARIO
+// ===========================================================
+export async function openUserProfile(userId, userName, photoURL) {
+    const modal = document.getElementById('user-profile-modal');
+    if (!modal) return;
+
+    // Reset UI
+    document.getElementById('upm-username').textContent = `@${userName}`;
+    document.getElementById('upm-loading').style.display = 'flex';
+    document.getElementById('upm-empty').style.display = 'none';
+    document.getElementById('upm-tabs').style.display = 'none';
+    document.getElementById('upm-movies-grid').innerHTML = '';
+    document.getElementById('upm-series-grid').innerHTML = '';
+    document.getElementById('upm-stat-movies').innerHTML = '<i class="fas fa-film"></i> <b>0</b> Películas';
+    document.getElementById('upm-stat-series').innerHTML = '<i class="fas fa-tv"></i> <b>0</b> Series';
+
+    // Avatar
+    const avatarImg = document.getElementById('upm-avatar');
+    const avatarPh  = document.getElementById('upm-avatar-placeholder');
+    if (photoURL) {
+        avatarImg.src = photoURL;
+        avatarImg.style.display = 'block';
+        avatarPh.style.display = 'none';
+    } else {
+        avatarImg.style.display = 'none';
+        avatarPh.style.display = 'flex';
+    }
+
+    ModalManager.open(modal, { closeOnEsc: true, nested: true });
+
+    try {
+        const snap = await db.ref(`users/${userId}/history`).once('value');
+        document.getElementById('upm-loading').style.display = 'none';
+
+        if (!snap.exists()) {
+            document.getElementById('upm-empty').style.display = 'flex';
+            return;
+        }
+
+        const movies = [], series = [];
+        snap.forEach(child => {
+            const item = child.val();
+            if (item.type === 'series') series.push(item);
+            else movies.push(item);
+        });
+
+        // Sort by viewedAt desc
+        const byDate = (a, b) => (b.viewedAt || 0) - (a.viewedAt || 0);
+        movies.sort(byDate);
+        series.sort(byDate);
+
+        document.getElementById('upm-stat-movies').innerHTML = `<i class="fas fa-film"></i> <b>${movies.length}</b> Película${movies.length !== 1 ? 's' : ''}`;
+        document.getElementById('upm-stat-series').innerHTML = `<i class="fas fa-tv"></i> <b>${series.length}</b> Serie${series.length !== 1 ? 's' : ''}`;
+
+        if (movies.length === 0 && series.length === 0) {
+            document.getElementById('upm-empty').style.display = 'flex';
+            return;
+        }
+
+        document.getElementById('upm-tabs').style.display = 'flex';
+
+        const renderGrid = (items, gridId) => {
+            const grid = document.getElementById(gridId);
+            grid.innerHTML = '';
+            if (items.length === 0) {
+                grid.innerHTML = '<p class="upm-no-items">Sin contenido aún.</p>';
+                return;
+            }
+            items.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'upm-card';
+                card.innerHTML = `
+                    <img src="${item.poster || ''}" alt="${item.title}" class="upm-card-poster"
+                         onerror="this.src='https://res.cloudinary.com/djhgmmdjx/image/upload/v1759209689/u71QEFc_bet4rv.png'">
+                    <p class="upm-card-title">${item.title || ''}</p>
+                `;
+                grid.appendChild(card);
+            });
+        };
+
+        renderGrid(movies, 'upm-movies-grid');
+        renderGrid(series, 'upm-series-grid');
+
+        // Tabs logic
+        const tabs = document.querySelectorAll('.upm-tab');
+        tabs.forEach(tab => {
+            tab.onclick = () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                const isMovies = tab.dataset.tab === 'movies';
+                document.getElementById('upm-movies-grid').style.display = isMovies ? 'grid' : 'none';
+                document.getElementById('upm-series-grid').style.display = isMovies ? 'none' : 'grid';
+            };
+        });
+
+        // Start on movies tab
+        document.getElementById('upm-movies-grid').style.display = 'grid';
+        document.getElementById('upm-series-grid').style.display = 'none';
+
+    } catch (err) {
+        console.error('[UserProfile]', err);
+        document.getElementById('upm-loading').style.display = 'none';
+        document.getElementById('upm-empty').style.display = 'flex';
+    }
+}
+
+window.openUserProfile = openUserProfile;
+
+// Click delegation for author links (works for dynamically created cards)
+document.addEventListener('click', (e) => {
+    const link = e.target.closest('.rc-author-link');
+    if (!link) return;
+    e.stopPropagation();
+    const { userid, username, photo } = link.dataset;
+    if (userid) openUserProfile(userid, username, photo);
+});
+
+// ===========================================================
 // EXPORTACIONES
 // ===========================================================
 export default {
@@ -1770,6 +2142,7 @@ export default {
     openReviewModal,
     openFullReview,
     openContentReviews,
+    openUserProfile,
     deleteReview,
     getStarsHTML
 };
