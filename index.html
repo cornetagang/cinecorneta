@@ -641,9 +641,46 @@
 
     <div id="toast-container"></div>
 
+    <!-- MODAL: PERFIL DE USUARIO -->
+    <div id="user-profile-modal" class="modal">
+        <div class="upm-content">
+            <button class="close-btn" onclick="closeAllModals()">&times;</button>
+            <div class="upm-header" id="upm-header">
+                <div class="upm-header-overlay"></div>
+                <div class="upm-header-info">
+                    <div class="upm-avatar-wrap">
+                        <img id="upm-avatar" src="" alt="avatar" class="upm-avatar" style="display:none">
+                        <div id="upm-avatar-placeholder" class="upm-avatar-placeholder"><i class="fas fa-user-circle"></i></div>
+                    </div>
+                    <div>
+                        <h2 id="upm-username" class="upm-username"></h2>
+                        <div class="upm-stats-row">
+                            <span id="upm-stat-movies"><i class="fas fa-film"></i> <b>0</b> Películas</span>
+                            <span id="upm-stat-series"><i class="fas fa-tv"></i> <b>0</b> Series</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="upm-body">
+                <div id="upm-loading" class="upm-loading"><i class="fas fa-spinner fa-spin"></i></div>
+                <div id="upm-empty" class="upm-empty" style="display:none">
+                    <i class="far fa-film"></i>
+                    <p>Este usuario no tiene actividad aún.</p>
+                </div>
+                <div id="upm-tabs" class="upm-tabs" style="display:none">
+                    <button class="upm-tab active" data-tab="movies">Películas</button>
+                    <button class="upm-tab" data-tab="series">Series</button>
+                </div>
+                <div id="upm-movies-grid" class="upm-grid"></div>
+                <div id="upm-series-grid" class="upm-grid" style="display:none"></div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
     <script src="script.js?v=8" type="module" defer></script>
 </body>
 </html>
