@@ -58,14 +58,16 @@ export function setupUserDropdown() {
 // 3. RENDERIZAR PERFIL (CORREGIDO)
 export function renderProfile() {
     const user = shared.auth.currentUser;
-    if (!user) return; // Salida inmediata si es invitado
+    if (!user) return;
 
     const usernameEl = document.getElementById('profile-username');
     const emailEl = document.getElementById('profile-email');
 
-    // Solo actualizar si los elementos existen en el DOM actual
     if (usernameEl) usernameEl.textContent = user.displayName || 'Usuario';
     if (emailEl) emailEl.textContent = user.email;
+
+    // Mostrar foto de perfil si existe
+    _updateAvatarUI(user.photoURL);
 
     calculateAndDisplayUserStats();
 }
@@ -76,7 +78,6 @@ export function renderProfile() {
 export function renderSettings() {
     const settingsContainer = document.getElementById('settings-container');
     
-    // A. SOLUCIÓN AL "A VECES NO CARGA":
     if (!shared.auth.currentUser) {
         if (settingsContainer) {
             settingsContainer.innerHTML = '<div class="spinner" style="margin: 50px auto;"></div>';
@@ -87,11 +88,30 @@ export function renderSettings() {
 
     const user = shared.auth.currentUser;
 
-    // B. RESTAURAR FORMULARIO
     if (settingsContainer) {
          settingsContainer.innerHTML = `
             <div class="content-header"><h1 class="main-title">Ajustes</h1></div>
             <div class="settings-form-wrapper">
+                <div class="settings-group settings-group--avatar">
+                    <label>Foto de perfil</label>
+                    <div class="avatar-upload-row">
+                        <div class="avatar-preview-wrap" id="avatar-preview-wrap">
+                            ${user.photoURL
+                                ? `<img src="${user.photoURL}" class="avatar-preview-img" id="avatar-preview-img" alt="foto de perfil">`
+                                : `<div class="avatar-preview-placeholder" id="avatar-preview-img"><i class="fas fa-user-circle"></i></div>`
+                            }
+                            <label class="avatar-upload-btn" for="avatar-file-input" title="Cambiar foto">
+                                <i class="fas fa-camera"></i>
+                            </label>
+                            <input type="file" id="avatar-file-input" accept="image/*" style="display:none">
+                        </div>
+                        <div class="avatar-upload-info">
+                            <p class="avatar-upload-hint">JPG, PNG o GIF · Máx. 5MB</p>
+                            <button id="avatar-upload-btn" class="btn-primary" disabled>Guardar foto</button>
+                            <p id="avatar-feedback" class="feedback-message" style="display:none"></p>
+                        </div>
+                    </div>
+                </div>
                 <div class="settings-group">
                     <label>Nombre de usuario</label>
                     <div class="input-with-button">
@@ -111,7 +131,10 @@ export function renderSettings() {
          `;
     }
 
-    // --- C. LÓGICA USUARIO NORMAL ---
+    // --- LÓGICA FOTO DE PERFIL ---
+    _setupAvatarUpload(user);
+
+    // --- LÓGICA USUARIO NORMAL ---
     const usernameInput = document.getElementById('settings-username-input');
     const passwordInput = document.getElementById('settings-password-input');
     const updateNameBtn = document.getElementById('update-username-btn');
@@ -160,7 +183,7 @@ export function renderSettings() {
         };
     }
 
-    // --- D. ZONA ADMIN (SIN DESCARGA DE DB) ---
+    // --- ZONA ADMIN ---
     const ADMIN_EMAILS = ['baquezadat@gmail.com']; 
 
     if (ADMIN_EMAILS.includes(user.email)) {
@@ -239,6 +262,107 @@ export function renderSettings() {
             loadAnnouncementLog();
         }
     }
+}
+
+// ===========================================================
+// FOTO DE PERFIL — HELPERS
+// ===========================================================
+function _updateAvatarUI(photoURL) {
+    const placeholder = document.querySelector('.profile-avatar-placeholder');
+    if (!placeholder) return;
+
+    if (photoURL) {
+        placeholder.innerHTML = `<img src="${photoURL}" alt="avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+        placeholder.style.padding = '0';
+        placeholder.style.overflow = 'hidden';
+    } else {
+        placeholder.innerHTML = `<i class="fas fa-user-circle"></i>`;
+    }
+}
+
+function _setupAvatarUpload(user) {
+    const fileInput = document.getElementById('avatar-file-input');
+    const uploadBtn = document.getElementById('avatar-upload-btn');
+    const feedback  = document.getElementById('avatar-feedback');
+    let pendingFile = null;
+
+    const showFb = (msg, ok = true) => {
+        if (!feedback) return;
+        feedback.textContent = msg;
+        feedback.style.color = ok ? '#46d369' : '#ff4444';
+        feedback.style.display = 'block';
+        setTimeout(() => feedback.style.display = 'none', 3500);
+    };
+
+    if (!fileInput || !uploadBtn) return;
+
+    fileInput.addEventListener('change', () => {
+        const file = fileInput.files[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) { showFb('La imagen no puede superar 5MB', false); return; }
+
+        pendingFile = file;
+        uploadBtn.disabled = false;
+
+        // Preview inmediato
+        const reader = new FileReader();
+        reader.onload = e => {
+            const wrap = document.getElementById('avatar-preview-wrap');
+            if (wrap) {
+                wrap.querySelector('#avatar-preview-img').outerHTML = `<img src="${e.target.result}" class="avatar-preview-img" id="avatar-preview-img" alt="preview">`;
+            }
+        };
+        reader.readAsDataURL(file);
+    });
+
+    uploadBtn.addEventListener('click', async () => {
+        if (!pendingFile) return;
+        uploadBtn.disabled = true;
+        uploadBtn.textContent = 'Subiendo...';
+
+        try {
+            // 1. Subir a Cloudinary
+            const formData = new FormData();
+            formData.append('file', pendingFile);
+            formData.append('upload_preset', 'cinecorneta');
+            formData.append('folder', 'profile_photos');
+            const res = await fetch('https://api.cloudinary.com/v1_1/djhgmmdjx/image/upload', {
+                method: 'POST', body: formData
+            });
+            const data = await res.json();
+            if (!data.secure_url) throw new Error('Error al subir imagen');
+
+            const photoURL = data.secure_url;
+
+            // 2. Actualizar Firebase Auth
+            await user.updateProfile({ photoURL });
+
+            // 3. Guardar en DB para referencia futura
+            await shared.db.ref(`users/${user.uid}`).update({ photoURL });
+
+            // 4. Actualizar userPhotoURL en todas las reseñas del usuario
+            const reviewsSnap = await shared.db.ref('reviews')
+                .orderByChild('userId').equalTo(user.uid).once('value');
+            if (reviewsSnap.exists()) {
+                const updates = {};
+                reviewsSnap.forEach(child => {
+                    updates[`reviews/${child.key}/userPhotoURL`] = photoURL;
+                });
+                await shared.db.ref().update(updates);
+            }
+
+            // 4. Actualizar UI
+            _updateAvatarUI(photoURL);
+            showFb('¡Foto actualizada correctamente!');
+            pendingFile = null;
+        } catch (err) {
+            console.error('[Avatar]', err);
+            showFb('Error al subir la foto', false);
+        } finally {
+            uploadBtn.disabled = false;
+            uploadBtn.textContent = 'Guardar foto';
+        }
+    });
 }
 
 // 5. HISTORIAL DE AVISOS (admin)
