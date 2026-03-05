@@ -4685,6 +4685,269 @@ body.tab-inactive iframe {
 .rc-read-more:hover { color: #c4b5fd; }
 
 /* Footer: autor + boton comentar */
+/* ─── Imagen en comentarios ─── */
+.crm-input-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid #333;
+    border-radius: 20px;
+    padding: 6px 10px;
+    box-sizing: border-box;
+}
+
+.crm-input-row .crm-comment-input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    color: #fff;
+    font-size: 0.88rem;
+    resize: none;
+    padding: 0;
+    line-height: 1.4;
+    max-height: 100px;
+}
+
+.crm-input-row .crm-comment-input::placeholder { color: #555; }
+
+/* ─── GIF picker ─── */
+.crm-gif-btn {
+    flex-shrink: 0;
+    width: 36px;
+    height: 32px;
+    background: rgba(255,255,255,0.06);
+    border: none;
+    border-radius: 6px;
+    color: #aaa;
+    font-size: 0.7rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+}
+.crm-gif-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+
+.crm-gif-picker {
+    background: #141414;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 12px;
+    width: 340px;
+    max-width: calc(100vw - 40px);
+    box-sizing: border-box;
+    box-shadow: 0 -8px 32px rgba(0,0,0,0.6);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    right: 0;
+    z-index: 100;
+}
+
+.crm-gif-search-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 10px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    overflow: hidden;
+    padding: 0 10px;
+}
+
+.crm-gif-search-row::before {
+    content: '\f002';
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+    color: #555;
+    font-size: 0.8rem;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+.crm-gif-search-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #fff;
+    padding: 9px 0;
+    font-size: 0.85rem;
+}
+.crm-gif-search-input::placeholder { color: #555; }
+
+.crm-gif-close {
+    background: none;
+    border: none;
+    color: #555;
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 4px;
+    line-height: 1;
+    transition: color 0.15s;
+    flex-shrink: 0;
+}
+.crm-gif-close:hover { color: #fff; }
+
+.crm-gif-results {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    max-height: 340px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #333 transparent;
+    border-radius: 8px;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+}
+.crm-gif-results::-webkit-scrollbar { width: 4px; }
+.crm-gif-results::-webkit-scrollbar-track { background: transparent; }
+.crm-gif-results::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+
+.crm-gif-item {
+    width: 100%;
+    aspect-ratio: 4/3;
+    object-fit: cover;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: transform 0.15s, brightness 0.15s;
+    display: block;
+}
+.crm-gif-item:hover { transform: scale(1.03); filter: brightness(1.1); }
+
+.crm-gif-more-btn {
+    grid-column: 1 / -1;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    color: #aaa;
+    font-size: 0.8rem;
+    padding: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 2px;
+}
+.crm-gif-more-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+
+.crm-gif-loading {
+    grid-column: 1/-1;
+    text-align: center;
+    color: #555;
+    padding: 30px;
+    font-size: 1.2rem;
+}
+
+.crm-img-btn {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.06);
+    border-radius: 6px;
+    color: #888;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.85rem;
+}
+.crm-img-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+
+.crm-media-previews {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.crm-gif-preview-wrap {
+    position: relative;
+    display: inline-block;
+}
+.crm-gif-preview {
+    max-height: 120px;
+    max-width: 100%;
+    border-radius: 8px;
+    object-fit: cover;
+    display: block;
+}
+.crm-gif-preview-remove {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(0,0,0,0.6);
+    border: none;
+    color: #fff;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 0.7rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.crm-img-preview-wrap {
+    position: relative;
+    margin-bottom: 8px;
+    display: inline-block;
+}
+.crm-img-preview {
+    max-height: 120px;
+    max-width: 100%;
+    border-radius: 8px;
+    object-fit: cover;
+    display: block;
+}
+.crm-img-remove {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(0,0,0,0.6);
+    border: none;
+    color: #fff;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 0.7rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.crm-comment-img {
+    max-width: min(100%, 400px);
+    height: auto;
+    border-radius: 8px;
+    margin-top: 6px;
+    display: block;
+    cursor: zoom-in;
+}
+.crm-comment-img:hover { opacity: 0.9; }
+
+/* ─── Lightbox simple al hacer click en imagen ─── */
+.crm-lightbox {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.88);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-out;
+}
+.crm-lightbox img {
+    max-width: 92vw;
+    max-height: 92vh;
+    border-radius: 8px;
+    object-fit: contain;
+}
+
 /* Likes en reseñas */
 .rc-footer-actions {
     display: flex;
@@ -4781,7 +5044,7 @@ body.tab-inactive iframe {
     padding-top: 16px;
     padding-right: 4px;
     margin-top: 6px;
-    overflow: hidden;
+    overflow: visible;
 }
 
 /* Botón borrar en review principal */
@@ -4909,35 +5172,52 @@ body.tab-inactive iframe {
         padding: 0 12px;
     }
 
+    /* Grid: poster+header en fila 1, texto/footer/comentarios full width debajo */
     .review-card {
-        gap: 14px;
-        padding: 20px 16px;
+        display: grid;
+        grid-template-columns: 56px 1fr;
+        grid-template-areas:
+            "poster header"
+            "text   text"
+            "footer footer"
+            "comments comments";
+        column-gap: 12px;
+        row-gap: 8px;
+        padding: 18px 14px;
     }
 
-    .rc-poster { width: 60px; height: 88px; }
-    .rc-movie-title { font-size: 1.2rem; }
-    .rc-footer { flex-direction: column; align-items: flex-start; }
-    .rc-author { flex-wrap: wrap; }
-    .rc-date { order: 3; width: 100%; font-size: 0.75rem; margin-top: 2px; color: #888; }
-    
-    /* 4. Cabecera de la reseña (Autor/Estrellas) */
-    .review-header {
-        flex-wrap: wrap; /* Si el nombre es largo, que baje */
+    .rc-poster-col { grid-area: poster; align-self: start; }
+    .rc-poster { width: 56px; height: 82px; }
+
+    /* Disolver rc-main para que sus hijos participen directo en el grid */
+    .rc-main { display: contents; }
+
+    .rc-header { grid-area: header; align-self: center; margin: 0; }
+    .rc-movie-title { font-size: 1.1rem; margin-bottom: 4px; }
+    .rc-text { grid-area: text; font-size: 0.88rem; line-height: 1.6; margin: 0; }
+    .rc-read-more { grid-column: 1 / -1; }
+    .rc-footer {
+        grid-area: footer;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: nowrap;
+        gap: 6px;
+        margin: 0;
     }
-    
-    /* 5. Botón "Leer reseña completa" visible en móviles */
+    .rc-comments-area { grid-area: comments; }
+    .rc-author { flex-wrap: nowrap; gap: 5px; overflow: hidden; }
+    .rc-author-icon { font-size: 1rem; flex-shrink: 0; }
+    .rc-author-name { font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .rc-date { font-size: 0.7rem; white-space: nowrap; flex-shrink: 0; }
+
     .read-more-trigger {
         display: block;
-        margin-top: 8px;
-        font-size: 0.9rem; /* Un poco más grande en móvil */
-        padding: 5px 0;
+        margin-top: 4px;
+        font-size: 0.88rem;
+        padding: 4px 0;
     }
     
-    /* 6. Modal de reseña completa responsive */
-    #full-review-modal .auth-modal-content {
-        max-width: 95% !important;
-        margin: 10px;
-    }
     
     #read-review-header {
         height: 200px !important; /* Más compacto en móvil */
@@ -6614,7 +6894,9 @@ button.modal-review-count:hover {
     background: rgba(255,255,255,0.05);
     border-radius: 12px;
     padding: 10px 14px;
-    flex: 1;
+    position: relative;
+    width: fit-content;
+    max-width: 100%;
     min-width: 0;
 }
 
@@ -6644,14 +6926,19 @@ button.modal-review-count:hover {
     color: #e50914;
     font-size: 0.72rem;
     cursor: pointer;
-    opacity: 0.4;
-    padding: 0;
+    opacity: 0;
+    padding: 2px 4px;
     transition: opacity 0.2s;
     margin-left: auto;
+    flex-shrink: 0;
+}
+
+.crm-comment-bubble:hover .crm-comment-delete {
+    opacity: 0.5;
 }
 
 .crm-comment-delete:hover {
-    opacity: 1;
+    opacity: 1 !important;
 }
 
 .crm-comment-text {
@@ -6688,7 +6975,8 @@ button.modal-review-count:hover {
     border-radius: 14px;
     padding: 8px 12px;
     transition: border-color 0.2s;
-    overflow: hidden;
+    overflow: visible;
+    position: relative;
 }
 
 .crm-comment-input-wrap:focus-within {
@@ -6957,8 +7245,8 @@ button.modal-review-count:hover {
     }
 
     .review-card {
-        padding: 24px 16px;
         box-sizing: border-box;
+        width: 100%;
         width: 100%;
     }
 
@@ -8999,4 +9287,379 @@ button.modal-review-count:hover {
         gap: 10px;
     }
     .rv-user-search-input { width: 140px; }
+}
+
+/* ===========================================================
+   MOBILE: COMMENT INPUT BAR
+   =========================================================== */
+@media (max-width: 768px) {
+    .crm-comment-input-row {
+        gap: 6px;
+    }
+
+    .crm-comment-input-avatar {
+        display: none; /* Ocultar avatar en móvil para ganar espacio */
+    }
+
+    .crm-comment-input-wrap {
+        border-radius: 22px;
+        padding: 10px 14px;
+        gap: 6px;
+    }
+
+    .crm-comment-input {
+        font-size: 0.92rem;
+        min-height: 22px;
+    }
+
+    .crm-img-btn,
+    .crm-gif-btn {
+        width: 32px;
+        height: 32px;
+        font-size: 0.75rem;
+        flex-shrink: 0;
+    }
+
+    .crm-comment-send {
+        width: 32px;
+        height: 32px;
+        font-size: 0.85rem;
+        flex-shrink: 0;
+    }
+
+    /* GIF picker: ocupa todo el ancho disponible en móvil */
+    .crm-gif-picker {
+        width: calc(100vw - 40px);
+        right: auto;
+        left: 50%;
+        transform: translateX(-50%);
+        bottom: calc(100% + 8px);
+    }
+
+    .crm-gif-results {
+        grid-template-columns: repeat(3, 1fr);
+        max-height: 260px;
+    }
+}
+
+/* ===========================================================
+   FOTO DE PERFIL — AJUSTES
+   =========================================================== */
+.settings-group--avatar {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.avatar-upload-row {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.avatar-preview-wrap {
+    position: relative;
+    width: 90px;
+    height: 90px;
+    flex-shrink: 0;
+}
+
+.avatar-preview-img {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255,255,255,0.1);
+    display: block;
+}
+
+.avatar-preview-placeholder {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.05);
+    border: 2px solid rgba(255,255,255,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    color: #555;
+}
+
+.avatar-upload-btn {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 30px;
+    height: 30px;
+    background: var(--primary-red);
+    border-radius: 50%;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer;
+    font-size: 0.75rem;
+    color: #fff;
+    transition: background 0.2s;
+    border: 2px solid #0a0a0a;
+    padding: 0 !important;
+    margin: 0 !important; 
+}
+
+.avatar-upload-btn i {
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 0 !important; 
+    display: block !important;
+    transform: translateY(1px);
+}
+
+.avatar-upload-btn:hover { background: #c00; }
+
+.avatar-upload-info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.avatar-upload-hint {
+    font-size: 0.8rem;
+    color: #666;
+    margin: 0;
+}
+
+/* Foto en página de perfil */
+.profile-avatar-placeholder img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.profile-avatar-placeholder {
+    border-radius: 50%;
+    overflow: hidden;
+}
+
+/* ===========================================================
+   FOTO DE PERFIL EN RESEÑAS
+   =========================================================== */
+.rc-author-photo {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.crm-user-photo {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+/* ===========================================================
+   MODAL: PERFIL PÚBLICO DE USUARIO
+   =========================================================== */
+.upm-content {
+    background: #111;
+    border-radius: 20px;
+    width: 100%;
+    max-width: 700px;
+    max-height: 88vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+.upm-header {
+    min-height: 140px;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    background-size: cover;
+    background-position: center top;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.upm-header-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(17,17,17,0.95) 0%, rgba(0,0,0,0.3) 100%);
+}
+
+.upm-header-info {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 28px 30px 24px;
+}
+
+.upm-avatar-wrap {
+    flex-shrink: 0;
+}
+
+.upm-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid rgba(255,255,255,0.15);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+
+.upm-avatar-placeholder {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.05);
+    border: 3px solid rgba(255,255,255,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.8rem;
+    color: #444;
+}
+
+.upm-username {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem;
+    color: #fff;
+    margin: 0 0 8px 0;
+    letter-spacing: 1px;
+}
+
+.upm-stats-row {
+    display: flex;
+    gap: 16px;
+    font-size: 0.82rem;
+    color: #888;
+}
+
+.upm-stats-row b {
+    color: #fff;
+}
+
+.upm-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px 24px;
+    scrollbar-width: thin;
+    scrollbar-color: #333 transparent;
+}
+
+.upm-loading,
+.upm-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: #555;
+    font-size: 1.4rem;
+    min-height: 160px;
+}
+
+.upm-empty p {
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.upm-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    padding-bottom: 12px;
+}
+
+.upm-tab {
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 6px 16px;
+    border-radius: 20px;
+    transition: all 0.2s;
+}
+
+.upm-tab.active {
+    background: var(--primary-red);
+    color: #fff;
+}
+
+.upm-tab:not(.active):hover {
+    background: rgba(255,255,255,0.06);
+    color: #ccc;
+}
+
+.upm-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 12px;
+}
+
+.upm-card {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    cursor: default;
+}
+
+.upm-card-poster {
+    width: 100%;
+    aspect-ratio: 2/3;
+    object-fit: cover;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    transition: transform 0.2s;
+}
+
+.upm-card:hover .upm-card-poster {
+    transform: scale(1.04);
+}
+
+.upm-card-title {
+    font-size: 0.72rem;
+    color: #999;
+    margin: 0;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.upm-no-items {
+    color: #555;
+    font-size: 0.85rem;
+    grid-column: 1/-1;
+    text-align: center;
+    padding: 20px 0;
+}
+
+/* Author link in review cards */
+.rc-author-link {
+    cursor: pointer;
+    transition: color 0.2s;
+}
+.rc-author-link:hover {
+    color: #fff;
+    text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+    .upm-content { max-width: 100%; border-radius: 16px 16px 0 0; max-height: 92vh; }
+    .upm-header-info { padding: 20px 18px 18px; gap: 14px; }
+    .upm-avatar, .upm-avatar-placeholder { width: 64px; height: 64px; font-size: 2.2rem; }
+    .upm-username { font-size: 1.5rem; }
+    .upm-grid { grid-template-columns: repeat(auto-fill, minmax(75px, 1fr)); gap: 8px; }
 }
