@@ -22,6 +22,69 @@ export function initPlayer(dependencies) {
     shared = dependencies;
 }
 
+// ===========================================================
+// 🌐 HELPER: OBTENER TRACKS DE AUDIO DISPONIBLES DINÁMICAMENTE
+// Soporta videoId_en, videoId_es, videoId_jp + label desde campo language
+// ===========================================================
+function getLangTracks(data) {
+    // IDs disponibles (en orden: original, alternativo, latino)
+    const rawEn = data.videoId_en?.trim() || data.videoId?.trim() || '';
+    const rawEs = data.videoId_es?.trim() || '';
+    const rawJp = data.videoId_jp?.trim() || data.videoId_alt?.trim() || '';
+
+    // Parsear campo language para obtener etiquetas reales
+    // Ejemplo: "Japonés - Latino" o "Inglés;Japonés;Latino"
+    const rawLang = (data.language || data.idioma || data.audio || '').trim();
+    const langParts = rawLang
+        .split(/[-;|]/)
+        .map(l => l.trim())
+        .filter(Boolean);
+
+    // Clasificar partes: español/latino vs originales
+    const SPANISH_LABELS = ['latino', 'español', 'castellano', 'doblado', 'esp'];
+    const isSpanish = l => SPANISH_LABELS.some(s => l.toLowerCase().includes(s));
+
+    const spanishLabel = langParts.find(l => isSpanish(l)) || 'Latino';
+    const originalLabels = langParts.filter(l => !isSpanish(l));
+
+    const tracks = [];
+
+    if (rawEn) {
+        tracks.push({
+            id: rawEn,
+            lang: 'en',
+            label: originalLabels[0] || 'Original',
+        });
+    }
+    if (rawJp) {
+        tracks.push({
+            id: rawJp,
+            lang: 'jp',
+            label: originalLabels[1] || 'Alt',
+        });
+    }
+    if (rawEs) {
+        tracks.push({
+            id: rawEs,
+            lang: 'es',
+            label: spanishLabel,
+        });
+    }
+
+    return tracks;
+}
+
+
+function buildLangButtonsHTML(tracks, activeLang, cssClass) {
+    if (tracks.length <= 1) return '';
+    return `<div class="movie-lang-selection">
+        ${tracks.map(t => `
+            <button class="${cssClass} ${t.lang === activeLang ? 'active' : ''}" data-lang="${t.lang}">
+                ${t.label}
+            </button>`).join('')}
+    </div>`;
+}
+
 // 🔥 NUEVO: BUSCADOR INTELIGENTE EN TODAS LAS SAGAS
 // Esta función busca el ID en Pelis, Series, Marvel, StarWars, HP, etc.
 function findContentData(id) {
@@ -422,33 +485,28 @@ async function renderEpisodePlayer(seriesId, seasonNum, startAtIndex = null) {
             return;
         }
 
-        // --- 🧠 LÓGICA DE IDIOMAS MEJORADA ---
-        // 1. Verificamos qué existe realmente
-        const hasSpanish = !!(firstEpisode.videoId_es && firstEpisode.videoId_es.trim());
-        const hasOriginal = !!((firstEpisode.videoId_en && firstEpisode.videoId_en.trim()) || (firstEpisode.videoId && firstEpisode.videoId.trim()));
-        
-        // 2. Solo mostramos botones si hay DOS opciones reales
-        const hasLangOptions = hasSpanish && hasOriginal;
+        // --- 🧠 LÓGICA DE IDIOMAS DINÁMICA ---
+        const seriesTracks = getLangTracks(firstEpisode);
+        const hasLangOptions = seriesTracks.length > 1;
+        let initialLang = seriesTracks[0]?.lang || 'en';
+        if (!hasLangOptions && seriesTracks[0]?.lang === 'es') initialLang = 'es';
 
-        // 3. Definimos el idioma de arranque
-        let initialLang = 'en'; // Por defecto Original
-        if (!hasLangOptions && hasSpanish) {
-            initialLang = 'es'; // Si solo hay español, forzamos español
-        }
-
-        // Inicializar estado con el idioma correcto
         shared.appState.player.state[seriesId] = { 
             season: seasonNum, 
             episodeIndex: initialEpisodeIndex, 
             lang: initialLang 
         };
 
-        // Generar HTML de controles (Solo si hay opciones)
-        let langControlsHTML = hasLangOptions 
+        const langControlsHTML = hasLangOptions
             ? `<div class="lang-controls">
-                 <button class="lang-btn-movie ${initialLang === 'en' ? 'active' : ''}" data-lang="en">🌐 VOS</button>
-                 <button class="lang-btn-movie ${initialLang === 'es' ? 'active' : ''}" data-lang="es">🇪🇸 ESP</button>
-               </div>` 
+                ${seriesTracks.map(t => `<button class="lang-btn-movie ${t.lang === initialLang ? 'active' : ''}" data-lang="${t.lang}">${t.label}</button>`).join('')}
+               </div>`
+            : '';
+
+        const movieLangHTML = hasLangOptions
+            ? `<div class="movie-lang-selection">
+                ${seriesTracks.map(t => `<button class="lang-select-btn ${t.lang === initialLang ? 'active' : ''}" data-lang="${t.lang}">${t.label}</button>`).join('')}
+               </div>`
             : '';
         
         // --- RESTO DE VARIABLES ---
@@ -493,14 +551,6 @@ async function renderEpisodePlayer(seriesId, seasonNum, startAtIndex = null) {
                    <i class="fas fa-flag-checkered" style="color:#ff4d4d;"></i>
                    <span style="opacity:0.9;margin-left:5px;">Terminas de ver a las <strong style="color:#fff;">${finishTime}</strong> aprox.</span>
                </span>`
-            : '';
-
-        // Lang controls debajo del video (estilo cinema modal)
-        const movieLangHTML = hasLangOptions
-            ? `<div class="movie-lang-selection">
-                 <button class="lang-select-btn ${initialLang === 'en' ? 'active' : ''}" data-lang="en">Original</button>
-                 <button class="lang-select-btn ${initialLang === 'es' ? 'active' : ''}" data-lang="es">Español</button>
-               </div>`
             : '';
 
         // =========================================================
@@ -713,6 +763,7 @@ function openEpisode(seriesId, season, newEpisodeIndex) {
     let videoId;
     if (lang === 'en' && episode.videoId_en) videoId = episode.videoId_en;
     else if (lang === 'es' && episode.videoId_es) videoId = episode.videoId_es;
+    else if (lang === 'jp' && (episode.videoId_jp || episode.videoId_alt)) videoId = episode.videoId_jp || episode.videoId_alt;
     else videoId = episode.videoId;
 
     if (iframe) iframe.src = videoId ? `https://drive.google.com/file/d/${videoId}/preview` : '';
@@ -798,7 +849,6 @@ export function openPlayerModal(movieId, movieTitle) {
         const hasSpanish = !!(movieData.videoId_es && movieData.videoId_es.trim());
         const hasEnglish = !!(movieData.videoId_en && movieData.videoId_en.trim());
         const hasMultipleLangs = hasSpanish && hasEnglish;
-        
         // Mostrar modal
         shared.DOM.cinemaModal.classList.add('show');
         document.body.classList.add('modal-open');
@@ -891,64 +941,45 @@ export function openPlayerModal(movieId, movieTitle) {
             synopsisEl.textContent = movieData.synopsis || 'Sin sinopsis disponible.';
         }
 
-        // 5. CONFIGURAR BOTONES DE IDIOMA
+        // 5. CONFIGURAR BOTONES DE IDIOMA (DINÁMICO)
+        const tracks = getLangTracks(movieData);
         const langSelection = shared.DOM.cinemaModal.querySelector('.movie-lang-selection');
-        const originalBtn = shared.DOM.cinemaModal.querySelector('[data-lang="original"]');
-        const spanishBtn = shared.DOM.cinemaModal.querySelector('[data-lang="spanish"]');
-        
-        if (langSelection && originalBtn && spanishBtn) {
-            // 🔥 CORRECCIÓN: Si no hay elección múltiple, OCULTAMOS los botones
-            langSelection.style.display = hasMultipleLangs ? 'flex' : 'none';
+        const langContainer = langSelection?.parentNode;
 
-            // Resetear estados visuales
-            originalBtn.classList.remove('active');
-            spanishBtn.classList.remove('active');
-            
-            // Limpiar iframe inicialmente
-            const iframe = shared.DOM.cinemaModal.querySelector('iframe');
-            if (iframe) iframe.src = '';
-            
-            // Configurar disponibilidad (por si acaso se muestran)
-            originalBtn.disabled = !hasEnglish;
-            spanishBtn.disabled = !hasSpanish;
-            
-            // Lógica de carga
-            if (!hasMultipleLangs) {
-                // CASO 1: UN SOLO IDIOMA (Botones ocultos, carga automática)
-                if (hasEnglish) {
-                    originalBtn.classList.add('active'); // Marcamos internamente
-                    loadMovieInPlayer(movieData.videoId_en, movieId, movieData);
-                } else if (hasSpanish) {
-                    spanishBtn.classList.add('active'); // Marcamos internamente
-                    loadMovieInPlayer(movieData.videoId_es, movieId, movieData);
-                } else {
-                    // Fallback extremo
-                    originalBtn.classList.add('active');
-                    loadMovieInPlayer(movieId, movieId, movieData);
-                }
-            } else {
-                // CASO 2: AMBOS IDIOMAS (Botones visibles, carga automática del original)
-                originalBtn.classList.add('active');
-                
-                // Cargar Original por defecto
-                loadMovieInPlayer(movieData.videoId_en, movieId, movieData);
-                
-                // Listeners para cambiar
-                originalBtn.onclick = () => {
-                    if (hasEnglish) {
-                        originalBtn.classList.add('active');
-                        spanishBtn.classList.remove('active');
-                        loadMovieInPlayer(movieData.videoId_en, movieId, movieData);
-                    }
-                };
-                
-                spanishBtn.onclick = () => {
-                    if (hasSpanish) {
-                        spanishBtn.classList.add('active');
-                        originalBtn.classList.remove('active');
-                        loadMovieInPlayer(movieData.videoId_es, movieId, movieData);
-                    }
-                };
+        if (langSelection) langSelection.remove(); // limpiar anterior
+
+        const iframe = shared.DOM.cinemaModal.querySelector('iframe');
+        if (iframe) iframe.src = '';
+
+        if (tracks.length === 0) {
+            // Sin video registrado
+        } else if (tracks.length === 1) {
+            // Un solo idioma: carga automática sin botones
+            loadMovieInPlayer(tracks[0].id, movieId, movieData);
+        } else {
+            // Múltiples idiomas: botones dinámicos
+            const defaultTrack = tracks[0];
+            loadMovieInPlayer(defaultTrack.id, movieId, movieData);
+
+            const buttonsHTML = buildLangButtonsHTML(tracks, defaultTrack.lang, 'lang-select-btn');
+            const wrapper = shared.DOM.cinemaModal.querySelector('.screen')?.parentNode;
+            if (wrapper) {
+                const div = document.createElement('div');
+                div.className = 'movie-lang-selection';
+                div.innerHTML = tracks.map(t => `
+                    <button class="lang-select-btn ${t.lang === defaultTrack.lang ? 'active' : ''}" data-lang="${t.lang}">
+                        ${t.label}
+                    </button>`).join('');
+                wrapper.appendChild(div);
+
+                div.querySelectorAll('.lang-select-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        div.querySelectorAll('.lang-select-btn').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        const track = tracks.find(t => t.lang === btn.dataset.lang);
+                        if (track) loadMovieInPlayer(track.id, movieId, movieData);
+                    });
+                });
             }
         }
 
