@@ -6,17 +6,6 @@ import { logError } from '../utils/logger.js';
 
 let shared; 
 
-// ===========================================================
-// 🔥 CONFIGURACIÓN DE ORDEN MANUAL DE TEMPORADAS
-// ===========================================================
-// Para series donde las películas/especiales deben ir en posiciones específicas
-// que no siguen el orden alfanumérico de JavaScript
-const SEASON_ORDER_OVERRIDES = {
-    'jujutsu': ['pelicula', '1', '2', '3'],
-    // Agregar más series aquí según sea necesario:
-    // 'initialD': ['1', '2', 'pelicula', '4', '5'],
-};
-
 // 1. INICIALIZACIÓN
 export function initPlayer(dependencies) {
     shared = dependencies;
@@ -180,13 +169,11 @@ export async function openSeriesPlayer(seriesId, forceSeasonGrid = false) {
         const postersData = shared.appState.content.seasonPosters[seriesId] || {};
         
         // 1. Obtenemos TODAS las temporadas ordenadas
-        // PRIORIDAD: Override manual > seasonOrder servidor > campo "orden" > numérico (especiales al final)
+        // PRIORIDAD: seasonOrder servidor > campo "orden" > numérico (especiales al final)
         const allSeasonsKeys = [...new Set([...Object.keys(seriesEpisodes), ...Object.keys(postersData)])];
 
         let orderedKeys;
-        if (SEASON_ORDER_OVERRIDES[seriesId]) {
-            orderedKeys = SEASON_ORDER_OVERRIDES[seriesId];
-        } else if (shared.appState.content.seasonOrder && shared.appState.content.seasonOrder[seriesId]) {
+        if (shared.appState.content.seasonOrder && shared.appState.content.seasonOrder[seriesId]) {
             orderedKeys = shared.appState.content.seasonOrder[seriesId];
         } else {
             orderedKeys = [...allSeasonsKeys].sort((a, b) => {
@@ -346,17 +333,12 @@ function populateSeasonGrid(seriesId) {
     container.innerHTML = '';
 
     // 1. Obtener temporadas con el orden correcto
-    // 🔥 PRIORIDAD: Override manual > Orden preservado > Object.keys()
     let allSeasons;
-    
-    if (SEASON_ORDER_OVERRIDES[seriesId]) {
-        // MÁXIMA PRIORIDAD: Orden manual hardcodeado
-        allSeasons = SEASON_ORDER_OVERRIDES[seriesId];
-        console.log(`🎯 Usando orden MANUAL para ${seriesId}:`, allSeasons);
-    } else if (shared.appState.content.seasonOrder && shared.appState.content.seasonOrder[seriesId]) {
-        // Segunda opción: Orden preservado del servidor
+
+    if (shared.appState.content.seasonOrder && shared.appState.content.seasonOrder[seriesId]) {
+        // Orden preservado del servidor (respeta campo "orden" del sheet)
         allSeasons = shared.appState.content.seasonOrder[seriesId];
-        console.log(`📺 Usando orden preservado para ${seriesId}:`, allSeasons);
+        console.log(`📺 Usando orden del servidor para ${seriesId}:`, allSeasons);
     } else {
         // Fallback: combinar claves de episodios y posters
         const episodeSeasons = Object.keys(episodesData);
