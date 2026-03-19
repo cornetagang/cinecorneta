@@ -293,7 +293,10 @@ function populateSeasonGrid(seriesId) {
     const container = shared.DOM.seriesPlayerModal.querySelector('#season-grid');
     
     // Función helper para formatear nombres de temporada
-    function formatSeasonName(seasonKey, seasonNum) {
+    function formatSeasonName(seasonKey, seasonNum, customLabel = null) {
+        // 🆕 Si hay etiqueta personalizada en el sheet, usarla directamente
+        if (customLabel && customLabel.trim()) return customLabel.trim();
+
         const keyLower = String(seasonKey).toLowerCase();
         
         // Detectar tipos especiales
@@ -391,6 +394,7 @@ function populateSeasonGrid(seriesId) {
         let posterUrl = seriesInfo.poster || '';
         let seasonStatus = ''; 
         let seasonStatusRaw = ''; // Valor original sin lowercase
+        let seasonCustomLabel = ''; // 🆕 Etiqueta personalizada (ej: "Parte 1/2", "Parte 3"...)
 
         const posterEntry = postersData[seasonKey];
         if (posterEntry) {
@@ -398,6 +402,7 @@ function populateSeasonGrid(seriesId) {
                 posterUrl = posterEntry.posterUrl || posterEntry.poster || posterUrl;
                 seasonStatusRaw = String(posterEntry.estado || '').trim();
                 seasonStatus = seasonStatusRaw.toLowerCase();
+                seasonCustomLabel = String(posterEntry.etiqueta || '').trim(); // 🆕
             } else {
                 posterUrl = posterEntry;
             }
@@ -409,6 +414,9 @@ function populateSeasonGrid(seriesId) {
         const isManuallyLocked = seasonStatus !== '' && seasonStatus !== 'disponible';
         const isEmpty = (totalEpisodes === 0);
         const isLocked = isManuallyLocked || (isEmpty && seasonStatus !== 'disponible');
+
+        // 🆕 Calcular el label final una sola vez
+        const seasonLabel = formatSeasonName(seasonKey, seasonNum, seasonCustomLabel);
 
         // Renderizado de la tarjeta
         const card = document.createElement('div');
@@ -422,7 +430,7 @@ function populateSeasonGrid(seriesId) {
             }
         };
 
-        // Texto del overlay: muestra fecha o mes si está disponible
+        // Texto del overlay
         let overlayText = '';
         if (isLocked) {
             if (seasonStatus === 'mantenimiento') {
@@ -436,14 +444,15 @@ function populateSeasonGrid(seriesId) {
             } else {
                 overlayText = 'PRÓXIMAMENTE';
             }
-        } else if (formatSeasonName(seasonKey, seasonNum).includes("Temporada")) {
+        } else if (!isNaN(seasonKey)) {
+            // Mostrar episodios para cualquier temporada numérica (con o sin etiqueta custom)
             overlayText = `${totalEpisodes} episodios`;
         }
 
         card.innerHTML = `
-            <img src="${posterUrl}" alt="Temporada ${seasonNum}">
+            <img src="${posterUrl}" alt="${seasonLabel}">
             <div class="overlay">
-                <h3>${formatSeasonName(seasonKey, seasonNum)}</h3>
+                <h3>${seasonLabel}</h3>
                 <p>${overlayText}</p>
             </div>
         `;
