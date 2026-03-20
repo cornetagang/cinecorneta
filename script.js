@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL
-// Versión: 9.0 (5 de Marzo 2026)
+// Versión: 9.1 (5 de Marzo 2026)
 // ===========================================================
 
 // ===========================================================
@@ -2371,7 +2371,12 @@ function setupSearch() {
     let isSearchActive = false;
 
     // Normaliza tildes y caracteres especiales para búsqueda flexible
-    const norm = str => String(str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    // Normaliza: minúsculas + sin tildes + sin puntuación (. , ' : ! ? - etc.)
+    const norm = str => String(str || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // quitar tildes
+        .replace(/[^a-z0-9\s]/g, '');    // quitar puntuacion (, . ' : ! ? - etc)
 
     DOM.searchInput.addEventListener('input', () => {
         const searchTerm = norm(DOM.searchInput.value.trim());
@@ -2408,9 +2413,14 @@ function setupSearch() {
         if (appState.content.ucm) Object.assign(allContent, appState.content.ucm);
 
         // Filtrar por término de búsqueda
-        const filtered = Object.entries(allContent).filter(([id, item]) => 
-        item.title && norm(item.title).includes(searchTerm)
-        );
+        // Películas: busca en título + id (nombre en inglés)
+        // Series: busca en título + secondTitle (columna alternativa)
+        const filtered = Object.entries(allContent).filter(([id, item]) => {
+            if (norm(item.title || '').includes(searchTerm)) return true;
+            const isSerie = !!appState.content.series[id] || item.type === 'series' || item.type === 'serie';
+            if (isSerie) return norm(item.secondTitle || '').includes(searchTerm);
+            return norm(id).includes(searchTerm);
+        });
 
         // 🔥 Deduplicar por título (quedarse con la primera aparición)
         const seenTitles = new Set();
@@ -2782,10 +2792,23 @@ async function openDetailsModal(id, type, triggerElement = null) {
                 }
             }
 
+            // Título original: para series usa secondTitle, para películas usa id
+            const normStr = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9\s]/g, '');
+            const rawAltTitle = isSeries ? (data.secondTitle || '') : id;
+            const originalTitle = rawAltTitle && normStr(rawAltTitle) !== normStr(data.title || '') ? rawAltTitle : null;
+
             const metaItems = [
                 { val: langVal, class: 'meta-pill' },
                 { val: genresVal, class: 'meta-pill' }
             ];
+
+            if (originalTitle) {
+                const origSpan = document.createElement('span');
+                origSpan.className = 'meta-pill original-title-pill';
+                origSpan.title = 'Título original';
+                origSpan.innerHTML = `<i class="fas fa-film" style="margin-right:5px;opacity:0.7;"></i>${originalTitle}`;
+                detailsMeta.insertBefore(origSpan, detailsMeta.firstChild);
+            }
 
             metaItems.forEach(item => {
                 if(item.val) {
@@ -4511,7 +4534,7 @@ window.ErrorHandler = ErrorHandler;
 window.ContentManager = ContentManager;
 window.cacheManager = cacheManager;
 
-console.log('✅ Cine Corneta v9.0 cargado correctamente');
+console.log('✅ Cine Corneta v9.1 cargado correctamente');
 // ===========================================================
 // COMPATIBILIDAD: Funciones que ahora están en el módulo
 // ===========================================================
@@ -4873,4 +4896,3 @@ observer.observe(document.body, {
     childList: true,
     subtree: true
 });
-
