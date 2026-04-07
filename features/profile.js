@@ -218,6 +218,20 @@ export function renderSettings() {
                 </div>
 
                 <div style="margin-top: 30px; border-top: 1px dashed #333; padding-top: 25px;">
+                    <h3 style="color: #a78bfa; display: flex; align-items: center; gap: 10px; margin-top: 0; font-family: 'Bebas Neue'; letter-spacing: 1px;">
+                        <i class="fas fa-exchange-alt"></i> MIGRAR IDs DE RESEÑAS
+                    </h3>
+                    <p style="color: #ccc; font-size: 0.85rem; margin-bottom: 15px;">
+                        Sincroniza los <code>contentId</code> de Firebase con los IDs actuales del sheet.
+                        Solo modifica ese campo — el texto, estrellas y todo lo demás queda intacto.
+                    </p>
+                    <button id="admin-migrate-ids-btn" class="btn-primary" style="background: #2d1f4e; color: #a78bfa; border: 2px solid #a78bfa; font-weight: 800; width: 100%;">
+                        <i class="fas fa-search"></i> ANALIZAR Y MIGRAR
+                    </button>
+                    <div id="admin-migrate-log" style="margin-top: 12px; font-size: 0.82rem; font-family: monospace; display: none; background: #0d0d0d; border: 1px solid #333; border-radius: 8px; padding: 12px; max-height: 260px; overflow-y: auto; line-height: 1.7;"></div>
+                </div>
+
+                <div style="margin-top: 30px; border-top: 1px dashed #333; padding-top: 25px;">
                     <h3 style="color: #E50914; display: flex; align-items: center; gap: 10px; margin-top: 0; font-family: 'Bebas Neue'; letter-spacing: 1px;">
                         <i class="fas fa-bullhorn"></i> HISTORIAL DE AVISOS
                     </h3>
@@ -258,7 +272,179 @@ export function renderSettings() {
                 location.reload();
             };
 
-            // 4. HISTORIAL DE AVISOS
+            // 5. MIGRAR IDs DE RESEÑAS
+            document.getElementById('admin-migrate-ids-btn').onclick = async function() {
+                const btn = this;
+                const log = document.getElementById('admin-migrate-log');
+
+                const BASE_URL = 'https://script.google.com/macros/s/AKfycbxRGzMHroA3o3e5AC5K5bK3AKzJttM5JBKybMlEjhnWPhJxQKo7zttJNBHseu2nElz_/exec';
+
+                const logLine = (msg, color = '#ccc') => {
+                    const line = document.createElement('div');
+                    line.style.color = color;
+                    line.innerHTML = msg;
+                    log.appendChild(line);
+                    log.scrollTop = log.scrollHeight;
+                };
+
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cargando sheet...';
+                log.innerHTML = '';
+                log.style.display = 'block';
+
+                try {
+                    // 1. Cargar IDs frescos del sheet
+                    const res  = await fetch(`${BASE_URL}?data=allMovies`);
+                    const data = await res.json();
+
+                    let sheetItems = [];
+                    if (Array.isArray(data)) {
+                        sheetItems = data.map(i => ({ id: i.id, title: i.title }));
+                    } else if (typeof data === 'object') {
+                        sheetItems = Object.entries(data).map(([id, i]) => ({
+                            id,
+                            title: typeof i === 'object' ? i.title : i
+                        }));
+                    }
+
+                    logLine(`📄 ${sheetItems.length} ítems cargados del sheet.`, '#46d369');
+
+                    // 2. Función de resolución usando id y title del sheet
+                    const norm = s => (s || '').trim().toLowerCase();
+                    const LEGACY_ID_MAP = {
+                        'reze'   : 'Chainsaw Man – The Movie: Reze Arc',
+                        'jinroh' : 'Jin-Roh: The Wolf Brigade',
+                        '30aniv' : 'Evangelion Special 30th Anniversary',
+                    };
+                    function resolveId(oldId, contentTitle) {
+                        if (LEGACY_ID_MAP[oldId]) return LEGACY_ID_MAP[oldId];
+                        const nOldId = norm(oldId);
+                        const nTitle = norm(contentTitle);
+                        for (const item of sheetItems) {
+                            const nItemId    = norm(item.id);
+                            const nItemTitle = norm(item.title);
+                            if (
+                                nItemId    === nOldId  ||
+                                nItemId    === nTitle  ||
+                                nItemTitle === nOldId  ||
+                                nItemTitle === nTitle
+                            ) return item.id;
+                        }
+                        return null;
+                    }
+
+                    // 3. Leer reseñas de Firebase
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Leyendo Firebase...';
+                    const snapshot = await shared.db.ref('reviews').once('value');
+                    if (!snapshot.exists()) {
+                        logLine('⚠️ No hay reseñas en Firebase.', '#ffd700');
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fas fa-search"></i> ANALIZAR Y MIGRAR';
+                        return;
+                    }
+
+                    // 4. Analizar
+                    const toUpdate = [], notFound = [], alreadyOk = [];
+                    snapshot.forEach(child => {
+                        const rev   = child.val();
+                        const oldId = rev.contentId    || '';
+                        const title = rev.contentTitle || '';
+                        const existsInSheet = sheetItems.some(i => i.id === oldId);
+                        if (existsInSheet) { alreadyOk.push({ key: child.key, oldId, title }); return; }
+                        const newId = resolveId(oldId, title);
+                        if (newId && newId !== oldId) toUpdate.push({ key: child.key, oldId, newId, title });
+                        else notFound.push({ key: child.key, oldId, title });
+                    });
+
+                    // 5. Mostrar resumen
+                    logLine(`─────────────────────────────`);
+                    logLine(`✅ Ya correctos: <b>${alreadyOk.length}</b>`, '#46d369');
+                    logLine(`🔄 Para actualizar: <b>${toUpdate.length}</b>`, '#a78bfa');
+                    logLine(`❓ Sin coincidencia: <b>${notFound.length}</b>`, '#ffd700');
+                    logLine(`─────────────────────────────`);
+
+                    if (toUpdate.length > 0) {
+                        logLine('🔄 Cambios detectados:', '#a78bfa');
+                        toUpdate.forEach(({ title, oldId, newId }) => {
+                            logLine(`&nbsp;&nbsp;"${title}" &nbsp;<span style="color:#555">${oldId}</span> ➜ <span style="color:#46d369">${newId}</span>`);
+                        });
+                    }
+                    if (notFound.length > 0) {
+                        logLine('❓ Sin coincidencia (se dejan igual):', '#ffd700');
+                        notFound.forEach(({ title, oldId }) => {
+                            logLine(`&nbsp;&nbsp;"${title}" <span style="color:#555">(${oldId})</span>`);
+                        });
+                    }
+
+                    if (toUpdate.length === 0) {
+                        logLine('🎉 Nada que migrar. Todo está correcto.', '#46d369');
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fas fa-check"></i> TODO CORRECTO';
+                        return;
+                    }
+
+                    // 6. Confirmar con modal interno (sin window.confirm)
+                    await new Promise((resolve) => {
+                        // Crear modal inline
+                        const overlay = document.createElement('div');
+                        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:center;justify-content:center;';
+
+                        const box = document.createElement('div');
+                        box.style.cssText = 'background:#1a1a1a;border:1px solid #a78bfa;border-radius:12px;padding:28px 32px;max-width:420px;width:90%;text-align:center;';
+                        box.innerHTML = `
+                            <i class="fas fa-exchange-alt" style="font-size:2rem;color:#a78bfa;margin-bottom:14px;display:block;"></i>
+                            <h3 style="color:#fff;margin:0 0 10px;">Confirmar migración</h3>
+                            <p style="color:#ccc;font-size:0.9rem;margin:0 0 20px;">
+                                Se actualizará el <code>contentId</code> de <b style="color:#a78bfa">${toUpdate.length} reseña(s)</b>.<br>
+                                El texto, estrellas y todo lo demás queda intacto.
+                            </p>
+                            <div style="display:flex;gap:12px;justify-content:center;">
+                                <button id="mig-cancel" style="padding:10px 24px;border-radius:8px;border:1px solid #555;background:transparent;color:#ccc;cursor:pointer;font-size:0.9rem;">Cancelar</button>
+                                <button id="mig-confirm" style="padding:10px 24px;border-radius:8px;border:none;background:#a78bfa;color:#000;cursor:pointer;font-weight:800;font-size:0.9rem;">Actualizar</button>
+                            </div>
+                        `;
+                        overlay.appendChild(box);
+                        document.body.appendChild(overlay);
+
+                        document.getElementById('mig-confirm').onclick = () => { overlay.remove(); resolve(true); };
+                        document.getElementById('mig-cancel').onclick  = () => { overlay.remove(); resolve(false); };
+                    }).then(async (confirmed) => {
+                        if (!confirmed) {
+                            logLine('❌ Cancelado.', '#ff4444');
+                            btn.disabled = false;
+                            btn.innerHTML = '<i class="fas fa-search"></i> ANALIZAR Y MIGRAR';
+                            return;
+                        }
+
+                        // 7. Ejecutar
+                        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Actualizando...';
+                        logLine('─────────────────────────────');
+                        let okCount = 0, errCount = 0;
+                        for (const { key, newId, title } of toUpdate) {
+                            try {
+                                await shared.db.ref(`reviews/${key}`).update({ contentId: newId });
+                                logLine(`✅ "${title}" ➜ ${newId}`, '#46d369');
+                                okCount++;
+                            } catch (err) {
+                                logLine(`❌ Error en "${title}": ${err.message}`, '#ff4444');
+                                errCount++;
+                            }
+                        }
+
+                        logLine('─────────────────────────────');
+                        logLine(`🎉 Listo. Actualizadas: ${okCount}${errCount > 0 ? ` | Errores: ${errCount}` : ''}`, '#46d369');
+                        btn.innerHTML = '<i class="fas fa-check"></i> MIGRACIÓN COMPLETA';
+                    });
+
+                } catch (err) {
+                    logLine(`❌ Error: ${err.message}`, '#ff4444');
+                    console.error('[MigrateIds]', err);
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-search"></i> ANALIZAR Y MIGRAR';
+                }
+            };
+
+            // 6. HISTORIAL DE AVISOS
             loadAnnouncementLog();
         }
     }
