@@ -1622,6 +1622,94 @@ export function deleteReview(reviewId) {
 window.deleteReview = deleteReview;
 
 // ===========================================================
+// HELPER: RESOLVER ID OBSOLETO USANDO TÍTULO COMO FALLBACK
+// ===========================================================
+/**
+ * Cuando un contentId de Firebase ya no coincide con ninguna entrada del sheet,
+ * intenta encontrar el ID actual buscando por título de la reseña.
+ *
+ * @param {string} oldId       - El contentId guardado en Firebase (puede estar desactualizado)
+ * @param {string} title       - El contentTitle guardado en la reseña
+ * @returns {string}           - El ID correcto (actual) o el oldId si no se encuentra nada mejor
+ */
+function resolveContentId(oldId, title) {
+    // ── MAPA DE IDs OBSOLETOS ──────────────────────────────────────────────────
+    // IDs que cambiaron tanto que no se pueden resolver automáticamente.
+    // Clave: oldId guardado en Firebase → Valor: id actual en el sheet.
+    const LEGACY_ID_MAP = {
+        'reze'   : 'Chainsaw Man – The Movie: Reze Arc',
+        'jinroh' : 'Jin-Roh: The Wolf Brigade',
+        '30aniv' : 'Evangelion Special 30th Anniversary',
+    };
+    if (LEGACY_ID_MAP[oldId]) return LEGACY_ID_MAP[oldId];
+    // ──────────────────────────────────────────────────────────────────────────
+
+    // Si el ID ya existe en el contenido actual, no hace falta buscar
+    if (findContentData(oldId)) return oldId;
+
+    // Sin título no podemos hacer fallback
+    if (!title) return oldId;
+
+    // Normalizamos tanto el título en español (contentTitle de Firebase)
+    // como el oldId (que podría ser un título original antiguo, ej: "warfare")
+    const normalizedTitle = title.trim().toLowerCase();
+    const normalizedOldId = oldId.trim().toLowerCase();
+
+    /**
+     * Comprueba si un item del sheet coincide con la reseña.
+     * Estrategia (en orden de prioridad):
+     *   1. El id actual del sheet === oldId guardado en Firebase  → ya cubierto arriba por findContentData
+     *   2. El id actual del sheet coincide con el título en español de la reseña
+     *   3. El título (m.title) del item coincide con el título en español de la reseña
+     *   4. El id actual del sheet coincide con el oldId (útil si el id era un título en inglés)
+     *   5. El título del item coincide con el oldId (ej: item.title="Extraction", oldId="warfare" → no, pero item.title="Warfare" → sí)
+     */
+    const isMatch = (id, item) => {
+        const itemId    = (id           || '').trim().toLowerCase();
+        const itemTitle = (item.title   || '').trim().toLowerCase();
+        return (
+            itemId    === normalizedTitle  ||   // id actual == título español reseña
+            itemTitle === normalizedTitle  ||   // título item == título español reseña
+            itemId    === normalizedOldId  ||   // id actual == oldId (título original antiguo)
+            itemTitle === normalizedOldId       // título item == oldId
+        );
+    };
+
+    // Buscar en películas
+    if (appState.content.movies) {
+        for (const [id, m] of Object.entries(appState.content.movies)) {
+            if (isMatch(id, m)) return id;
+        }
+    }
+    // Buscar en series
+    if (appState.content.series) {
+        for (const [id, s] of Object.entries(appState.content.series)) {
+            if (isMatch(id, s)) return id;
+        }
+    }
+    // Buscar en sagas
+    if (appState.content.sagas) {
+        for (const sagaKey in appState.content.sagas) {
+            const sagaData = appState.content.sagas[sagaKey];
+            if (!sagaData) continue;
+            for (const [id, item] of Object.entries(sagaData)) {
+                if (isMatch(id, item)) return id;
+            }
+        }
+    }
+    // Buscar en UCM
+    if (appState.content.ucm) {
+        for (const [id, item] of Object.entries(appState.content.ucm)) {
+            if (isMatch(id, item)) return id;
+        }
+    }
+
+    // No se encontró coincidencia
+    console.warn(`[resolveContentId] No match for title="${title}" / oldId="${oldId}"`);
+    return oldId;
+}
+
+// ===========================================================
 // SISTEMA DE RATINGS (PROMEDIOS)
 // ===========================================================
 function setupRatingsListener() {
@@ -1631,11 +1719,13 @@ function setupRatingsListener() {
         if (snapshot.exists()) {
             snapshot.forEach(child => {
                 const review = child.val();
-                if (!ratingsData[review.contentId]) {
-                    ratingsData[review.contentId] = { sum: 0, count: 0 };
+                // Resolver el ID: si está desactualizado, buscar por título
+                const resolvedId = resolveContentId(review.contentId, review.contentTitle);
+                if (!ratingsData[resolvedId]) {
+                    ratingsData[resolvedId] = { sum: 0, count: 0 };
                 }
-                ratingsData[review.contentId].sum += review.stars;
-                ratingsData[review.contentId].count += 1;
+                ratingsData[resolvedId].sum += review.stars;
+                ratingsData[resolvedId].count += 1;
             });
         }
 
@@ -1739,7 +1829,9 @@ export async function openContentReviews(contentId, contentTitle) {
         if (snapshot.exists()) {
             snapshot.forEach(child => {
                 const rev = child.val();
-                if (rev.contentId === contentId) {
+                // Resolver el ID almacenado en Firebase por si cambió en el sheet
+                const resolvedId = resolveContentId(rev.contentId, rev.contentTitle);
+                if (resolvedId === contentId) {
                     reviews.push({ id: child.key, ...rev });
                 }
             });
