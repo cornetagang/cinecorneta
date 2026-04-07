@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL
-// Versión: 9.1 (5 de Marzo 2026)
+// Versión: 9.2 (6 de Abril 2026)
 // ===========================================================
 
 // ===========================================================
@@ -875,6 +875,10 @@ async function switchView(filter) {
         // Guardar el ID de la saga activa para los botones de ordenamiento
         appState.ui.activeSagaId = isDynamicSaga ? filter : null;
 
+        // Resetear sort al cambiar de sección
+        if (DOM.sortBy) DOM.sortBy.value = 'recent';
+        const sortText = document.getElementById('sort-text');
+        if (sortText) sortText.textContent = 'Recientes';
         populateFilters(filter); 
         applyAndDisplayFilters(filter);
         return;
@@ -989,6 +993,116 @@ async function switchView(filter) {
 }
 
 // ==========================================
+// FILTROS EN CASCADA
+// Repopula idioma y pedido según el subconjunto
+// que resulta de aplicar género + idioma activos.
+// ==========================================
+function refreshDependentFilters(type, activeGenre, activeLang) {
+    let sourceData;
+    if (type === 'movie') sourceData = appState.content.movies;
+    else if (type === 'series') sourceData = appState.content.series;
+    else sourceData = appState.content.sagas?.[type];
+    if (!sourceData) return;
+
+    const sagaConfig = appState.content.sagasList?.find(s => s.id === type) || {};
+    const confGenres = (sagaConfig.genres_filter || 'si').toLowerCase().trim();
+
+    // Subconjunto filtrado por género
+    let filtered = Object.entries(sourceData);
+
+    if (confGenres !== 'no' && activeGenre && activeGenre !== 'all') {
+        const gVal = activeGenre.toLowerCase().trim();
+        filtered = filtered.filter(([, item]) => {
+            if (confGenres === 'fases') {
+                const fase = String(item.fase || '').trim();
+                if (gVal === 'saga_infinity') return ['1','2','3'].includes(fase);
+                if (gVal === 'saga_multiverse') return ['4','5','6'].includes(fase);
+                return fase === gVal;
+            }
+            const genresStr = String(item.genres || '').toLowerCase();
+            const titleStr  = String(item.title  || '').toLowerCase();
+            return genresStr.includes(gVal) || titleStr.includes(gVal);
+        });
+    }
+
+    // Subconjunto también filtrado por idioma (para repopular pedidos)
+    let filteredByLang = filtered;
+    if (activeLang && activeLang !== 'all') {
+        const lVal = activeLang.toLowerCase().trim();
+        filteredByLang = filtered.filter(([, item]) => {
+            const lang = String(item.language || item.idioma || item.audio || '').toLowerCase();
+            return lang.includes(lVal);
+        });
+    }
+
+    // ── Repopular IDIOMAS (basado en filtro de género) ──
+    const langList   = document.getElementById('lang-menu-list');
+    const langFilter = DOM.langFilter;
+    if (langList && langFilter) {
+        langList.innerHTML = '';
+        langFilter.innerHTML = '<option value="all">Todos</option>';
+        langList.appendChild(_makeFilterItem('all', 'Todos', 'lang'));
+
+        const langs = new Set();
+        filtered.forEach(([, item]) => {
+            const raw = item.language || item.idioma || item.audio || '';
+            String(raw).split(';').map(l => l.trim()).filter(Boolean).forEach(l => langs.add(l));
+        });
+        Array.from(langs).sort().forEach(lang => {
+            langList.appendChild(_makeFilterItem(lang, lang, 'lang'));
+            langFilter.innerHTML += `<option value="${lang}">${lang}</option>`;
+        });
+    }
+
+    // ── Repopular PEDIDOS (basado en filtro de género + idioma) ──
+    const requestList   = document.getElementById('request-menu-list');
+    const requestSelect = document.getElementById('request-filter');
+    const requestVisual = document.getElementById('request-dropdown-visual');
+    if (requestList && requestSelect) {
+        requestList.innerHTML = '';
+        requestSelect.innerHTML = '<option value="all">Todos</option>';
+        requestList.appendChild(_makeFilterItem('all', 'Todos', 'request'));
+
+        const names = new Set();
+        filteredByLang.forEach(([, item]) => {
+            if (item.pedido && item.pedido.trim()) names.add(item.pedido.trim());
+        });
+        Array.from(names).sort().forEach(name => {
+            requestList.appendChild(_makeFilterItem(name, name, 'request'));
+            requestSelect.innerHTML += `<option value="${name}">${name}</option>`;
+        });
+        if (requestVisual) requestVisual.style.display = names.size === 0 ? 'none' : 'block';
+    }
+}
+
+// Crea un item de dropdown sin necesitar el closure de populateFilters
+function _makeFilterItem(value, label, menuType) {
+    const div = document.createElement('div');
+    div.className = 'dropdown-item';
+    if (value) div.dataset.value = value;
+    div.textContent = label;
+    div.onclick = (e) => {
+        e.stopPropagation();
+        const currentType = appState.ui.activeSagaId || appState.currentFilter || 'movie';
+        if (menuType === 'lang') {
+            document.getElementById('lang-text').textContent = label;
+            DOM.langFilter.value = value;
+            document.getElementById('lang-dropdown-visual')?.classList.remove('open');
+            // Cascada: resetear pedido
+            document.getElementById('request-filter').value = 'all';
+            document.getElementById('request-text').textContent = 'Pedidos';
+            refreshDependentFilters(currentType, DOM.genreFilter.value, value);
+        } else if (menuType === 'request') {
+            document.getElementById('request-text').textContent = label === 'Todos' ? 'Pedidos' : label;
+            document.getElementById('request-filter').value = value;
+            document.getElementById('request-dropdown-visual')?.classList.remove('open');
+        }
+        applyAndDisplayFilters(currentType);
+    };
+    return div;
+}
+
+// ==========================================
 // FUNCIÓN: POPULAR FILTROS (CON PEDIDOS)
 // ==========================================
 function populateFilters(type) {
@@ -1048,6 +1162,12 @@ function populateFilters(type) {
                 document.getElementById('genre-text').textContent = label; 
                 DOM.genreFilter.value = value; 
                 if (genreVisual) genreVisual.classList.remove('open');
+                // Cascada: resetear idioma y pedido, luego repopular con el subconjunto
+                DOM.langFilter.value = 'all';
+                document.getElementById('lang-text').textContent = 'Idioma';
+                if(requestSelect) requestSelect.value = 'all';
+                document.getElementById('request-text').textContent = 'Pedidos';
+                refreshDependentFilters(type, value, 'all');
             } else if (menuType === 'lang') {
             // 1. Cambiar el texto visual del botón
             document.getElementById('lang-text').textContent = label;
@@ -1057,6 +1177,11 @@ function populateFilters(type) {
             
             // 3. Cerrar el menú
             if (langVisual) langVisual.classList.remove('open');
+
+            // Cascada: resetear pedido y repopular con subconjunto género+idioma
+            if(requestSelect) requestSelect.value = 'all';
+            document.getElementById('request-text').textContent = 'Pedidos';
+            refreshDependentFilters(type, DOM.genreFilter.value, value);
             
             // 4. ¡IMPORTANTE! Aplicar el filtro inmediatamente
             applyAndDisplayFilters(appState.ui.activeSagaId || appState.currentFilter || 'movie');
@@ -1449,6 +1574,14 @@ async function applyAndDisplayFilters(type) {
         content = content.filter(([id, item]) => {
             // Comparamos el nombre exacto del pedido
             return String(item.pedido || '').trim() === requestFilterVal;
+        });
+    }
+
+    // 🆕 5. FILTRO POR RESEÑA: si se ordena por rating, mostrar solo las que tienen reseña
+    if (sortByValue === 'rating-desc' || sortByValue === 'rating-asc') {
+        content = content.filter(([id]) => {
+            const rating = parseFloat(appState.content.averages[id]);
+            return rating > 0;
         });
     }
 
@@ -4534,7 +4667,7 @@ window.ErrorHandler = ErrorHandler;
 window.ContentManager = ContentManager;
 window.cacheManager = cacheManager;
 
-console.log('✅ Cine Corneta v9.1 cargado correctamente');
+console.log('✅ Cine Corneta v9.2 cargado correctamente');
 // ===========================================================
 // COMPATIBILIDAD: Funciones que ahora están en el módulo
 // ===========================================================
