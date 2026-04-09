@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL
-// Versión: 9.2 (6 de Abril 2026)
+// Versión: 9.4 (8 de Abril 2026)
 // ===========================================================
 
 // ===========================================================
@@ -1085,15 +1085,11 @@ function _makeFilterItem(value, label, menuType) {
         e.stopPropagation();
         const currentType = appState.ui.activeSagaId || appState.currentFilter || 'movie';
         if (menuType === 'lang') {
-            document.getElementById('lang-text').textContent = label;
+            document.getElementById('lang-text').textContent = label === 'Todos' ? 'Idioma' : label.split(' (')[0];
             DOM.langFilter.value = value;
             document.getElementById('lang-dropdown-visual')?.classList.remove('open');
-            // Cascada: resetear pedido
-            document.getElementById('request-filter').value = 'all';
-            document.getElementById('request-text').textContent = 'Pedidos';
-            refreshDependentFilters(currentType, DOM.genreFilter.value, value);
         } else if (menuType === 'request') {
-            document.getElementById('request-text').textContent = label === 'Todos' ? 'Pedidos' : label;
+            document.getElementById('request-text').textContent = label === 'Todos' ? 'Pedidos' : label.split(' (')[0];
             document.getElementById('request-filter').value = value;
             document.getElementById('request-dropdown-visual')?.classList.remove('open');
         }
@@ -1154,48 +1150,134 @@ function populateFilters(type) {
         if (isGroup && value) div.style.cursor = "pointer";
 
         div.onclick = (e) => {
-            e.stopPropagation(); 
-            
-            // (Aquí borraste el console.log de CLICK DETECTADO)
+            e.stopPropagation();
 
+            // 1. Actualizar valor y texto del filtro clickeado
             if (menuType === 'genre') {
-                document.getElementById('genre-text').textContent = label; 
-                DOM.genreFilter.value = value; 
+                document.getElementById('genre-text').textContent = label === 'Todos' ? 'Géneros' : label.split(' (')[0];
+                DOM.genreFilter.value = value;
                 if (genreVisual) genreVisual.classList.remove('open');
-                // Cascada: resetear idioma y pedido, luego repopular con el subconjunto
-                DOM.langFilter.value = 'all';
-                document.getElementById('lang-text').textContent = 'Idioma';
-                if(requestSelect) requestSelect.value = 'all';
-                document.getElementById('request-text').textContent = 'Pedidos';
-                refreshDependentFilters(type, value, 'all');
             } else if (menuType === 'lang') {
-            // 1. Cambiar el texto visual del botón
-            document.getElementById('lang-text').textContent = label;
-            
-            // 2. Actualizar el valor del selector oculto (el cerebro)
-            DOM.langFilter.value = value;
-            
-            // 3. Cerrar el menú
-            if (langVisual) langVisual.classList.remove('open');
-
-            // Cascada: resetear pedido y repopular con subconjunto género+idioma
-            if(requestSelect) requestSelect.value = 'all';
-            document.getElementById('request-text').textContent = 'Pedidos';
-            refreshDependentFilters(type, DOM.genreFilter.value, value);
-            
-            // 4. ¡IMPORTANTE! Aplicar el filtro inmediatamente
-            applyAndDisplayFilters(appState.ui.activeSagaId || appState.currentFilter || 'movie');
-
-            } else if (menuType === 'request') { 
-                document.getElementById('request-text').textContent = label === 'Todos' ? 'Pedidos' : label;
-                if(requestSelect) requestSelect.value = value;
+                document.getElementById('lang-text').textContent = label === 'Todos' ? 'Idioma' : label.split(' (')[0];
+                DOM.langFilter.value = value;
+                if (langVisual) langVisual.classList.remove('open');
+            } else if (menuType === 'request') {
+                document.getElementById('request-text').textContent = label === 'Todos' ? 'Pedidos' : label.split(' (')[0];
+                if (requestSelect) requestSelect.value = value;
                 if (requestVisual) requestVisual.classList.remove('open');
             } else {
-                // (Aquí borraste el console.log de CAMBIANDO ORDEN)
                 document.getElementById('sort-text').textContent = label;
                 DOM.sortBy.value = value;
                 if (sortVisual) sortVisual.classList.remove('open');
             }
+
+            // 2. CASCADA: recalcular opciones de los otros dropdowns
+            if (menuType !== 'sort' && menuType !== 'letter') {
+                const activeGenre   = DOM.genreFilter?.value || 'all';
+                const activeLang    = DOM.langFilter?.value  || 'all';
+                const activeRequest = requestSelect?.value   || 'all';
+
+                const sub = (g, l, r) => {
+                    let items = Object.entries(sourceData);
+                    if (confGenres !== 'no' && g !== 'all') {
+                        const gv = g.toLowerCase().trim();
+                        items = items.filter(([, d]) => {
+                            if (confGenres === 'fases') {
+                                const f = String(d.fase||'').trim();
+                                if (gv==='saga_infinity')   return ['1','2','3'].includes(f);
+                                if (gv==='saga_multiverse') return ['4','5','6'].includes(f);
+                                return f === gv;
+                            }
+                            return String(d.genres||'').toLowerCase().includes(gv) ||
+                                   String(d.title ||'').toLowerCase().includes(gv);
+                        });
+                    }
+                    if (l !== 'all') {
+                        const lv = l.toLowerCase().trim();
+                        items = items.filter(([, d]) =>
+                            String(d.language||d.idioma||d.audio||'').toLowerCase().includes(lv));
+                    }
+                    if (r !== 'all') {
+                        items = items.filter(([, d]) => (d.pedido||'').trim() === r);
+                    }
+                    return items;
+                };
+
+                // Repopular IDIOMAS
+                if (confLang === 'si' && langList && DOM.langFilter) {
+                    const langCounts = new Map();
+                    sub(activeGenre, 'all', activeRequest).forEach(([,d]) =>
+                        String(d.language||d.idioma||d.audio||'')
+                            .split(';').map(s=>s.trim()).filter(Boolean).forEach(l => {
+                                langCounts.set(l, (langCounts.get(l) || 0) + 1);
+                            })
+                    );
+                    langList.innerHTML = '';
+                    DOM.langFilter.innerHTML = '<option value="all">Todos</option>';
+                    langList.appendChild(createItem('all', 'Todos', 'lang'));
+                    [...langCounts.keys()].sort().forEach(l => {
+                        const lbl = `${l} (${langCounts.get(l)})`;
+                        langList.appendChild(createItem(l, lbl, 'lang'));
+                        DOM.langFilter.innerHTML += `<option value="${l}">${lbl}</option>`;
+                    });
+                    if (activeLang !== 'all' && !langCounts.has(activeLang)) {
+                        DOM.langFilter.value = 'all';
+                        document.getElementById('lang-text').textContent = 'Idioma';
+                    } else {
+                        DOM.langFilter.value = activeLang;
+                    }
+                }
+
+                // Repopular PEDIDOS
+                if (requestList && requestSelect) {
+                    const requestCounts = new Map();
+                    sub(activeGenre, activeLang, 'all').forEach(([,d]) => {
+                        const p = d.pedido?.trim();
+                        if (p) requestCounts.set(p, (requestCounts.get(p) || 0) + 1);
+                    });
+                    requestList.innerHTML = '';
+                    requestSelect.innerHTML = '<option value="all">Todos</option>';
+                    requestList.appendChild(createItem('all', 'Todos', 'request'));
+                    [...requestCounts.keys()].sort().forEach(n => {
+                        const lbl = `${n} (${requestCounts.get(n)})`;
+                        requestList.appendChild(createItem(n, lbl, 'request'));
+                        requestSelect.innerHTML += `<option value="${n}">${lbl}</option>`;
+                    });
+                    if (requestVisual) requestVisual.style.display = requestCounts.size === 0 ? 'none' : 'block';
+                    if (activeRequest !== 'all' && !requestCounts.has(activeRequest)) {
+                        requestSelect.value = 'all';
+                        document.getElementById('request-text').textContent = 'Pedidos';
+                    } else {
+                        requestSelect.value = activeRequest;
+                    }
+                }
+
+                // Repopular GÉNEROS
+                if ((type==='movie'||type==='series') && confGenres!=='no' && confGenres!=='fases' && genreList) {
+                    const genreCounts = new Map();
+                    sub('all', activeLang, activeRequest).forEach(([,d]) =>
+                        String(d.genres||'').split(';').map(s=>s.trim()).filter(Boolean).forEach(g => {
+                            genreCounts.set(g, (genreCounts.get(g) || 0) + 1);
+                        })
+                    );
+                    genreList.innerHTML = '';
+                    DOM.genreFilter.innerHTML = '<option value="all">Todos</option>';
+                    genreList.appendChild(createItem('all', 'Todos', 'genre'));
+                    [...genreCounts.keys()].sort().forEach(g => {
+                        const lbl = `${g} (${genreCounts.get(g)})`;
+                        genreList.appendChild(createItem(g, lbl, 'genre'));
+                        DOM.genreFilter.innerHTML += `<option value="${g}">${lbl}</option>`;
+                    });
+                    if (activeGenre !== 'all' && !genreCounts.has(activeGenre)) {
+                        DOM.genreFilter.value = 'all';
+                        document.getElementById('genre-text').textContent = 'Géneros';
+                    } else {
+                        DOM.genreFilter.value = activeGenre;
+                    }
+                }
+            }
+
+            // 3. Aplicar filtros al grid
             applyAndDisplayFilters(type);
         };
         return div;
@@ -1295,16 +1377,19 @@ function populateFilters(type) {
 
         // CASO: ESTÁNDAR (Por géneros de la columna 'genres')
         } else {
-            const genres = new Set(Object.values(sourceData).flatMap(i => i.genres ? String(i.genres).split(';') : []));
+            const genreCounts = new Map();
+            Object.values(sourceData).forEach(item => {
+                String(item.genres||'').split(';').map(g=>g.trim()).filter(Boolean).forEach(g => {
+                    genreCounts.set(g, (genreCounts.get(g)||0) + 1);
+                });
+            });
             genreList.appendChild(createItem('all', 'Todos', 'genre'));
             document.getElementById('genre-text').textContent = "Géneros";
-            
-            Array.from(genres).sort().forEach(g => {
-                const gTrim = g.trim();
-                if(gTrim) {
-                    genreList.appendChild(createItem(gTrim, gTrim, 'genre'));
-                    DOM.genreFilter.innerHTML += `<option value="${gTrim}">${gTrim}</option>`;
-                }
+
+            [...genreCounts.keys()].sort().forEach(g => {
+                const lbl = `${g} (${genreCounts.get(g)})`;
+                genreList.appendChild(createItem(g, lbl, 'genre'));
+                DOM.genreFilter.innerHTML += `<option value="${g}">${lbl}</option>`;
             });
         }
     }
@@ -1318,24 +1403,23 @@ function populateFilters(type) {
     langList.appendChild(createItem('all', 'Todos', 'lang'));
     document.getElementById('lang-text').textContent = "Idioma";
     
-    // Extraer idiomas únicos del contenido
-    const languages = new Set();
+    // Extraer idiomas con conteo
+    const langCounts = new Map();
     Object.values(sourceData).forEach(item => {
-        // 🔥 CORRECCIÓN: Busca 'language', 'idioma' o 'audio'
-        const rawLang = item.language || item.idioma || item.audio || ""; 
-        
+        const rawLang = item.language || item.idioma || item.audio || "";
         if (rawLang && String(rawLang).trim() !== "") {
-            // Manejar múltiples idiomas separados por punto y coma
-            const langs = String(rawLang).split(';').map(l => l.trim()).filter(Boolean);
-            langs.forEach(lang => languages.add(lang));
+            String(rawLang).split(';').map(l => l.trim()).filter(Boolean).forEach(lang => {
+                langCounts.set(lang, (langCounts.get(lang) || 0) + 1);
+            });
         }
     });
-    
-    // Crear opciones ordenadas alfabéticamente
-    Array.from(languages).sort().forEach(lang => {
-            langList.appendChild(createItem(lang, lang, 'lang'));
-            DOM.langFilter.innerHTML += `<option value="${lang}">${lang}</option>`;
-        });
+
+    // Crear opciones ordenadas con contador
+    [...langCounts.keys()].sort().forEach(lang => {
+        const lbl = `${lang} (${langCounts.get(lang)})`;
+        langList.appendChild(createItem(lang, lbl, 'lang'));
+        DOM.langFilter.innerHTML += `<option value="${lang}">${lbl}</option>`;
+    });
     }
 
     // 3. SORT - Menú de Ordenamiento Completo
@@ -1447,22 +1531,21 @@ function populateFilters(type) {
         // Opción "Todos"
         requestList.appendChild(createItem('all', 'Todos', 'request'));
 
-        // Extraer Nombres Únicos de la columna 'pedido'
-        const requestNames = new Set();
+        // Extraer pedidos con conteo
+        const requestCounts = new Map();
         Object.values(sourceData).forEach(item => {
-            if (item.pedido && item.pedido.trim() !== "") {
-                requestNames.add(item.pedido.trim());
-            }
+            const p = item.pedido?.trim();
+            if (p) requestCounts.set(p, (requestCounts.get(p) || 0) + 1);
         });
 
-        // Crear opciones ordenadas
-        Array.from(requestNames).sort().forEach(name => {
-            requestList.appendChild(createItem(name, name, 'request'));
-            requestSelect.innerHTML += `<option value="${name}">${name}</option>`;
+        // Crear opciones ordenadas con contador
+        [...requestCounts.keys()].sort().forEach(name => {
+            const lbl = `${name} (${requestCounts.get(name)})`;
+            requestList.appendChild(createItem(name, lbl, 'request'));
+            requestSelect.innerHTML += `<option value="${name}">${lbl}</option>`;
         });
-        
-        // Si no hay pedidos, ocultamos el filtro para que no estorbe
-        if (requestNames.size === 0) {
+
+        if (requestCounts.size === 0) {
             requestVisual.style.display = 'none';
         }
     }
@@ -4667,7 +4750,7 @@ window.ErrorHandler = ErrorHandler;
 window.ContentManager = ContentManager;
 window.cacheManager = cacheManager;
 
-console.log('✅ Cine Corneta v9.2 cargado correctamente');
+console.log('✅ Cine Corneta v9.4 cargado correctamente');
 // ===========================================================
 // COMPATIBILIDAD: Funciones que ahora están en el módulo
 // ===========================================================
