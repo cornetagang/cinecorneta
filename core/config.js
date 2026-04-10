@@ -45,30 +45,49 @@ export const API_URL = {
  * Configuración de UI
  */
 export const UI = {
-    ITEMS_PER_LOAD: window.innerWidth < 1600 ? 25 : 24,
-    HERO_TRANSITION_DELAY: 5000, // 5 segundos
+    // ── Layout dinámico ──────────────────────────────────────
+    // El número de items por página se calcula siempre en base
+    // al tamaño real del viewport: columnas × filas deseadas.
+    // Así cada pantalla ve exactamente N filas completas, sin
+    // huecos ni scroll infinito.
+    
+    CARD_MIN_WIDTH: 200,  // px — coincide con minmax(200px,1fr) del CSS
+    GRID_GAP: 20,         // px — coincide con gap: 20px del CSS
+    GRID_PADDING_VW: 8,   // vw total (4vw cada lado)
+    ROWS_PER_PAGE: 4,     // cuántas filas quieres ver por página
+
+    /**
+     * Calcula cuántas columnas caben en el viewport actual.
+     * Usa la misma lógica que CSS auto-fill/minmax.
+     */
+    getColumns() {
+        const padding = window.innerWidth * (this.GRID_PADDING_VW / 100);
+        const available = window.innerWidth - padding;
+        return Math.max(2, Math.floor((available + this.GRID_GAP) / (this.CARD_MIN_WIDTH + this.GRID_GAP)));
+    },
+
+    /**
+     * Items por página = columnas × filas.
+     * Usar este getter en lugar de ITEMS_PER_LOAD directamente.
+     */
+    get ITEMS_PER_LOAD() {
+        return this.getColumns() * this.ROWS_PER_PAGE;
+    },
+
+    HERO_TRANSITION_DELAY: 5000,
     ERROR_NOTIFICATION_DURATION: 5000,
     LAZY_LOAD_MARGIN: '50px',
-    
+
     breakpoints: {
         mobile: 768,
         tablet: 1024,
         desktop: 1440,
         wide: 1920
     },
-    
-    isMobile() {
-        return window.innerWidth <= this.breakpoints.mobile;
-    },
-    
-    isTablet() {
-        return window.innerWidth > this.breakpoints.mobile && 
-               window.innerWidth <= this.breakpoints.tablet;
-    },
-    
-    isDesktop() {
-        return window.innerWidth > this.breakpoints.tablet;
-    }
+
+    isMobile() { return window.innerWidth <= this.breakpoints.mobile; },
+    isTablet()  { return window.innerWidth > this.breakpoints.mobile && window.innerWidth <= this.breakpoints.tablet; },
+    isDesktop() { return window.innerWidth > this.breakpoints.tablet; }
 };
 
 /**
