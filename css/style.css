@@ -8054,7 +8054,20 @@ button.modal-review-count:hover {
 
 .universe-card--featured { min-height: 280px; }
 
-.universes-rest-wrapper { display: flex; flex-direction: column; gap: 12px; }
+.universes-rest-wrapper { display: flex; flex-direction: column; gap: 16px; }
+
+.universes-rest-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.universes-rest-header::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, rgba(255,255,255,0.12), transparent);
+}
 
 .universes-rest-label {
     font-family: 'Montserrat', sans-serif;
@@ -8064,13 +8077,105 @@ button.modal-review-count:hover {
     text-transform: uppercase;
     color: rgba(255,255,255,0.3);
     margin: 0;
-    padding-left: 2px;
+    white-space: nowrap;
 }
 
 .universes-rest-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 14px;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.univ-grid-exit {
+    opacity: 0;
+    transform: translateY(6px);
+}
+
+.univ-grid-enter {
+    animation: univGridIn 0.28s ease forwards;
+}
+
+@keyframes univGridIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0);    }
+}
+
+/* ── Fila con flechas laterales ── */
+.universes-rest-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.universes-rest-row .universes-rest-grid {
+    flex: 1;
+    min-width: 0;
+}
+
+.univ-side-btn {
+    flex-shrink: 0;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.6);
+    cursor: pointer;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.15s, box-shadow 0.2s;
+}
+
+.univ-side-btn:hover:not(:disabled) {
+    background: rgba(255,255,255,0.13);
+    border-color: rgba(255,255,255,0.45);
+    color: #fff;
+    transform: scale(1.12);
+    box-shadow: 0 0 18px rgba(255,255,255,0.08);
+}
+
+.univ-side-btn--disabled,
+.univ-side-btn:disabled {
+    opacity: 0.18;
+    cursor: default;
+    transform: none;
+    box-shadow: none;
+}
+
+/* ── Dots debajo ── */
+.univ-dots-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 0 4px;
+}
+
+.univ-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.22);
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.2s, transform 0.2s, width 0.25s;
+}
+
+.univ-dot:hover:not(.univ-dot--active) {
+    background: rgba(255,255,255,0.5);
+    transform: scale(1.3);
+}
+
+.univ-dot--active {
+    background: var(--primary-red);
+    width: 24px;
+    border-radius: 4px;
+    box-shadow: 0 0 10px rgba(229,9,20,0.55);
+    cursor: default;
 }
 
 .universe-card--compact { height: 160px; }
@@ -8114,6 +8219,49 @@ button.modal-review-count:hover {
     .universes-rest-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
     .universe-card--compact { height: 130px; }
     .universe-card:hover { transform: none; }
+
+    /* Flechas laterales → debajo del grid en móvil */
+    .universes-rest-row {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .universes-rest-row .universes-rest-grid {
+        width: 100%;
+    }
+
+    /* Barra de controles: flecha izq · dots · flecha der en fila */
+    .universes-rest-row .univ-side-btn {
+        display: none; /* ocultamos las flechas del row */
+    }
+
+    /* Reemplazamos con una barra completa debajo */
+    .univ-dots-bar {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0;
+        padding: 4px 0 8px;
+    }
+
+    /* Insertamos las flechas dentro de la barra de dots via CSS trick:
+       usamos pseudo-elementos no, mejor: en móvil mostramos un nav-bar propio */
+    .univ-mobile-nav {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        padding: 6px 0 10px;
+        width: 100%;
+    }
+
+    .univ-mobile-nav .univ-side-btn {
+        display: flex !important;
+        width: 44px;
+        height: 44px;
+        font-size: 1rem;
+        flex-shrink: 0;
+    }
 }
 
 @media (min-width: 1600px) {
