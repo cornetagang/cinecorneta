@@ -71,25 +71,167 @@ function buildFeaturedSection(sagas) {
 }
 
 // ─────────────────────────────────────────────
-// 4. SECCIÓN REST (grid compacto)
+// 4. SECCIÓN REST (grid compacto con paginación)
 // ─────────────────────────────────────────────
+// Columnas del grid de universos según los breakpoints del CSS
+// (repeat(2..5, 1fr) — no es auto-fill, así que usamos los mismos valores exactos)
+function getPageSize() {
+    const w = window.innerWidth;
+    if (w >= 1600) return 5 * 3; // 15
+    if (w > 1024)  return 4 * 3; // 12
+    if (w > 768)   return 3 * 3; // 9
+    return 2 * 3;                 // 6 (móvil)
+}
+
 function buildRestSection(sagas) {
     const wrapper = document.createElement('div');
     wrapper.className = 'universes-rest-wrapper';
 
+    // Header con label
+    const header = document.createElement('div');
+    header.className = 'universes-rest-header';
     const label = document.createElement('p');
     label.className = 'universes-rest-label';
     label.textContent = 'Más universos';
-    wrapper.appendChild(label);
+    header.appendChild(label);
+    wrapper.appendChild(header);
+
+    // Fila: flecha izq + grid + flecha der
+    const row = document.createElement('div');
+    row.className = 'universes-rest-row';
+
+    const prevBtn = document.createElement('button');
+    prevBtn.className = 'univ-side-btn univ-side-btn--prev';
+    prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+    prevBtn.setAttribute('aria-label', 'Página anterior');
 
     const grid = document.createElement('div');
     grid.className = 'universes-rest-grid';
 
-    sagas.forEach(saga => {
-        grid.appendChild(createCompactCard(saga));
+    const nextBtn = document.createElement('button');
+    nextBtn.className = 'univ-side-btn univ-side-btn--next';
+    nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+    nextBtn.setAttribute('aria-label', 'Página siguiente');
+
+    row.appendChild(prevBtn);
+    row.appendChild(grid);
+    row.appendChild(nextBtn);
+    wrapper.appendChild(row);
+
+    // Dots debajo centrados
+    const dotsBar = document.createElement('div');
+    dotsBar.className = 'univ-dots-bar';
+    wrapper.appendChild(dotsBar);
+
+    // Barra móvil: [ ‹ ] [ dots ] [ › ] — solo visible en móvil
+    const mobileNav = document.createElement('div');
+    mobileNav.className = 'univ-mobile-nav';
+    mobileNav.style.display = 'none';
+
+    const mobilePrev = document.createElement('button');
+    mobilePrev.className = 'univ-side-btn';
+    mobilePrev.innerHTML = '<i class="fas fa-chevron-left"></i>';
+    mobilePrev.setAttribute('aria-label', 'Página anterior');
+
+    const mobileDots = document.createElement('div');
+    mobileDots.className = 'univ-dots-bar';
+    mobileDots.style.padding = '0';
+
+    const mobileNext = document.createElement('button');
+    mobileNext.className = 'univ-side-btn';
+    mobileNext.innerHTML = '<i class="fas fa-chevron-right"></i>';
+    mobileNext.setAttribute('aria-label', 'Página siguiente');
+
+    mobileNav.appendChild(mobilePrev);
+    mobileNav.appendChild(mobileDots);
+    mobileNav.appendChild(mobileNext);
+    wrapper.appendChild(mobileNav);
+
+    mobilePrev.addEventListener('click', () => goToPage(currentPage - 1));
+    mobileNext.addEventListener('click', () => goToPage(currentPage + 1));
+
+    let currentPage = 0;
+    let pageSize = getPageSize();
+    let totalPages = Math.ceil(sagas.length / pageSize);
+
+    function goToPage(page) {
+        if (page < 0 || page >= totalPages) return;
+        grid.classList.add('univ-grid-exit');
+        setTimeout(() => {
+            currentPage = page;
+            grid.innerHTML = '';
+            pageSize = getPageSize();
+            totalPages = Math.ceil(sagas.length / pageSize);
+            sagas.slice(page * pageSize, page * pageSize + pageSize)
+                 .forEach(saga => grid.appendChild(createCompactCard(saga)));
+            grid.classList.remove('univ-grid-exit');
+            grid.classList.add('univ-grid-enter');
+            setTimeout(() => grid.classList.remove('univ-grid-enter'), 300);
+            updateControls();
+        }, 180);
+    }
+
+    function makeDots(container) {
+        container.innerHTML = '';
+        for (let i = 0; i < totalPages; i++) {
+            const dot = document.createElement('button');
+            dot.className = 'univ-dot' + (i === currentPage ? ' univ-dot--active' : '');
+            dot.setAttribute('aria-label', `Página ${i + 1}`);
+            dot.addEventListener('click', () => goToPage(i));
+            container.appendChild(dot);
+        }
+    }
+
+    function updateControls() {
+        const isMobile = window.innerWidth <= 768;
+
+        // Flechas del row (desktop)
+        prevBtn.disabled = currentPage === 0;
+        prevBtn.classList.toggle('univ-side-btn--disabled', currentPage === 0);
+        nextBtn.disabled = currentPage === totalPages - 1;
+        nextBtn.classList.toggle('univ-side-btn--disabled', currentPage === totalPages - 1);
+        const visible = totalPages > 1 ? '' : 'hidden';
+        prevBtn.style.visibility = visible;
+        nextBtn.style.visibility = visible;
+
+        if (totalPages <= 1) {
+            dotsBar.innerHTML = '';
+            mobileNav.style.display = 'none';
+            return;
+        }
+
+        if (isMobile) {
+            // Ocultar dots sueltos, mostrar barra móvil completa
+            dotsBar.style.display = 'none';
+            mobileNav.style.display = 'flex';
+            mobilePrev.disabled = currentPage === 0;
+            mobilePrev.classList.toggle('univ-side-btn--disabled', currentPage === 0);
+            mobileNext.disabled = currentPage === totalPages - 1;
+            mobileNext.classList.toggle('univ-side-btn--disabled', currentPage === totalPages - 1);
+            makeDots(mobileDots);
+        } else {
+            dotsBar.style.display = '';
+            mobileNav.style.display = 'none';
+            makeDots(dotsBar);
+        }
+    }
+
+    prevBtn.addEventListener('click', () => goToPage(currentPage - 1));
+    nextBtn.addEventListener('click', () => goToPage(currentPage + 1));
+
+    // Recalcular al cambiar tamaño de ventana
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+            const newPageSize = getPageSize();
+            if (newPageSize !== pageSize) {
+                goToPage(0); // Volver a página 1 con nuevo tamaño
+            }
+        }, 200);
     });
 
-    wrapper.appendChild(grid);
+    goToPage(0);
     return wrapper;
 }
 
