@@ -2156,6 +2156,27 @@ function handleFullscreenChange() {
     } else {
         unlockOrientation();
     }
+
+    // =======================================================
+    // RESIZE: recalcular página si cambia el nº de columnas
+    // =======================================================
+    let _lastColumns = UI.getColumns();
+    let _resizeTimer;
+    window.addEventListener('resize', () => {
+        clearTimeout(_resizeTimer);
+        _resizeTimer = setTimeout(() => {
+            const newCols = UI.getColumns();
+            if (newCols !== _lastColumns) {
+                _lastColumns = newCols;
+                // Volver a página 0 y re-renderizar con el nuevo ITEMS_PER_LOAD
+                if (appState.ui.contentToDisplay && appState.ui.contentToDisplay.length > 0) {
+                    appState.ui.currentIndex = 0;
+                    setupPaginationControls();
+                    renderCurrentPage();
+                }
+            }
+        }, 250);
+    });
 }
 
 function setupPaginationControls() {
