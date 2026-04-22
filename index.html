@@ -2,7 +2,9 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- viewport-fit=cover es CRÍTICO para Safari en iPhone con Dynamic Island/notch.
+         Sin esto, env(safe-area-inset-*) devuelve 0 y el contenido queda tapado. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Cine Corneta</title>
     <link id="app-icon" rel="icon" type="image/png" href="https://res.cloudinary.com/djhgmmdjx/image/upload/v1759209689/u71QEFc_bet4rv.png">
     
@@ -12,6 +14,9 @@
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/style.css">
+    <!-- Safari iOS Fixes — debe ir DESPUÉS de style.css para sobreescribir correctamente -->
+    <link rel="stylesheet" href="css/safari-ios-fixes.css">
+
     <style>
         .cinema-title-above {
             margin: 0 0 10px 0 !important;
@@ -682,5 +687,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
     <script src="script.js?v=8" type="module" defer></script>
+    <!-- Safari iOS Patch — debe ir al final del body, después de script.js -->
+    <script src="utils/safari-ios-patch.js" defer></script>
 </body>
 </html>
