@@ -32,8 +32,9 @@
     .page-wrapper {
         min-height: 100dvh;
     }
-    .modal {
-        /* Los modales deben cubrir el viewport real, no el calculado */
+    /* ↓ Scoped a iOS: Chrome Android también soporta dvh pero forzar
+         height: 100dvh en .modal rompe el player en Android. */
+    body.device-ios .modal {
         min-height: 100dvh;
         height: 100dvh;
     }
@@ -145,15 +146,16 @@
    (ver abajo el bloque de script), pero el CSS ayuda.
    ================================================================ */
 
-@supports (-webkit-touch-callout: none) {
-    body.modal-open {
-        position: fixed;
-        width: 100%;
-        left: 0;
-        /* No ponemos top:0 aquí; el JS lo maneja con scroll guardado */
-        overflow: hidden;
-        overscroll-behavior: none;
-    }
+/* ↓ Sin @supports (-webkit-touch-callout): Chrome Android puede reconocerlo
+     y aplicar position:fixed al body, rompiendo el player. Usamos la clase
+     .device-ios que añade device-detect.js, que es 100% fiable. */
+body.device-ios.modal-open {
+    position: fixed;
+    width: 100%;
+    left: 0;
+    /* No ponemos top:0 aquí; el JS lo maneja con scroll guardado */
+    overflow: hidden;
+    overscroll-behavior: none;
 }
 
 
