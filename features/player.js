@@ -776,8 +776,15 @@ function openEpisode(seriesId, season, newEpisodeIndex) {
             // Para películas/especiales: solo el título
             titleEl.textContent = episode.title || '';
         } else {
-            // Para temporadas normales: formato tradicional
-            titleEl.textContent = `T${String(season).replace('T', '')} E${episodeNumber} - ${episode.title || ''}`;
+            // Detectar si la serie tiene más de una temporada
+            const totalSeasons = Object.keys(shared.appState.content.seriesEpisodes[seriesId] || {}).length;
+            if (totalSeasons > 1) {
+                // Multi-temporada: "T1 E1 - Título"
+                titleEl.textContent = `T${String(season).replace('T', '')} E${episodeNumber} - ${episode.title || ''}`;
+            } else {
+                // Una sola temporada: "Episodio 1 - Título"
+                titleEl.textContent = `Episodio ${episodeNumber} - ${episode.title || ''}`;
+            }
         }
     }
     
