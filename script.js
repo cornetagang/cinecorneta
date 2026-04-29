@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL
-// Versión: 9.4 (8 de Abril 2026)
+// Versión: 9.6 (29 de Abril 2026)
 // ===========================================================
 
 // ===========================================================
@@ -2807,6 +2807,7 @@ function generateContinueWatchingCarousel(snapshot) {
         }
         
         // Crear tarjeta usando la función existente con source: 'continuar-viendo'
+        const totalSeasons = Object.keys(appState.content.seriesEpisodes[historyItem.contentId] || {}).length;
         const card = createMovieCardElement(
             historyItem.contentId, 
             seriesData, 
@@ -2819,8 +2820,9 @@ function generateContinueWatchingCarousel(snapshot) {
                 lastEpisode: historyItem.lastEpisode,
                 episodeThumbnail: episodeThumbnail,
                 episodeTitle: episodeTitle,
-                seriesTitle: historyItem.title,
-                historyKey: historyItem.key  // 🔥 NUEVO: Para poder borrar del historial
+                seriesTitle: seriesData.title, // título limpio sin temporada
+                historyKey: historyItem.key,
+                totalSeasons: totalSeasons     // para formatear episodio correctamente
             }
         );
         
@@ -3675,8 +3677,11 @@ function addToHistoryIfLoggedIn(contentId, type, episodeInfo = {}) {
     // Esto obliga a Firebase a SOBRESCRIBIR cualquier dato anterior de esta serie.
     const historyKey = contentId; 
 
-    // Título dinámico
-    const historyTitle = isSeries ? `${itemData.title}: T${episodeInfo.season}` : itemData.title;
+    // Título dinámico (sin temporada si la serie tiene una sola temporada)
+    const totalSeasonsForTitle = Object.keys(appState.content.seriesEpisodes[contentId] || {}).length;
+    const historyTitle = isSeries
+        ? (totalSeasonsForTitle > 1 ? `${itemData.title}: T${episodeInfo.season}` : itemData.title)
+        : itemData.title;
 
     const historyEntry = {
         type: isSeries ? 'series' : 'movie',
@@ -4369,7 +4374,9 @@ function createMovieCardElement(id, data, type, layout = 'carousel', lazy = fals
         let episodeInfo = '';
         if (options.season != null && options.lastEpisode != null) {
             const episodeNum = parseInt(options.lastEpisode) + 1; // +1 porque los índices empiezan en 0
-            episodeInfo = `T${options.season} E${episodeNum}`;
+            episodeInfo = (options.totalSeasons > 1)
+                ? `T${options.season} E${episodeNum}`
+                : `Episodio ${episodeNum}`;
         }
         
         overlay.innerHTML = `
@@ -4771,7 +4778,7 @@ window.ErrorHandler = ErrorHandler;
 window.ContentManager = ContentManager;
 window.cacheManager = cacheManager;
 
-console.log('✅ Cine Corneta v9.4 cargado correctamente');
+console.log('✅ Cine Corneta v9.6 cargado correctamente');
 // ===========================================================
 // COMPATIBILIDAD: Funciones que ahora están en el módulo
 // ===========================================================
