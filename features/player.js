@@ -553,7 +553,7 @@ async function renderEpisodePlayer(seriesId, seasonNum, startAtIndex = null) {
                 <div class="player-layout-container movie-mode">
                     <div class="movie-player-container">
                         <h2 id="cinema-title-${seriesId}" class="movie-player-title cinema-title-above">${displayTitle}</h2>
-                        <div class="screen"><iframe id="video-frame-${seriesId}" src="" allowfullscreen></iframe></div>
+                        <div class="screen"><iframe id="video-frame-${seriesId}" src="" allowfullscreen allow="autoplay; fullscreen; encrypted-media; picture-in-picture"></iframe></div>
                         ${movieLangHTML}
                     </div>
                     <div class="movie-info-sidebar">
@@ -590,7 +590,7 @@ async function renderEpisodePlayer(seriesId, seasonNum, startAtIndex = null) {
                     <div class="player-container">
                         <h3 class="series-main-title">${seriesInfo.title || 'Serie'}</h3>
                         <h2 id="cinema-title-${seriesId}" class="player-title"></h2>
-                        <div class="screen"><iframe id="video-frame-${seriesId}" src="" allowfullscreen></iframe></div>
+                        <div class="screen"><iframe id="video-frame-${seriesId}" src="" allowfullscreen allow="autoplay; fullscreen; encrypted-media; picture-in-picture"></iframe></div>
                         <div class="pagination-controls">
                             <button class="episode-nav-btn" id="prev-btn-${seriesId}"><i class="fas fa-chevron-left"></i> Anterior</button>
                             ${langControlsHTML} <button class="episode-nav-btn" id="next-btn-${seriesId}">Siguiente <i class="fas fa-chevron-right"></i></button>
@@ -757,7 +757,7 @@ function openEpisode(seriesId, season, newEpisodeIndex) {
     else if (lang === 'jp' && (episode.videoId_jp || episode.videoId_alt)) videoId = episode.videoId_jp || episode.videoId_alt;
     else videoId = episode.videoId;
 
-    if (iframe) iframe.src = videoId ? `https://drive.google.com/file/d/${videoId}/preview` : '';
+    if (iframe) iframe.src = videoId ? `https://drive.google.com/file/d/${videoId}/preview?rm=minimal` : '';
     
     const episodeNumber = episode.episodeNumber || newEpisodeIndex + 1;
     const titleEl = shared.DOM.seriesPlayerModal.querySelector(`#cinema-title-${seriesId}`);
@@ -996,7 +996,7 @@ function loadMovieInPlayer(videoId, movieId, movieData) {
     if (!iframe) return;
 
     // Cargar video (el timer ya fue iniciado desde el botón "Ver ahora" en detalles)
-    iframe.src = `https://drive.google.com/file/d/${videoId}/preview`;
+    iframe.src = `https://drive.google.com/file/d/${videoId}/preview?rm=minimal`;
 }
 
 // Helper para configurar controles adicionales (Mi Lista + Reseñas)
