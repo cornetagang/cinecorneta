@@ -3186,6 +3186,14 @@ body.modal-open { overflow: hidden; }
     #series-player-modal .pagination-controls { justify-content: center; flex-wrap: wrap; gap: 15px; }
     #series-player-modal .pagination-controls .lang-controls { margin: 0; }
     #series-player-modal .episode-nav-btn { padding: 8px 12px; font-size: 0.9rem; }
+
+    /* Extra altura para que Drive tenga espacio para su UI: barra progreso arriba + controles abajo */
+    #series-player-modal .player-container .screen,
+    .player-container .screen,
+    .movie-player-container .screen,
+    #cinema .screen {
+        padding-top: calc(56.25% + 85px) !important;
+    }
     #series-player-modal .episode-sidebar {
         max-height: 45vh;
         display: flex;
@@ -3484,7 +3492,7 @@ body.modal-open { overflow: hidden; }
   #cinema .screen {
     width: 100%;
     position: relative;
-    padding-top: 56.25%;
+    padding-top: calc(56.25% + 85px);
     height: 0;
     border-radius: 0;
     box-shadow: none;
@@ -8373,11 +8381,11 @@ button.modal-review-count:hover {
         margin-bottom: 2px;
     }
 
-    /* Pantalla del video: 16/9 */
+    /* Pantalla del video: 16/9 + espacio para UI de Drive (barra progreso + controles) */
     #series-player-modal .player-container .screen {
         width: 100%;
         position: relative;
-        padding-top: 56.25%;
+        padding-top: calc(56.25% + 85px);
         height: 0;
     }
 
