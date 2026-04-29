@@ -814,13 +814,18 @@ body.modal-open { overflow: hidden; }
 
 .movie-player-container .screen {
     width: 100%;
-    aspect-ratio: 16 / 9;
+    position: relative;
+    padding-top: 56.25%; /* 16:9 — funciona en todos los móviles */
+    height: 0;
     background: #000;
     border-radius: 8px;
     overflow: hidden;
 }
 
 .movie-player-container .screen iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
     border: none;
@@ -1193,13 +1198,18 @@ body.modal-open { overflow: hidden; }
 
 .player-container .screen {
     width: 100%;
-    aspect-ratio: 16 / 9;
+    position: relative;
+    padding-top: 56.25%; /* 16:9 — funciona en todos los móviles */
+    height: 0;
     background: #000;
     border-radius: 8px;
     overflow: hidden;
 }
 
 .player-container .screen iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
     border: none;
@@ -3473,10 +3483,20 @@ body.modal-open { overflow: hidden; }
 
   #cinema .screen {
     width: 100%;
-    height: auto;
-    aspect-ratio: 16/9;
+    position: relative;
+    padding-top: 56.25%;
+    height: 0;
     border-radius: 0;
     box-shadow: none;
+  }
+
+  #cinema .screen iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
   }
 
   #cinema .cinema-info {
@@ -5566,13 +5586,18 @@ body.low-spec .loading-text {
 
 .movie-mode .movie-player-container .screen {
     width: 100%;
-    aspect-ratio: 16 / 9;  /* el video define su propia altura */
+    position: relative;
+    padding-top: 56.25%;
+    height: 0;
     background: #000;
     border-radius: 8px;
     overflow: hidden;
 }
 
 .movie-mode .movie-player-container .screen iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
     border: none;
@@ -5580,13 +5605,18 @@ body.low-spec .loading-text {
 
 .movie-mode .movie-player-container .screen {
     width: 100%;
-    aspect-ratio: 16 / 9;
+    position: relative;
+    padding-top: 56.25%;
+    height: 0;
     background: #000;
     border-radius: 8px;
     overflow: hidden;
 }
 
 .movie-mode .movie-player-container .screen iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
     border: none;
@@ -6001,7 +6031,6 @@ body.low-spec .loading-text {
         flex: 0 0 auto;       /* No estirar ni encoger */
         width: 100%;
         height: auto;
-        aspect-ratio: 16/9;   /* Mantiene la forma perfecta de video */
         min-height: auto;     /* Quitamos alturas forzadas */
         background: black;
         z-index: 10;
@@ -8347,7 +8376,9 @@ button.modal-review-count:hover {
     /* Pantalla del video: 16/9 */
     #series-player-modal .player-container .screen {
         width: 100%;
-        aspect-ratio: 16 / 9;
+        position: relative;
+        padding-top: 56.25%;
+        height: 0;
     }
 
     /* Controles anterior/siguiente: compactos y en fila */
