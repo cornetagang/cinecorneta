@@ -69,7 +69,6 @@
    y barra de inicio en la inferior (~34px).
    Safari expone estos valores vía env(safe-area-inset-*).
    ================================================================ */
-
 @supports (padding-top: env(safe-area-inset-top)) {
 
     /* ── Header: espacio para el Dynamic Island ── */
