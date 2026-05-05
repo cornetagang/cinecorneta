@@ -1,5142 +1,1189 @@
 // ===========================================================
-// CINE CORNETA - SCRIPT PRINCIPAL
-// Versión: 9.6 (29 de Abril 2026)
+// MÓDULO DEL REPRODUCTOR (V2 - SOPORTE MULTI-SAGA)
 // ===========================================================
 
-// ===========================================================
-// 1. IMPORTS
-// ===========================================================
-import { API_URL, firebaseConfig, UI } from './core/config.js';
-import { logError, ErrorHandler } from './utils/logger.js';
-import CacheManager from './utils/cache-manager.js';
-import ModalManager from './utils/modal-manager.js';
-import ContentManager from './utils/content-manager.js';
-import ThemeManager, { updateThemeAssets } from './utils/theme-manager.js';
-import LazyImageLoader from './utils/lazy-loader.js';
-import { initUniverses, renderUniversesHub } from './features/universes.js';
+import { logError } from '../utils/logger.js'; 
 
-// Instancias vacías (se llenan abajo)
-let cacheManager;
-let modalManager;
-let lazyLoader;
-let contentManager;
+let shared; 
 
-// ==========================================
-// PEGAR ESTO ANTES DE 'let playerModule = null;'
-// ==========================================
-function checkUserLogin() {
-    const user = JSON.parse(localStorage.getItem('cineCornetoUser'));
-    
-    // Mantener estructura de appState.user incluso sin usuario logueado
-    if (typeof appState !== 'undefined') {
-        if (user) {
-            appState.user = {
-                ...user,
-                watchlist: appState.user?.watchlist || new Set(),
-                historyListenerRef: appState.user?.historyListenerRef || null
-            };
-        } else {
-            appState.user = {
-                watchlist: new Set(),
-                historyListenerRef: null
-            };
-        }
-    }
-
-    // 1. Saludo Escritorio
-    if (typeof DOM !== 'undefined' && DOM.userGreeting) {
-        DOM.userGreeting.textContent = user ? `Hola, ${user.username}` : '';
-    }
-
-    // 2. Email en Profile Hub Móvil
-    const profileHubEmail = document.getElementById('profile-hub-email');
-    if (profileHubEmail) {
-        if (user) {
-            profileHubEmail.textContent = user.email;
-            profileHubEmail.style.display = 'block';
-        } else {
-            profileHubEmail.textContent = 'Visitante';
-            profileHubEmail.style.display = 'block';
-        }
-    }
-
-    // 3. Menús
-    if (typeof DOM !== 'undefined') {
-        if (user) {
-            if(DOM.loginBtn) DOM.loginBtn.style.display = 'none';
-            if(DOM.userMenuContainer) DOM.userMenuContainer.style.display = 'block';
-        } else {
-            if(DOM.loginBtn) DOM.loginBtn.style.display = 'block';
-            if(DOM.userMenuContainer) DOM.userMenuContainer.style.display = 'none';
-            if(DOM.userMenuDropdown && DOM.userMenuDropdown.classList) DOM.userMenuDropdown.classList.remove('show');
-        }
-    }
-}
-
-// Módulos dinámicos
-let playerModule = null;
-let profileModule = null;
-let rouletteModule = null;
-let reviewsModule = null; // 🔥 NUEVO
-let iptvModule = null;
-
-let requestsModule = null;
-let universesModule = null;
-let reportsModule = null;
-
-async function getPlayerModule() {
-    if (playerModule) return playerModule;
-    const module = await import('./features/player.js?v=8');
-    module.initPlayer({
-        appState, DOM, ErrorHandler, auth, db,
-        addToHistoryIfLoggedIn, 
-        closeAllModals: () => modalManager.closeAll(), 
-        openDetailsModal
-    });
-    playerModule = module;
-    return playerModule;
-}
-
-async function getProfileModule() {
-    if (profileModule) return profileModule;
-    const module = await import('./features/profile.js?v=8');
-    module.initProfile({
-        appState, DOM, auth, db, switchView, ErrorHandler
-    });
-    profileModule = module;
-    module.setupUserDropdown();
-    return profileModule;
-}
-
-async function getRouletteModule() {
-    if (rouletteModule) return rouletteModule;
-    const module = await import('./features/roulette.js?v=8');
-    module.initRoulette({
-        appState, DOM, createMovieCardElement, openDetailsModal, auth, db,
-        getPlayerModule, addToHistoryIfLoggedIn
-    });
-    rouletteModule = module;
-    return module;
-}
-
-async function getReviewsModule() {
-    if (reviewsModule) return reviewsModule;
-    const module = await import('./features/reviews.js?v=8');
-    module.initReviews({
-        appState, DOM, auth, db, ErrorHandler, ModalManager, openConfirmationModal
-    });
-    reviewsModule = module;
-    return module;
-}
-
-async function getRequestsModule() {
-    if (requestsModule) return requestsModule;
-    const module = await import('./features/requests.js?v=8');
-    module.initRequests({
-        appState, DOM, auth, db, ErrorHandler
-    });
-    requestsModule = module;
-    return module;
-}
-
-async function getUniversesModule() {
-    if (universesModule) return universesModule;
-    const module = await import('./features/universes.js?v=8');
-    module.initUniverses({ appState, switchView });
-    universesModule = module;
-    return module;
-}
-
-async function getReportsModule() {
-    if (reportsModule) return reportsModule;
-    const module = await import('./features/reports.js?v=' + Date.now());
-    module.initReports({ appState, DOM, auth, db, ErrorHandler });
-    reportsModule = module;
-    return module;
+// 1. INICIALIZACIÓN
+export function initPlayer(dependencies) {
+    shared = dependencies;
 }
 
 // ===========================================================
-// 1. ESTADO GLOBAL Y CONFIGURACIÓN
+// 🌐 HELPER: OBTENER TRACKS DE AUDIO DISPONIBLES DINÁMICAMENTE
+// Soporta videoId_en, videoId_es, videoId_jp + label desde campo language
 // ===========================================================
-const appState = {
-    content: {
-        movies: {},
-        series: {},
-        sagas: {},       // 🔥 AQUÍ se guardarán UCM, StarWars, HarryPotter, etc. automáticamente
-        sagasList: [],   // Lista de botones (orden, logos, colores)
-        seriesEpisodes: {},
-        seasonPosters: {},
-        seasonOrder: {}, // 🔥 Orden original de temporadas por serie
-        metadata: { movies: {}, series: {} },
-        averages: {}     // 🔥 Promedios de ratings (se llena desde el módulo de reviews)
-    },
-    ui: {
-        heroMovieIds: [],
-        contentToDisplay: [],
-        currentIndex: 0,
-        heroInterval: null,
-        activeSagaId: null
-    },
-    user: {
-        watchlist: new Set(),
-        historyListenerRef: null
-    },
-    player: {
-        state: {},
-        activeSeriesId: null,
-        pendingHistorySave: null,
-        episodeOpenTimer: null,
-        historyUpdateDebounceTimer: null
-    },
-    flags: {
-        isLoadingMore: false,
-        pendingUpdate: false
-    },
-    hero: {
-        preloadedImages: new Map(),
-        currentIndex: 0,
-        isTransitioning: false
-    }
-};
+function getLangTracks(data) {
+    // IDs disponibles (en orden: original, alternativo, latino)
+    const rawEn = data.videoId_en?.trim() || data.videoId?.trim() || '';
+    const rawEs = data.videoId_es?.trim() || '';
+    const rawJp = data.videoId_jp?.trim() || data.videoId_alt?.trim() || '';
 
-window.appState = appState; // Exponer a módulos
+    // Parsear campo language para obtener etiquetas reales
+    // Ejemplo: "Japonés - Latino" o "Inglés;Japonés;Latino"
+    const rawLang = (data.language || data.idioma || data.audio || '').trim();
+    const langParts = rawLang
+        .split(/[-;|]/)
+        .map(l => l.trim())
+        .filter(Boolean);
 
+    // Clasificar partes: español/latino vs originales
+    const SPANISH_LABELS = ['latino', 'español', 'castellano', 'doblado', 'esp'];
+    const isSpanish = l => SPANISH_LABELS.some(s => l.toLowerCase().includes(s));
 
-const DOM = {
-    preloader: document.getElementById('preloader'),
-    pageWrapper: document.querySelector('.page-wrapper'),
-    header: document.querySelector('.main-header'),
-    heroSection: document.getElementById('hero-section'),
-    carouselContainer: document.getElementById('carousel-container'),
-    gridContainer: document.getElementById('full-grid-container'),
-    myListContainer: document.getElementById('my-list-container'),
-    historyContainer: document.getElementById('history-container'),
-    
-    // --- SECCIÓN RESEÑAS ---
-    reviewsContainer: document.getElementById('reviews-container'),
-    reviewsGrid: document.getElementById('reviews-grid'),
-    reviewModal: document.getElementById('review-form-modal'),
-    reviewForm: document.getElementById('review-submission-form'),
-    openReviewBtn: document.getElementById('open-review-modal-btn'),
+    const spanishLabel = langParts.find(l => isSpanish(l)) || 'Latino';
+    const originalLabels = langParts.filter(l => !isSpanish(l));
 
-    detailsModal: document.getElementById('details-modal'),
-    cinemaModal: document.getElementById('cinema'),
-    rouletteModal: document.getElementById('roulette-modal'),
-    seriesPlayerModal: document.getElementById('series-player-modal'),
-    authModal: document.getElementById('auth-modal'),
-    confirmationModal: document.getElementById('confirmation-modal'),
-    searchInput: document.getElementById('search-input'),
-    filterControls: document.getElementById('filter-controls'),
-    
-    // --- FILTROS ---
-    genreFilter: document.getElementById('genre-filter'),
-    langFilter: document.getElementById('lang-filter'),
-    sortBy: document.getElementById('sort-by'),
-    ucmSortButtonsContainer: document.getElementById('ucm-sort-buttons'),
-    ucmSortButtons: document.querySelectorAll('.sort-btn'),
-    
-    // --- AUTH ---
-    authButtons: document.getElementById('auth-buttons'),
-    loginBtnHeader: document.getElementById('login-btn-header'),
-    registerBtnHeader: document.getElementById('register-btn-header'),
-    loginForm: document.getElementById('login-form'),
-    registerForm: document.getElementById('register-form'),
-    switchAuthModeLink: document.getElementById('switch-auth-mode'),
-    loginError: document.getElementById('login-error'),
-    registerError: document.getElementById('register-error'),
-    registerUsernameInput: document.getElementById('register-username'),
-    registerEmailInput: document.getElementById('register-email'),
-    registerPasswordInput: document.getElementById('register-password'),
-    loginEmailInput: document.getElementById('login-email'),
-    loginPasswordInput: document.getElementById('login-password'),
-    
-    // --- PERFIL ---
-    userProfileContainer: document.getElementById('user-profile-container'),
-    userGreetingBtn: document.getElementById('user-greeting'),
-    userMenuDropdown: document.getElementById('user-menu-dropdown'),
-    myListNavLink: document.getElementById('my-list-nav-link'),
-    historyNavLink: document.getElementById('history-nav-link'),
-    profileUsername: document.getElementById('profile-username'),
-    profileEmail: document.getElementById('profile-email'),
-    settingsUsernameInput: document.getElementById('settings-username-input'),
-    updateUsernameBtn: document.getElementById('update-username-btn'),
-    settingsPasswordInput: document.getElementById('settings-password-input'),
-    updatePasswordBtn: document.getElementById('update-password-btn'),
-    settingsFeedback: document.getElementById('settings-feedback'),
-    confirmDeleteBtn: document.getElementById('confirm-delete-btn'),
-    cancelDeleteBtn: document.getElementById('cancel-delete-btn'),
-    
-    // --- MÓVIL ---
-    hamburgerBtn: document.getElementById('menu-toggle'),
-    mobileNavPanel: document.getElementById('mobile-nav-panel'),
-    closeNavBtn: document.querySelector('.close-nav-btn'),
-    menuOverlay: document.getElementById('menu-overlay')
-};
+    const tracks = [];
 
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.database();
-
-// ===========================================================
-// 2. INICIO Y CARGA DE DATOS (🆕 MEJORADO CON CACHÉ)
-// ===========================================================
-document.addEventListener('DOMContentLoaded', () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.has('force_update')) {
-        const preloader = document.getElementById('preloader');
-        if (preloader) {
-            // Reemplazamos el spinner simple por un mensaje informativo
-            preloader.innerHTML = `
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
-                    <div class="spinner" style="margin-bottom: 20px;"></div>
-                    <h2 class="loading-text" style="font-size: 2rem; color: var(--text-light); margin: 0;">REFRESCANDO CONTENIDO</h2>
-                    <p style="color: var(--text-muted); margin-top: 10px; font-size: 1.1rem;">Aplicando la última versión...</p>
-                </div>
-            `;
-        }
-        // Limpiamos la URL para que si el usuario recarga manual después, no salga el mensaje
-        const newUrl = window.location.pathname;
-        window.history.replaceState({}, document.title, newUrl);
-    }
-
-    // =========================================================================
-    // INICIALIZAR MÓDULOS CORE
-    // =========================================================================
-    // Inicializar CLASES (con 'new')
-    cacheManager = new CacheManager();
-    lazyLoader = new LazyImageLoader();
-    
-    // Asignar OBJETOS (sin 'new')
-    modalManager = ModalManager;
-    contentManager = ContentManager;
-
-    // Parchear ModalManager.closeAll para cancelar el timer de ruleta al cerrar
-    const _originalCloseAll = ModalManager.closeAll.bind(ModalManager);
-    ModalManager.closeAll = () => {
-        if (appState?.player?.movieHistoryTimer) {
-            clearTimeout(appState.player.movieHistoryTimer);
-            appState.player.movieHistoryTimer = null;
-        }
-        _originalCloseAll();
-    };
-
-    // Actualizar tema (función standalone)
-    updateThemeAssets();
-    fetchInitialDataWithCache();
-    checkResetPasswordMode();
-
-    // ── Observer: orientación automática en fullscreen ──
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
-    document.addEventListener('msfullscreenchange', handleFullscreenChange);
-
-    // ── Observer: botón de reporte en cinema player ──
-    const cinemaEl = document.getElementById('cinema');
-    if (cinemaEl) {
-        new MutationObserver(async mutations => {
-            for (const m of mutations) {
-                if (m.type === 'attributes' && m.attributeName === 'class' && cinemaEl.classList.contains('show')) {
-                    const titleEl = cinemaEl.querySelector('#cinema-title');
-                    const contentTitle = titleEl?.textContent || '';
-                    const contentId = cinemaEl.dataset.contentId || '';
-                    const controls = cinemaEl.querySelector('.cinema-controls');
-                    if (controls && contentTitle) {
-                        const reports = await getReportsModule();
-                        reports.injectReportButtonInCinema(contentId, contentTitle);
-                    }
-                }
-            }
-        }).observe(cinemaEl, { attributes: true });
-    }
-
-    // ── Observer: botón de reporte en series player ──
-    const seriesModal = document.getElementById('series-player-modal');
-    if (seriesModal) {
-        // 1. Inyectar botón cuando el modal se abre
-        new MutationObserver(async mutations => {
-            for (const m of mutations) {
-                if (m.type !== 'attributes' || m.attributeName !== 'class') continue;
-                if (seriesModal.classList.contains('show')) {
-                    const rptMod = await getReportsModule();
-                    setTimeout(() => rptMod.syncSeriesReportButton(), 400);
-                }
-            }
-        }).observe(seriesModal, { attributes: true });
-
-        // 2. Actualizar botón cuando el usuario cambia de episodio (click en Anterior/Siguiente o en episodio)
-        seriesModal.addEventListener('click', async e => {
-            const isNavBtn   = e.target.closest('.episode-nav-btn');
-            const isEpisode  = e.target.closest('.episode-card, .episode-item, [data-episode]');
-            if (isNavBtn || isEpisode) {
-                const rptMod = await getReportsModule();
-                setTimeout(() => rptMod.syncSeriesReportButton(), 350);
-            }
+    if (rawEn) {
+        tracks.push({
+            id: rawEn,
+            lang: 'en',
+            label: originalLabels[0] || 'Original',
         });
     }
-});
-
-function preloadImage(url) {
-    return new Promise((resolve) => {
-        if (!url) { resolve(); return; }
-        const img = new Image();
-        img.src = url;
-        img.onload = () => resolve();
-        img.onerror = () => resolve(); // Resolvemos aunque falle para no bloquear la app
-    });
-}
-
-async function fetchInitialDataWithCache() {
-    // =========================================================================
-    // ⚡ 1. DETECTOR DE HARDWARE (OPTIMIZACIÓN AUTOMÁTICA)
-    // =========================================================================
-    // Esto detecta si tu PC es "modesta" (4 núcleos o menos, como tu Celeron)
-    // y activa la clase 'low-spec' para apagar los efectos pesados.
-    const cores = navigator.hardwareConcurrency || 4; // Si el navegador no lo dice, asumimos 4
-    if (cores <= 4) {
-        console.log(`💻 Hardware modesto detectado (${cores} núcleos): Activando Modo Rendimiento.`);
-        document.body.classList.add('low-spec');
-    } else {
-        console.log(`🚀 Hardware potente detectado (${cores} núcleos): Gráficos en Ultra.`);
-        document.body.classList.remove('low-spec');
+    if (rawJp) {
+        tracks.push({
+            id: rawJp,
+            lang: 'jp',
+            label: originalLabels[1] || 'Alt',
+        });
     }
-
-    const startLoadTime = Date.now();
-
-    // =========================================================================
-    // 📡 2. SISTEMA DE ACTUALIZACIÓN INTELIGENTE (Firebase)
-    // =========================================================================
-    if (typeof db !== 'undefined') {
-        const updatesRef = db.ref('system_metadata/last_update');
-        updatesRef.on('value', (snapshot) => {
-            const serverLastUpdate = Number(snapshot.val()); 
-            const localRaw = localStorage.getItem('local_last_update');
-            const localLastUpdate = localRaw ? Number(localRaw) : 0;
-
-            console.log(`📡 Señal: Server(${serverLastUpdate}) vs Local(${localLastUpdate})`);
-
-            // Caso: Nueva versión detectada en el servidor
-            if (serverLastUpdate > localLastUpdate) {
-                console.log('🔄 ADMIN: Nueva versión detectada.');
-                const isWatching = document.body.classList.contains('modal-open');
-
-                if (isWatching) {
-                    // Si está viendo algo, programamos recarga silenciosa
-                    console.log('🎬 Usuario ocupado. Programando recarga en localStorage...');
-                    localStorage.setItem('pending_reload', 'true');
-                    localStorage.setItem('local_last_update', serverLastUpdate);
-                    refreshDataInBackground(); 
-                } else {
-                    // Si está libre, forzamos recarga inmediata
-                    console.log('🚀 Aplicando actualización inmediata...');
-                    safeClearStorage();
-                    localStorage.setItem('local_last_update', serverLastUpdate);
-                    
-                    const url = new URL(window.location.href);
-                    url.searchParams.set('force_update', Date.now());
-                    window.location.href = url.toString();
-                }
-            } 
-            else if (serverLastUpdate && localLastUpdate === 0) {
-                localStorage.setItem('local_last_update', serverLastUpdate);
-            }
+    if (rawEs) {
+        tracks.push({
+            id: rawEs,
+            lang: 'es',
+            label: spanishLabel,
         });
     }
 
-    // =========================================================================
-    // ⚙️ 3. PROCESAMIENTO DE DATOS
-    // =========================================================================
-    const processData = (data) => {
-        window.processDataPublic = processData; // Exponer para refresh local
-        appState.content.movies = data.allMovies || {};
-        appState.content.series = data.series || {};
-        appState.content.seriesEpisodes = data.episodes || {};
-        appState.content.seasonPosters = data.posters || {};
-        
-        // 🔥 ORDEN INTELIGENTE DE TEMPORADAS
-        // Ordena automáticamente: claves no-numéricas primero (en su posición del sheet),
-        // luego numéricas ordenadas como números. Elimina la necesidad de overrides manuales.
-        appState.content.seasonOrder = {};
-
-        // Función de ordenamiento: respeta el orden del sheet pero corrige el bug de JS
-        // que pone las claves numéricas primero y las no-numéricas (especial, pelicula) al final
-        // Ordena temporadas usando el campo 'orden' del sheet si existe,
-        // si no, fallback automático (no-numéricos primero, luego numéricos)
-        function smartSeasonSort(keys, postersData) {
-            if (postersData) {
-                const withOrder = keys.filter(k => postersData[k]?.orden !== undefined && postersData[k]?.orden !== '');
-                if (withOrder.length > 0) {
-                    return keys.slice().sort((a, b) => {
-                        const oA = postersData[a]?.orden !== undefined && postersData[a]?.orden !== '' ? Number(postersData[a].orden) : 999;
-                        const oB = postersData[b]?.orden !== undefined && postersData[b]?.orden !== '' ? Number(postersData[b].orden) : 999;
-                        return oA - oB;
-                    });
-                }
-            }
-            // Fallback: no-numéricos primero, luego numéricos ordenados
-            const nonNumeric = keys.filter(k => isNaN(k));
-            const numeric = keys.filter(k => !isNaN(k)).sort((a, b) => Number(a) - Number(b));
-            return [...nonNumeric, ...numeric];
-        }
-
-        // Para episodios
-        for (const seriesId in data.episodes) {
-            const seasons = data.episodes[seriesId];
-            const postersData = data.posters?.[seriesId];
-            appState.content.seasonOrder[seriesId] = smartSeasonSort(Object.keys(seasons), postersData);
-        }
-
-        // Fusionar con posters si hay claves adicionales
-        for (const seriesId in data.posters) {
-            const posterSeasons = Object.keys(data.posters[seriesId]);
-            const postersData = data.posters[seriesId];
-            if (appState.content.seasonOrder[seriesId]) {
-                posterSeasons.forEach(key => {
-                    if (!appState.content.seasonOrder[seriesId].includes(key)) {
-                        appState.content.seasonOrder[seriesId].push(key);
-                    }
-                });
-                appState.content.seasonOrder[seriesId] = smartSeasonSort(appState.content.seasonOrder[seriesId], postersData);
-            } else {
-                appState.content.seasonOrder[seriesId] = smartSeasonSort(posterSeasons, postersData);
-            }
-        }
-        
-        // Procesamos la lista de sagas
-        appState.content.sagasList = Object.values(data.sagas_list || {});
-        
-        // Asignamos el contenido de cada saga a su ID dinámicamente
-        if (appState.content.sagasList.length > 0) {
-            appState.content.sagasList.forEach(saga => {
-                if (data[saga.id]) {
-                    appState.content.sagas[saga.id] = data[saga.id];
-                }
-            });
-        }
-    };
-
-    const setupAndShow = async (movieMeta, seriesMeta) => {
-        appState.content.metadata.movies = movieMeta || {};
-        appState.content.metadata.series = seriesMeta || {};
-
-        setupHero();
-        generateCarousels();
-        setupEventListeners();
-        setupNavigation();
-        setupAuthListeners();
-        setupSearch();
-        setupPageVisibilityHandler();
-
-        // Determinar qué vista mostrar según la URL o navegación
-        const activeFilter = document.querySelector('.main-nav a.active, .mobile-nav a.active')?.dataset.filter || 'all';
-        const isSaga = appState.content.sagas[activeFilter];
-
-        if (['movie', 'series'].includes(activeFilter) || isSaga) {
-            applyAndDisplayFilters(activeFilter);
-        } else if (activeFilter === 'sagas') {
-            switchView('sagas');
-        }
-
-        // Transición de entrada suave (fade in)
-        const timeElapsed = Date.now() - startLoadTime;
-        const remainingTime = Math.max(0, 800 - timeElapsed);
-        await new Promise(r => setTimeout(r, remainingTime));
-
-        requestAnimationFrame(() => {
-            if (DOM.pageWrapper) DOM.pageWrapper.style.display = 'block';
-            setTimeout(() => {
-                if (DOM.pageWrapper) DOM.pageWrapper.classList.add('visible'); 
-                if (DOM.preloader) DOM.preloader.classList.add('fade-out');
-            }, 50);
-            setTimeout(() => { if(DOM.preloader) DOM.preloader.remove(); }, 800); 
-        });
-    };
-
-    // =========================================================================
-    // 🚀 4. LÓGICA DE CARGA: CACHÉ VS INTERNET
-    // =========================================================================
-    const cachedContent = cacheManager.get(cacheManager.keys.content);
-    const cachedMetadata = cacheManager.get(cacheManager.keys.metadata);
-
-    // --- OPCIÓN A: USAR CACHÉ (Rápido) ---
-    if (cachedContent) {
-        console.log('✓ Iniciando desde caché...');
-        processData(cachedContent);
-        
-        // 🔥 Inicializar módulo de reviews ANTES de setupRatingsListener
-        await getReviewsModule();
-        
-        // 🔥 Una sola notificación por sesión
-        getRequestsModule().then(m => m.checkSessionNotification());
-        
-        await setupAndShow(cachedMetadata?.movies, cachedMetadata?.series);
-        refreshDataInBackground(); // Actualiza silenciosamente por si acaso
-        
-        // Cargar Historial "Continuar Viendo" si hay usuario
-        const user = auth.currentUser;
-        if (user) {
-            db.ref(`users/${user.uid}/history`).orderByChild('viewedAt').once('value', snapshot => {
-                if (snapshot.exists()) generateContinueWatchingCarousel(snapshot);
-            });
-        }
-    } 
-    // --- OPCIÓN B: DESCARGAR DE INTERNET (Primera vez o caché borrada) ---
-    else {
-        try {
-            console.log('⟳ Descargando base de datos completa...');
-            
-            // 1. CARGA INICIAL: Estructura base + LISTA DE SAGAS
-            const [series, episodes, allMovies, posters, sagasListData, movieMeta, seriesMeta] = await Promise.all([
-                ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=series`),
-                ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=episodes`),
-                ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=allMovies&order=desc`),
-                ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=PostersTemporadas`),
-                ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=sagas_list`),
-                db.ref('movie_metadata').once('value').then(s => s.val() || {}),
-                db.ref('series_metadata').once('value').then(s => s.val() || {})
-            ]);
-
-            // 2. CARGA DINÁMICA DE SAGAS (Una petición por cada saga en la lista)
-            const sagasArray = Object.values(sagasListData || {});
-            const sagasRequests = sagasArray.map(saga => 
-                ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=${saga.id}`)
-                .then(data => ({ id: saga.id, data: data }))
-            );
-
-            const sagasResults = await Promise.all(sagasRequests);
-
-            // 3. ARMADO DEL PAQUETE FINAL
-            const freshContent = { 
-                allMovies, series, episodes, posters, 
-                sagas_list: sagasListData 
-            };
-
-            // Inyectamos cada saga descargada
-            sagasResults.forEach(item => {
-                freshContent[item.id] = item.data;
-            });
-            
-            const freshMetadata = { movies: movieMeta, series: seriesMeta };
-
-            // 4. GUARDAR EN CACHÉ Y RENDERIZAR
-            processData(freshContent);
-            cacheManager.set(cacheManager.keys.content, freshContent);
-            cacheManager.set(cacheManager.keys.metadata, freshMetadata);
-            
-            // 🔥 Inicializar módulo de reviews
-            await getReviewsModule();
-            
-            // 🔥 Una sola notificación por sesión
-            getRequestsModule().then(m => m.checkSessionNotification());
-            
-            if (!localStorage.getItem('local_last_update')) {
-                localStorage.setItem('local_last_update', Date.now());
-            }
-
-            await setupAndShow(freshMetadata.movies, freshMetadata.series);
-            
-            const user = auth.currentUser;
-            if (user) {
-                db.ref(`users/${user.uid}/history`).orderByChild('viewedAt').once('value', snapshot => {
-                    if (snapshot.exists()) generateContinueWatchingCarousel(snapshot);
-                });
-            }
-
-        } catch (error) {
-            console.error('✗ Error crítico en carga inicial:', error);
-            if (DOM.preloader) DOM.preloader.innerHTML = `
-                <div style="text-align: center; color: white;">
-                    <p>Error de conexión</p>
-                    <button onclick="location.reload()" class="btn-primary" style="margin-top:10px;">Reintentar</button>
-                </div>`;
-        }
-    }
+    return tracks;
 }
 
-async function refreshDataInBackground() {
+
+function buildLangButtonsHTML(tracks, activeLang, cssClass) {
+    if (tracks.length <= 1) return '';
+    return `<div class="movie-lang-selection">
+        ${tracks.map(t => `
+            <button class="${cssClass} ${t.lang === activeLang ? 'active' : ''}" data-lang="${t.lang}">
+                ${t.label}
+            </button>`).join('')}
+    </div>`;
+}
+
+// 🔥 NUEVO: BUSCADOR INTELIGENTE EN TODAS LAS SAGAS
+// Esta función busca el ID en Pelis, Series, Marvel, StarWars, HP, etc.
+function findContentData(id) {
+    const content = shared.appState.content;
+
+    // 1. Buscar en listas principales
+    if (content.movies && content.movies[id]) return content.movies[id];
+    if (content.series && content.series[id]) return content.series[id];
+    
+    // 2. Buscar en UCM (Legacy)
+    if (content.ucm && content.ucm[id]) return content.ucm[id];
+
+    // 3. 🔥 BUSCAR EN SAGAS DINÁMICAS (Star Wars, HP, etc.)
+    if (content.sagas) {
+        for (const sagaKey in content.sagas) {
+            const sagaData = content.sagas[sagaKey];
+            if (sagaData && sagaData[id]) {
+                return sagaData[id];
+            }
+        }
+    }
+    return null;
+}
+
+// 2. HELPERS
+function saveProgress(seriesId) {
     try {
-        // 1. Pedimos datos base + lista de sagas
-        const [series, episodes, allMovies, posters, sagasListData] = await Promise.all([
-            ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=series`),
-            ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=episodes`),
-            ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=allMovies&order=desc`),
-            ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=PostersTemporadas`),
-            ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=sagas_list`)
-        ]);
-
-        // 2. Pedimos las sagas dinámicamente
-        const sagasArray = Object.values(sagasListData || {});
-        const sagasRequests = sagasArray.map(saga => 
-            ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=${saga.id}`)
-            .then(data => ({ id: saga.id, data: data }))
-        );
-
-        const sagasResults = await Promise.all(sagasRequests);
-
-        const freshContent = { 
-            allMovies, series, episodes, posters, 
-            sagas_list: sagasListData 
-        };
-
-        sagasResults.forEach(item => {
-            freshContent[item.id] = item.data;
-        });
-
-        cacheManager.set(cacheManager.keys.content, freshContent);
-        console.log('✓ Caché actualizada en segundo plano (Sagas Dinámicas)');
-    } catch (e) { console.warn('No se pudo actualizar background', e); }
-}
-
-// ===========================================================
-// 3. NAVEGACIÓN Y MANEJO DE VISTAS
-// ===========================================================
-function setupNavigation() {
-    // 🔥 FIX: Agregamos '.header-right' a la lista para que detecte el clic en la Ruleta del móvil
-    const navContainers = document.querySelectorAll('.main-nav ul, .mobile-nav ul, .bottom-nav, #profile-hub-container, .header-right');
-    
-    // Asigna el evento a cada contenedor (Delegación de eventos)
-    navContainers.forEach(container => {
-        if (container) { // Chequeo de seguridad por si alguno no existe
-            container.addEventListener('click', handleFilterClick);
-        }
-    });
-    
-    // Lógica del menú hamburguesa (Móvil)
-    const openMenu = () => { 
-        if (DOM.mobileNavPanel) DOM.mobileNavPanel.classList.add('is-open'); 
-        if (DOM.menuOverlay) DOM.menuOverlay.classList.add('active'); 
-    };
-    const closeMenu = () => { 
-        if (DOM.mobileNavPanel) DOM.mobileNavPanel.classList.remove('is-open'); 
-        if (DOM.menuOverlay) DOM.menuOverlay.classList.remove('active'); 
-    };
-
-    if (DOM.hamburgerBtn) DOM.hamburgerBtn.addEventListener('click', openMenu);
-    if (DOM.closeNavBtn) DOM.closeNavBtn.addEventListener('click', closeMenu);
-    if (DOM.menuOverlay) DOM.menuOverlay.addEventListener('click', closeMenu);
-}
-
-async function handleFilterClick(event) {
-    // 1. Detectar si el clic fue en un enlace <a>
-    const link = event.target.closest('a');
-    if (!link) return;
-
-    // 🔥 FIX CRÍTICO: Si el enlace NO tiene data-filter (ej: botón Ingresar/Registro),
-    // detenemos la función aquí. Así no se ejecuta switchView() ni se borra el fondo.
-    if (!link.dataset.filter) return;
-
-    // 2. Si tiene filtro, prevenimos la navegación estándar del navegador
-    event.preventDefault();
-
-    // 3. Cerrar menús móviles y dropdowns si están abiertos
-    if (DOM.mobileNavPanel) DOM.mobileNavPanel.classList.remove('is-open');
-    if (DOM.menuOverlay) DOM.menuOverlay.classList.remove('active');
-    if (DOM.userMenuDropdown) DOM.userMenuDropdown.classList.remove('show');
-
-    const filter = link.dataset.filter;
-
-    // 4. Caso Especial: Ruleta (Carga el módulo y abre modal, no cambia de vista)
-    if (filter === 'roulette') {
-        const roulette = await getRouletteModule();
-        roulette.openRouletteModal();
-        return;
-    }
-
-    // 5. Optimización: Si ya estamos en esa sección, no recargar (excepto Historial y Lista)
-    if (link.classList.contains('active') && !['history', 'my-list', 'profile', 'profile-hub', 'settings'].includes(filter)) return;
-
-    // 6. Actualizar el estado visual (.active) en los menús
-    document.querySelectorAll('a[data-filter]').forEach(l => l.classList.remove('active'));
-    document.querySelectorAll(`a[data-filter="${filter}"]`).forEach(l => l.classList.add('active'));
-
-    // 7. Limpiar la barra de búsqueda y cambiar la vista principal
-    if (DOM.searchInput) DOM.searchInput.value = '';
-    switchView(filter);
-}
-
-// ===========================================================
-// FUNCIÓN SWITCHVIEW (CORREGIDA PARA RULETA)
-// ===========================================================
-function updateActiveNav(filter) {
-    if (filter === 'roulette') return;
-
-    document.querySelectorAll('a[data-filter]').forEach(link => {
-        link.classList.remove('active');
-    });
-    
-    if (filter) {
-        const selector = `a[data-filter="${filter}"]`;
-        document.querySelectorAll(selector).forEach(link => link.classList.add('active'));
+        let allProgress = JSON.parse(localStorage.getItem('seriesProgress')) || {};
+        if (!allProgress[seriesId]) allProgress[seriesId] = {};
+        const currentState = shared.appState.player.state[seriesId];
+        allProgress[seriesId][currentState.season] = currentState.episodeIndex;
+        localStorage.setItem('seriesProgress', JSON.stringify(allProgress));
+    } catch (e) {
+        logError(e, 'Player: Save Progress', 'warning');
     }
 }
 
-async function switchView(filter) {
-    if (filter === 'roulette') {
-        const roulette = await getRouletteModule();
-        roulette.openRouletteModal();
-        return; 
-    }
-
-    console.log(`Switched to: ${filter}`);
-    appState.currentFilter = filter;
-    
-    // A. Actualizar botones del menú visualmente
-    updateActiveNav(filter);
-
-    // B. Ocultar todo para empezar limpio (SOLO SI NO ES RULETA)
-    const containers = [
-        document.getElementById('hero-section'),
-        document.getElementById('carousel-container'),
-        document.getElementById('full-grid-container'),
-        document.getElementById('my-list-container'),
-        document.getElementById('history-container'),
-        document.getElementById('profile-container'),
-        document.getElementById('settings-container'),
-        document.getElementById('profile-hub-container'),
-        document.getElementById('sagas-hub-container'),
-        document.getElementById('reviews-container'),
-        document.getElementById('requests-container'),
-        document.getElementById('reports-container'),
-        document.getElementById('live-tv-section'),
-        document.getElementById('iptv-section')
-    ];
-
-    containers.forEach(el => { 
-        if(el) el.style.display = 'none'; 
-    });
-
-    const filterControls = document.getElementById('filter-controls');
-    if (filterControls) filterControls.style.display = 'none';
-    document.body.classList.remove('has-saga-bg');
-    document.body.style.removeProperty('--saga-banner');
-
-    // 🔥 FIX: Ocultar explícitamente los botones de Sagas/Universos
-    // Esto evita que salgan en el buscador o en otras secciones
-    const ucmButtons = document.getElementById('ucm-sort-buttons');
-    if (ucmButtons) ucmButtons.style.display = 'none';
-
-    const backSagaBtn = document.getElementById('back-to-sagas-btn');
-    if (backSagaBtn) backSagaBtn.style.display = 'none';
-
-    // C. DETENER VIDEO EN VIVO (Limpieza)
-    const liveVideo = document.getElementById('embedded-live-video');
-    if (liveVideo) {
-        liveVideo.pause();
-        liveVideo.removeAttribute('src'); 
-        liveVideo.load();
-    }
-    if (window.hlsLiveInstance) {
-        window.hlsLiveInstance.destroy();
-        window.hlsLiveInstance = null;
-    }
-    // =======================================================
-    // D. LÓGICA POR PANTALLA
-    // =======================================================
-
-    // 2. INICIO (HOME)
-    if (filter === 'all') {
-        if(DOM.heroSection) DOM.heroSection.style.display = 'flex';
-        if(DOM.carouselContainer) DOM.carouselContainer.style.display = 'block';
-        return;
-    } 
-    
-    // 3. HUB DE UNIVERSOS
-    if (filter === 'sagas') {
-        const hub = document.getElementById('sagas-hub-container');
-        if (hub) {
-            hub.style.display = 'block';
-            getUniversesModule().then(m => m.renderUniversesHub());
-        }
-        return;
-    }
-
-    // 4. CONTENIDO (Películas, Series o Saga Específica)
-    const isDynamicSaga = appState.content.sagas && appState.content.sagas[filter];
-
-    if (filter === 'movie' || filter === 'series' || isDynamicSaga) {
-    if(DOM.gridContainer) DOM.gridContainer.style.display = 'block';
-    if(filterControls) filterControls.style.display = 'flex';
-
-    // 🔥 Fondo dinámico de la saga
-    if (isDynamicSaga) {
-        const sagaConfig = appState.content.sagasList.find(s => s.id === filter);
-        if (sagaConfig?.banner) {
-            document.body.style.setProperty('--saga-banner', `url(${sagaConfig.banner})`);
-            document.body.classList.add('has-saga-bg');
-        }
-    }
-
-    const backBtn = document.getElementById('back-to-sagas-btn');
-        if (backBtn) {
-            backBtn.style.display = isDynamicSaga ? 'flex' : 'none';
-            backBtn.onclick = () => switchView('sagas');
-        }
-        
-        // Guardar el ID de la saga activa para los botones de ordenamiento
-        appState.ui.activeSagaId = isDynamicSaga ? filter : null;
-
-        // Resetear sort al cambiar de sección
-        if (DOM.sortBy) DOM.sortBy.value = 'recent';
-        const sortText = document.getElementById('sort-text');
-        if (sortText) sortText.textContent = 'Recientes';
-        populateFilters(filter); 
-        applyAndDisplayFilters(filter);
-        return;
-    }
-    
-    // 5. MI LISTA
-    if (filter === 'my-list') {
-        if(document.getElementById('my-list-container')) {
-            document.getElementById('my-list-container').style.display = 'block';
-            displayMyListView();
-        }
-        return;
-    } 
-    
-    // 6. HISTORIAL
-    if (filter === 'history') {
-        if(document.getElementById('history-container')) {
-            document.getElementById('history-container').style.display = 'block';
-            renderHistory();
-        }
-        return;
-    } 
-    
-    // 7. RESEÑAS
-    if (filter === 'reviews') {
-        const reviewsContainer = document.getElementById('reviews-container');
-        if(reviewsContainer) {
-            reviewsContainer.style.display = 'block';
-            // 🔥 Llamar al módulo de reviews
-            if (reviewsModule && reviewsModule.renderReviewsGrid) {
-                reviewsModule.renderReviewsGrid();
-            }
-        }
-        return;
-    }
-
-    // 7b. PEDIDOS
-    if (filter === 'requests') {
-        const reqContainer = document.getElementById('requests-container');
-        if (reqContainer) {
-            reqContainer.style.display = 'block';
-            reqContainer.style.padding = '30px clamp(15px, 4vw, 60px)';
-        }
-        const reqModule = await getRequestsModule();
-        reqModule.renderRequestsSection();
-        window.scrollTo(0, 0);
-        return;
-    }
-
-    // 7c. REPORTES (solo admin)
-    if (filter === 'reports') {
-        const rptContainer = document.getElementById('reports-container');
-        if (rptContainer) {
-            rptContainer.style.display = 'block';
-            rptContainer.style.padding = '30px clamp(15px, 4vw, 60px)';
-            rptContainer.innerHTML = `
-                <div class="reports-page-header">
-                    <h1 class="reports-page-title"><i class="fas fa-flag"></i> Reportes</h1>
-                    <p class="reports-page-subtitle">Problemas reportados por los usuarios</p>
-                </div>
-                <div id="reports-admin-body"></div>
-            `;
-            const rptBody = document.getElementById('reports-admin-body');
-            const rptMod = await getReportsModule();
-            await rptMod.renderAdminReports(rptBody);
-        }
-        window.scrollTo(0, 0);
-        return;
-    }
-
-    // 8. PERFIL Y AJUSTES
-    if (filter === 'profile-hub' || filter === 'profile' || filter === 'settings') {
-        const containerMap = {
-            'profile-hub': 'profile-hub-container',
-            'profile': 'profile-container',
-            'settings': 'settings-container'
-        };
-        const container = document.getElementById(containerMap[filter]);
-        if (container) {
-            container.style.display = 'block';
-            if (filter === 'profile') getProfileModule().then(m => m.renderProfile());
-            if (filter === 'settings') getProfileModule().then(m => m.renderSettings());
-        }
-        return;
-    }
-
-    // 9. RESULTADOS DE BÚSQUEDA
-    if (filter === 'search') {
-        if(DOM.gridContainer) DOM.gridContainer.style.display = 'block';
-
-        const idsToHide = [
-            'filter-controls',
-            'genre-dropdown-visual',
-            'lang-dropdown-visual',
-            'request-dropdown-visual',
-            'sort-dropdown-visual',
-            'letter-dropdown-visual',
-            'ucm-sort-buttons',
-            'back-to-sagas-btn',
-            'pagination-controls'
-        ];
-
-        idsToHide.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.style.setProperty('display', 'none', 'important');
-        });
-
-        return;
-    }
-
-    window.scrollTo(0, 0);
+function loadProgress(seriesId, seasonNum) {
+    try {
+        const allProgress = JSON.parse(localStorage.getItem('seriesProgress'));
+        return allProgress?.[seriesId]?.[seasonNum] || 0;
+    } catch (e) { return 0; }
 }
 
-// ==========================================
-// FILTROS EN CASCADA
-// Repopula idioma y pedido según el subconjunto
-// que resulta de aplicar género + idioma activos.
-// ==========================================
-function refreshDependentFilters(type, activeGenre, activeLang) {
-    let sourceData;
-    if (type === 'movie') sourceData = appState.content.movies;
-    else if (type === 'series') sourceData = appState.content.series;
-    else sourceData = appState.content.sagas?.[type];
-    if (!sourceData) return;
-
-    const sagaConfig = appState.content.sagasList?.find(s => s.id === type) || {};
-    const confGenres = (sagaConfig.genres_filter || 'si').toLowerCase().trim();
-
-    // Subconjunto filtrado por género
-    let filtered = Object.entries(sourceData);
-
-    if (confGenres !== 'no' && activeGenre && activeGenre !== 'all') {
-        const gVal = activeGenre.toLowerCase().trim();
-        filtered = filtered.filter(([, item]) => {
-            if (confGenres === 'fases') {
-                const fase = String(item.fase || '').trim();
-                if (gVal === 'saga_infinity') return ['1','2','3'].includes(fase);
-                if (gVal === 'saga_multiverse') return ['4','5','6'].includes(fase);
-                return fase === gVal;
-            }
-            const genresStr = String(item.genres || '').toLowerCase();
-            const titleStr  = String(item.title  || '').toLowerCase();
-            return genresStr.includes(gVal) || titleStr.includes(gVal);
-        });
-    }
-
-    // Subconjunto también filtrado por idioma (para repopular pedidos)
-    let filteredByLang = filtered;
-    if (activeLang && activeLang !== 'all') {
-        const lVal = activeLang.toLowerCase().trim();
-        filteredByLang = filtered.filter(([, item]) => {
-            const lang = String(item.language || item.idioma || item.audio || '').toLowerCase();
-            return lang.includes(lVal);
-        });
-    }
-
-    // ── Repopular IDIOMAS (basado en filtro de género) ──
-    const langList   = document.getElementById('lang-menu-list');
-    const langFilter = DOM.langFilter;
-    if (langList && langFilter) {
-        langList.innerHTML = '';
-        langFilter.innerHTML = '<option value="all">Todos</option>';
-        langList.appendChild(_makeFilterItem('all', 'Todos', 'lang'));
-
-        const langs = new Set();
-        filtered.forEach(([, item]) => {
-            const raw = item.language || item.idioma || item.audio || '';
-            String(raw).split(';').map(l => l.trim()).filter(Boolean).forEach(l => langs.add(l));
-        });
-        Array.from(langs).sort().forEach(lang => {
-            langList.appendChild(_makeFilterItem(lang, lang, 'lang'));
-            langFilter.innerHTML += `<option value="${lang}">${lang}</option>`;
-        });
-    }
-
-    // ── Repopular PEDIDOS (basado en filtro de género + idioma) ──
-    const requestList   = document.getElementById('request-menu-list');
-    const requestSelect = document.getElementById('request-filter');
-    const requestVisual = document.getElementById('request-dropdown-visual');
-    if (requestList && requestSelect) {
-        requestList.innerHTML = '';
-        requestSelect.innerHTML = '<option value="all">Todos</option>';
-        requestList.appendChild(_makeFilterItem('all', 'Todos', 'request'));
-
-        const names = new Set();
-        filteredByLang.forEach(([, item]) => {
-            if (item.pedido && item.pedido.trim()) names.add(item.pedido.trim());
-        });
-        Array.from(names).sort().forEach(name => {
-            requestList.appendChild(_makeFilterItem(name, name, 'request'));
-            requestSelect.innerHTML += `<option value="${name}">${name}</option>`;
-        });
-        if (requestVisual) requestVisual.style.display = names.size === 0 ? 'none' : 'block';
-    }
-}
-
-// Crea un item de dropdown sin necesitar el closure de populateFilters
-function _makeFilterItem(value, label, menuType) {
-    const div = document.createElement('div');
-    div.className = 'dropdown-item';
-    if (value) div.dataset.value = value;
-    div.textContent = label;
-    div.onclick = (e) => {
-        e.stopPropagation();
-        const currentType = appState.ui.activeSagaId || appState.currentFilter || 'movie';
-        if (menuType === 'lang') {
-            document.getElementById('lang-text').textContent = label === 'Todos' ? 'Idioma' : label.split(' (')[0];
-            DOM.langFilter.value = value;
-            document.getElementById('lang-dropdown-visual')?.classList.remove('open');
-        } else if (menuType === 'request') {
-            document.getElementById('request-text').textContent = label === 'Todos' ? 'Pedidos' : label.split(' (')[0];
-            document.getElementById('request-filter').value = value;
-            document.getElementById('request-dropdown-visual')?.classList.remove('open');
-        }
-        applyAndDisplayFilters(currentType);
-    };
-    return div;
-}
-
-// ==========================================
-// FUNCIÓN: POPULAR FILTROS (CON PEDIDOS)
-// ==========================================
-function populateFilters(type) {
-    let sourceData;
-    if (type === 'movie') sourceData = appState.content.movies;
-    else if (type === 'series') sourceData = appState.content.series;
-    else sourceData = appState.content.sagas[type];
-
-    // LEER CONFIGURACIÓN
-    const sagaConfig = appState.content.sagasList.find(s => s.id === type) || {};
-    const confGenres = (sagaConfig.genres_filter || 'si').toLowerCase().trim();
-    const confSortBtn = (sagaConfig.sort_buttons || 'no').toLowerCase().trim();
-    const confLang = (sagaConfig.lang_filter || 'si').toLowerCase().trim();
-
-    // Elementos del DOM
-    const genreVisual = document.getElementById('genre-dropdown-visual');
-    const sortVisual  = document.getElementById('sort-dropdown-visual');
-    const langVisual  = document.getElementById('lang-dropdown-visual');
-    const letterVisual = document.getElementById('letter-dropdown-visual');
-    const requestVisual = document.getElementById('request-dropdown-visual'); // 🔥 NUEVO
-
-    const genreList = document.getElementById('genre-menu-list');
-    const langList  = document.getElementById('lang-menu-list');
-    const letterList = document.getElementById('letter-menu-list');
-    const requestList = document.getElementById('request-menu-list'); // 🔥 NUEVO
-    
-    // Selects ocultos
-    const requestSelect = document.getElementById('request-filter'); // 🔥 NUEVO
-    const letterSelect = document.getElementById('letter-filter');
-
-    const controlsContainer = document.getElementById('filter-controls');
-    if (controlsContainer) controlsContainer.style.display = 'flex';
-
-    // Helper para crear items
-    const createItem = (value, label, menuType, isGroup = false, imgUrl = null) => {
-        const div = document.createElement('div');
-        div.className = isGroup ? 'dropdown-group-title' : 'dropdown-item';
-        
-        // MANTÉN ESTA LÍNEA, ES EL ARREGLO:
-        if (value) div.dataset.value = value; 
-
-        if (isGroup && imgUrl) {
-            div.innerHTML = `<img src="${imgUrl}" class="dropdown-group-logo" alt="${label}">`;
-            div.classList.add('has-logo');
-        } else {
-            div.textContent = label;
-        }
-
-        if (isGroup && value) div.style.cursor = "pointer";
-
-        div.onclick = (e) => {
-            e.stopPropagation();
-
-            // 1. Actualizar valor y texto del filtro clickeado
-            if (menuType === 'genre') {
-                document.getElementById('genre-text').textContent = label === 'Todos' ? 'Géneros' : label.split(' (')[0];
-                DOM.genreFilter.value = value;
-                if (genreVisual) genreVisual.classList.remove('open');
-            } else if (menuType === 'lang') {
-                document.getElementById('lang-text').textContent = label === 'Todos' ? 'Idioma' : label.split(' (')[0];
-                DOM.langFilter.value = value;
-                if (langVisual) langVisual.classList.remove('open');
-            } else if (menuType === 'request') {
-                document.getElementById('request-text').textContent = label === 'Todos' ? 'Pedidos' : label.split(' (')[0];
-                if (requestSelect) requestSelect.value = value;
-                if (requestVisual) requestVisual.classList.remove('open');
-            } else {
-                document.getElementById('sort-text').textContent = label;
-                DOM.sortBy.value = value;
-                if (sortVisual) sortVisual.classList.remove('open');
-            }
-
-            // 2. CASCADA: recalcular opciones de los otros dropdowns
-            if (menuType !== 'sort' && menuType !== 'letter') {
-                const activeGenre   = DOM.genreFilter?.value || 'all';
-                const activeLang    = DOM.langFilter?.value  || 'all';
-                const activeRequest = requestSelect?.value   || 'all';
-
-                const sub = (g, l, r) => {
-                    let items = Object.entries(sourceData);
-                    if (confGenres !== 'no' && g !== 'all') {
-                        const gv = g.toLowerCase().trim();
-                        items = items.filter(([, d]) => {
-                            if (confGenres === 'fases') {
-                                const f = String(d.fase||'').trim();
-                                if (gv==='saga_infinity')   return ['1','2','3'].includes(f);
-                                if (gv==='saga_multiverse') return ['4','5','6'].includes(f);
-                                return f === gv;
-                            }
-                            return String(d.genres||'').toLowerCase().includes(gv) ||
-                                   String(d.title ||'').toLowerCase().includes(gv);
-                        });
-                    }
-                    if (l !== 'all') {
-                        const lv = l.toLowerCase().trim();
-                        items = items.filter(([, d]) =>
-                            String(d.language||d.idioma||d.audio||'').toLowerCase().includes(lv));
-                    }
-                    if (r !== 'all') {
-                        items = items.filter(([, d]) => (d.pedido||'').trim() === r);
-                    }
-                    return items;
-                };
-
-                // Repopular IDIOMAS
-                if (confLang === 'si' && langList && DOM.langFilter) {
-                    const langCounts = new Map();
-                    sub(activeGenre, 'all', activeRequest).forEach(([,d]) =>
-                        String(d.language||d.idioma||d.audio||'')
-                            .split(';').map(s=>s.trim()).filter(Boolean).forEach(l => {
-                                langCounts.set(l, (langCounts.get(l) || 0) + 1);
-                            })
-                    );
-                    langList.innerHTML = '';
-                    DOM.langFilter.innerHTML = '<option value="all">Todos</option>';
-                    langList.appendChild(createItem('all', 'Todos', 'lang'));
-                    [...langCounts.keys()].sort().forEach(l => {
-                        const lbl = `${l} (${langCounts.get(l)})`;
-                        langList.appendChild(createItem(l, lbl, 'lang'));
-                        DOM.langFilter.innerHTML += `<option value="${l}">${lbl}</option>`;
-                    });
-                    if (activeLang !== 'all' && !langCounts.has(activeLang)) {
-                        DOM.langFilter.value = 'all';
-                        document.getElementById('lang-text').textContent = 'Idioma';
-                    } else {
-                        DOM.langFilter.value = activeLang;
-                    }
-                }
-
-                // Repopular PEDIDOS
-                if (requestList && requestSelect) {
-                    const requestCounts = new Map();
-                    sub(activeGenre, activeLang, 'all').forEach(([,d]) => {
-                        const p = d.pedido?.trim();
-                        if (p) requestCounts.set(p, (requestCounts.get(p) || 0) + 1);
-                    });
-                    requestList.innerHTML = '';
-                    requestSelect.innerHTML = '<option value="all">Todos</option>';
-                    requestList.appendChild(createItem('all', 'Todos', 'request'));
-                    [...requestCounts.keys()].sort().forEach(n => {
-                        const lbl = `${n} (${requestCounts.get(n)})`;
-                        requestList.appendChild(createItem(n, lbl, 'request'));
-                        requestSelect.innerHTML += `<option value="${n}">${lbl}</option>`;
-                    });
-                    if (requestVisual) requestVisual.style.display = requestCounts.size === 0 ? 'none' : 'block';
-                    if (activeRequest !== 'all' && !requestCounts.has(activeRequest)) {
-                        requestSelect.value = 'all';
-                        document.getElementById('request-text').textContent = 'Pedidos';
-                    } else {
-                        requestSelect.value = activeRequest;
-                    }
-                }
-
-                // Repopular GÉNEROS
-                if ((type==='movie'||type==='series') && confGenres!=='no' && confGenres!=='fases' && genreList) {
-                    const genreCounts = new Map();
-                    sub('all', activeLang, activeRequest).forEach(([,d]) =>
-                        String(d.genres||'').split(';').map(s=>s.trim()).filter(Boolean).forEach(g => {
-                            genreCounts.set(g, (genreCounts.get(g) || 0) + 1);
-                        })
-                    );
-                    genreList.innerHTML = '';
-                    DOM.genreFilter.innerHTML = '<option value="all">Todos</option>';
-                    genreList.appendChild(createItem('all', 'Todos', 'genre'));
-                    [...genreCounts.keys()].sort().forEach(g => {
-                        const lbl = `${g} (${genreCounts.get(g)})`;
-                        genreList.appendChild(createItem(g, lbl, 'genre'));
-                        DOM.genreFilter.innerHTML += `<option value="${g}">${lbl}</option>`;
-                    });
-                    if (activeGenre !== 'all' && !genreCounts.has(activeGenre)) {
-                        DOM.genreFilter.value = 'all';
-                        document.getElementById('genre-text').textContent = 'Géneros';
-                    } else {
-                        DOM.genreFilter.value = activeGenre;
-                    }
-                }
-            }
-
-            // 3. Aplicar filtros al grid
-            applyAndDisplayFilters(type);
-        };
-        return div;
-    };
-
-    // --- VISIBILIDAD DE FILTROS ---
-    if (genreVisual) genreVisual.style.display = (confGenres !== 'no') ? 'block' : 'none';
-    if (langVisual) langVisual.style.display = (confLang === 'si') ? 'block' : 'none';
-    if (letterVisual) letterVisual.style.display = 'block';
-    
-    // VISIBILIDAD PEDIDOS (Siempre visible en pelis/series)
-    if (requestVisual) {
-        // Si estamos en 'movie' o 'series' lo mostramos, si es Saga lo ocultamos
-        if (type === 'movie' || type === 'series') {
-            requestVisual.style.display = 'block';
-        } else {
-            requestVisual.style.display = 'none';
-        }
-    }
-
-    // Sort Buttons
-    const ucmButtons = document.getElementById('ucm-sort-buttons');
-    const isDynamicSaga = (type !== 'movie' && type !== 'series');
-
-    if (ucmButtons) {
-        ucmButtons.style.display = (confSortBtn === 'si') ? 'flex' : 'none';
-        if (sortVisual) {
-            if (confSortBtn === 'si') {
-            // Tiene botones UCM → ocultar dropdown de orden
-            sortVisual.style.display = 'none';
-        } else if (isDynamicSaga && confSortBtn === 'no') {
-            // Saga dinámica con sort_buttons=no → ocultar también el dropdown
-            sortVisual.style.display = 'none';
-        } else {
-            // Películas / Series normales → mostrar dropdown
-            sortVisual.style.display = 'block';
-        }
-    }
-    } else {
-        if (sortVisual) {
-            sortVisual.style.display = (isDynamicSaga && confSortBtn === 'no') ? 'none' : 'block';
-        }
-    }
-
-    // --- POBLAR LISTAS ---
-
-    // 4. POPULAR LISTA DE GÉNEROS (Lógica Modular)
-    if (confGenres !== 'no') {
-        genreList.innerHTML = '';
-        DOM.genreFilter.innerHTML = `<option value="all">Todos</option>`; 
-        
-        // CASO: FASES (Tipo Marvel)
-        if (confGenres === 'fases') {
-            genreList.appendChild(createItem('all', 'Todas las Fases', 'genre'));
-            document.getElementById('genre-text').textContent = "Todas las Fases";
-            
-            // Fases hardcodeadas o dinámicas, aquí uso tu estructura UCM
-            const estructuraSagas = [
-                { id: 'saga_infinity', titulo: "Saga del Infinito", img: "https://res.cloudinary.com/djhgmmdjx/image/upload/v1764056286/InfinitySaga2_t3ixis.svg", fases: ['1', '2', '3'] },
-                { id: 'saga_multiverse', titulo: "Saga del Multiverso", img: "https://res.cloudinary.com/djhgmmdjx/image/upload/v1764056259/MultiverseSaga2_waggse.svg", fases: ['4', '5', '6'] }
-            ];
-
-            const fasesDisponibles = new Set(Object.values(sourceData).map(i => String(i.fase || '').trim()).filter(Boolean));
-
-            estructuraSagas.forEach(saga => {
-                genreList.appendChild(createItem(saga.id, saga.titulo, 'genre', true, saga.img));
-                DOM.genreFilter.innerHTML += `<option value="${saga.id}">${saga.titulo}</option>`;
-                saga.fases.forEach(f => { 
-                    if(fasesDisponibles.has(f)) {
-                        genreList.appendChild(createItem(f, `Fase ${f}`, 'genre'));
-                        DOM.genreFilter.innerHTML += `<option value="${f}">Fase ${f}</option>`;
-                    }
-                });
-            });
-
-        // CASO: SAGAS (Tipo Harry Potter)
-        } else if (confGenres === 'sagas') {
-            genreList.appendChild(createItem('all', 'Todas las Sagas', 'genre'));
-            document.getElementById('genre-text').textContent = "Todas las Sagas";
-            
-            // Aquí personaliza según tus necesidades o lee dinámicamente
-            genreList.appendChild(createItem('Harry Potter', 'Harry Potter', 'genre'));
-            genreList.appendChild(createItem('Animales Fantásticos', 'Animales Fantásticos', 'genre'));
-            DOM.genreFilter.innerHTML += `<option value="Harry Potter">Harry Potter</option>`;
-            DOM.genreFilter.innerHTML += `<option value="Animales Fantásticos">Animales Fantásticos</option>`;
-
-        // CASO: ERAS (Tipo Star Wars)
-        } else if (confGenres === 'eras') {
-            genreList.appendChild(createItem('all', 'Todas las Eras', 'genre'));
-            document.getElementById('genre-text').textContent = "Todas las Eras";
-            
-            const eras = [{ id: 'republic', label: 'La República' }, { id: 'empire', label: 'El Imperio' }, { id: 'rebellion', label: 'La Rebelión' }];
-            eras.forEach(e => {
-                genreList.appendChild(createItem(e.id, e.label, 'genre'));
-                DOM.genreFilter.innerHTML += `<option value="${e.id}">${e.label}</option>`;
-            });
-
-        // CASO: ESTÁNDAR (Por géneros de la columna 'genres')
-        } else {
-            const genreCounts = new Map();
-            Object.values(sourceData).forEach(item => {
-                String(item.genres||'').split(';').map(g=>g.trim()).filter(Boolean).forEach(g => {
-                    genreCounts.set(g, (genreCounts.get(g)||0) + 1);
-                });
-            });
-            genreList.appendChild(createItem('all', 'Todos', 'genre'));
-            document.getElementById('genre-text').textContent = "Géneros";
-
-            [...genreCounts.keys()].sort().forEach(g => {
-                const lbl = `${g} (${genreCounts.get(g)})`;
-                genreList.appendChild(createItem(g, lbl, 'genre'));
-                DOM.genreFilter.innerHTML += `<option value="${g}">${lbl}</option>`;
-            });
-        }
-    }
-
-    // 5. POPULAR IDIOMAS (DINÁMICO - Solo si está activado)
-    if (confLang === 'si' && langList) {
-        langList.innerHTML = '';
-        DOM.langFilter.innerHTML = `<option value="all">Todos</option>`;
-    
-    // Opción "Todos"
-    langList.appendChild(createItem('all', 'Todos', 'lang'));
-    document.getElementById('lang-text').textContent = "Idioma";
-    
-    // Extraer idiomas con conteo
-    const langCounts = new Map();
-    Object.values(sourceData).forEach(item => {
-        const rawLang = item.language || item.idioma || item.audio || "";
-        if (rawLang && String(rawLang).trim() !== "") {
-            String(rawLang).split(';').map(l => l.trim()).filter(Boolean).forEach(lang => {
-                langCounts.set(lang, (langCounts.get(lang) || 0) + 1);
-            });
-        }
-    });
-
-    // Crear opciones ordenadas con contador
-    [...langCounts.keys()].sort().forEach(lang => {
-        const lbl = `${lang} (${langCounts.get(lang)})`;
-        langList.appendChild(createItem(lang, lbl, 'lang'));
-        DOM.langFilter.innerHTML += `<option value="${lang}">${lbl}</option>`;
-    });
-    }
-
-    // 3. SORT - Menú de Ordenamiento Completo
-    const sortList = document.getElementById('sort-menu-list');
-    
-    // ✅ BLOQUE NUEVO PARA RESETEAR BOTONES DE SAGAS
-    if (confSortBtn === 'si') {
-        const btnRelease = document.querySelector('.sort-btn[data-sort="release"]');
-        const btnChrono = document.querySelector('.sort-btn[data-sort="chronological"]');
-        
-        // Si existen los botones, forzamos que "Release" sea el activo por defecto
-        if (btnRelease && btnChrono) {
-            // Quitamos activo de todos y ponemos en release
-            document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
-            btnRelease.classList.add('active');
-            
-            // Actualizamos la variable global (si la usas)
-            if (DOM.sortBy) DOM.sortBy.value = 'release';
-        }
-    }
-
-    if (confSortBtn === 'no' && sortList) {
-        sortList.innerHTML = '';
-
-        if (DOM.sortBy) DOM.sortBy.innerHTML = ''; 
-        
-        const sortOptions = [
-            {val:'recent', label:'Recientes'},
-            {val:'title-asc', label:'Título (A-Z)'}, 
-            {val:'title-desc', label:'Título (Z-A)'},
-            {val:'year-desc', label:'Año (Desc.)'}, 
-            {val:'year-asc', label:'Año (Asc.)'}
-        ];
-
-        if (type !== 'series') {
-            sortOptions.push(
-                {val:'duration-asc', label:'- Duración'}, 
-                {val:'duration-desc', label:'+ Duración'}
-            );
-        }
-
-        sortOptions.push(
-            {val:'rating-desc', label:'★ Mayor Reseña'},
-            {val:'rating-asc',  label:'★ Menor Reseña'}
-        );
-        
-        sortOptions.forEach(o => {
-            sortList.appendChild(createItem(o.val, o.label, 'sort'));
-
-            if (DOM.sortBy) {
-                const option = document.createElement('option');
-                option.value = o.val;
-                option.textContent = o.label;
-                DOM.sortBy.appendChild(option);
-            }
-        });
-    }
-
-    // 4. FILTRO DE LETRAS (DINÁMICO - Solo letras que existen)
-    if (letterList && letterSelect) {
-        letterList.innerHTML = '';
-        letterSelect.innerHTML = `<option value="all">Todas</option>`;
-        
-        // Opción "Todas"
-        letterList.appendChild(createItem('all', 'Todas', 'letter'));
-        
-        // Extraer las primeras letras de todos los títulos
-        const firstLetters = new Set();
-        let hasNumbers = false;
-        
-        Object.values(sourceData).forEach(item => {
-            if (item.title) {
-                const firstChar = String(item.title).trim().charAt(0).toUpperCase();
-                if (firstChar) {
-                    // Verificar si es número
-                    if (!isNaN(parseInt(firstChar))) {
-                        hasNumbers = true;
-                    } else if (/[A-Z]/.test(firstChar)) {
-                        // Solo agregar si es letra A-Z
-                        firstLetters.add(firstChar);
-                    }
-                }
-            }
-        });
-        
-        // Agregar opción "0-9" solo si hay títulos que empiecen con número
-        if (hasNumbers) {
-            letterList.appendChild(createItem('#', '0-9', 'letter'));
-            letterSelect.innerHTML += `<option value="#">0-9</option>`;
-        }
-        
-        // Agregar letras que realmente existen, ordenadas alfabéticamente
-        Array.from(firstLetters).sort().forEach(letter => {
-            letterList.appendChild(createItem(letter, letter, 'letter'));
-            letterSelect.innerHTML += `<option value="${letter}">${letter}</option>`;
-        });
-    }
-
-    // 🔥 5. FILTRO DE PEDIDOS (NUEVO)
-    if (requestList && requestSelect) {
-        
-        // --- AGREGA ESTA LÍNEA AQUÍ ---
-        document.getElementById('request-text').textContent = "Pedidos"; 
-        // ------------------------------
-
-        requestList.innerHTML = '';
-        requestSelect.innerHTML = `<option value="all">Todos</option>`;
-        
-        // Opción "Todos"
-        requestList.appendChild(createItem('all', 'Todos', 'request'));
-
-        // Extraer pedidos con conteo
-        const requestCounts = new Map();
-        Object.values(sourceData).forEach(item => {
-            const p = item.pedido?.trim();
-            if (p) requestCounts.set(p, (requestCounts.get(p) || 0) + 1);
-        });
-
-        // Crear opciones ordenadas con contador
-        [...requestCounts.keys()].sort().forEach(name => {
-            const lbl = `${name} (${requestCounts.get(name)})`;
-            requestList.appendChild(createItem(name, lbl, 'request'));
-            requestSelect.innerHTML += `<option value="${name}">${lbl}</option>`;
-        });
-
-        if (requestCounts.size === 0) {
-            requestVisual.style.display = 'none';
-        }
-    }
-    
-    // Triggers
-    const configDropdown = (trigger, visual) => {
-        if (!trigger) return;
-        const newTrigger = trigger.cloneNode(true);
-        trigger.parentNode.replaceChild(newTrigger, trigger);
-        newTrigger.onclick = (e) => { 
-            e.stopPropagation(); 
-            [genreVisual, sortVisual, langVisual, letterVisual, requestVisual].forEach(v => {
-                if(v && v !== visual) v.classList.remove('open');
-            });
-            visual.classList.toggle('open'); 
-        };
-    };
-
-    if(document.getElementById('genre-trigger')) configDropdown(document.getElementById('genre-trigger'), genreVisual);
-    if(document.getElementById('sort-trigger')) configDropdown(document.getElementById('sort-trigger'), sortVisual);
-    if(document.getElementById('lang-trigger')) configDropdown(document.getElementById('lang-trigger'), langVisual); 
-    if(document.getElementById('letter-trigger')) configDropdown(document.getElementById('letter-trigger'), letterVisual);
-    if(document.getElementById('request-trigger')) configDropdown(document.getElementById('request-trigger'), requestVisual); // 🔥 NUEVO
-}
-
-// ==========================================
-// FUNCIÓN: APLICAR Y MOSTRAR (CON FILTRO PEDIDOS)
-// ==========================================
-async function applyAndDisplayFilters(type) {
-    let sourceData;
-    if (type === 'movie') sourceData = appState.content.movies;
-    else if (type === 'series') sourceData = appState.content.series;
-    else sourceData = appState.content.sagas[type]; 
-
-    const gridEl = DOM.gridContainer.querySelector('.grid');
-    if (!gridEl || !sourceData) return;
-
-    // CONFIGURACIÓN
-    const sagaConfig = appState.content.sagasList.find(s => s.id === type) || {};
-    const confGenres = (sagaConfig.genres_filter || 'si').toLowerCase().trim();
-    const confSortBtn = (sagaConfig.sort_buttons || 'no').toLowerCase().trim();
-    const confLang   = (sagaConfig.lang_filter || 'si').toLowerCase().trim();
-
-    // Valores de filtros
-    let sortByValue = (confSortBtn === 'si') ? 
-        (document.querySelector('.sort-btn.active')?.dataset.sort || 'release') : 
-        (DOM.sortBy.value || 'recent');
-        
-    const letterFilterVal = document.getElementById('letter-filter')?.value || 'all';
-
-    const requestFilterVal = document.getElementById('request-filter')?.value || 'all';
-
-    gridEl.innerHTML = `<div style="width:100%;height:60vh;display:flex;justify-content:center;align-items:center;grid-column:1/-1;"><p class="loading-text">Cargando...</p></div>`;
-
-    // Datos
-    let content = Object.entries(sourceData);
-    const isDynamicSaga = (type !== 'movie' && type !== 'series');
-    
-    // 🔄 Para universos: invertir para respetar orden de arriba hacia abajo del Excel
-    if (isDynamicSaga) content.reverse();
-    
-    // 🔥 SOLUCIÓN SIMPLE: Guardar el orden tal como viene del Excel
-    // JavaScript moderno garantiza que Object.entries() mantiene el orden de inserción
-    content.forEach((item, index) => { item[1]._originalIndex = index; });
-
-    // --- APLICAR FILTROS ---
-    
-    // 1. GÉNERO / FASE / SAGA
-    if (confGenres !== 'no' && DOM.genreFilter.value !== 'all') {
-        const filterVal = DOM.genreFilter.value.toLowerCase().trim();
-        
-        content = content.filter(([id, item]) => {
-            // Lógica Específica según tipo de configuración
-            if (confGenres === 'fases') {
-                const fase = String(item.fase || '').trim();
-                if (filterVal === 'saga_infinity') return ['1','2','3'].includes(fase);
-                if (filterVal === 'saga_multiverse') return ['4','5','6'].includes(fase);
-                return fase === filterVal;
-            }
-            // Búsqueda genérica (Funciona para 'sagas', 'eras' y 'si')
-            // Busca en genres O en el título (útil para Harry Potter vs Animales Fantásticos)
-            const genresStr = String(item.genres || '').toLowerCase();
-            const titleStr = String(item.title || '').toLowerCase();
-            return genresStr.includes(filterVal) || titleStr.includes(filterVal);
-        });
-    }
-
-    // 2. IDIOMA
-    if (confLang === 'si' && DOM.langFilter && DOM.langFilter.value !== 'all') {
-    const langVal = DOM.langFilter.value.toLowerCase().trim();
-    content = content.filter(([id, item]) => {
-        // 🔥 CORRECCIÓN: Busca en todas las posibles columnas de idioma
-            const itemLang = String(item.language || item.idioma || item.audio || '').toLowerCase();
-            return itemLang.includes(langVal);
-        });
-    }
-
-    // 3. FILTRO POR INICIAL (A-Z)
-    if (letterFilterVal !== 'all') {
-        content = content.filter(([id, item]) => {
-            const firstChar = String(item.title || '').trim().charAt(0).toUpperCase();
-            if (letterFilterVal === '#') return !isNaN(parseInt(firstChar));
-            return firstChar === letterFilterVal;
-        });
-    }
-
-    // 🔥 4. FILTRO POR PEDIDOS (NUEVO)
-    if (requestFilterVal !== 'all') {
-        content = content.filter(([id, item]) => {
-            // Comparamos el nombre exacto del pedido
-            return String(item.pedido || '').trim() === requestFilterVal;
-        });
-    }
-
-    // 🆕 5. FILTRO POR RESEÑA: si se ordena por rating, mostrar solo las que tienen reseña
-    if (sortByValue === 'rating-desc' || sortByValue === 'rating-asc') {
-        content = content.filter(([id]) => {
-            const rating = parseFloat(appState.content.averages[id]);
-            return rating > 0;
-        });
-    }
-
-    // 5. ORDENAMIENTO
-    content.sort((a, b) => {
-        const idA = a[0]; const idB = b[0];
-        const aData = a[1]; const bData = b[1];
-
-        let result = 0; // Variable para almacenar el resultado del ordenamiento
-
-        // 🔥 PARA SAGAS DINÁMICAS: Usar el orden del Excel como criterio PRINCIPAL
-        if (isDynamicSaga) {
-            // Función para obtener el valor de ordenamiento
-            const getOrderValue = (data) => {
-                const orderVal = data.order || data.number || data.id || data.stage || data.episode;
-                if (orderVal !== undefined) {
-                    // Si es número, usarlo directamente
-                    const numVal = Number(orderVal);
-                    if (!isNaN(numVal)) return numVal;
-                }
-                // Si no hay columna de orden o es texto (como "pelicula"), usar el índice original
-                return data._originalIndex || 0;
-            };
-            
-            result = getOrderValue(aData) - getOrderValue(bData);
-            
-            // Si ya hay un resultado claro, devolverlo sin aplicar otros criterios
-            if (result !== 0) return result;
-        }
-
-        if (sortByValue === 'recent' || sortByValue === 'release') {
-            
-            // Detectamos tipos
-            const typeA = (aData.type === 'series' || appState.content.series[idA]) ? 'series' : 'movie';
-            const typeB = (bData.type === 'series' || appState.content.series[idB]) ? 'series' : 'movie';
-
-            // Calculamos el TIEMPO EXACTO (milisegundos)
-            const timeA = getLatestUpdateTimestamp(idA, aData, typeA);
-            const timeB = getLatestUpdateTimestamp(idB, bData, typeB);
-
-            // 1. SI TIENEN FECHAS DISTINTAS (O HORAS DISTINTAS)
-            // Gana el número más alto (el más reciente)
-            if (timeA !== timeB) {
-                result = timeB - timeA; 
-            }
-
-            // 2. SI ES EMPATE EXACTO (Mismo día y hora, o sin hora)
-            // Aquí usamos tu jerarquía como desempate: Estreno > Temp > Cap
-            else if (timeA > 0) { 
-                const getScore = (id, data, t) => {
-                    if (isDateRecent(data.date_added)) return 3; // Estreno
-                    if (t === 'series' && hasRecentSeasonFromPosters(id)) return 2; // Temp
-                    if (t === 'series' && hasRecentEpisodes(id)) return 1; // Cap
-                    return 0;
-                };
-                result = getScore(idB, bData, typeB) - getScore(idA, aData, typeA);
-            }
-
-            // 3. SI NO SON NUEVOS -> Ranking Normal
-            else {
-                result = (Number(bData.tr) || 0) - (Number(aData.tr) || 0);
-            }
-        }
-
-        // ... resto de ordenamientos (A-Z, Año, etc) ...
-        else if (sortByValue === 'chronological') {
-            result = (Number(aData.cronologia) || 9999) - (Number(bData.cronologia) || 9999);
-        }
-        else if (sortByValue === 'year-asc') {
-            result = (Number(aData.year) || 9999) - (Number(bData.year) || 9999);
-        }
-        else if (sortByValue === 'year-desc') {
-            result = (Number(bData.year) || 0) - (Number(aData.year) || 0);
-        }
-        else if (sortByValue === 'title-asc') {
-            result = (aData.title || '').localeCompare(bData.title || '');
-        }
-        else if (sortByValue === 'title-desc') {
-            result = (bData.title || '').localeCompare(aData.title || '');
-        }
-        else if (sortByValue === 'duration-asc' || sortByValue === 'duration-desc') {
-            const getMinutes = (item) => {
-                // Buscamos la duración en cualquier columna posible
-                const d = String(item.duration || item.duracion || '').toLowerCase().trim();
-                if (!d) return 0;
-
-                let minutes = 0;
-                // Caso 1: Formato "1h 45m"
-                const h = d.match(/(\d+)\s*h/);
-                const m = d.match(/(\d+)\s*m/);
-                if (h) minutes += parseInt(h[1]) * 60;
-                if (m) minutes += parseInt(m[1]);
-
-                // Caso 2: Formato "105 min" o solo numero "105"
-                if (!h && !m) {
-                    const num = parseInt(d.replace(/\D/g, '')); // Quita letras, deja números
-                    if (!isNaN(num)) minutes = num;
-                }
-                return minutes;
-            };
-
-            const minA = getMinutes(aData);
-            const minB = getMinutes(bData);
-
-            if (sortByValue === 'duration-asc') result = minA - minB; // Cortas primero
-            if (sortByValue === 'duration-desc') result = minB - minA; // Largas primero
-        }
-        else if (sortByValue === 'rating-desc' || sortByValue === 'rating-asc') {
-            const ratingA = parseFloat(appState.content.averages[idA]) || 0;
-            const ratingB = parseFloat(appState.content.averages[idB]) || 0;
-            const hasA = ratingA > 0;
-            const hasB = ratingB > 0;
-            // Sin reseña siempre al final
-            if (!hasA && !hasB) result = 0;
-            else if (!hasA) result = 1;
-            else if (!hasB) result = -1;
-            else if (sortByValue === 'rating-desc') result = ratingB - ratingA;
-            else result = ratingA - ratingB;
-        }
-
-        return result;
-    });
-
-
-    // 5.5 EXPANSIÓN CRONOLÓGICA (Solo si se eligió ese orden)
-    if (sortByValue === 'chronological') {
-        const expandedContent = [];
-        
-        content.forEach(([id, item]) => {
-            const multiChrono = item.cronologiaMulti || item.cronologia_multi; 
-            
-            if (multiChrono) {
-                // 🔥 1. Obtenemos los pósters específicos de esta serie
-                const seriesPosters = appState.content.seasonPosters[id] || {};
-
-                // 🔥 2. Función helper para extraer la URL correcta (soporta objetos o texto)
-                const getSeasonPoster = (num) => {
-                    const p = seriesPosters[num];
-                    if (!p) return item.poster; // Si no hay poster específico, usa el general
-                    return (typeof p === 'object') ? p.posterUrl : p;
-                };
-
-                // --- TEMPORADA 1 ---
-                const t1 = { 
-                    ...item, 
-                    title: `${item.title} (T1)`,
-                    poster: getSeasonPoster(1) // 🔥 APLICAR PÓSTER T1
-                };
-                expandedContent.push([id, t1]); 
-
-                // --- TEMPORADAS SIGUIENTES (2, 3, etc) ---
-                String(multiChrono).split(',').map(c => c.trim()).forEach((chronoVal, index) => {
-                    const sNum = index + 2; // T2, T3...
-                    const tNext = { 
-                        ...item, 
-                        title: `${item.title} (T${sNum})`, 
-                        cronologia: chronoVal,
-                        poster: getSeasonPoster(sNum) // 🔥 APLICAR PÓSTER TX
-                    };
-                    expandedContent.push([id, tNext]); 
-                });
-
-            } else { 
-                expandedContent.push([id, item]); 
-            }
-        });
-
-        // Ordenar por el número de cronología
-        expandedContent.sort((a, b) => (Number(a[1].cronologia)||99999) - (Number(b[1].cronologia)||99999));
-        content = expandedContent;
-    }
-
-    // 6. RENDER
-    appState.ui.contentToDisplay = content;
-    appState.ui.currentIndex = 0; 
-    setupPaginationControls();
-
-    const firstPageItems = content.slice(0, UI.ITEMS_PER_LOAD);
-    const imagePromises = firstPageItems.map(([id, item]) => preloadImage(item.poster));
-
-    try { await Promise.race([Promise.all(imagePromises), new Promise(r => setTimeout(r, 1000))]); } catch (e) {}
-
-    renderCurrentPage();
-}
-
-// ===========================================================
-// 4. MÓDULOS DE FUNCIONALIDADES (HERO, BÚSQUEDA, ETC.)
-// ===========================================================
-function setupEventListeners() {
-    console.log('⚙️ Configurando Event Listeners...');
-    document.addEventListener('click', handleGlobalClick);
-
-    // =======================================================
-    // 1. NAVEGACIÓN UNIVERSAL (Header, Footer y DROPDOWN)
-    // =======================================================
-    const navLinks = document.querySelectorAll('.main-nav a, .bottom-nav .nav-link, .profile-hub-menu-item');
-    
-    navLinks.forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            
-            const filter = link.dataset.filter;
-            
-            // 1. Ejecutar cambio de vista
-            switchView(filter);
-            
-            // 2. Si el clic vino del menú desplegable de usuario, lo cerramos
-            const dropdown = document.getElementById('user-menu-dropdown');
-            if (dropdown && dropdown.classList.contains('show')) {
-                dropdown.classList.remove('show');
-            }
-        });
-    });
-
-    // Botón Ruleta en Móvil (Header)
-    const mobileRouletteBtn = document.querySelector('.mobile-roulette-btn');
-    if (mobileRouletteBtn) {
-        mobileRouletteBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            switchView('roulette');
-        });
-    }
-
-    // =======================================================
-    // 2. BUSCADOR EN TIEMPO REAL
-    // =======================================================
-        DOM.searchInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                DOM.searchInput.value = '';
-                DOM.searchInput.blur();
-                const currentFilter = document.querySelector('.main-nav a.active')?.dataset.filter || 'all';
-                switchView(currentFilter);
-            }
-        });
-
-    // =======================================================
-    // 3. LOGICA DE FILTROS (DROPDOWNS) - ¡CORREGIDO!
-    // =======================================================
-    
-    // A. Abrir/Cerrar menús
-    document.addEventListener('click', (e) => {
-        const trigger = e.target.closest('.dropdown-trigger');
-        const dropdown = e.target.closest('.custom-dropdown');
-        
-        if (trigger) {
-            e.stopPropagation(); 
-            const menu = dropdown.querySelector('.dropdown-menu');
-            
-            // Cierra otros abiertos
-            document.querySelectorAll('.dropdown-menu.show').forEach(m => {
-                if (m !== menu) m.classList.remove('show');
-            });
-            
-            // Alterna el actual
-            if (menu) menu.classList.toggle('show');
-        } else {
-            // Cierra todo si clic fuera
-            document.querySelectorAll('.dropdown-menu.show').forEach(m => {
-                m.classList.remove('show');
-            });
-        }
-    });
-
-    // B. Detectar clic en una OPCIÓN (Idioma, Género, Pedido, etc.)
-    document.addEventListener('click', (e) => {
-        const item = e.target.closest('.dropdown-item');
-        if (!item) return;
-
-        const dropdown = item.closest('.custom-dropdown');
-        if (!dropdown) return;
-
-        // 1. Identificar qué filtro es (Género, Idioma, Pedido...)
-        let selectId = '';
-        let triggerTextId = '';
-
-        if (dropdown.id === 'genre-dropdown-visual') {
-            selectId = 'genre-filter';
-            triggerTextId = 'genre-text';
-        } else if (dropdown.id === 'lang-dropdown-visual') {
-            selectId = 'lang-filter';
-            triggerTextId = 'lang-text';
-        } else if (dropdown.id === 'sort-dropdown-visual') {
-            selectId = 'sort-by';
-            triggerTextId = 'sort-text';
-        } else if (dropdown.id === 'request-dropdown-visual') { // 🔥 NUEVO: Pedidos
-            selectId = 'request-filter';
-            triggerTextId = 'request-text';
-        }
-
-        if (!selectId) return;
-
-        // 2. Actualizar visualmente
-        dropdown.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('selected'));
-        item.classList.add('selected');
-        
-        const triggerText = document.getElementById(triggerTextId);
-        if (triggerText) triggerText.textContent = item.textContent;
-
-        // 3. Actualizar el <select> oculto (el cerebro real)
-        const hiddenSelect = document.getElementById(selectId);
-        if (hiddenSelect) {
-            hiddenSelect.value = item.dataset.value;
-            
-            // 4. ¡DISPARAR LA RECARGA!
-            // Usamos la saga activa guardada
-            const currentType = appState.ui.activeSagaId || 'movie'; 
-            let sourceData = null;
-
-            if (currentType === 'movie') sourceData = appState.content.movies;
-            else if (currentType === 'series') sourceData = appState.content.series;
-            else if (currentType === 'ucm') sourceData = appState.content.ucm;
-            else if (appState.content.sagas[currentType]) sourceData = appState.content.sagas[currentType];
-
-            if (sourceData) {
-                applyAndDisplayFilters(currentType);
-            }
-        }
-    });
-
-    const backSagaBtn = document.getElementById('back-to-sagas-btn');
-    if (backSagaBtn) {
-        backSagaBtn.addEventListener('click', () => switchView('sagas'));
-    }
-
-    // =======================================================
-    // 4. MODALES (Lógica corregida para Reseñas)
-    // =======================================================
-    
-    // A. Botones de cerrar (La "X")
-    document.querySelectorAll('.close-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            // 🔥 EXCEPCIÓN: Si es el modal de reseñas, SOLO cierra ese y no toca el resto
-            if (btn.closest('#review-form-modal')) {
-                e.preventDefault();
-                e.stopPropagation();
-                const reviewModal = document.getElementById('review-form-modal');
-                if (reviewModal) reviewModal.classList.remove('show');
-                const cinemaOpen = document.getElementById('cinema')?.classList.contains('show');
-                const seriesOpen = document.getElementById('series-player-modal')?.classList.contains('show');
-                if (!cinemaOpen && !seriesOpen) document.body.classList.remove('modal-open');
-                return;
-            }
-
-            // Comportamiento normal para el resto (cierra todo)
-            ModalManager.closeAll();
-            const cinema = document.getElementById('cinema');
-            if (cinema) {
-                const iframe = cinema.querySelector('iframe');
-                if (iframe) iframe.src = '';
-                const video = cinema.querySelector('video');
-                if (video) video.pause();
-            }
-        });
-    });
-
-    // B. Clic en el fondo oscuro (Backdrop)
-    window.addEventListener('click', (e) => {
-        if (e.target.classList.contains('modal')) {
-            // 🔥 EXCEPCIÓN: Si clicamos fuera del modal de reseñas
-            if (e.target.id === 'review-form-modal') {
-                e.target.classList.remove('show');
-                const cinemaOpen = document.getElementById('cinema')?.classList.contains('show');
-                const seriesOpen = document.getElementById('series-player-modal')?.classList.contains('show');
-                if (!cinemaOpen && !seriesOpen) document.body.classList.remove('modal-open');
-                return;
-            }
-
-            ModalManager.closeAll();
-        }
-    });
-
-    // =======================================================
-    // 5. AUTENTICACIÓN (Header)
-    // =======================================================
-    const loginHeader = document.getElementById('login-btn-header');
-    const regHeader = document.getElementById('register-btn-header');
-
-    if (loginHeader) {
-        loginHeader.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (window.openAuthModal) window.openAuthModal(true);
-        });
-    }
-    if (regHeader) {
-        regHeader.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (window.openAuthModal) window.openAuthModal(false);
-        });
-    }
-
-    // Botón de login en el profile hub (móvil)
-    const loginBtnHub = document.getElementById('login-btn-hub');
-    if (loginBtnHub) {
-        loginBtnHub.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (window.openAuthModal) window.openAuthModal(true);
-        });
-    }
-
-    // Botón de registro en el profile hub (móvil)
-    const registerBtnHub = document.getElementById('register-btn-hub');
-    if (registerBtnHub) {
-        registerBtnHub.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (window.openAuthModal) window.openAuthModal(false);
-        });
-    }
-
-    // =======================================================
-    // 6. ACORDEÓN FESTIVAL DE VIÑA
-    // =======================================================
-    document.addEventListener('click', (e) => {
-        const header = e.target.closest('.accordion-header');
-        if (header) {
-            const item = header.parentElement;
-            const isActive = item.classList.contains('active');
-            
-            // Cerrar otros del mismo grupo
-            const parentAccordion = item.closest('.schedule-accordion');
-            if (parentAccordion) {
-                parentAccordion.querySelectorAll('.accordion-item').forEach(el => {
-                    el.classList.remove('active');
-                });
-            }
-            
-            if (!isActive) {
-                item.classList.add('active');
-            }
-        }
-    });
-
-    // =======================================================
-    // 7. EVENTOS DE SCROLL
-    // =======================================================
-    window.addEventListener('scroll', () => {
-        if (DOM.header) {
-            if (window.scrollY > 50) {
-                DOM.header.classList.add('scrolled');
-            } else {
-                DOM.header.classList.remove('scrolled');
-            }
-        }
-    });
-
-    // =======================================================
-    // 8. BOTONES DE ORDENAMIENTO (SAGAS / UCM) - 🔥 NUEVO
-    // =======================================================
-    const sortButtons = document.querySelectorAll('.sort-btn');
-    if (sortButtons.length > 0) {
-        sortButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                // 1. Cambiar estado visual (Clase active)
-                sortButtons.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-
-                // 2. Identificar qué saga estamos viendo
-                // (Usamos la variable global activeSagaId si existe, o buscamos el título)
-                const currentSagaId = appState.ui.activeSagaId; 
-                
-                if (currentSagaId) {
-                    // Recargar la cuadrícula de la saga actual con el nuevo orden
-                    const sagaData = appState.content.sagas[currentSagaId] || appState.content.ucm;
-                    if (sagaData) {
-                        applyAndDisplayFilters(currentSagaId);
-                    }
-                }
-            });
-        });
-    }
-}
-
-function handleFullscreenChange() {
-    const lockOrientation = async () => {
+// 3. GESTIÓN DEL MODAL DE SERIES
+export function commitAndClearPendingSave() {
+    if (shared.appState.player.pendingHistorySave) {
         try {
-            if (screen.orientation && typeof screen.orientation.lock === 'function') {
-                await screen.orientation.lock('landscape');
-            }
-        } catch (err) { 
-            console.error('No se pudo bloquear la orientación:', err); 
+            shared.addToHistoryIfLoggedIn(
+                shared.appState.player.pendingHistorySave.contentId,
+                shared.appState.player.pendingHistorySave.type,
+                shared.appState.player.pendingHistorySave.episodeInfo
+            );
+        } catch (e) {
+            logError(e, 'Player: History Commit');
         }
-    };
-    const unlockOrientation = () => {
-        if (screen.orientation && typeof screen.orientation.unlock === 'function') {
-            screen.orientation.unlock();
-        }
-    };
-    if (document.fullscreenElement) {
-        lockOrientation();
-    } else {
-        unlockOrientation();
+        shared.appState.player.pendingHistorySave = null;
     }
-
-    // =======================================================
-    // RESIZE: recalcular página si cambia el nº de columnas
-    // =======================================================
-    let _lastColumns = UI.getColumns();
-    let _resizeTimer;
-    window.addEventListener('resize', () => {
-        clearTimeout(_resizeTimer);
-        _resizeTimer = setTimeout(() => {
-            const newCols = UI.getColumns();
-            if (newCols !== _lastColumns) {
-                _lastColumns = newCols;
-                // Volver a página 0 y re-renderizar con el nuevo ITEMS_PER_LOAD
-                if (appState.ui.contentToDisplay && appState.ui.contentToDisplay.length > 0) {
-                    appState.ui.currentIndex = 0;
-                    setupPaginationControls();
-                    renderCurrentPage();
-                }
-            }
-        }, 250);
-    });
 }
 
-function setupPaginationControls() {
-    // Buscamos si ya existe el contenedor, si no, lo creamos
-    let paginationContainer = document.getElementById('pagination-controls');
-    
-    if (!paginationContainer) {
-        paginationContainer = document.createElement('div');
-        paginationContainer.id = 'pagination-controls';
-        paginationContainer.className = 'pagination-container';
-        // Lo insertamos DESPUÉS del grid container
-        DOM.gridContainer.appendChild(paginationContainer);
-    }
+export function closeSeriesPlayerModal() {
+    clearTimeout(shared.appState.player.episodeOpenTimer);
+    commitAndClearPendingSave();
+    shared.DOM.seriesPlayerModal.classList.remove('show', 'season-grid-view', 'player-layout-view');
+    document.body.classList.remove('modal-open');
+    const iframe = shared.DOM.seriesPlayerModal.querySelector('iframe');
+    if (iframe) iframe.src = '';
+    shared.appState.player.activeSeriesId = null; 
+}
 
-    // Renderizamos los botones
-    paginationContainer.innerHTML = `
-        <button id="prev-page-btn" class="pagination-btn"><i class="fas fa-chevron-left"></i> Anterior</button>
-        <span id="page-info" class="pagination-info">Página 1 de 1</span>
-        <button id="next-page-btn" class="pagination-btn">Siguiente <i class="fas fa-chevron-right"></i></button>
+export async function openSeriesPlayer(seriesId, forceSeasonGrid = false) {
+    try {
+        shared.closeAllModals();
+        
+        const seriesInfo = findContentData(seriesId); 
+        
+        if (!seriesInfo) {
+            console.warn(`Serie ID no encontrado: ${seriesId}`);
+            shared.ErrorHandler.show('content', 'No se encontró la serie.');
+            return;
+        }
+
+        document.body.classList.add('modal-open');
+        shared.DOM.seriesPlayerModal.classList.add('show');
+        
+        shared.DOM.seriesPlayerModal.innerHTML = `
+            <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">
+                <div class="spinner"></div>
+            </div>`;
+
+        // === 🔥 LÓGICA DE SALTO DE BLOQUEO ===
+        const seriesEpisodes = shared.appState.content.seriesEpisodes[seriesId] || {};
+        const postersData = shared.appState.content.seasonPosters[seriesId] || {};
+        
+        // 1. Obtenemos TODAS las temporadas ordenadas
+        // PRIORIDAD: seasonOrder servidor > campo "orden" > numérico (especiales al final)
+        const allSeasonsKeys = [...new Set([...Object.keys(seriesEpisodes), ...Object.keys(postersData)])];
+
+        let orderedKeys;
+        if (shared.appState.content.seasonOrder && shared.appState.content.seasonOrder[seriesId]) {
+            orderedKeys = shared.appState.content.seasonOrder[seriesId];
+        } else {
+            orderedKeys = [...allSeasonsKeys].sort((a, b) => {
+                const posterA = postersData[a];
+                const posterB = postersData[b];
+                const ordenA = posterA && typeof posterA === 'object' && posterA.orden !== undefined && posterA.orden !== ''
+                    ? Number(posterA.orden) : null;
+                const ordenB = posterB && typeof posterB === 'object' && posterB.orden !== undefined && posterB.orden !== ''
+                    ? Number(posterB.orden) : null;
+                if (ordenA !== null && ordenB !== null) return ordenA - ordenB;
+                if (ordenA !== null) return -1;
+                if (ordenB !== null) return 1;
+                const isNumericA = !isNaN(Number(a)) && String(a).trim() !== '';
+                const isNumericB = !isNaN(Number(b)) && String(b).trim() !== '';
+                if (isNumericA && isNumericB) return Number(a) - Number(b);
+                if (isNumericA) return -1;
+                if (isNumericB) return 1;
+                return 0;
+            });
+        }
+
+        const seasonsMapped = orderedKeys
+            .filter(k => allSeasonsKeys.includes(k))
+            .map(k => ({ key: k, num: !isNaN(k) ? Number(k) : 0 }));
+
+        // 2. Si forzamos grilla, mostramos grilla directamente
+        if (forceSeasonGrid && seasonsMapped.length > 1) {
+            renderSeasonGrid(seriesId);
+            return;
+        }
+
+        // 3. BUSCAMOS LA PRIMERA TEMPORADA DESBLOQUEADA
+        let targetSeasonKey = null;
+
+        for (const s of seasonsMapped) {
+            const seasonKey = s.key;
+            
+            // Verificamos estado en PostersTemporadas
+            const posterEntry = postersData[seasonKey];
+            let seasonStatus = '';
+            if (posterEntry && typeof posterEntry === 'object') {
+                seasonStatus = String(posterEntry.estado || '').toLowerCase().trim();
+            }
+
+            // Verificamos si tiene episodios reales
+            const eps = seriesEpisodes[seasonKey];
+            const hasEpisodes = eps && (Array.isArray(eps) ? eps.length > 0 : Object.keys(eps).length > 0);
+
+            // Condición de Bloqueo (Igual que en la grilla)
+            const isManuallyLocked = seasonStatus !== '' && seasonStatus !== 'disponible';
+            const isLocked = isManuallyLocked || (!hasEpisodes && seasonStatus !== 'disponible');
+
+            // Si NO está bloqueada, ¡esta es la elegida!
+            if (!isLocked) {
+                targetSeasonKey = seasonKey;
+                break; // Rompemos el ciclo, ya encontramos la primera visible
+            }
+        }
+
+        // 4. RESULTADO
+        if (targetSeasonKey) {
+            // Reproducimos la temporada encontrada (puede ser la 3 si la 1 y 2 están bloqueadas)
+            // Chequeamos historial primero por si el usuario ya iba avanzado en ESA temporada
+            const user = shared.auth.currentUser;
+            let lastWatchedEpisode = 0;
+
+            if (user) {
+                // Pequeña lógica para recuperar donde quedó
+                const savedIndex = loadProgress(seriesId, targetSeasonKey);
+                if (savedIndex > 0) lastWatchedEpisode = savedIndex;
+            }
+
+            renderEpisodePlayer(seriesId, targetSeasonKey, lastWatchedEpisode);
+        } else {
+            // Si llegamos aquí, es que TODO está bloqueado o no hay nada
+            if (seasonsMapped.length > 0) {
+                 // Si hay temporadas pero todas bloqueadas, mostramos la grilla para que vea los candados
+                renderSeasonGrid(seriesId);
+            } else {
+                shared.DOM.seriesPlayerModal.innerHTML = `
+                    <button class="close-btn">&times;</button>
+                    <div style="text-align:center; padding: 20px; color: white;">
+                        <h2>${seriesInfo.title}</h2>
+                        <p>Próximamente disponible.</p>
+                    </div>`;
+                shared.DOM.seriesPlayerModal.querySelector('.close-btn').onclick = closeSeriesPlayerModal;
+            }
+        }
+
+    } catch (error) {
+        logError(error, 'Player: Critical Crash');
+        shared.ErrorHandler.show('unknown', 'Error al abrir el reproductor de series.');
+    }
+}
+
+// 4. VISTA DE GRILLA DE TEMPORADAS
+function renderSeasonGrid(seriesId) {
+    const seriesInfo = findContentData(seriesId); 
+    if (!seriesInfo) return;
+
+    shared.DOM.seriesPlayerModal.className = 'modal show season-grid-view';
+    
+    shared.DOM.seriesPlayerModal.innerHTML = `
+        <button class="close-btn">&times;</button>
+        <div class="season-grid-container">
+            <h2 class="player-title">${seriesInfo.title}</h2>
+            <div id="season-grid" class="season-grid"></div>
+        </div>
     `;
-
-    // Asignamos eventos
-    document.getElementById('prev-page-btn').onclick = () => changePage(-1);
-    document.getElementById('next-page-btn').onclick = () => changePage(1);
+    
+    shared.DOM.seriesPlayerModal.querySelector('.close-btn').onclick = closeSeriesPlayerModal;
+    populateSeasonGrid(seriesId);
+    shared.appState.player.activeSeriesId = null;
 }
 
-async function changePage(direction) {
-    const totalPages = Math.ceil(appState.ui.contentToDisplay.length / UI.ITEMS_PER_LOAD);
-    const newPage = appState.ui.currentIndex + direction;
+function populateSeasonGrid(seriesId) {
+    const container = shared.DOM.seriesPlayerModal.querySelector('#season-grid');
+    
+    // Función helper para formatear nombres de temporada
+    function formatSeasonName(seasonKey, seasonNum, customLabel = null) {
+        // 🆕 Si hay etiqueta personalizada en el sheet, usarla directamente
+        if (customLabel && customLabel.trim()) return customLabel.trim();
 
-    if (newPage >= 0 && newPage < totalPages) {
-        appState.ui.currentIndex = newPage;
-
-        // 1. Scroll suave hacia arriba antes de cargar
-        const headerOffset = 80; 
-        const elementPosition = DOM.gridContainer.getBoundingClientRect().top;
-        const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
-        window.scrollTo({ top: offsetPosition, behavior: "smooth" });
-
-        // 2. Mostrar TEXTO DE CARGA CENTRADO
-        const gridEl = DOM.gridContainer.querySelector('.grid');
-        if (gridEl) {
-            gridEl.innerHTML = `
-                <div style="
-                    width: 100%; 
-                    height: 60vh; 
-                    display: flex; 
-                    justify-content: center; 
-                    align-items: center; 
-                    grid-column: 1 / -1; 
-                ">
-                    <div class="loading-text">Cargando...</div>
-                </div>`;
-        }
-
-        // 3. Identificar qué imágenes vamos a mostrar en la NUEVA página
-        const start = appState.ui.currentIndex * UI.ITEMS_PER_LOAD;
-        const end = start + UI.ITEMS_PER_LOAD;
-        const nextItems = appState.ui.contentToDisplay.slice(start, end);
-
-        // 4. Precargar esas imágenes en memoria (RAM)
-        const imagePromises = nextItems.map(([id, item]) => preloadImage(item.poster));
+        const keyLower = String(seasonKey).toLowerCase();
         
-        try {
-            await Promise.race([
-                Promise.all(imagePromises),
-                new Promise(r => setTimeout(r, 3000))
-            ]);
-        } catch (e) { console.warn("Tardó mucho en cargar página"); }
-
-        // 5. Renderizamos la cascada.
-        renderCurrentPage();
+        // Detectar tipos especiales
+        if (keyLower.includes('pelicula') || keyLower.includes('película') || keyLower === 'pelicula') {
+            return 'Película';
+        }
+        if (keyLower.includes('especial') || keyLower === 'especial') {
+            return 'Especial';
+        }
+        if (keyLower.includes('ova') || keyLower === 'ova') {
+            return 'OVA';
+        }
+        if (keyLower.includes('movie') || keyLower === 'movie') {
+            return 'Película';
+        }
+        if (keyLower.includes('special') || keyLower === 'special') {
+            return 'Especial';
+        }
+        
+        // Si es un número, mostrar "Temporada X"
+        return `Temporada ${seasonNum}`;
     }
-}
-
-function renderCurrentPage() {
-    const gridEl = DOM.gridContainer.querySelector('.grid');
-    if (!gridEl) return;
-
-    gridEl.innerHTML = '';
-
-    const start = appState.ui.currentIndex * UI.ITEMS_PER_LOAD;
-    const end = start + UI.ITEMS_PER_LOAD;
-    const itemsPage = appState.ui.contentToDisplay.slice(start, end);
-
-    // Obtenemos el filtro activo para saber si estamos en UCM, Series o Películas
-    const activeFilter = document.querySelector('.main-nav a.active, .mobile-nav a.active')?.dataset.filter;
-
-    itemsPage.forEach(([id, item], index) => {
-        // LÓGICA DINÁMICA DE TIPO (Crucial para UCM y Búsqueda Global)
-        let type = 'movie'; // Valor por defecto
-
-        if (activeFilter === 'series') {
-            type = 'series';
-        } else if (activeFilter === 'ucm') {
-            // En UCM, verificamos si el item es serie por propiedad explícita o si tiene episodios
-            if (item.type === 'series' || appState.content.seriesEpisodes[id]) {
-                type = 'series';
-            } else {
-                type = 'movie';
-            }
-        } else {
-            // 🔥 CORRECCIÓN: Detectamos si es serie mirando la lista principal O la propiedad 'type' del item
-            // Esto arregla series dentro de Universos (como Ben 10)
-            if (appState.content.series[id] || item.type === 'series' || item.type === 'serie') {
-                type = 'series';
-            }
-        }
-
-        // Creamos la tarjeta pasando el tipo correcto (movie o series)
-        // lazy = false porque ya hicimos la precarga en changePage/applyFilters
-        const card = createMovieCardElement(id, item, type, 'grid', false); 
-        
-        // Animación en cascada
-        const delay = index * 40; 
-        card.style.animationDelay = `${delay}ms`;
-
-        gridEl.appendChild(card);
-    });
-
-    updatePaginationUI();
-}
-
-function updatePaginationUI() {
-    const totalPages = Math.ceil(appState.ui.contentToDisplay.length / UI.ITEMS_PER_LOAD);
-    const currentPage = appState.ui.currentIndex + 1; // Para mostrar (1-based)
     
-    const prevBtn = document.getElementById('prev-page-btn');
-    const nextBtn = document.getElementById('next-page-btn');
-    const pageInfo = document.getElementById('page-info');
-
-    if (pageInfo) pageInfo.textContent = `Página ${currentPage} de ${totalPages}`;
-    if (prevBtn) prevBtn.disabled = (currentPage === 1);
-    if (nextBtn) nextBtn.disabled = (currentPage === totalPages || totalPages === 0);
+    // Obtenemos datos usando 'shared'
+    const episodesData = shared.appState.content.seriesEpisodes[seriesId] || {};
+    const postersData = shared.appState.content.seasonPosters[seriesId] || {};
+    const seriesInfo = findContentData(seriesId); 
     
-    // Ocultar paginación si no hay resultados o solo hay 1 página
-    const container = document.getElementById('pagination-controls');
-    if (container) {
-        container.style.display = (totalPages <= 1) ? 'none' : 'flex';
-    }
-}
-
-// ===========================================================
-// MANEJO GLOBAL DE CLICS (Delegación de Eventos)
-// ===========================================================
-function handleGlobalClick(event) {
-    // 1. CERRAR MENÚ DE PERFIL AL CLICAR FUERA
-    const profileContainer = document.getElementById('user-profile-container');
-    const dropdown = document.getElementById('user-menu-dropdown');
-    
-    if (dropdown && dropdown.classList.contains('show')) {
-        if (!profileContainer.contains(event.target)) {
-            dropdown.classList.remove('show');
-        }
-    }
-
-    // 2. CERRAR RESULTADOS DE BÚSQUEDA AL CLICAR FUERA
-    const searchContainer = document.getElementById('search-container');
-    const searchInput = document.getElementById('search-input');
-
-    // 3. BOTÓN "BORRAR DEL HISTORIAL" (Con Confirmación)
-    const removeHistoryBtn = event.target.closest('.btn-remove-history');
-    
-    if (removeHistoryBtn) {
-        event.preventDefault();
-        event.stopPropagation();
-        
-        const entryKey = removeHistoryBtn.dataset.key;
-        
-        if (entryKey) {
-            openConfirmationModal(
-                'Borrar del Historial',
-                '¿Quieres eliminar este título de tu historial de reproducción?',
-                () => removeFromHistory(entryKey)
-            );
-        }
+    // Seguridad extra: Si por alguna razón no lo encuentra, salimos para no romper la app
+    if (!seriesInfo) {
+        console.error("No se encontró info para la serie:", seriesId);
         return;
     }
-}
 
-function preloadHeroImages(movieIds) {
-    movieIds.forEach((movieId) => {
-        const movieData = appState.content.movies[movieId];
-        if (!movieData) return;
-        const imagesToPreload = [
-            { type: 'banner', url: movieData.banner },
-            { type: 'poster', url: movieData.poster }
-        ];
-        imagesToPreload.forEach(({ type, url }) => {
-            if (!url) return;
-            const img = new Image();
-            img.onload = () => {
-                const key = `${movieId}_${type}`;
-                appState.hero.preloadedImages.set(key, url);
-            };
-            img.src = url;
-        });
-    });
-}
+    if (!container) return;
 
-function setupHero() {
-    clearInterval(appState.ui.heroInterval);
-    if (!DOM.heroSection) return;
-    
-    DOM.heroSection.innerHTML = `<div class="hero-content"><h1 id="hero-title"></h1><p id="hero-synopsis"></p><div class="hero-buttons"></div></div><div class="guirnalda-container"></div>`;
-    
-    // --- FUNCIÓN DE PUNTAJE (Novedad mata Ranking) ---
-    const getHeroScore = (id, item, type) => {
-        const tr = Number(item.tr) || 0;
-        
-        // Obtenemos la fecha de lo último (capítulo, temporada o estreno)
-        const lastUpdate = getLatestUpdateTimestamp(id, item, type);
-        const now = Date.now();
-        const diffDays = (now - lastUpdate) / (1000 * 60 * 60 * 24);
-        
-        // Si tiene menos de 7 días de novedad, le damos un BONUS GIGANTE
-        // Así aseguramos que 'Fallout' con cap nuevo le gane a 'Breaking Bad' con ranking alto
-        if (diffDays <= 7 && diffDays >= 0) {
-            return tr + 100000; // Bonus de Novedad
-        }
-        return tr; // Si es viejo, compite solo por ranking
-    };
-
-    // 1. Obtener Top Películas (Ordenadas por Novedad + Ranking)
-    const topMovies = Object.entries(appState.content.movies)
-        .map(([id, item]) => ({ 
-            id, 
-            type: 'movie', 
-            score: getHeroScore(id, item, 'movie') 
-        }))
-        .sort((a, b) => b.score - a.score); // Mayor puntaje primero
-
-    // 2. Obtener Top Series (Ordenadas por Novedad + Ranking)
-    const topSeries = Object.entries(appState.content.series)
-        .map(([id, item]) => ({ 
-            id, 
-            type: 'series', 
-            score: getHeroScore(id, item, 'series') 
-        }))
-        .sort((a, b) => b.score - a.score);
-
-    // 3. Intercalar: Peli - Serie (Total 16 items: 8 pares)
-    const mixedHeroItems = [];
-    const itemsPerCategory = 8; 
-    
-    for (let i = 0; i < itemsPerCategory; i++) {
-        // Agregamos la mejor película disponible
-        if (topMovies[i]) mixedHeroItems.push(topMovies[i]);
-
-        // Agregamos la mejor serie disponible
-        if (topSeries[i]) mixedHeroItems.push(topSeries[i]);
-    }
-
-    // Guardar
-    appState.ui.heroItems = mixedHeroItems;
-
-    // Iniciar
-    if (mixedHeroItems.length > 0) {
-        preloadHeroImages(mixedHeroItems);
-        changeHeroMovie(mixedHeroItems[0]); 
-        startHeroInterval(); 
-    } else {
-       DOM.heroSection.style.display = 'none'; 
-    }
-}
-
-function startHeroInterval() {
-    clearInterval(appState.ui.heroInterval);
-    let currentHeroIndex = 0;
-    // Usamos la nueva variable 'heroItems'
-    if (!appState.ui.heroItems || appState.ui.heroItems.length === 0) return;
-    
-    appState.ui.heroInterval = setInterval(() => {
-        currentHeroIndex = (currentHeroIndex + 1) % appState.ui.heroItems.length;
-        changeHeroMovie(appState.ui.heroItems[currentHeroIndex]);
-    }, 8000); // 8 segundos por turno
-}
-
-function changeHeroMovie(itemObj) {
-    if (appState.hero.isTransitioning || !itemObj) return;
-    
-    const { id, type } = itemObj; // Extraemos ID y TIPO
-    const heroContent = DOM.heroSection.querySelector('.hero-content');
-    
-    // Buscar los datos reales
-    let data = null;
-    if (type === 'movie') data = appState.content.movies[id];
-    else if (type === 'series') data = appState.content.series[id];
-
-    if (!heroContent || !data) return;
-
-    appState.hero.isTransitioning = true;
-    heroContent.classList.add('hero-fading');
-
-    setTimeout(() => {
-        const isMobile = window.innerWidth < 992;
-        const imageType = isMobile ? 'poster' : 'banner';
-        const cacheKey = `${id}_${imageType}`;
-        
-        const imageUrl = appState.hero.preloadedImages.get(cacheKey) || 
-                        (isMobile ? data.poster : data.banner);
-        
-        DOM.heroSection.style.backgroundImage = `url(${imageUrl})`;
-        
-        heroContent.querySelector('#hero-title').textContent = data.title;
-        heroContent.querySelector('#hero-synopsis').textContent = data.synopsis;
-
-        // --- ZONA DE BOTONES INTELIGENTE ---
-        const heroButtons = heroContent.querySelector('.hero-buttons');
-        heroButtons.innerHTML = ''; 
-
-        // 1. Botón Play (Detecta si es Serie o Película)
-        const playButton = document.createElement('button');
-        playButton.className = 'btn btn-play';
-        playButton.innerHTML = `<i class="fas fa-play"></i> ${isMobile ? 'Ver' : 'Ver Ahora'}`;
-        playButton.onclick = async () => { 
-            const player = await getPlayerModule();
-            if (type === 'series') {
-                // Si es serie, usa el reproductor de series (que gestiona temporadas)
-                player.openSeriesPlayer(id);
-            } else {
-                // Si es película, usa el reproductor simple
-                player.openPlayerModal(id, data.title.replace(/'/g, "\\'"));
-            }
-        };
-
-        // 2. Botón Información
-        const infoButton = document.createElement('button');
-        infoButton.className = 'btn btn-info';
-        infoButton.textContent = isMobile ? 'Más Info' : 'Más Información';
-        infoButton.onclick = () => openDetailsModal(id, type);
-
-        heroButtons.appendChild(playButton);
-        heroButtons.appendChild(infoButton);
-
-        // 3. Botón Mi Lista (Para usuarios conectados)
-        const user = auth.currentUser;
-        if (user) { 
-            const listBtn = document.createElement('button');
-            const isInList = appState.user.watchlist.has(id);
-            const iconClass = isInList ? 'fa-check' : 'fa-plus';
-            
-            listBtn.className = isInList ? 'btn-watchlist in-list' : 'btn-watchlist';
-            listBtn.setAttribute('data-content-id', id);
-            listBtn.title = "Añadir a Mi Lista";
-            listBtn.innerHTML = `<i class="fas ${iconClass}"></i>`;
-            
-            listBtn.onclick = (e) => {
-                e.stopPropagation(); 
-                handleWatchlistClick(listBtn);
-            };
-
-            heroButtons.appendChild(listBtn);
-        }
-
-        heroContent.classList.remove('hero-fading');
-        appState.hero.isTransitioning = false;
-    }, 300);
-}
-
-function generateCarousels() {
-    const container = DOM.carouselContainer;
     container.innerHTML = '';
 
-    createCarouselSection('Películas Nuevas', appState.content.movies);
-    createCarouselSection('Series Nuevas', appState.content.series);
-}
+    // 1. Obtener temporadas con el orden correcto
+    let allSeasons;
 
-function createCarouselSection(title, dataSource) {
-    if (!dataSource || Object.keys(dataSource).length === 0) return;
-
-    const section = document.createElement('section');
-    section.classList.add('carousel');
-
-    // --- ESTAS ERAN LAS LÍNEAS QUE FALTABAN ---
-    const titleEl = document.createElement('h2');
-    titleEl.classList.add('carousel-title');
-    titleEl.textContent = title;
-    section.appendChild(titleEl);
-    // ------------------------------------------
-
-    const track = document.createElement('div');
-    track.classList.add('carousel-track');
-
-    let entries = Object.entries(dataSource);
-
-    // ORDENAMIENTO (CON ESTRENOS DE PELIS Y SERIES)
-    entries.sort((a, b) => {
-        const idA = a[0]; const idB = b[0];
-        const aData = a[1]; const bData = b[1];
-        
-        // Detectar tipo para usar la función correctamente
-        const typeA = title.toLowerCase().includes('serie') ? 'series' : 'movie';
-        const typeB = typeA;
-
-        const timeA = getLatestUpdateTimestamp(idA, aData, typeA);
-        const timeB = getLatestUpdateTimestamp(idB, bData, typeB);
-
-        // 1. Por Fecha exacta
-        if (timeA !== timeB) return timeB - timeA;
-
-        // 2. Por Tipo (Si empatan fecha)
-        if (timeA > 0) {
-             const getScore = (id, data) => {
-                if (isDateRecent(data.date_added)) return 3;
-                if (hasRecentSeasonFromPosters(id)) return 2;
-                if (hasRecentEpisodes(id)) return 1;
-                return 0;
-            };
-            return getScore(idB, bData) - getScore(idA, aData);
-        }
-
-        // 3. Por Ranking
-        return (Number(bData.tr) || 0) - (Number(aData.tr) || 0);
-    });
-
-    entries.slice(0, 8).forEach(([id, item]) => {
-        const type = title.includes('Serie') ? 'series' : 'movie';
-        const card = createMovieCardElement(id, item, type, 'carousel', false);
-        track.appendChild(card);
-    });
-
-    section.appendChild(track);
-    DOM.carouselContainer.appendChild(section);
-}
-
-function setupSearch() {
-    if (!DOM.searchInput) return;
-    let isSearchActive = false;
-
-    // Normaliza tildes y caracteres especiales para búsqueda flexible
-    // Normaliza: minúsculas + sin tildes + sin puntuación (. , ' : ! ? - etc.)
-    const norm = str => String(str || '')
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '') // quitar tildes
-        .replace(/[^a-z0-9\s]/g, '');    // quitar puntuacion (, . ' : ! ? - etc)
-
-    DOM.searchInput.addEventListener('input', () => {
-        const searchTerm = norm(DOM.searchInput.value.trim());
-        if (searchTerm === '') {
-            const gridEl = DOM.gridContainer.querySelector('.grid');
-            if (gridEl) {
-                gridEl.style.display = '';
-                gridEl.style.justifyContent = '';
-                gridEl.style.alignItems = '';
-            }
-
-            if (isSearchActive) {
-                const activeNav = document.querySelector('.main-nav a.active, .mobile-nav a.active');
-                switchView(activeNav ? activeNav.dataset.filter : 'all');
-                isSearchActive = false;
-            }
-            return;
-        }
-        isSearchActive = true;
-        
-        // 1. Empezamos con lo básico
-        let allContent = { ...appState.content.movies, ...appState.content.series };
-
-        // 2. 🔥 AGREGAMOS TODAS LAS SAGAS AL BUSCADOR
-        if (appState.content.sagas) {
-            Object.values(appState.content.sagas).forEach(sagaItems => {
-                if (sagaItems) {
-                    Object.assign(allContent, sagaItems);
-                }
-            });
-        }
-
-        // 3. (Opcional) Si usas UCM antiguo
-        if (appState.content.ucm) Object.assign(allContent, appState.content.ucm);
-
-        // Filtrar por término de búsqueda
-        // Películas: busca en título + id (nombre en inglés)
-        // Series: busca en título + secondTitle (columna alternativa)
-        const filtered = Object.entries(allContent).filter(([id, item]) => {
-            if (norm(item.title || '').includes(searchTerm)) return true;
-            const isSerie = !!appState.content.series[id] || item.type === 'series' || item.type === 'serie';
-            if (isSerie) return norm(item.secondTitle || '').includes(searchTerm);
-            return norm(id).includes(searchTerm);
-        });
-
-        // 🔥 Deduplicar por título (quedarse con la primera aparición)
-        const seenTitles = new Set();
-        const results = filtered.filter(([id, item]) => {
-        const titleKey = norm(item.title).trim();
-            if (seenTitles.has(titleKey)) return false;
-                seenTitles.add(titleKey);
-            return true;
-        });
-
-    displaySearchResults(results);
-        });
-    }
-
-function displaySearchResults(results) {
-    switchView('search');
-    const gridEl = DOM.gridContainer.querySelector('.grid');
-    
-    if (DOM.gridContainer) DOM.gridContainer.style.display = 'block';
-    
-    if (!gridEl) return;
-    gridEl.innerHTML = '';
-    
-    if (results.length > 0) {
-        gridEl.style.display = 'grid';
-        results.forEach(([id, item]) => {
-            const type = appState.content.series[id] ? 'series' : 'movie';
-            gridEl.appendChild(createMovieCardElement(id, item, type, 'grid', false));
-        });
+    if (shared.appState.content.seasonOrder && shared.appState.content.seasonOrder[seriesId]) {
+        // Orden preservado del servidor (respeta campo "orden" del sheet)
+        allSeasons = shared.appState.content.seasonOrder[seriesId];
+        console.log(`📺 Usando orden del servidor para ${seriesId}:`, allSeasons);
     } else {
-        gridEl.style.display = 'flex';
-        gridEl.style.justifyContent = 'center';
-        gridEl.style.alignItems = 'center';
-        gridEl.innerHTML = `<p style="color: var(--text-muted); text-align: center;">No se encontraron resultados.</p>`;
-    }
-}
-
-// ==========================================
-// GENERAR CARRUSEL "CONTINUAR VIENDO" (CORREGIDO)
-// ==========================================
-function generateContinueWatchingCarousel(snapshot) {
-    const user = auth.currentUser;
-    
-    console.log('🎬 generateContinueWatchingCarousel - Nueva implementación simplificada');
-    
-    // 1. Limpieza preventiva
-    const existingCarousel = document.getElementById('continue-watching-carousel');
-    if (existingCarousel) {
-        console.log('🗑️ Eliminando carrusel existente');
-        existingCarousel.remove();
+        // Fallback: combinar claves de episodios y posters
+        const episodeSeasons = Object.keys(episodesData);
+        const posterSeasons = Object.keys(postersData);
+        allSeasons = [...new Set([...episodeSeasons, ...posterSeasons])];
+        console.log(`⚠️ Usando Object.keys() para ${seriesId}:`, allSeasons);
     }
 
-    const carouselContainer = document.getElementById('carousel-container');
-    
-    // 2. Validaciones básicas
-    if (!user) {
-        console.warn('⚠️ No hay usuario logueado');
-        return;
-    }
-    if (!carouselContainer) {
-        console.warn('⚠️ No se encontró carousel-container');
-        return;
-    }
-    if (!snapshot.exists()) {
-        console.warn('⚠️ No hay datos en el historial');
-        return;
-    }
-    
-    console.log('✅ Validaciones pasadas, procesando historial...');
-
-    // 3. Obtener datos del historial (MISMA FUENTE que la página de Historial)
-    let historyItems = [];
-    snapshot.forEach(child => {
-        const item = child.val();
-        historyItems.push({
-            key: child.key,
-            ...item
-        });
+    // Mapear a estructura del grid
+    // num: si la clave es numérica usamos ese número, si no (especial, pelicula...) usamos 0
+    const seasonsMapped = allSeasons.map((key) => {
+        const num = !isNaN(key) ? Number(key) : 0;
+        return { key, num };
     });
+
+    const totalSeasons = seasonsMapped.length;
+
+    // ============================================
+    // 🔥 LÓGICA INTELIGENTE DE LAYOUT (JAVASCRIPT)
+    // ============================================
+    let columns = 5; // Default: máximo 5 columnas
     
-    // Ordenar por más reciente primero
-    historyItems.reverse();
-    
-    console.log(`📝 Total items en historial: ${historyItems.length}`);
-    
-    // 4. Filtrar solo SERIES (omitir películas y excluir especiales/películas de serie)
-    const SPECIAL_KEYWORDS = ['pelicula', 'película', 'especial', 'tespecial', 'movie', 'special', 'ova'];
-    const isSpecialSeason = (season) => {
-        if (season == null) return false;
-        const s = String(season).toLowerCase();
-        return SPECIAL_KEYWORDS.some(kw => s.includes(kw));
-    };
-    const seriesOnly = historyItems.filter(item =>
-        item.type === 'series' && !isSpecialSeason(item.season)
-    );
-    console.log(`📺 Series en historial: ${seriesOnly.length}`);
-    
-    // 5. Tomar máximo 15 series (las más recientes)
-    const seriesToShow = seriesOnly.slice(0, 15);
-    console.log(`🎯 Series a mostrar: ${seriesToShow.length}`);
-    
-    if (seriesToShow.length === 0) {
-        console.warn('⚠️ No hay series para mostrar en "Continuar Viendo"');
-        return;
+    if (totalSeasons <= 5) {
+        // 1-5 temporadas: todas en una fila
+        columns = totalSeasons;
+    } else if (totalSeasons === 6) {
+        // 6 temporadas: 2 filas de 3
+        columns = 3;
+    } else if (totalSeasons === 7 || totalSeasons === 8) {
+        // 7-8 temporadas: 2 filas de 4
+        columns = 4;
+    } else {
+        // 9+ temporadas: máximo 5 por fila
+        columns = 5;
     }
 
-    // 6. Crear carrusel
-    const carouselEl = document.createElement('div');
-    carouselEl.id = 'continue-watching-carousel';
-    carouselEl.className = 'carousel'; 
-    
-    carouselEl.innerHTML = `
-        <h3 class="carousel-title">Continuar Viendo</h3>
-        <div class="carousel-track"></div>
-    `;
-    
-    const track = carouselEl.querySelector('.carousel-track');
-    
-    // 7. Crear tarjetas (reutilizando createMovieCardElement)
-    seriesToShow.forEach(historyItem => {
-        console.log(`  📌 ${historyItem.title}`);
-        
-        // Buscar datos de la serie
-        let seriesData = findContentData(historyItem.contentId);
-        
-        if (!seriesData) {
-            console.warn(`    ⚠️ No se encontraron datos para ${historyItem.contentId}`);
-            return;
-        }
-        
-        // 🔥 NUEVO: Obtener datos del episodio específico
-        let episodeData = null;
-        let episodeThumbnail = null;
-        let episodeTitle = null;
-        
-        if (historyItem.season != null && historyItem.lastEpisode != null) {
-            const seriesEpisodes = appState.content.seriesEpisodes[historyItem.contentId];
-            if (seriesEpisodes && seriesEpisodes[historyItem.season]) {
-                const episodes = seriesEpisodes[historyItem.season];
-                if (episodes && episodes[historyItem.lastEpisode]) {
-                    episodeData = episodes[historyItem.lastEpisode];
-                    episodeThumbnail = episodeData.thumbnail || episodeData.poster;
-                    episodeTitle = episodeData.title;
-                    console.log(`    📺 Episodio encontrado: ${episodeTitle}`);
-                }
-            }
-        }
-        
-        // Crear tarjeta usando la función existente con source: 'continuar-viendo'
-        const totalSeasons = Object.keys(appState.content.seriesEpisodes[historyItem.contentId] || {}).length;
-        const card = createMovieCardElement(
-            historyItem.contentId, 
-            seriesData, 
-            'series', 
-            'carousel', 
-            false, 
-            {
-                source: 'continuar-viendo',
-                season: historyItem.season,
-                lastEpisode: historyItem.lastEpisode,
-                episodeThumbnail: episodeThumbnail,
-                episodeTitle: episodeTitle,
-                seriesTitle: seriesData.title, // título limpio sin temporada
-                historyKey: historyItem.key,
-                totalSeasons: totalSeasons     // para formatear episodio correctamente
-            }
-        );
-        
-        track.appendChild(card);
-    });
-    
-    // 8. Insertar al principio
-    carouselContainer.prepend(carouselEl);
-    console.log('✅ Carrusel "Continuar Viendo" insertado exitosamente');
-}
+    // Aplicar layout calculado directamente al grid
+    container.style.gridTemplateColumns = `repeat(${columns}, 200px)`;
+    container.style.justifyContent = 'center';
+    container.style.maxWidth = `${columns * 200 + (columns - 1) * 20}px`; // columnas × ancho + gaps
 
-// 🔧 Exponer función globalmente para debugging
-window.generateContinueWatchingCarousel = generateContinueWatchingCarousel;
-
-function createContinueWatchingCard(itemData) {
-    const card = document.createElement('div');
-    card.className = 'continue-watching-card';
-    card.onclick = async () => { // 🆕 Carga bajo demanda
-        const player = await getPlayerModule();
-        player.openPlayerToEpisode(itemData.contentId, itemData.season, itemData.episodeIndexToOpen);
-    };
-    card.innerHTML = `
-        <img src="${itemData.thumbnail}" class="cw-card-thumbnail" alt="">
-        <div class="cw-card-overlay"></div>
-        <div class="cw-card-info">
-            <h4 class="cw-card-title">${itemData.title}</h4>
-            <p class="cw-card-subtitle">${itemData.subtitle}</p>
-        </div>
-        <div class="cw-card-play-icon"><i class="fas fa-play"></i></div>
-    `;
-    return card;
-}
-
-// ===========================================================
-// 5. MODALES (GENERAL, DETALLES)
-// ===========================================================
-function closeAllModals() {
-    // 1. Cerrar todos los modales visualmente
-    document.querySelectorAll('.modal.show').forEach(modal => {
-        modal.classList.remove('show');
-        const iframe = modal.querySelector('iframe');
-        if (iframe) iframe.src = '';
-    });
-    document.body.classList.remove('modal-open');
-
-    if (typeof shared !== 'undefined' && shared.appState && shared.appState.player) {
-        shared.appState.player.activeSeriesId = null;
-        // Cancelar timer de ruleta para que no marque como vista si el user cierra antes de 30 min
-        if (shared.appState.player.movieHistoryTimer) {
-            clearTimeout(shared.appState.player.movieHistoryTimer);
-            shared.appState.player.movieHistoryTimer = null;
-        }
-    }
-
-    // 🔥 FIX MÓVIL: Leemos la bandera desde localStorage (Disco)
-    // Así funciona aunque el navegador haya limpiado la RAM durante la película
-    if (localStorage.getItem('pending_reload') === 'true') {
-        console.log('🔄 Ejecutando actualización pendiente desde disco...');
+    // ============================================
+    // RENDERIZAR TARJETAS
+    // ============================================
+    seasonsMapped.forEach(({ key: seasonKey, num: seasonNum }) => {
+        const rawEpisodes = episodesData[seasonKey];
+        const episodes = rawEpisodes ? (Array.isArray(rawEpisodes) ? rawEpisodes : Object.values(rawEpisodes)) : [];
         
-        // Borramos la marca para no entrar en bucle
-        localStorage.removeItem('pending_reload');
+        // Datos del Poster (URL, fecha, estado)
+        let posterUrl = seriesInfo.poster || '';
+        let seasonStatus = ''; 
+        let seasonStatusRaw = ''; // Valor original sin lowercase
+        let seasonCustomLabel = ''; // 🆕 Etiqueta personalizada (ej: "Parte 1/2", "Parte 3"...)
 
-        // Borramos caché vieja para asegurar datos frescos
-        safeClearStorage();
-        
-        // Pequeño delay visual y RECARGA FORZADA
-        setTimeout(() => {
-            const url = new URL(window.location.href);
-            url.searchParams.set('force_update', Date.now());
-            window.location.href = url.toString();
-        }, 300);
-    }
-}
-
-async function openDetailsModal(id, type, triggerElement = null) {
-    try {
-        const modal = DOM.detailsModal;
-        const panel = modal.querySelector('.details-panel'); 
-        const detailsButtons = document.getElementById('details-buttons');
-        const posterImg = document.getElementById('details-poster-img');
-
-        // 1. BÚSQUEDA INTELIGENTE DE DATOS
-        let data = findContentData(id);
-
-        if (!data) {
-            // Fallbacks
-            if (appState.content.movies[id]) data = appState.content.movies[id];
-            else if (appState.content.series[id]) data = appState.content.series[id];
-            
-            if (!data) {
-                ErrorHandler.show('content', 'No se pudo cargar la información del título.');
-                return;
-            }
-        }
-        
-        // 🔥 FIX: Si es serie, obtener datos directamente de appState.content.series para asegurar que tenemos TODOS los campos
-        if (appState.content.series[id]) {
-            data = { ...data, ...appState.content.series[id] };
-        }
-        
-        // 🔍 DEBUG: Verificar que el campo random esté presente
-        console.log('📊 DATA DESPUÉS DE COMBINAR:', {
-            id: id,
-            title: data.title,
-            hasRandom: 'random' in data,
-            randomValue: data.random,
-            allKeys: Object.keys(data)
-        });
-
-        // 2. RENDERIZADO BÁSICO
-        const isSeries = (type === 'series' || !!appState.content.series[id] || data.type === 'series' || data.type === 'serie');
-        
-        document.getElementById('details-title').textContent = data.title || '';
-        
-        // --- LÓGICA SINOPSIS MIXTA ---
-        let fullSynopsis = data.synopsis || 'Sin descripción.';
-        
-        // Solo recortamos si es PELÍCULA (isSeries es falso)
-        if (!isSeries) {
-            const maxChars = 280; 
-            if (fullSynopsis.length > maxChars) {
-                fullSynopsis = fullSynopsis.substring(0, maxChars).trim() + "...";
-            }
-        }
-        // Si es SERIE, dejamos la sinopsis completa (pasa directo)
-
-        document.getElementById('details-synopsis').textContent = fullSynopsis;
-        
-        // 🔥 NUEVO: Aplicar filtro grayscale si es película vetada
-        const isVetada = !isSeries && data.estado && data.estado.toLowerCase() === 'vetada';
-        if (posterImg) {
-            posterImg.src = data.poster || '';
-            if (isVetada) {
-                posterImg.style.filter = 'grayscale(100%)';
+        const posterEntry = postersData[seasonKey];
+        if (posterEntry) {
+            if (typeof posterEntry === 'object') {
+                posterUrl = posterEntry.posterUrl || posterEntry.poster || posterUrl;
+                seasonStatusRaw = String(posterEntry.estado || '').trim();
+                seasonStatus = seasonStatusRaw.toLowerCase();
+                seasonCustomLabel = String(posterEntry.etiqueta || '').trim(); // 🆕
             } else {
-                posterImg.style.filter = 'none';
+                posterUrl = posterEntry;
             }
         }
-
-        // 3. GESTIÓN DE METADATOS (Diferente para Series y Pelis)
-        const detailsMeta = modal.querySelector('.details-meta');
         
-        if (detailsMeta) {
-            detailsMeta.innerHTML = ''; 
+        const totalEpisodes = episodes.length;
 
-            // A. Rating (Para todos igual)
-            const modalRating = appState.content.averages[id];
-            if (modalRating) {
-                const ratingBadge = document.createElement('span');
-                ratingBadge.className = 'modal-rating-badge';
-                if (reviewsModule && reviewsModule.getStarsHTML) {
-                    ratingBadge.innerHTML = reviewsModule.getStarsHTML(modalRating, false);
-                } else {
-                    ratingBadge.innerHTML = `<i class="fas fa-star" style="color:#ffd700"></i> ${modalRating}`;
-                }
-                detailsMeta.appendChild(ratingBadge);
+        // 🔥 BLOQUEO: cualquier estado no vacío bloquea la temporada
+        const isManuallyLocked = seasonStatus !== '' && seasonStatus !== 'disponible';
+        const isEmpty = (totalEpisodes === 0);
+        const isLocked = isManuallyLocked || (isEmpty && seasonStatus !== 'disponible');
 
-                // Contador de reseñas → botón que abre el modal de reseñas
-                const reviewCount = appState.content.reviewCounts && appState.content.reviewCounts[id];
-                if (reviewCount) {
-                    const countBadge = document.createElement('button');
-                    countBadge.className = 'modal-review-count';
-                    countBadge.innerHTML = `<i class="fas fa-comment-dots" style="margin-right:5px; color:#a78bfa;"></i>${reviewCount} ${reviewCount === 1 ? 'reseña' : 'reseñas'}`;
-                    countBadge.title = 'Ver todas las reseñas';
-                    countBadge.addEventListener('click', () => {
-                        const contentTitle = data.title || '';
-                        if (reviewsModule && reviewsModule.openContentReviews) {
-                            reviewsModule.openContentReviews(id, contentTitle);
-                        }
-                    });
-                    detailsMeta.appendChild(countBadge);
-                }
-            }
+        // 🆕 Calcular el label final una sola vez
+        const seasonLabel = formatSeasonName(seasonKey, seasonNum, seasonCustomLabel);
 
-            // --- MOSTRAR PEDIDO Y AÑO PARA: SERIES, PELÍCULAS VETADAS O PRÓXIMAS ---
-            const isVetada = !isSeries && data.estado && data.estado.toLowerCase() === 'vetada';
-            const isProximamente = !isSeries && data.estado && data.estado.toLowerCase() !== 'vetada' && data.estado.toLowerCase() !== 'mantenimiento' && data.estado.trim() !== '';
-            if (isSeries || isVetada || isProximamente) {
-                // B. PEDIDO
-                if (data.pedido) {
-                    const requestPill = document.createElement('span');
-                    requestPill.className = 'meta-pill request-pill'; 
-                    requestPill.innerHTML = `<i class="fas fa-user-circle" style="margin-right:5px; color:#ffd700;"></i> ${data.pedido}`;
-                    detailsMeta.appendChild(requestPill);
-                }
-
-                // C. AÑO
-                if (data.year) {
-                    const yearPill = document.createElement('span');
-                    yearPill.className = 'meta-pill';
-                    yearPill.textContent = data.year;
-                    detailsMeta.appendChild(yearPill);
-                }
-            }
-
-            // D. IDIOMA Y GÉNEROS (Para todos)
-            const langVal = data.language || data.idioma || data.audio;
-
-            // Normalizar géneros: puede venir como string o array
-            let genresVal = null;
-            if (data.genres) {
-                if (Array.isArray(data.genres)) {
-                    genresVal = data.genres.join(', ');
-                } else if (typeof data.genres === 'string') {
-                    genresVal = data.genres.replace(/;/g, ', ');
-                }
-            }
-
-            // Título original: para series usa secondTitle, para películas usa id
-            const normStr = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9\s]/g, '');
-            const rawAltTitle = isSeries ? (data.secondTitle || '') : id;
-            const originalTitle = rawAltTitle && normStr(rawAltTitle) !== normStr(data.title || '') ? rawAltTitle : null;
-
-            const metaItems = [
-                { val: langVal, class: 'meta-pill' },
-                { val: genresVal, class: 'meta-pill' }
-            ];
-
-            if (originalTitle) {
-                const origSpan = document.createElement('span');
-                origSpan.className = 'meta-pill original-title-pill';
-                origSpan.title = 'Título original';
-                origSpan.innerHTML = `<i class="fas fa-film" style="margin-right:5px;opacity:0.7;"></i>${originalTitle}`;
-                detailsMeta.insertBefore(origSpan, detailsMeta.firstChild);
-            }
-
-            metaItems.forEach(item => {
-                if(item.val) {
-                    const span = document.createElement('span');
-                    span.className = item.class;
-                    span.textContent = item.val;
-                    detailsMeta.appendChild(span);
-                }
-            });
-        }
-
-        // 4. FONDO (BANNER)
-        if (panel) {
-            if (data.banner && data.banner.length > 5) {
-                panel.style.backgroundImage = `url(${data.banner})`;
+        // Renderizado de la tarjeta
+        const card = document.createElement('div');
+        card.className = `season-poster-card ${isLocked ? 'locked' : ''} ${seasonStatus === 'mantenimiento' ? 'en-mantenimiento' : ''}`;
+        
+        card.onclick = () => {
+            if (isLocked) {
+                shared.ErrorHandler.show('content', 'Temporada no disponible aún.');
             } else {
-                panel.style.backgroundImage = 'none';
-                panel.style.backgroundColor = '#1a1a1a';
+                renderEpisodePlayer(seriesId, seasonKey);
             }
-        }
+        };
 
-        // 5. CONFIGURACIÓN DE BOTONES
-        if (detailsButtons) {
-            detailsButtons.innerHTML = '';
-
-            // Helper: genera el texto de "Próximamente" según el valor del estado
-            const getProximamenteLabel = (estado) => {
-                if (!estado) return null;
-                const val = estado.trim();
-                const lower = val.toLowerCase();
-                if (lower === 'vetada') return null;
-                if (lower === 'mantenimiento') return null; // Mantenimiento tiene su propio bloque
-                if (lower === 'proximamente' || lower === 'próximamente') return 'Próximamente';
-                if (/\d/.test(val)) return `Próximamente el ${val}`;
-                return `Próximamente en ${val}`;
-            };
-
-            // 🔥 VERIFICAR ESTADO
-            const isVetada = !isSeries && data.estado && data.estado.toLowerCase() === 'vetada';
-            const isMantenimiento = !isSeries && data.estado && data.estado.toLowerCase() === 'mantenimiento';
-            const proximamenteLabel = !isSeries && data.estado ? getProximamenteLabel(data.estado) : null;
-
-            if (isVetada) {
-                // --- PELÍCULA VETADA: Mostrar mensaje en lugar de botón ---
-                const vetadaMsg = document.createElement('div');
-                vetadaMsg.className = 'vetada-message';
-                vetadaMsg.innerHTML = `
-                    <i class="fas fa-lock"></i>
-                    <span>No disponible</span>
-                `;
-                detailsButtons.appendChild(vetadaMsg);
-                
-                // Agregar estilo inline por si no existe en CSS
-                vetadaMsg.style.cssText = `
-                    background: linear-gradient(135deg, #1a1a1a, #4a0000);
-                    border: 2px solid #ff4444;
-                    color: #ff4444;
-                    padding: 15px 25px;
-                    border-radius: 8px;
-                    font-size: 1rem;
-                    font-weight: 700;
-                    display: flex;
-                    align-items: center;
-                    gap: 12px;
-                    text-shadow: 0 0 10px rgba(255, 68, 68, 0.5);
-                    cursor: not-allowed;
-                `;
-            } else if (proximamenteLabel) {
-                // --- PRÓXIMAMENTE: Mostrar candado con fecha ---
-                const proxMsg = document.createElement('div');
-                proxMsg.className = 'vetada-message proximamente-message';
-                proxMsg.innerHTML = `
-                    <i class="fas fa-clock"></i>
-                    <span>${proximamenteLabel}</span>
-                `;
-                proxMsg.style.cssText = `
-                    background: linear-gradient(135deg, #0d1b2a, #1a3a5c);
-                    border: 2px solid #4a9eff;
-                    color: #4a9eff;
-                    padding: 15px 25px;
-                    border-radius: 8px;
-                    font-size: 1rem;
-                    font-weight: 700;
-                    display: flex;
-                    align-items: center;
-                    gap: 12px;
-                    cursor: not-allowed;
-                    width: 100%;
-                    justify-content: center;
-                `;
-                detailsButtons.appendChild(proxMsg);
-            } else if (isMantenimiento) {
-                // --- MANTENIMIENTO ---
-                const mantMsg = document.createElement('div');
-                mantMsg.className = 'vetada-message mantenimiento-message';
-                mantMsg.innerHTML = `<i class="fas fa-wrench"></i><span>En mantenimiento</span>`;
-                mantMsg.style.cssText = `
-                    background: linear-gradient(135deg, #1a1500, #3a2e00);
-                    border: 2px solid #f5a623;
-                    color: #f5a623;
-                    padding: 15px 25px;
-                    border-radius: 8px;
-                    font-size: 1rem;
-                    font-weight: 700;
-                    display: flex;
-                    align-items: center;
-                    gap: 12px;
-                    cursor: not-allowed;
-                    width: 100%;
-                    justify-content: center;
-                `;
-                detailsButtons.appendChild(mantMsg);
+        // Texto del overlay
+        let overlayText = '';
+        if (isLocked) {
+            if (seasonStatus === 'mantenimiento') {
+                overlayText = 'Mantenimiento';
+            } else if (seasonStatus === 'proximamente' || seasonStatus === 'próximamente') {
+                overlayText = 'PRÓXIMAMENTE';
+            } else if (/\d/.test(seasonStatusRaw)) {
+                overlayText = `Próx. ${seasonStatusRaw}`;
+            } else if (seasonStatusRaw) {
+                overlayText = `Próx. en ${seasonStatusRaw}`;
             } else {
-                // --- BOTÓN 1: REPRODUCIR (Solo si NO está vetada) ---
-                const playBtn = document.createElement('button');
-                playBtn.className = 'btn btn-play';
-                playBtn.innerHTML = `<i class="fas fa-play"></i> Ver ahora`;
-                playBtn.onclick = async () => {
-                    ModalManager.closeAll();
-                    const player = await getPlayerModule();
-                    
-                    if (isSeries) {
-                        player.openSeriesPlayer(id);
-                    } else {
-                        player.openPlayerModal(id, data.title);
-                    }
-                };
-                detailsButtons.appendChild(playBtn);
-
-            // --- BOTÓN 2: TEMPORADAS O RANDOM (Solo Series) ---
-            if (isSeries) {
-                const episodes = appState.content.seriesEpisodes[id] || {};
-                
-                // Botón Random - Validación flexible (busca random o randomValue)
-                const randomVal = String(data.randomValue || data.random || '').trim().toLowerCase();
-                const isRandomEnabled = ['si', 'sí', 'yes', 'true', '1'].includes(randomVal);
-                
-                if (isRandomEnabled) {
-                    const randomBtn = document.createElement('button');
-                    randomBtn.className = 'btn btn-random';
-                    randomBtn.innerHTML = `<i class="fas fa-random"></i> Aleatorio`;
-                    randomBtn.onclick = async () => {
-                        const allEpisodes = [];
-                        const episodesData = appState.content.seriesEpisodes[id] || {};
-                        
-                        Object.keys(episodesData).forEach(seasonKey => {
-                            const episodesArray = episodesData[seasonKey];
-                            if (Array.isArray(episodesArray)) {
-                                episodesArray.forEach((episode, index) => {
-                                    if (episode && episode.videoId) {
-                                        allEpisodes.push({
-                                            season: seasonKey,
-                                            episodeIndex: index,
-                                            episodeNum: index + 1,
-                                            data: episode
-                                        });
-                                    }
-                                });
-                            }
-                        });
-
-                        if (allEpisodes.length === 0) {
-                            ErrorHandler.show('content', 'No hay episodios disponibles.');
-                            return;
-                        }
-
-                        const randomIndex = Math.floor(Math.random() * allEpisodes.length);
-                        const selected = allEpisodes[randomIndex];
-
-                        ModalManager.closeAll();
-                        const player = await getPlayerModule();
-                        player.openPlayerToEpisode(id, selected.season, selected.episodeIndex);
-                    };
-                    detailsButtons.appendChild(randomBtn);
-                }
-                
-                // Botón Temporadas - Si tiene más de 1 temporada
-                if (Object.keys(episodes).length > 1) {
-                    const infoBtn = document.createElement('button');
-                    infoBtn.className = 'btn btn-info';
-                    infoBtn.innerHTML = `<i class="fas fa-list"></i> Temporadas`;
-                    infoBtn.onclick = async () => {
-                        ModalManager.closeAll();
-                        const player = await getPlayerModule();
-                        player.openSeriesPlayer(id, true);
-                    };
-                    detailsButtons.appendChild(infoBtn);
-                }
+                overlayText = 'PRÓXIMAMENTE';
             }
-
-            // --- BOTÓN 3: MI LISTA (Solo si NO está vetada) ---
-            if (auth.currentUser) {
-                const inList = appState.user.watchlist.has(id);
-                const listBtn = document.createElement('button');
-                listBtn.className = `btn btn-watchlist ${inList ? 'in-list' : ''}`;
-                listBtn.innerHTML = `<i class="fas ${inList ? 'fa-check' : 'fa-plus'}"></i>`;
-                listBtn.dataset.contentId = id;
-                
-                listBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    handleWatchlistClick(listBtn);
-                };
-                detailsButtons.appendChild(listBtn);
-            }
-            } // Fin del else (película NO vetada)
-
-            // --- BOTÓN 4: RESEÑAR (CIRCULAR AL LADO DE MI LISTA) ---
-            const reviewBtn = document.createElement('button');
-            reviewBtn.className = 'btn btn-review btn-icon-only';
-            reviewBtn.innerHTML = `<i class="fas fa-star"></i>`;
-            reviewBtn.title = 'Reseñar'; // Tooltip
-            
-            reviewBtn.onclick = async () => {
-                // 1. Validar login
-                if (!auth.currentUser) {
-                    openConfirmationModal("Inicia Sesión", "Necesitas cuenta para reseñar.", () => openAuthModal(true));
-                    return;
-                }
-
-                // 2. Preparar módulo
-                const reviews = await getReviewsModule();
-
-                // 3. Cerrar modal actual
-                ModalManager.closeAll();
-
-                // 4. Abrir modal de reseñas (Contextual) con delay visual
-                setTimeout(() => {
-                    reviews.openReviewModal(true, {
-                        contentId: id,
-                        contentTitle: data.title,
-                        contentType: isSeries ? 'series' : 'movie'
-                    });
-                }, 100);
-            };
-            detailsButtons.appendChild(reviewBtn);
-
-            // --- BOTÓN 5: OJO RULETA (solo películas, solo logueados) ---
-            if (!isSeries && auth.currentUser) {
-                const roulette = await getRouletteModule();
-                const isWatched = roulette.isMovieWatched ? roulette.isMovieWatched(id) : false;
-                const eyeBtn = document.createElement('button');
-                eyeBtn.className = `btn btn-icon-only btn-roulette-eye ${isWatched ? 'is-watched' : ''}`;
-                eyeBtn.innerHTML = `<i class="fas ${isWatched ? 'fa-eye' : 'fa-eye-slash'}"></i>`;
-                eyeBtn.title = isWatched ? 'Quitar de vistas (volverá a la ruleta)' : 'Marcar como vista (no saldrá en la ruleta)';
-                eyeBtn.onclick = async () => {
-                    const nowWatched = eyeBtn.classList.contains('is-watched');
-                    if (nowWatched) {
-                        await roulette.unmarkMovieFromRoulette(id);
-                        eyeBtn.classList.remove('is-watched');
-                        eyeBtn.innerHTML = `<i class="fas fa-eye-slash"></i>`;
-                        eyeBtn.title = 'Marcar como vista (no saldrá en la ruleta)';
-                    } else {
-                        await roulette.markMovieAsWatched(id);
-                        eyeBtn.classList.add('is-watched');
-                        eyeBtn.innerHTML = `<i class="fas fa-eye"></i>`;
-                        eyeBtn.title = 'Quitar de vistas (volverá a la ruleta)';
-                    }
-                };
-                detailsButtons.appendChild(eyeBtn);
-            }
-        } // Fin if (detailsButtons)
-
-        modal.classList.add('show');
-        document.body.classList.add('modal-open');
-
-    } catch (e) {
-        // Usamos el logger o un console.error simple
-        console.error("Error abriendo detalles:", e);
-        if (window.logError) window.logError(e, 'Open Details');
-    }
-}
-
-// ===========================================================
-// 6. AUTENTICACIÓN Y DATOS DE USUARIO
-// ===========================================================
-function setupAuthListeners() {
-    // === 1. Lógica del OJO (Ver/Ocultar Password) ===
-    const setupPasswordToggle = (inputId, iconId) => {
-        const input = document.getElementById(inputId);
-        const icon = document.getElementById(iconId);
-        if (input && icon) {
-            // Clonamos para eliminar listeners viejos si se recarga
-            const newIcon = icon.cloneNode(true);
-            icon.parentNode.replaceChild(newIcon, icon);
-            
-            newIcon.addEventListener('click', () => {
-                const isPassword = input.type === 'password';
-                input.type = isPassword ? 'text' : 'password';
-                newIcon.classList.toggle('fa-eye');
-                newIcon.classList.toggle('fa-eye-slash');
-            });
-        }
-    };
-    setupPasswordToggle('login-password', 'toggle-login-pass');
-    setupPasswordToggle('register-password', 'toggle-register-pass');
-
-    // === 2. Navegación del Modal (Login <-> Registro <-> Recuperar) ===
-    const loginForm = document.getElementById('login-form');
-    const registerForm = document.getElementById('register-form');
-    const recoveryForm = document.getElementById('recovery-form');
-    const authSwitch = document.querySelector('.auth-switch');
-
-    // Ir a "Recuperar Contraseña"
-    const forgotLink = document.getElementById('forgot-password-link');
-    if (forgotLink) {
-        forgotLink.onclick = (e) => {
-            e.preventDefault();
-            loginForm.style.display = 'none';
-            registerForm.style.display = 'none';
-            recoveryForm.style.display = 'flex'; // Usamos flex para centrar contenido si es necesario
-            recoveryForm.style.flexDirection = 'column';
-            if (authSwitch) authSwitch.style.display = 'none';
-        };
-    }
-
-    // Volver a Login desde Recuperar
-    const backToLogin = document.getElementById('back-to-login-link');
-    if (backToLogin) {
-        backToLogin.onclick = (e) => {
-            e.preventDefault();
-            recoveryForm.style.display = 'none';
-            loginForm.style.display = 'flex';
-            if (authSwitch) authSwitch.style.display = 'block';
-        };
-    }
-
-    // Botón Header: Ingresar
-    if (DOM.loginBtnHeader) DOM.loginBtnHeader.onclick = (e) => { e.preventDefault(); openAuthModal(true); };
-    // Botón Header: Registro
-    if (DOM.registerBtnHeader) DOM.registerBtnHeader.onclick = (e) => { e.preventDefault(); openAuthModal(false); };
-    
-    // Switcher inferior
-    if (DOM.switchAuthModeLink) {
-        DOM.switchAuthModeLink.onclick = (e) => {
-            e.preventDefault();
-            const isLogin = loginForm.style.display !== 'none';
-            openAuthModal(!isLogin);
-        };
-    }
-
-    // === 3. Envíos de Formulario (Submits) ===
-    
-    // LOGIN
-    if (DOM.loginForm) {
-    DOM.loginForm.onsubmit = (e) => {
-        e.preventDefault();
-        const email = document.getElementById('login-email').value;
-        const pass = document.getElementById('login-password').value;
-        
-        // Elemento de error
-        const errorEl = document.getElementById('login-error'); 
-        
-        auth.signInWithEmailAndPassword(email, pass)
-            .then(() => { 
-                ModalManager.closeAll(); 
-                DOM.loginForm.reset(); 
-            })
-            .catch(() => { 
-                // 🔥 AQUÍ ESTÁ EL CAMBIO:
-                errorEl.textContent = "Credenciales incorrectas."; 
-                errorEl.style.display = 'block'; // MOSTRAR el espacio ahora
-            });
-        };
-    }
-
-    // REGISTRO
-    if (DOM.registerForm) {
-        DOM.registerForm.addEventListener('submit', (e) => {
-            e.preventDefault(); // Evita que se recargue la página
-            const username = document.getElementById('register-username').value;
-            const email = document.getElementById('register-email').value;
-            const password = document.getElementById('register-password').value;
-            
-            // Elemento de error
-            const errorEl = document.getElementById('register-error');
-
-            // Limpiamos errores previos al intentar de nuevo
-            if (errorEl) {
-                errorEl.style.display = 'none';
-                errorEl.textContent = '';
-            }
-
-            auth.createUserWithEmailAndPassword(email, password)
-                .then((userCredential) => userCredential.user.updateProfile({ displayName: username }))
-                .then(() => { 
-                    ModalManager.closeAll(); 
-                    DOM.registerForm.reset(); 
-                    ErrorHandler.show('auth', '¡Cuenta creada con éxito!', 3000);
-                })
-                .catch((err) => { 
-                    // 🔥 AQUÍ ESTÁ EL TRUCO: Solo mostramos el espacio si hay error
-                    if (errorEl) {
-                        errorEl.textContent = err.message;
-                        errorEl.style.display = 'block'; 
-                    }
-                });
-        });
-    }
-    // RECUPERAR (Firebase Reset)
-    if (recoveryForm) {
-        recoveryForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const email = document.getElementById('recovery-email-input').value;
-            const msgElement = document.getElementById('recovery-message');
-            
-            // Limpiamos estado previo (ocultamos el espacio)
-            if(msgElement) {
-                msgElement.style.display = 'none';
-                msgElement.textContent = '';
-            }
-            
-            auth.sendPasswordResetEmail(email)
-                .then(() => {
-                    if (msgElement) {
-                        msgElement.style.color = '#4cd137'; // Verde éxito
-                        msgElement.textContent = `Enlace enviado a ${email}`;
-                        msgElement.style.display = 'block'; // 🔥 AHORA SÍ OCUPA ESPACIO
-                    }
-                })
-                .catch((error) => {
-                    if (msgElement) {
-                        msgElement.style.color = '#ff4d4d'; // Rojo error
-                        if (error.code === 'auth/user-not-found') {
-                            msgElement.textContent = "Correo no registrado.";
-                        } else {
-                            msgElement.textContent = "Error al enviar. Intenta nuevamente.";
-                        }
-                        msgElement.style.display = 'block'; // 🔥 AHORA SÍ OCUPA ESPACIO
-                    }
-                });
-        });
-    }
-
-    // Listeners globales
-    auth.onAuthStateChanged(updateUIAfterAuthStateChange);
-    
-    // Logout Logic
-    const handleLogout = (e) => { e.preventDefault(); auth.signOut().then(() => location.reload()); };
-    const btnLogout = document.getElementById('logout-btn');
-    if (btnLogout) { btnLogout.parentNode.replaceChild(btnLogout.cloneNode(true), btnLogout).addEventListener('click', handleLogout); }
-}
-
-function openAuthModal(isLogin) {
-    const loginForm = document.getElementById('login-form');
-    const registerForm = document.getElementById('register-form');
-    const recoveryForm = document.getElementById('recovery-form');
-    const authSwitch = document.querySelector('.auth-switch');
-    const switchLink = document.getElementById('switch-auth-mode');
-    const modal = document.getElementById('auth-modal');
-
-    // Siempre ocultar recuperación al abrir de cero
-    if (recoveryForm) recoveryForm.style.display = 'none';
-    if (authSwitch) authSwitch.style.display = 'block';
-
-    // Mostrar form correcto
-    if (loginForm) loginForm.style.display = isLogin ? 'flex' : 'none';
-    if (registerForm) registerForm.style.display = isLogin ? 'none' : 'flex';
-
-    // Texto del switcher
-    if (switchLink) {
-        switchLink.textContent = isLogin ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia Sesión';
-    }
-
-    // Limpiar errores y campos de password
-    ['login-error', 'register-error', 'recovery-message'].forEach(id => {
-        const el = document.getElementById(id);
-        if(el) el.textContent = '';
-        el.style.display = 'none';
-    });
-    
-    // Resetear visibilidad de passwords a oculto
-    ['login-error', 'register-error', 'recovery-message'].forEach(id => {
-    const el = document.getElementById(id);
-        if(el) {
-            el.textContent = '';
-            el.style.display = 'none'; // <--- Ocultar de nuevo
-        }
-    });
-    
-    // Resetear iconos de ojos
-    document.querySelectorAll('.toggle-password').forEach(icon => {
-        icon.classList.add('fa-eye');
-        icon.classList.remove('fa-eye-slash');
-    });
-
-    if (modal) modal.classList.add('show');
-    document.body.classList.add('modal-open');
-}
-
-// Exportar openAuthModal al scope global para que los event listeners puedan accederla
-window.openAuthModal = openAuthModal;
-
-function updateUIAfterAuthStateChange(user) {
-    const loggedInElements = [DOM.userProfileContainer, DOM.myListNavLink, DOM.historyNavLink, DOM.myListNavLinkMobile, DOM.historyNavLinkMobile];
-    const loggedOutElements = [DOM.authButtons];
-
-    // Referencias a los nuevos bloques del perfil móvil
-    const hubLoggedIn = document.getElementById('hub-logged-in-content');
-    const hubGuest = document.getElementById('hub-guest-content');
-    const hubEmail = document.getElementById('profile-hub-email');
-
-    // 🔥 FIX VISUAL: Selector correcto para limpiar la barra inferior móvil (.bottom-nav .nav-link)
-    const resetNavigationActiveState = () => {
-        document.querySelectorAll('.main-nav a, .bottom-nav .nav-link').forEach(l => l.classList.remove('active'));
-        document.querySelectorAll('a[data-filter="all"]').forEach(l => l.classList.add('active'));
-    };
-
-    if (user) {
-        // --- USUARIO CONECTADO ---
-        loggedInElements.forEach(el => el && (el.style.display = 'flex'));
-        loggedOutElements.forEach(el => el && (el.style.display = 'none'));
-        
-        const userName = user.displayName || user.email.split('@')[0];
-        if (DOM.userGreetingBtn) DOM.userGreetingBtn.textContent = `Hola, ${userName}`;
-        
-        // Mostrar menú de usuario en móvil
-        if (hubLoggedIn) hubLoggedIn.style.display = 'block';
-        if (hubGuest) hubGuest.style.display = 'none';
-        if (hubEmail) hubEmail.textContent = user.email;
-
-        db.ref(`users/${user.uid}/watchlist`).once('value', snapshot => {
-            appState.user.watchlist = snapshot.exists() ? new Set(Object.keys(snapshot.val())) : new Set();
-        });
-
-        setupRealtimeHistoryListener(user);
-        getProfileModule();
-
-        // Solo aviso de pendientes para admin (el banner de sesión ya salió al cargar)
-        getRequestsModule().then(m => {
-            setTimeout(() => m.checkPendingNotifications(), 500);
-        });
-
-        // Mostrar link de Reportes en dropdown solo para admin
-        const ADMIN_EMAIL_REPORTS = 'baquezadat@gmail.com';
-        const reportsNavLink = document.getElementById('reports-nav-link');
-        if (reportsNavLink) {
-            if (user.email === ADMIN_EMAIL_REPORTS) {
-                reportsNavLink.style.display = 'flex';
-                // Badge en tiempo real — se actualiza al agregar/resolver reportes
-                firebase.database().ref('reports').orderByChild('status').equalTo('pending').on('value', snap => {
-                    const badge = document.getElementById('reports-badge');
-                    if (badge) {
-                        const count = snap.numChildren();
-                        if (count > 0) {
-                            badge.textContent = count;
-                            badge.style.display = 'inline-flex';
-                        } else {
-                            badge.style.display = 'none';
-                        }
-                    }
-                });
-
-                // 🔄 Botón de refresh local (solo admin) - eliminado, ahora está en el panel de perfil
-            } else {
-                reportsNavLink.style.display = 'none';
-            }
+        } else if (!isNaN(seasonKey)) {
+            // Mostrar episodios para cualquier temporada numérica (con o sin etiqueta custom)
+            overlayText = `${totalEpisodes} episodios`;
         }
 
-        // Redirección forzada al inicio y corrección visual del botón
-        resetNavigationActiveState(); // <--- Aquí aplicamos el fix
-        switchView('all'); 
-
-    } else {
-        // --- USUARIO DESCONECTADO (INVITADO) ---
-        loggedInElements.forEach(el => el && (el.style.display = 'none'));
-        loggedOutElements.forEach(el => el && (el.style.display = 'flex'));
-
-        // Ocultar link de Reportes
-        const reportsNavLinkOut = document.getElementById('reports-nav-link');
-        if (reportsNavLinkOut) reportsNavLinkOut.style.display = 'none';
-        
-        // Mostrar menú de invitado en móvil
-        if (hubLoggedIn) hubLoggedIn.style.display = 'none';
-        if (hubGuest) hubGuest.style.display = 'block';
-        if (hubEmail) hubEmail.textContent = 'Visitante';
-        
-        appState.user.watchlist.clear();
-        
-        if (appState.user.historyListenerRef) {
-            appState.user.historyListenerRef.off('value');
-            appState.user.historyListenerRef = null;
-        }
-        
-        const continueWatchingCarousel = document.getElementById('continue-watching-carousel');
-        if (continueWatchingCarousel) continueWatchingCarousel.remove();
-
-        // Redirección forzada al inicio y corrección visual del botón
-        resetNavigationActiveState(); // <--- Aquí aplicamos el fix
-        switchView('all');
-    }
-}
-
-// ==========================================
-// FUNCIÓN CORREGIDA: HISTORIAL INTELIGENTE (SOBRESCRIBE PROGRESO)
-// ==========================================
-function addToHistoryIfLoggedIn(contentId, type, episodeInfo = {}) {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    // Buscamos info de la serie/peli
-    let itemData = null;
-    if (typeof findContentData === 'function') {
-        itemData = findContentData(contentId);
-    } 
-    if (!itemData && appState.content.series[contentId]) {
-        itemData = appState.content.series[contentId];
-    }
-    if (!itemData && appState.content.movies[contentId]) {
-        itemData = appState.content.movies[contentId];
-    }
-    if (!itemData) return;
-
-    // Configurar imagen
-    let posterUrl = itemData.poster;
-    const isSeries = type === 'series' || type === 'serie';
-
-    // Intentar póster específico de temporada si existe
-    if (isSeries && episodeInfo.season) {
-        const seasonPosterEntry = appState.content.seasonPosters[contentId]?.[episodeInfo.season];
-        if (seasonPosterEntry) {
-            posterUrl = (typeof seasonPosterEntry === 'object') ? seasonPosterEntry.posterUrl : seasonPosterEntry;
-        }
-    }
-
-    // 🔥 LA SOLUCIÓN DEFINITIVA 🔥
-    // Usamos SOLAMENTE el ID de la serie. 
-    // Esto obliga a Firebase a SOBRESCRIBIR cualquier dato anterior de esta serie.
-    const historyKey = contentId; 
-
-    // Título dinámico (sin temporada si la serie tiene una sola temporada)
-    const totalSeasonsForTitle = Object.keys(appState.content.seriesEpisodes[contentId] || {}).length;
-    const historyTitle = isSeries
-        ? (totalSeasonsForTitle > 1 ? `${itemData.title}: T${episodeInfo.season}` : itemData.title)
-        : itemData.title;
-
-    const historyEntry = {
-        type: isSeries ? 'series' : 'movie',
-        contentId: contentId,
-        title: historyTitle,
-        poster: posterUrl,
-        viewedAt: firebase.database.ServerValue.TIMESTAMP, // Actualiza la hora para que salga primero
-        season: isSeries ? episodeInfo.season : null,       // Guarda TU temporada actual
-        lastEpisode: isSeries ? episodeInfo.index : null    // Guarda TU capítulo actual
-    };
-
-    // Guardamos pisando lo anterior
-    db.ref(`users/${user.uid}/history/${historyKey}`).set(historyEntry);
-}
-
-// ===========================================================
-// FUNCIÓN PARA BORRAR DEL HISTORIAL (ANIMACIÓN SUAVE)
-// ===========================================================
-async function removeFromHistory(entryKey) {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    // 1. Borrar de history Y de roulette_watched
-    await Promise.all([
-        db.ref(`users/${user.uid}/history/${entryKey}`).remove(),
-        db.ref(`users/${user.uid}/roulette_watched/${entryKey}`).remove()
-    ]);
-    // Sincronizar memoria interna del módulo roulette
-    try {
-        const roulette = await getRouletteModule();
-        if (roulette.unmarkMovieFromRoulette) await roulette.unmarkMovieFromRoulette(entryKey);
-    } catch(e) {}
-
-    // 2. Efecto Visual "Soft" (Desvanecer tarjeta)
-    const historyGrid = DOM.historyContainer.querySelector('.grid');
-    
-    // Buscamos el botón específico que se pulsó
-    const btnPressed = historyGrid.querySelector(`.btn-remove-history[data-key="${entryKey}"]`);
-    
-    if (btnPressed) {
-        const cardToRemove = btnPressed.closest('.movie-card');
-        
-        if (cardToRemove) {
-            // A) Bloquear clicks
-            cardToRemove.style.pointerEvents = 'none';
-            
-            // B) Animación de salida
-            cardToRemove.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
-            cardToRemove.style.opacity = '0';
-            cardToRemove.style.transform = 'scale(0.8) translateY(20px)';
-            
-            // C) Borrar del HTML cuando termine la animación
-            setTimeout(() => {
-                if (cardToRemove.parentNode) cardToRemove.remove();
-                
-                // Si la lista queda vacía, mostrar mensaje
-                if (historyGrid.children.length === 0) {
-                    historyGrid.innerHTML = `<p class="empty-message" style="opacity:0; transition: opacity 0.5s;">Tu historial está vacío.</p>`;
-                    requestAnimationFrame(() => {
-                        const msg = historyGrid.querySelector('.empty-message');
-                        if(msg) msg.style.opacity = '1';
-                    });
-                }
-            }, 400); 
-        }
-    } else {
-        // Plan B: Si algo falla, recarga normal
-        renderHistory();
-    }
-}
-
-function handleWatchlistClick(button) {
-    const user = auth.currentUser;
-    if (!user) {
-        openConfirmationModal(
-            "Acción Requerida",
-            "Debes iniciar sesión para usar esta función.",
-            () => openAuthModal(true)
-        );
-        return;
-    }
-    
-    const contentId = button.dataset.contentId;
-    const isInList = appState.user.watchlist.has(contentId);
-
-    if (isInList) {
-        openConfirmationModal(
-            'Eliminar de Mi Lista',
-            '¿Estás seguro de que quieres eliminar este item de tu lista?',
-            () => removeFromWatchlist(contentId)
-        );
-    } else {
-        addToWatchlist(contentId);
-    }
-}
-
-async function addToWatchlist(contentId) {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    await ErrorHandler.firebaseOperation(async () => {
-        await db.ref(`users/${user.uid}/watchlist/${contentId}`).set(true);
-        appState.user.watchlist.add(contentId);
-        
-        document.querySelectorAll(`.btn-watchlist[data-content-id="${contentId}"]`).forEach(button => {
-            button.classList.add('in-list');
-            button.innerHTML = '<i class="fas fa-check"></i>';
-        });
-    });
-}
-
-async function removeFromWatchlist(contentId) {
-    const user = auth.currentUser;
-    if (!user) return;
-    
-    // Convertimos a string por seguridad
-    const safeId = String(contentId);
-
-    await ErrorHandler.firebaseOperation(async () => {
-        // 1. Borrar de Firebase y actualizar estado local
-        await db.ref(`users/${user.uid}/watchlist/${safeId}`).remove();
-        appState.user.watchlist.delete(safeId);
-        
-        // 2. Actualizar visualmente los botones en otras vistas (Inicio, Películas, etc)
-        // Buscamos cualquier botón que tenga este ID
-        document.querySelectorAll(`.btn-watchlist[data-content-id="${safeId}"]`).forEach(button => {
-            button.classList.remove('in-list');
-            button.innerHTML = '<i class="fas fa-plus"></i>';
-        });
-        
-        // 3. BORRADO VISUAL EN "MI LISTA" (Lógica Reforzada)
-        const myListContainer = document.getElementById('my-list-container');
-        
-        // Solo actuamos si la sección "Mi Lista" está visible
-        if (myListContainer && myListContainer.style.display !== 'none') {
-            
-            // Buscamos la tarjeta Específica dentro del grid de mi lista
-            const cardToRemove = myListContainer.querySelector(`.movie-card[data-content-id="${safeId}"]`);
-            
-            if (cardToRemove) {
-                // A) Bloquear clicks inmediatamente
-                cardToRemove.style.pointerEvents = 'none';
-                
-                // B) Aplicar estilos de salida directamente (sin depender de clases externas)
-                cardToRemove.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
-                cardToRemove.style.opacity = '0';
-                cardToRemove.style.transform = 'scale(0.8) translateY(20px)';
-                
-                // C) Borrar del DOM al terminar la animación
-                setTimeout(() => {
-                    if (cardToRemove.parentNode) {
-                        cardToRemove.parentNode.removeChild(cardToRemove);
-                    }
-                    
-                    // Chequeo de lista vacía
-                    if (appState.user.watchlist.size === 0) {
-                        const grid = myListContainer.querySelector('.grid');
-                        if (grid) {
-                            grid.innerHTML = `<p class="empty-message" style="opacity:0; transition: opacity 0.5s;">Tu lista está vacía.</p>`;
-                            requestAnimationFrame(() => {
-                                const msg = grid.querySelector('.empty-message');
-                                if(msg) msg.style.opacity = '1';
-                            });
-                        }
-                    }
-                }, 400); 
-            } else {
-                // Si por alguna razón no encontró la tarjeta (bug raro), recargamos la lista completa
-                console.warn("Tarjeta no encontrada en el DOM, forzando repintado...");
-                displayMyListView();
-            }
-        }
-    });
-}
-
-// ===========================================================
-// 📝 MI LISTA INTELIGENTE (CORREGIDO Y VISIBLE)
-// ===========================================================
-
-// Variables GLOBALES para la paginación de "Mi Lista"
-let myListDataCache = [];
-let myListRenderedCount = 0;
-
-function displayMyListView() {
-    const user = auth.currentUser;
-    const myListGrid = DOM.myListContainer.querySelector('.grid');
-    
-    // Limpieza inicial de botón antiguo si existe
-    const existingBtn = document.getElementById('mylist-load-more-btn');
-    if (existingBtn) existingBtn.remove();
-    
-    if (!user) {
-        myListGrid.innerHTML = `<p class="empty-message">Debes iniciar sesión para ver tu lista.</p>`;
-        return;
-    }
-    
-    if (!appState.user.watchlist || appState.user.watchlist.size === 0) {
-        myListGrid.innerHTML = `<p class="empty-message">Tu lista está vacía. Agrega contenido para verlo aquí.</p>`;
-        return;
-    }
-    
-    // Spinner de carga rápida
-    myListGrid.innerHTML = `<div class="spinner" style="margin: 50px auto;"></div>`;
-
-    // 1. PREPARACIÓN DE DATOS (SNAPSHOT)
-    // 🔥 CORRECCIÓN 1: Unificamos Pelis y Series (sin UCM antiguo)
-    let allContent = { 
-        ...appState.content.movies, 
-        ...appState.content.series 
-    };
-    
-    // Agregamos Sagas Dinámicas (Aquí viene ahora Marvel, Star Wars, etc.)
-    if (appState.content.sagas) {
-        Object.values(appState.content.sagas).forEach(sagaItems => {
-            if (sagaItems) {
-                Object.assign(allContent, sagaItems);
-            }
-        });
-    }
-
-    myListDataCache = [];
-    
-    // Convertimos el Set de IDs a Array y lo invertimos (últimos agregados primero)
-    const watchlistIDs = Array.from(appState.user.watchlist).reverse();
-
-    watchlistIDs.forEach(contentId => {
-        const data = allContent[contentId];
-        if (data) {
-            // Determinamos el tipo una sola vez
-            let type = 'movie';
-            // Si está en series o tiene episodios, es serie
-            if (appState.content.series[contentId] || data.type === 'series' || appState.content.seriesEpisodes[contentId]) {
-                type = 'series';
-            }
-            
-            // Guardamos el objeto listo para renderizar
-            myListDataCache.push({ id: contentId, data: data, type: type });
-        }
-    });
-
-    // 2. Limpiar grid y resetear contador
-    myListGrid.innerHTML = '';
-    myListRenderedCount = 0;
-
-    if (myListDataCache.length === 0) {
-        myListGrid.innerHTML = `<p class="empty-message">No se encontraron datos (¿Quizás los items ya no existen?).</p>`;
-        return;
-    }
-
-    // 3. Renderizar el PRIMER lote
-    appendMyListBatch();
-}
-
-function appendMyListBatch() {
-    const myListGrid = DOM.myListContainer.querySelector('.grid');
-    const BATCH_SIZE = UI.ITEMS_PER_LOAD || 24;
-    
-    // Calcular el siguiente lote a mostrar
-    const nextBatch = myListDataCache.slice(myListRenderedCount, myListRenderedCount + BATCH_SIZE);
-    
-    if (nextBatch.length === 0) return;
-
-    // 🔥 Usamos un Fragmento para que sea ultra rápido
-    const fragment = document.createDocumentFragment();
-
-    nextBatch.forEach((item) => {
-        // Creamos la tarjeta pasando { source: 'my-list' } para que el botón sea una "X"
-        const card = createMovieCardElement(item.id, item.data, item.type, 'grid', false, { source: 'my-list' });
-        
-        // ✅ CORRECCIÓN: Se eliminaron las líneas de 'animation' y 'opacity' 
-        // para asegurar que las tarjetas sean visibles al instante.
-        
-        fragment.appendChild(card);
-    });
-
-    // Inyectar en el DOM
-    myListGrid.appendChild(fragment);
-    myListRenderedCount += nextBatch.length;
-
-    // --- GESTIÓN DEL BOTÓN "CARGAR MÁS" ---
-    let loadBtn = document.getElementById('mylist-load-more-btn');
-    
-    // Si todavía queda contenido oculto en la caché...
-    if (myListRenderedCount < myListDataCache.length) {
-        if (!loadBtn) {
-            // Crear el botón si no existe
-            loadBtn = document.createElement('button');
-            loadBtn.id = 'mylist-load-more-btn';
-            loadBtn.className = 'btn btn-primary'; 
-            loadBtn.innerHTML = 'Cargar más <i class="fas fa-chevron-down"></i>';
-            loadBtn.style.cssText = "display: block; margin: 30px auto; min-width: 200px;";
-            loadBtn.onclick = appendMyListBatch; 
-            DOM.myListContainer.appendChild(loadBtn);
-        } else {
-            // Si ya existe, lo movemos al final
-            DOM.myListContainer.appendChild(loadBtn);
-        }
-    } else {
-        // Si ya mostramos todo, borramos el botón
-        if (loadBtn) loadBtn.remove();
-    }
-}
-
-// ===========================================================
-// 🧠 HISTORIAL INTELIGENTE (CARGA POR LOTES)
-// ===========================================================
-
-// Variables para controlar la paginación del historial
-let historyDataCache = [];
-let historyRenderedCount = 0;
-
-function renderHistory() {
-    const user = auth.currentUser;
-    const historyGrid = DOM.historyContainer.querySelector('.grid');
-    
-    // Limpieza inicial: Borramos contenido y botón viejo si existe
-    const existingBtn = document.getElementById('history-load-more-btn');
-    if (existingBtn) existingBtn.remove();
-    
-    if (!user) {
-        historyGrid.innerHTML = `<p class="empty-message">Debes iniciar sesión para ver tu historial.</p>`;
-        return;
-    }
-    
-    // Spinner de carga inicial
-    historyGrid.innerHTML = `<div class="spinner" style="margin: 50px auto;"></div>`;
-
-    db.ref(`users/${user.uid}/history`).orderByChild('viewedAt').once('value', snapshot => {
-        if (!snapshot.exists()) {
-            historyGrid.innerHTML = `<p class="empty-message">Tu historial está vacío.</p>`;
-            return;
-        }
-
-        // 1. Guardamos TODO el historial en memoria (RAM)
-        historyDataCache = [];
-        snapshot.forEach(child => {
-            const item = child.val();
-            item.key = child.key; // Guardamos la key para poder borrar después
-            historyDataCache.push(item);
-        });
-        
-        // Ordenamos: Lo último visto primero
-        historyDataCache.reverse(); 
-        
-        // 2. Preparamos el Grid limpio
-        historyGrid.innerHTML = '';
-        historyRenderedCount = 0;
-
-        // 3. Renderizamos el PRIMER lote (los primeros 24)
-        appendHistoryBatch();
-    });
-}
-
-// Función auxiliar que inyecta las tarjetas por partes
-function appendHistoryBatch() {
-    const historyGrid = DOM.historyContainer.querySelector('.grid');
-    const BATCH_SIZE = 24; // Cantidad a cargar por clic (igual que tu grid principal)
-    
-    // Calculamos qué parte del array toca mostrar ahora
-    const nextBatch = historyDataCache.slice(historyRenderedCount, historyRenderedCount + BATCH_SIZE);
-    
-    if (nextBatch.length === 0) return;
-
-    // 🔥 OPTIMIZACIÓN: Usamos Fragment para pintar todo de una sola vez (0 lag)
-    const fragment = document.createDocumentFragment();
-
-    nextBatch.forEach((item) => {
-        const options = {
-            source: 'history',
-            season: item.season
-        };
-        // Usamos tu función constructora base
-        const card = createMovieCardElement(item.contentId, item, item.type, 'grid', false, options);
-        
-        // --- PERSONALIZACIÓN PARA HISTORIAL ---
-        
-        // 1. Botón de Borrar (X)
-        const removeButton = document.createElement('button');
-        removeButton.className = 'btn-remove-history';
-        removeButton.dataset.key = item.key;
-        removeButton.innerHTML = `<i class="fas fa-times"></i>`;
-        card.appendChild(removeButton);
-
-        // 2. Información superpuesta (Título y Fecha)
-        const infoOverlay = document.createElement('div');
-        infoOverlay.className = 'history-item-overlay';
-        const dateStr = item.viewedAt ? new Date(item.viewedAt).toLocaleDateString() : 'Reciente';
-        infoOverlay.innerHTML = `<h4 class="history-item-title">${item.title}</h4><p class="history-item-date">Visto: ${dateStr}</p>`;
-        card.appendChild(infoOverlay);
-
-        fragment.appendChild(card);
-    });
-
-    // Inyectamos el lote en la pantalla
-    historyGrid.appendChild(fragment);
-    historyRenderedCount += nextBatch.length;
-
-    // --- GESTIÓN DEL BOTÓN "CARGAR MÁS" ---
-    let loadBtn = document.getElementById('history-load-more-btn');
-    
-    // Si todavía quedan items en memoria sin mostrar...
-    if (historyRenderedCount < historyDataCache.length) {
-        if (!loadBtn) {
-            loadBtn = document.createElement('button');
-            loadBtn.id = 'history-load-more-btn';
-            loadBtn.className = 'btn btn-primary'; 
-            loadBtn.innerHTML = 'Cargar más <i class="fas fa-chevron-down"></i>';
-            loadBtn.style.cssText = "display: block; margin: 30px auto; min-width: 200px;";
-            loadBtn.onclick = appendHistoryBatch; // Al clicar, llama a esta misma función para el siguiente lote
-            DOM.historyContainer.appendChild(loadBtn);
-        } else {
-            // Mover el botón al final siempre
-            DOM.historyContainer.appendChild(loadBtn);
-        }
-    } else {
-        // Si ya mostramos todo, quitamos el botón
-        if (loadBtn) loadBtn.remove();
-    }
-}
-
-function setupRealtimeHistoryListener(user) {
-    if (appState.user.historyListenerRef) {
-        appState.user.historyListenerRef.off('value');
-    }
-
-    if (user) {
-        appState.user.historyListenerRef = db.ref(`users/${user.uid}/history`).orderByChild('viewedAt');
-        
-        appState.user.historyListenerRef.on('value', (snapshot) => {
-            console.log('🔔 Historial actualizado - Regenerando carrusel...');
-            clearTimeout(appState.player.historyUpdateDebounceTimer);
-
-            appState.player.historyUpdateDebounceTimer = setTimeout(() => {
-                console.log('📺 Items en historial:', snapshot.numChildren());
-                generateContinueWatchingCarousel(snapshot);
-                if (DOM.historyContainer && DOM.historyContainer.style.display === 'block') {
-                    renderHistory();
-                }
-            }, 250);
-        });
-    }
-}
-
-// ===========================================================
-// 7. MODAL DE CONFIRMACIÓN
-// ===========================================================
-document.addEventListener('DOMContentLoaded', () => {
-    if (DOM.confirmDeleteBtn && DOM.cancelDeleteBtn && DOM.confirmationModal) {
-        DOM.confirmDeleteBtn.addEventListener('click', () => {
-            if (typeof DOM.confirmationModal.onConfirm === 'function') {
-                DOM.confirmationModal.onConfirm();
-                hideConfirmationModal();
-            }
-        });
-
-        DOM.cancelDeleteBtn.addEventListener('click', () => hideConfirmationModal());
-    }
-});
-
-function hideConfirmationModal() {
-    DOM.confirmationModal.classList.remove('show');
-    DOM.confirmationModal.onConfirm = null;
-    document.getElementById('confirm-delete-btn').textContent = "Confirmar";
-    if (!document.querySelector('.modal.show')) {
-        document.body.classList.remove('modal-open');
-    }
-}
-
-function openConfirmationModal(title, message, onConfirm) {
-    const modal = document.getElementById('confirmation-modal');
-    if (!modal) return;
-
-    const titleEl = modal.querySelector('h2');
-    const messageEl = modal.querySelector('p');
-
-    if (titleEl) titleEl.textContent = title;
-    if (messageEl) messageEl.textContent = message;
-
-    DOM.confirmationModal.onConfirm = onConfirm;
-
-    modal.classList.add('show');
-    document.body.classList.add('modal-open');
-}
-
-// Obtiene el timestamp (fecha en números) del episodio más reciente
-function getLatestSeriesDate(seriesId) {
-    const allEpisodes = appState.content.seriesEpisodes[seriesId];
-    if (!allEpisodes) return 0;
-
-    let flatEpisodes = [];
-    if (Array.isArray(allEpisodes)) {
-        flatEpisodes = allEpisodes;
-    } else {
-        flatEpisodes = Object.values(allEpisodes).flat();
-    }
-
-    // Buscamos la fecha más alta (la más reciente)
-    let maxDate = 0;
-    const now = new Date();
-    const DAYS_THRESHOLD = 5; // Mismo umbral que usas para la etiqueta
-
-    flatEpisodes.forEach(ep => {
-        if (!ep.releaseDate) return;
-        const rDate = new Date(ep.releaseDate);
-        if (isNaN(rDate.getTime())) return;
-
-        // Solo nos importan fechas que estén dentro del rango de "Novedad"
-        // Si es muy vieja, la ignoramos (devuelve 0)
-        const diffTime = now - rDate;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-        // Si es reciente (menos de 5 días) Y es mayor que la que ya teníamos
-        if (diffDays <= DAYS_THRESHOLD && diffDays >= 0 && rDate.getTime() > maxDate) {
-            maxDate = rDate.getTime();
-        }
-    });
-
-    return maxDate;
-}
-
-function isDateRecent(dateString) {
-    if (!dateString) return false;
-    // Intenta convertir la fecha (acepta YYYY-MM-DD)
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return false; // Si está vacía o mal escrita, devuelve falso
-    
-    const now = new Date();
-    const diffTime = now - date;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    // Configuración: 5 días de vigencia
-    return diffDays <= 5 && diffDays >= 0; 
-}
-
-// -----------------------------------------------------------
-// 1. FUNCIÓN AUXILIAR: Detecta fechas recientes en episodios
-// -----------------------------------------------------------
-// Verifica si una serie tiene alguna TEMPORADA reciente desde la hoja PostersTemporadas
-function hasRecentSeasonFromPosters(seriesId) {
-    // ⚠️ AQUÍ NO USAMOS 'shared.', USAMOS DIRECTAMENTE 'appState'
-    const posters = appState.content.seasonPosters[seriesId];
-    if (!posters) return false;
-
-    return Object.values(posters).some(seasonData => {
-        // Soporte para formato antiguo (solo URL) y nuevo (Objeto con fecha)
-        const date = (typeof seasonData === 'object') ? seasonData.date_added : null;
-        return isDateRecent(date);
-    });
-}
-
-// Verifica si una serie tiene algún episodio reciente
-function hasRecentEpisodes(seriesId) {
-    // ⚠️ CORRECCIÓN: Quitamos 'shared.' aquí
-    const allEpisodes = appState.content.seriesEpisodes[seriesId];
-    if (!allEpisodes) return false;
-
-    let flatEpisodes = [];
-    if (Array.isArray(allEpisodes)) {
-        flatEpisodes = allEpisodes;
-    } else {
-        flatEpisodes = Object.values(allEpisodes).flat();
-    }
-
-    return flatEpisodes.some(ep => isDateRecent(ep.releaseDate));
-}
-
-// -----------------------------------------------------------
-// 2. FUNCIÓN DE CREACIÓN DE TARJETAS (ACTUALIZADA)
-// -----------------------------------------------------------
-function createMovieCardElement(id, data, type, layout = 'carousel', lazy = false, options = {}) {
-    const card = document.createElement('div');
-    card.className = `movie-card ${layout === 'carousel' ? 'carousel-card' : ''}`;
-    card.dataset.contentId = id;
-
-    // --- 🏷️ ZONA DE ETIQUETAS (RESTAURADA) ---
-    let badgesAccumulator = ''; 
-    const isNewContent = isDateRecent(data.date_added);
-
-    // 🔥 NO mostrar badges en "Continuar Viendo"
-    if (options.source !== 'continuar-viendo') {
-        if (type === 'series') {
-            const hasNewSeason = hasRecentSeasonFromPosters(id); // Detecta si hay temporada nueva
-            const hasNewEp = hasRecentEpisodes(id);              // Detecta si hay cap nuevo
-            
-            if (isNewContent) badgesAccumulator += `<div class="new-episode-badge badge-estreno">ESTRENO</div>`;
-            if (hasNewSeason) badgesAccumulator += `<div class="new-episode-badge badge-season">NUEVA TEMP</div>`;
-            
-            // Solo mostramos "NUEVO CAP" si no estamos mostrando ya "NUEVA TEMP" (para no tapar la imagen)
-            if (hasNewEp && !hasNewSeason) badgesAccumulator += `<div class="new-episode-badge badge-episode">NUEVO CAP</div>`;
-        } else {
-            // Películas
-            
-            // 🔥 NUEVA ETIQUETA: VETADA
-            if (data.estado && data.estado.toLowerCase() === 'vetada') {
-                badgesAccumulator += `<div class="new-episode-badge badge-vetada">VETADA</div>`;
-            }
-            // 🔧 MANTENIMIENTO
-            else if (data.estado && data.estado.toLowerCase() === 'mantenimiento') {
-                badgesAccumulator += `<div class="new-episode-badge badge-mantenimiento">MANT.</div>`;
-            }
-            // 🔒 PRÓXIMAMENTE
-            else if (data.estado && data.estado.trim() !== '') {
-                badgesAccumulator += `<div class="new-episode-badge badge-proximamente">PRÓXIMO</div>`;
-            }
-            // Estreno (solo si NO está vetada ni próxima)
-            else if (isNewContent) {
-                badgesAccumulator += `<div class="new-episode-badge badge-estreno">ESTRENO</div>`;
-            }
-        }
-    }
-
-    let ribbonHTML = badgesAccumulator !== '' ? `<div class="badges-container">${badgesAccumulator}</div>` : '';
-    // ----------------------------------------
-
-    // --- Clic Principal (Abrir Detalles o Reproductor) ---
-    card.onclick = (e) => {
-        // Ignorar si el clic fue en el botón de borrar/lista
-        if (e.target.closest('.btn-watchlist') || e.target.closest('.btn-remove-history') || e.target.closest('.btn-remove-continue-watching')) return;
-        
-        const seasonMatch = data.title.match(/\(T(\d+)\)$/);
-        if (seasonMatch) {
-            (async () => { const player = await getPlayerModule(); player.openSeriesPlayerDirectlyToSeason(id, seasonMatch[1]); })();
-        } else if (options.source === 'continuar-viendo' && type === 'series' && options.season != null && options.lastEpisode != null) {
-            // 🔥 NUEVO: "Continuar Viendo" abre el episodio exacto donde se quedó
-            (async () => { const player = await getPlayerModule(); player.openPlayerToEpisode(id, options.season, options.lastEpisode); })();
-        } else if (options.source === 'history' && type === 'series' && options.season) {
-            (async () => { const player = await getPlayerModule(); player.openSeriesPlayerDirectlyToSeason(id, options.season); })();
-        } else {
-            openDetailsModal(id, type);
-        }
-    };
-    
-    // --- Botón de Lista / Borrar ---
-    let watchlistBtnHTML = '';
-    
-    // 🔥 NUEVO: Si es "Continuar Viendo", mostrar botón de borrar (X)
-    if (options.source === 'continuar-viendo' && options.historyKey) {
-        watchlistBtnHTML = `<button class="btn-remove-continue-watching" data-history-key="${options.historyKey}"><i class="fas fa-times"></i></button>`;
-    } else if(auth.currentUser && options.source !== 'history'){
-        const isInList = appState.user.watchlist.has(id);
-        
-        // Lógica de ícono: X si es Mi Lista, Check si no
-        let iconClass = isInList ? 'fa-check' : 'fa-plus';
-        if (options.source === 'my-list') iconClass = 'fa-times'; 
-
-        const inListClass = isInList ? 'in-list' : '';
-        
-        watchlistBtnHTML = `<button class="btn-watchlist ${inListClass}" data-content-id="${id}"><i class="fas ${iconClass}"></i></button>`;
-    }
-
-    // --- Imagen ---
-    let imageUrl = data.poster;
-    
-    // 🔥 NUEVO: Si viene de "continuar viendo" y tiene miniatura de episodio, usar esa
-    if (options.source === 'continuar-viendo' && options.episodeThumbnail) {
-        imageUrl = options.episodeThumbnail;
-    }
-    
-    if (typeof imageUrl === 'object' && imageUrl?.posterUrl) imageUrl = imageUrl.posterUrl;
-    if (!imageUrl) imageUrl = data.banner || '';
-
-    const img = new Image();
-    img.onload = () => {
-        const placeholder = card.querySelector('.img-container-placeholder');
-        if(placeholder) placeholder.replaceWith(img);
-        card.classList.add('img-loaded');
-        
-        // 🔥 NUEVO: Aplicar filtro grayscale si es película vetada
-        const isVetada = type === 'movie' && data.estado && data.estado.toLowerCase() === 'vetada';
-        if (isVetada) {
-            img.style.filter = 'grayscale(100%)';
-        }
-    };
-    img.src = imageUrl; 
-    img.alt = data.title;
-
-    // --- HTML Final ---
-    // 🔥 Usar función del módulo de reviews si está disponible
-    const ratingHTML = reviewsModule && reviewsModule.getStarsHTML
-        ? `<div class="card-rating-container">${reviewsModule.getStarsHTML(appState.content.averages[id], true)}</div>`
-        : '<div class="card-rating-container"></div>';
-
-    card.innerHTML = `${ribbonHTML}<div class="img-container-placeholder"></div>${ratingHTML}${watchlistBtnHTML}`;
-
-    // 🔥 NUEVO: Agregar superposición de información para "Continuar Viendo"
-    if (options.source === 'continuar-viendo' && (options.episodeTitle || options.seriesTitle)) {
-        const overlay = document.createElement('div');
-        overlay.className = 'continue-watching-overlay';
-        
-        let episodeInfo = '';
-        if (options.season != null && options.lastEpisode != null) {
-            const episodeNum = parseInt(options.lastEpisode) + 1; // +1 porque los índices empiezan en 0
-            episodeInfo = (options.totalSeasons > 1)
-                ? `T${options.season} E${episodeNum}`
-                : `Episodio ${episodeNum}`;
-        }
-        
-        overlay.innerHTML = `
-            <div class="cw-overlay-content">
-                <p class="cw-series-title">${options.seriesTitle || data.title}</p>
-                <p class="cw-episode-number">${episodeInfo}</p>
-                ${options.episodeTitle ? `<p class="cw-episode-title">${options.episodeTitle}</p>` : ''}
+        card.innerHTML = `
+            <img src="${posterUrl}" alt="${seasonLabel}">
+            <div class="overlay">
+                <h3>${seasonLabel}</h3>
+                <p>${overlayText}</p>
             </div>
         `;
-        card.appendChild(overlay);
-    }
-
-    // 🔥 Event listeners para botones
-    const watchBtn = card.querySelector('.btn-watchlist');
-    if (watchBtn) {
-        watchBtn.onclick = (e) => {
-            e.preventDefault();
-            e.stopPropagation(); // Evita que se abra la película
-            handleWatchlistClick(watchBtn);
-        };
-    }
-    
-    // 🔥 NUEVO: Event listener para botón de borrar de "Continuar Viendo"
-    const removeBtn = card.querySelector('.btn-remove-continue-watching');
-    if (removeBtn) {
-        removeBtn.onclick = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            // 🔥 Mostrar modal de confirmación
-            const seriesTitle = options.seriesTitle || data.title;
-            openConfirmationModal(
-                'Eliminar de Continuar Viendo',
-                `¿Estás seguro de que quieres eliminar "${seriesTitle}" de tu historial?`,
-                () => removeFromContinueWatching(removeBtn.dataset.historyKey, card)
-            );
-        };
-    }
-
-    return card;
-}
-
-// 🔥 NUEVA FUNCIÓN: Remover de "Continuar Viendo" (borrar del historial)
-async function removeFromContinueWatching(historyKey, cardElement) {
-    const user = auth.currentUser;
-    if (!user || !historyKey) return;
-    
-    try {
-        // 1. Animación de salida
-        cardElement.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
-        cardElement.style.opacity = '0';
-        cardElement.style.transform = 'scale(0.8) translateY(20px)';
-        
-        // 2. Borrar de Firebase
-        await db.ref(`users/${user.uid}/history/${historyKey}`).remove();
-        
-        // 3. Remover del DOM después de la animación
-        setTimeout(() => {
-            if (cardElement.parentNode) {
-                cardElement.remove();
-            }
-            
-            // 4. Si no quedan tarjetas, regenerar el carrusel o eliminarlo
-            const carousel = document.getElementById('continue-watching-carousel');
-            if (carousel) {
-                const track = carousel.querySelector('.carousel-track');
-                if (track && track.children.length === 0) {
-                    carousel.remove();
-                }
-            }
-        }, 400);
-        
-        console.log('✅ Removido de Continuar Viendo:', historyKey);
-    } catch (error) {
-        console.error('❌ Error al remover de Continuar Viendo:', error);
-    }
-}
-
-// Obtiene el momento exacto (Fecha + Hora) de la última actualización
-function getLatestUpdateTimestamp(id, data, type) {
-    let maxTimestamp = 0;
-
-    // 1. REVISAR FECHA DE AGREGADO DE LA SERIE/PELI
-    if (data.date_added) {
-        // El truco: new Date() lee la hora si se la das en el Excel
-        const d = new Date(data.date_added); 
-        if (!isNaN(d.getTime()) && isDateRecent(data.date_added)) {
-            maxTimestamp = Math.max(maxTimestamp, d.getTime());
-        }
-    }
-
-    // Si es película, terminamos aquí
-    if (type === 'movie') return maxTimestamp;
-
-    // 2. REVISAR NUEVAS TEMPORADAS (Posters)
-    const posters = appState.content.seasonPosters[id];
-    if (posters) {
-        Object.values(posters).forEach(p => {
-            if (typeof p === 'object' && p.date_added) {
-                const d = new Date(p.date_added);
-                if (!isNaN(d.getTime()) && isDateRecent(p.date_added)) {
-                    maxTimestamp = Math.max(maxTimestamp, d.getTime());
-                }
-            }
-        });
-    }
-
-    // 3. REVISAR NUEVOS EPISODIOS
-    const allEpisodes = appState.content.seriesEpisodes[id];
-    if (allEpisodes) {
-        const flatEpisodes = Array.isArray(allEpisodes) ? allEpisodes : Object.values(allEpisodes).flat();
-        flatEpisodes.forEach(ep => {
-            if (ep.releaseDate) {
-                const d = new Date(ep.releaseDate);
-                if (!isNaN(d.getTime()) && isDateRecent(ep.releaseDate)) {
-                    maxTimestamp = Math.max(maxTimestamp, d.getTime());
-                }
-            }
-        });
-    }
-
-    return maxTimestamp;
-}
-
-function shuffleArray(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-    }
-}
-
-// ===========================================================
-// 10. 🎯 EXPORTAR PARA USO GLOBAL (Solo funciones principales)
-// ===========================================================
-window.ErrorHandler = ErrorHandler;
-window.cacheManager = cacheManager;
-window.lazyLoader = lazyLoader;
-window.showCacheStats = () => {
-    const stats = {
-        itemCount: localStorage.length,
-        version: cacheManager.version,
-        contentCached: !!cacheManager.get(cacheManager.keys.content),
-        metadataCached: !!cacheManager.get(cacheManager.keys.metadata)
-    };
-    console.table(stats);
-    return stats;
-};
-
-// ===========================================================
-// GESTIÓN DE VISIBILIDAD (OPTIMIZADA PARA GPU)
-// ===========================================================
-function setupPageVisibilityHandler() {
-    document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-            // 💤 EL USUARIO SE FUE: MODO AHORRO TOTAL
-            
-            // 1. Detener carrusel del Hero
-            clearInterval(appState.ui.heroInterval);
-            
-            // 2. Añadir clase para pausar CSS (Luces, brillos, transiciones)
-            document.body.classList.add('tab-inactive');
-            
-        } else {
-            // ⚡ EL USUARIO VOLVIÓ: REINICIO SUAVE
-            
-            // 1. Quitar la pausa CSS
-            document.body.classList.remove('tab-inactive');
-            
-            // 2. NO forzar el Hero inmediatamente. Esperar 1 segundo.
-            // Esto da tiempo al navegador a recuperar texturas sin bloquearse.
-            setTimeout(() => {
-                startHeroInterval();
-                
-                // Pequeño truco sutil para despertar el renderizado sin ser agresivo
-                if (DOM.heroSection) {
-                    DOM.heroSection.style.transform = 'translateZ(0)'; 
-                }
-            }, 1000); 
-        }
-    });
-}
-
-// ===========================================================
-// SISTEMA DE RESEÑAS (VERSIÓN ÚNICA Y CORREGIDA)
-// ===========================================================
-
-// Exportamos funciones al objeto global para que el HTML las vea
-window.closeAllModals = closeAllModals;
-// 🔥 openFullReview y deleteReview ahora están en el módulo de reviews
-
-
-// ===========================================================
-// SISTEMA DE CÁLCULO DE PROMEDIOS (RATINGS)
-// ===========================================================
-
-
-
-
-// ===========================================================
-// SISTEMA DE RESEÑAS (CONFIGURACIÓN BLINDADA)
-// ===========================================================
-
-// ===========================================================
-// 🆕 FUNCIÓN: openReviewModal (Contextual)
-// ===========================================================
-
-// ===========================================================
-// 🆕 FUNCIÓN AUXILIAR: Cargar todas las opciones de contenido
-// ===========================================================
-
-
-
-
-function renderSagasHub() {
-    const container = document.getElementById('sagas-grid-dynamic');
-    if (!container) return;
-    const sagas = Object.values(appState.content.sagasList || {});
-    sagas.sort((a, b) => (Number(a.order) || 99) - (Number(b.order) || 99));
-    container.innerHTML = '';
-    sagas.forEach(saga => {
-        const card = document.createElement('div');
-        card.className = 'saga-card';
-        card.style.setProperty('--hover-color', saga.color || '#fff');
-        if (saga.banner) card.style.backgroundImage = `url('${saga.banner}')`;
-        card.onclick = () => switchView(saga.id);
-        card.innerHTML = `<img src="${saga.logo}" alt="${saga.title}" class="saga-logo">`;
         container.appendChild(card);
     });
 }
 
-export function findContentData(id) {
-    const c = appState.content;
-    // 1. Buscar en películas y series base
-    if (c.movies[id]) return c.movies[id];
-    if (c.series[id]) return c.series[id];
-    // 2. Buscar en el hub de sagas dinámicas (Star Wars, Marvel, HP, etc.)
-    if (c.sagas) {
-        for (const sagaKey in c.sagas) {
-            if (c.sagas[sagaKey][id]) return c.sagas[sagaKey][id];
-        }
-    }
-    // 3. Fallback para UCM (si aún se usa como objeto separado)
-    if (c.ucm && c.ucm[id]) return c.ucm[id];
-    return null;
-}
-
-window.adminForceUpdate = () => { safeClearStorage(); location.reload(); };
-
-// 🔄 REFRESH LOCAL: Recarga datos sin recargar la página
-window.adminLocalRefresh = async () => {
-    const btn = document.getElementById('admin-local-refresh-btn');
-    if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-    }
+// 5. REPRODUCTOR DE EPISODIOS (CON DETECTOR DE IDIOMA INTELIGENTE)
+async function renderEpisodePlayer(seriesId, seasonNum, startAtIndex = null) {
     try {
-        const [series, episodes, allMovies, posters, sagasListData] = await Promise.all([
-            ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=series`),
-            ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=episodes`),
-            ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=allMovies&order=desc`),
-            ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=PostersTemporadas`),
-            ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=sagas_list`)
-        ]);
-
-        const sagasArray = Object.values(sagasListData || {});
-        const sagasResults = await Promise.all(
-            sagasArray.map(saga =>
-                ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=${saga.id}`)
-                .then(data => ({ id: saga.id, data }))
-            )
-        );
-
-        const freshContent = { allMovies, series, episodes, posters, sagas_list: sagasListData };
-        sagasResults.forEach(item => { freshContent[item.id] = item.data; });
-
-        processDataPublic(freshContent);
-        cacheManager.set(cacheManager.keys.content, freshContent);
-
-        // Re-renderizar la vista actual
-        const activeNav = document.querySelector('[data-filter].active');
-        const currentFilter = activeNav?.dataset.filter || 'all';
-        switchView(currentFilter);
-
-        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sync-alt"></i>'; }
-        ErrorHandler.show('content', '✓ Datos actualizados localmente', 2000);
-        console.log('✓ Refresh local completado');
-    } catch(e) {
-        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sync-alt"></i>'; }
-        console.error('Error en refresh local:', e);
-    }
-};
-
-// Limpia el caché preservando datos de usuario importantes
-function safeClearStorage() {
-    const preserve = ['silencedRequests', 'notifViewCounts', 'annViewCounts'];
-    const saved = {};
-    preserve.forEach(k => { try { saved[k] = localStorage.getItem(k); } catch {} });
-    localStorage.clear();
-    preserve.forEach(k => { if (saved[k] != null) localStorage.setItem(k, saved[k]); });
-}
-window.safeClearStorage = safeClearStorage;
-
-// ==========================================
-// 8. MANEJO DE RECUPERACIÓN DE CONTRASEÑA (NIVEL PROFESIONAL)
-// ==========================================
-function checkResetPasswordMode() {
-    // 1. Verificamos si la URL tiene los parámetros mágicos de Firebase
-    const urlParams = new URLSearchParams(window.location.search);
-    const mode = urlParams.get('mode');      // Debe ser 'resetPassword'
-    const actionCode = urlParams.get('oobCode'); // El código único de seguridad
-
-    // Si detectamos que el usuario viene del correo...
-    if (mode === 'resetPassword' && actionCode) {
+        shared.appState.player.activeSeriesId = seriesId;
+        const savedEpisodeIndex = loadProgress(seriesId, seasonNum);
+        const initialEpisodeIndex = startAtIndex !== null ? startAtIndex : savedEpisodeIndex;
         
-        // A. Limpiamos la URL para que no se vea fea (quita los parámetros visualmente)
-        window.history.replaceState({}, document.title, window.location.pathname);
-
-        // B. Abrimos el modal especial
-        const modal = document.getElementById('new-password-modal');
-        if (modal) {
-            modal.classList.add('show');
-            document.body.classList.add('modal-open');
+        // Obtener episodios para analizar idiomas
+        const episodes = shared.appState.content.seriesEpisodes[seriesId]?.[seasonNum] || [];
+        const firstEpisode = episodes[0];
+        
+        if (!firstEpisode) {
+            console.error("No hay episodios para renderizar.");
+            return;
         }
 
-        // C. Configuramos el ojo para ver la contraseña (reutilizando lógica)
-        const toggleIcon = document.getElementById('toggle-new-pass');
-        const inputPass = document.getElementById('new-password-input');
+        // --- 🧠 LÓGICA DE IDIOMAS DINÁMICA ---
+        const seriesTracks = getLangTracks(firstEpisode);
+        const hasLangOptions = seriesTracks.length > 1;
+        let initialLang = seriesTracks[0]?.lang || 'en';
+        if (!hasLangOptions && seriesTracks[0]?.lang === 'es') initialLang = 'es';
+
+        shared.appState.player.state[seriesId] = { 
+            season: seasonNum, 
+            episodeIndex: initialEpisodeIndex, 
+            lang: initialLang 
+        };
+
+        const langControlsHTML = hasLangOptions
+            ? `<div class="lang-controls">
+                ${seriesTracks.map(t => `<button class="lang-btn-movie ${t.lang === initialLang ? 'active' : ''}" data-lang="${t.lang}">${t.label}</button>`).join('')}
+               </div>`
+            : '';
+
+        const movieLangHTML = hasLangOptions
+            ? `<div class="movie-lang-selection">
+                ${seriesTracks.map(t => `<button class="lang-select-btn ${t.lang === initialLang ? 'active' : ''}" data-lang="${t.lang}">${t.label}</button>`).join('')}
+               </div>`
+            : '';
         
-        if(toggleIcon && inputPass) {
-            // Clonamos para asegurar limpieza de eventos
-            const newToggle = toggleIcon.cloneNode(true);
-            toggleIcon.parentNode.replaceChild(newToggle, toggleIcon);
+        // --- RESTO DE VARIABLES ---
+        const seasonLower = String(seasonNum).toLowerCase();
+        const isSpecialContent = seasonLower.includes('pelicula') || 
+                                seasonLower.includes('película') || 
+                                seasonLower.includes('especial') || 
+                                seasonLower.includes('ova') || 
+                                seasonLower.includes('movie') || 
+                                seasonLower.includes('special');
+        
+        const isSingleMovie = isSpecialContent && episodes.length === 1;
+
+        const postersData = shared.appState.content.seasonPosters[seriesId]?.[seasonNum] || {};
+        const seriesInfo = findContentData(seriesId) || {};
+
+        const movieYear = postersData.year || postersData.anio || '';
+        const movieDuration = postersData.duration || postersData.duracion || '';
+        const movieRequester = postersData.pedido || postersData.pedidoPor || '';
+        
+        let specificPoster = postersData.poster || postersData.posterUrl;
+        if (!specificPoster) specificPoster = seriesInfo.poster; 
+
+        const movieSynopsis = postersData.sinopsis || firstEpisode.description || "Sinopsis no disponible.";
+        
+        // TÍTULO CORRECTO: Para películas/especiales usar el título del episodio, para series usar el de la serie
+        const displayTitle = isSpecialContent && firstEpisode.title 
+            ? firstEpisode.title 
+            : seriesInfo.title || firstEpisode.title || 'Sin título';
+        
+        const seasonsCount = Object.keys(shared.appState.content.seriesEpisodes[seriesId] || {}).length;
+        const backButtonHTML = seasonsCount > 1 
+            ? `<button class="player-back-link back-to-seasons"><i class="fas fa-arrow-left"></i> Temporadas</button>` 
+            : '';
+
+        shared.DOM.seriesPlayerModal.className = 'modal show player-layout-view';
+
+        // Calcular hora de término igual que cinema modal
+        const finishTime = movieDuration ? calculateFinishTime(movieDuration) : null;
+        const endTimeHTML = finishTime
+            ? `<span class="meta-tag" style="display:inline-flex;align-items:center;">
+                   <i class="fas fa-flag-checkered" style="color:#ff4d4d;"></i>
+                   <span style="opacity:0.9;margin-left:5px;">Terminas de ver a las <strong style="color:#fff;">${finishTime}</strong> aprox.</span>
+               </span>`
+            : '';
+
+        // =========================================================
+        // MODO A: PELÍCULA / ESPECIAL  (layout idéntico al cinema modal)
+        // =========================================================
+        if (isSingleMovie) {
+            shared.DOM.seriesPlayerModal.innerHTML = `
+                <button class="close-btn">&times;</button>
+                <div class="player-layout-container movie-mode">
+                    <div class="movie-player-container">
+                        <h2 id="cinema-title-${seriesId}" class="movie-player-title cinema-title-above">${displayTitle}</h2>
+                        <div class="screen"><iframe id="video-frame-${seriesId}" src="" allowfullscreen allow="autoplay; fullscreen; encrypted-media; picture-in-picture"></iframe></div>
+                        ${movieLangHTML}
+                    </div>
+                    <div class="movie-info-sidebar">
+                        <div class="movie-info-sidebar-inner">
+                            ${backButtonHTML}
+                            <div class="movie-poster-container">
+                                <img src="${specificPoster}" alt="Poster" onerror="this.src='https://via.placeholder.com/150'">
+                            </div>
+                            <div class="movie-details-info">
+                                <div class="movie-meta-info">
+                                    ${movieRequester ? `<span class="meta-tag request-tag"><i class="fas fa-user-circle"></i> ${movieRequester}</span>` : ''}
+                                    ${movieYear ? `<span class="meta-tag"><i class="fas fa-calendar"></i> ${movieYear}</span>` : ''}
+                                    ${movieDuration ? `<span class="meta-tag"><i class="fas fa-clock"></i> ${movieDuration}</span>` : ''}
+                                    ${endTimeHTML}
+                                </div>
+                                <p id="cinema-synopsis-sp" class="movie-synopsis">${movieSynopsis}</p>
+                                <div class="cinema-controls-sp">
+                                    <button id="btn-review-player-${seriesId}" class="btn btn-review"><i class="fas fa-star"></i> Escribir Reseña</button>
+                                    <button class="btn btn-report-sp"><i class="fas fa-flag"></i> Reportar problema</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+        } else {
+            // =========================================================
+            // MODO B: SERIE NORMAL
+            // =========================================================
+            shared.DOM.seriesPlayerModal.innerHTML = `
+                <button class="close-btn">&times;</button>
+                <div class="player-layout-container">
+                    <div class="player-container">
+                        <h3 class="series-main-title">${seriesInfo.title || 'Serie'}</h3>
+                        <h2 id="cinema-title-${seriesId}" class="player-title"></h2>
+                        <div class="screen"><iframe id="video-frame-${seriesId}" src="" allowfullscreen allow="autoplay; fullscreen; encrypted-media; picture-in-picture"></iframe></div>
+                        <div class="pagination-controls">
+                            <button class="episode-nav-btn" id="prev-btn-${seriesId}"><i class="fas fa-chevron-left"></i> Anterior</button>
+                            ${langControlsHTML} <button class="episode-nav-btn" id="next-btn-${seriesId}">Siguiente <i class="fas fa-chevron-right"></i></button>
+                        </div>
+                    </div>
+                    <div class="episode-sidebar">
+                        <div class="sidebar-header">
+                            ${backButtonHTML}
+                            <div class="sidebar-title-row">
+                                <h2>Episodios</h2>
+                            </div>
+                        </div>
+                        <div id="episode-list-${seriesId}" class="episode-list-container"></div>
+                    </div>
+                </div>
+            `;
             
-            newToggle.addEventListener('click', () => {
-                const isPass = inputPass.type === 'password';
-                inputPass.type = isPass ? 'text' : 'password';
-                newToggle.classList.toggle('fa-eye');
-                newToggle.classList.toggle('fa-eye-slash');
-            });
+            const prevBtn = shared.DOM.seriesPlayerModal.querySelector(`#prev-btn-${seriesId}`);
+            const nextBtn = shared.DOM.seriesPlayerModal.querySelector(`#next-btn-${seriesId}`);
+            if(prevBtn) prevBtn.onclick = () => navigateEpisode(seriesId, -1);
+            if(nextBtn) nextBtn.onclick = () => navigateEpisode(seriesId, 1);
         }
 
-        // D. Manejamos el envío del formulario
-        const form = document.getElementById('new-password-form');
-        const feedback = document.getElementById('new-pass-feedback');
+        // LISTENERS COMUNES
+        shared.DOM.seriesPlayerModal.querySelector('.close-btn').onclick = closeSeriesPlayerModal;
         
-        if (form) {
-            form.onsubmit = async (e) => {
-                e.preventDefault();
-                const newPassword = inputPass.value;
-                const btn = form.querySelector('button');
+        shared.DOM.seriesPlayerModal.querySelectorAll(`.lang-btn-movie, .lang-select-btn`).forEach(btn => {
+            btn.onclick = () => {
+                shared.DOM.seriesPlayerModal.querySelectorAll('.lang-btn-movie, .lang-select-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                changeLanguage(seriesId, btn.dataset.lang);
+            };
+        });
+        
+        const backButton = shared.DOM.seriesPlayerModal.querySelector('.player-back-link.back-to-seasons');
+        if (backButton) backButton.onclick = () => renderSeasonGrid(seriesId);
+        
+        
+        
+        // BOTÓN DE RESEÑA (solo en modo película)
+        const reviewBtn = shared.DOM.seriesPlayerModal.querySelector(`#btn-review-player-${seriesId}`);
+        
+        if (reviewBtn) {
+            reviewBtn.onclick = () => {
+                let correctTitle = '';
+                let correctType = 'movie';
+                if (isSpecialContent || isSingleMovie) {
+                    correctTitle = displayTitle;
+                    correctType = 'movie';
+                } else {
+                    correctTitle = seriesInfo.title || displayTitle;
+                    correctType = 'series';
+                }
+                if (window.openSmartReviewModal) {
+                    window.openSmartReviewModal(seriesId, correctType, correctTitle);
+                } else {
+                    console.error("La función window.openSmartReviewModal no está definida en script.js");
+                }
+            };
+        }
 
-                // Estado de carga
-                btn.disabled = true;
-                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
-                feedback.textContent = "";
-
+        // Botón Reportar problema (solo en modo película)
+        const reportBtnSp = shared.DOM.seriesPlayerModal.querySelector('.btn-report-sp');
+        if (reportBtnSp) {
+            reportBtnSp.onclick = async () => {
                 try {
-                    // 🔥 LA MAGIA: Confirmamos el cambio en Firebase usando el código
-                    await auth.confirmPasswordReset(actionCode, newPassword);
-                    
-                    // Éxito visual
-                    feedback.style.color = '#4cd137'; // Verde
-                    feedback.textContent = "¡Contraseña actualizada correctamente!";
-                    btn.textContent = "¡Listo!";
-                    
-                    // Esperar 2 segundos y abrir el login normal para que entre
-                    setTimeout(() => {
-                        modal.classList.remove('show'); // Cerrar modal de reset
-                        if(window.openAuthModal) window.openAuthModal(true); // Abrir login
-                    }, 2000);
+                    const rptMod = await import('./features/reports.js');
+                    rptMod.openReportModal({ contentId: seriesId, contentTitle: displayTitle, contentType: 'movie' });
+                } catch(e) {
+                    console.error('Error al abrir reporte:', e);
+                }
+            };
+        }
 
-                } catch (error) {
-                    console.error("Error reset password:", error);
-                    btn.disabled = false;
-                    btn.textContent = "Guardar Nueva Contraseña";
-                    feedback.style.color = '#ff4d4d'; // Rojo
+        // Botón Ver más / Ver menos en sinopsis
+        if (isSingleMovie) {
+            const synopsisEl = shared.DOM.seriesPlayerModal.querySelector('#cinema-synopsis-sp');
+            if (synopsisEl) {
+                // Solo mostrar botón si el texto está realmente recortado
+                requestAnimationFrame(() => {
+                    const isClamped = synopsisEl.scrollHeight > synopsisEl.clientHeight + 2;
+                    if (isClamped) {
+                        const toggleBtn = document.createElement('button');
+                        toggleBtn.className = 'synopsis-toggle-btn';
+                        toggleBtn.textContent = 'Leer sinopsis ▾';
+                        toggleBtn.onclick = () => {
+                            const isExpanded = synopsisEl.classList.toggle('expanded');
+                            toggleBtn.textContent = isExpanded ? 'Ver menos ▴' : 'Leer sinopsis ▾';
+                        };
+                        synopsisEl.insertAdjacentElement('afterend', toggleBtn);
+                    }
+                });
+            }
+        }
+        if (!isSingleMovie) populateEpisodeList(seriesId, seasonNum);
+        
+        openEpisode(seriesId, seasonNum, initialEpisodeIndex);
+
+    } catch (e) {
+        logError(e, 'Player: Render Episode');
+        shared.ErrorHandler.show('content', 'Error al cargar el episodio.');
+    }
+}
+
+function populateEpisodeList(seriesId, seasonNum) {
+    const container = shared.DOM.seriesPlayerModal.querySelector(`#episode-list-${seriesId}`);
+    const episodes = shared.appState.content.seriesEpisodes[seriesId]?.[seasonNum];
+    if (!container || !episodes) return;
+    
+    container.innerHTML = '';
+
+    episodes.sort((a, b) => a.episodeNumber - b.episodeNumber).forEach((episode, index) => {
+        const card = document.createElement('div');
+        card.className = 'episode-card';
+        card.id = `episode-card-${seriesId}-${seasonNum}-${index}`;
+        card.addEventListener('click', () => openEpisode(seriesId, seasonNum, index));
+        card.addEventListener('mouseenter', () => {
+            setTimeout(() => {
+                card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 150); // Espera que empiece la animación CSS
+        });
+
+        card.innerHTML = `
+            <img src="${episode.thumbnail || ''}" alt="${episode.title || ''}" class="episode-card-thumb" loading="lazy">
+            <div class="episode-card-info">
+                <h3>${episode.episodeNumber || index + 1}. ${episode.title || ''}</h3>
+                <p class="episode-description">${episode.description || ''}</p>
+            </div>`;
+        container.appendChild(card);
+    });
+}
+
+function openEpisode(seriesId, season, newEpisodeIndex) {
+    const episode = shared.appState.content.seriesEpisodes[seriesId]?.[season]?.[newEpisodeIndex];
+    if (!episode) return;
+    
+    clearTimeout(shared.appState.player.episodeOpenTimer);
+    shared.appState.player.pendingHistorySave = null;
+
+    shared.appState.player.episodeOpenTimer = setTimeout(() => {
+        shared.appState.player.pendingHistorySave = {
+            contentId: seriesId,
+            type: 'series',
+            episodeInfo: { season: season, index: newEpisodeIndex, title: episode.title || '' }
+        };
+    }, 3000); // 🔥 CORREGIDO: 3 segundos en lugar de 20 
+
+    shared.DOM.seriesPlayerModal.querySelectorAll(`.episode-card.active`).forEach(c => c.classList.remove('active'));
+    const activeCard = shared.DOM.seriesPlayerModal.querySelector(`#episode-card-${seriesId}-${season}-${newEpisodeIndex}`);
+    if (activeCard) {
+        activeCard.classList.add('active');
+        activeCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    
+    shared.appState.player.state[seriesId] = { ...shared.appState.player.state[seriesId], season, episodeIndex: newEpisodeIndex };
+    saveProgress(seriesId);
+    
+    const iframe = shared.DOM.seriesPlayerModal.querySelector(`#video-frame-${seriesId}`);
+    const lang = shared.appState.player.state[seriesId]?.lang || 'es';
+    
+    let videoId;
+    if (lang === 'en' && episode.videoId_en) videoId = episode.videoId_en;
+    else if (lang === 'es' && episode.videoId_es) videoId = episode.videoId_es;
+    else if (lang === 'jp' && (episode.videoId_jp || episode.videoId_alt)) videoId = episode.videoId_jp || episode.videoId_alt;
+    else videoId = episode.videoId;
+
+    if (iframe) iframe.src = videoId ? `https://drive.google.com/file/d/${videoId}/preview?rm=minimal` : '';
+    
+    const episodeNumber = episode.episodeNumber || newEpisodeIndex + 1;
+    const titleEl = shared.DOM.seriesPlayerModal.querySelector(`#cinema-title-${seriesId}`);
+    
+    // Detectar si es película/especial/OVA para mostrar solo el título
+    const seasonLower = String(season).toLowerCase();
+    const isSpecialContent = seasonLower.includes('pelicula') || 
+                            seasonLower.includes('película') || 
+                            seasonLower.includes('especial') || 
+                            seasonLower.includes('ova') || 
+                            seasonLower.includes('movie') || 
+                            seasonLower.includes('special');
+    
+    if(titleEl) {
+        if (isSpecialContent) {
+            // Para películas/especiales: solo el título
+            titleEl.textContent = episode.title || '';
+        } else {
+            // Detectar si la serie tiene más de una temporada
+            const totalSeasons = Object.keys(shared.appState.content.seriesEpisodes[seriesId] || {}).length;
+            if (totalSeasons > 1) {
+                // Multi-temporada: "T1 E1 - Título"
+                titleEl.textContent = `T${String(season).replace('T', '')} E${episodeNumber} - ${episode.title || ''}`;
+            } else {
+                // Una sola temporada: "Episodio 1 - Título"
+                titleEl.textContent = `Episodio ${episodeNumber} - ${episode.title || ''}`;
+            }
+        }
+    }
+    
+    shared.DOM.seriesPlayerModal.querySelectorAll(`.lang-btn`).forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.lang === lang);
+    });
+    
+    updateNavButtons(seriesId, season, newEpisodeIndex);
+}
+
+function navigateEpisode(seriesId, direction) {
+    commitAndClearPendingSave();
+    const { season, episodeIndex } = shared.appState.player.state[seriesId];
+    const newIndex = episodeIndex + direction;
+    const seasonEpisodes = shared.appState.content.seriesEpisodes[seriesId][season];
+    if (newIndex >= 0 && newIndex < seasonEpisodes.length) {
+        openEpisode(seriesId, season, newIndex);
+    }
+}
+
+function updateNavButtons(seriesId, season, episodeIndex) {
+    const totalEpisodes = shared.appState.content.seriesEpisodes[seriesId][season].length;
+    const prevBtn = shared.DOM.seriesPlayerModal.querySelector(`#prev-btn-${seriesId}`);
+    const nextBtn = shared.DOM.seriesPlayerModal.querySelector(`#next-btn-${seriesId}`);
+    
+    if(prevBtn) prevBtn.disabled = (episodeIndex === 0);
+    if(nextBtn) nextBtn.disabled = (episodeIndex === totalEpisodes - 1);
+}
+
+function changeLanguage(seriesId, lang) {
+    shared.appState.player.state[seriesId].lang = lang;
+    const { season, episodeIndex } = shared.appState.player.state[seriesId];
+    openEpisode(seriesId, season, episodeIndex);
+}
+
+// 6. REPRODUCTOR DE PELÍCULAS (FORMATO COMPLETO CON INFORMACIÓN CORRECTA)
+export function openPlayerModal(movieId, movieTitle) {
+    try {
+        shared.closeAllModals();
+        
+        // 🔥 USAMOS EL BUSCADOR INTELIGENTE
+        const movieData = findContentData(movieId);
+
+        if (!movieData) {
+            logError(`Película no encontrada: ${movieId}`, 'Player: Open Movie', 'warning');
+            shared.ErrorHandler.show(shared.ErrorHandler.types.CONTENT, 'No se pudo cargar la película.');
+            return;
+        }
+
+        // 🚫 VERIFICAR SI LA PELÍCULA ESTÁ VETADA
+        if (movieData.estado && movieData.estado.toLowerCase() === 'vetada') {
+            console.warn('⚠️ Intento de reproducir película vetada:', movieId);
+            shared.ErrorHandler.show(
+                shared.ErrorHandler.types.CONTENT, 
+                'Esta película no está disponible para reproducción.'
+            );
+            return; // Bloquear completamente la reproducción
+        }
+
+        const hasSpanish = !!(movieData.videoId_es && movieData.videoId_es.trim());
+        const hasEnglish = !!(movieData.videoId_en && movieData.videoId_en.trim());
+        const hasMultipleLangs = hasSpanish && hasEnglish;
+        // Mostrar modal
+        shared.DOM.cinemaModal.classList.add('show');
+        document.body.classList.add('modal-open');
+
+        // 1. ACTUALIZAR POSTER (de la columna "poster" de la misma hoja)
+        const posterImg = shared.DOM.cinemaModal.querySelector('#cinema-poster');
+        if (posterImg) {
+            posterImg.src = movieData.poster || movieData.image || '';
+            posterImg.alt = movieData.title || 'Poster';
+        }
+
+        // 2. ACTUALIZAR TÍTULO
+        const titleElement = shared.DOM.cinemaModal.querySelector('#cinema-title');
+        if (titleElement) {
+            titleElement.textContent = movieTitle || movieData.title || "Película";
+        }
+
+        // 3. ACTUALIZAR META INFORMACIÓN - ORDEN: Pedido, Año, Duración
+        const requesterEl = shared.DOM.cinemaModal.querySelector('#cinema-requester');
+        const yearEl = shared.DOM.cinemaModal.querySelector('#cinema-year');
+        const durationEl = shared.DOM.cinemaModal.querySelector('#cinema-duration');
+
+        // 1. Solicitante (de la columna "pedido") - PRIMERO
+        if (requesterEl) {
+            requesterEl.textContent = movieData.pedido || movieData.requester || 'Anónimo';
+            requesterEl.style.display = (movieData.pedido || movieData.requester) ? 'inline-flex' : 'none';
+        }
+
+        // 2. Año - SEGUNDO
+        if (yearEl) {
+            // Buscamos en 'year' O en 'anio' y quitamos espacios vacíos
+            const finalYear = (movieData.year || movieData.anio || '').toString().trim();
+            
+            if (finalYear.length > 0) {
+                yearEl.textContent = finalYear;
+                yearEl.style.display = 'inline-flex';
+            } else {
+                // Si no hay año real, ocultamos TODO (incluido el icono)
+                yearEl.style.display = 'none';
+            }
+        }
+
+        // 3. Duración (de la columna "duration") - TERCERO
+        if (durationEl) {
+            durationEl.textContent = movieData.duration || 'Duration';
+            durationEl.style.display = 'inline-flex';
+        }
+
+        // 🔥 4. NUEVO: HORA DE TÉRMINO CALCULADA (MEJORADA)
+        let endTimeEl = shared.DOM.cinemaModal.querySelector('#cinema-endtime');
+        const metaContainer = shared.DOM.cinemaModal.querySelector('.movie-meta-info');
+
+        if (movieData.duration) {
+            const finishTime = calculateFinishTime(movieData.duration);
+            
+            if (finishTime) {
+                if (!endTimeEl && metaContainer) {
+                    endTimeEl = document.createElement('div'); // Usamos div o span
+                    endTimeEl.id = 'cinema-endtime';
                     
-                    // Mensajes de error amigables
-                    if (error.code === 'auth/expired-action-code') {
-                        feedback.textContent = "El enlace ha expirado. Solicita uno nuevo.";
-                    } else if (error.code === 'auth/invalid-action-code') {
-                        feedback.textContent = "El enlace ya fue usado o no es válido.";
-                    } else if (error.code === 'auth/weak-password') {
-                        feedback.textContent = "La contraseña es muy débil (mínimo 6 caracteres).";
+                    if (durationEl && durationEl.nextSibling) {
+                        metaContainer.insertBefore(endTimeEl, durationEl.nextSibling);
                     } else {
-                        feedback.textContent = "Ocurrió un error. Intenta nuevamente.";
+                        metaContainer.appendChild(endTimeEl);
                     }
                 }
-            };
-        }
-    }
-}
-
-// ===========================================================
-// EXPORTS GLOBALES (Para compatibilidad)
-// ===========================================================
-window.closeAllModals = () => ModalManager.closeAll();
-window.ErrorHandler = ErrorHandler;
-window.ContentManager = ContentManager;
-window.cacheManager = cacheManager;
-
-console.log('✅ Cine Corneta v9.6 cargado correctamente');
-// ===========================================================
-// COMPATIBILIDAD: Funciones que ahora están en el módulo
-// ===========================================================
-
-function setupRatingsListener() {
-    console.log('ℹ️ setupRatingsListener: Ya configurado en el módulo de reviews');
-}
-
-function getStarsHTML(rating, isSmall = true) {
-    // Usar la función del módulo si está disponible
-    if (reviewsModule && reviewsModule.getStarsHTML) {
-        return reviewsModule.getStarsHTML(rating, isSmall);
-    }
-    // Fallback simple si el módulo no está listo
-    if (!rating || rating === "0.0" || rating === 0) return '';
-    return `
-        <div class="star-rating-display ${isSmall ? 'small' : 'large'}" 
-             title="${rating} de 5 estrellas">
-            <i class="fas fa-star"></i>
-            <span class="rating-number">${rating}</span>
-        </div>
-    `;
-}
-
-function updateVisibleRatings() {
-    // Esta función también está en el módulo, pero por compatibilidad
-    document.querySelectorAll('.movie-card').forEach(card => {
-        const contentId = card.dataset.contentId;
-        const ratingContainer = card.querySelector('.card-rating-container');
-        
-        if (ratingContainer && contentId && appState.content.averages) {
-            const rating = appState.content.averages[contentId];
-            ratingContainer.innerHTML = getStarsHTML(rating, true);
-        }
-    });
-}
-
-// ===========================================================
-// SISTEMA DE NOTIFICACIONES (TOASTS)
-// ===========================================================
-window.showNotification = function(message, type = 'success') {
-    const container = document.getElementById('toast-container');
-    if (!container) return;
-
-    // Crear elemento
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    
-    // Icono según tipo
-    const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
-    const color = type === 'success' ? '#2ecc71' : '#e74c3c';
-
-    toast.innerHTML = `
-        <i class="fas ${icon} toast-icon" style="color: ${color}"></i>
-        <span class="toast-message">${message}</span>
-    `;
-
-    // Agregar al DOM
-    container.appendChild(toast);
-
-    // Eliminar automáticamente después de 3 segundos
-    setTimeout(() => {
-        toast.style.animation = 'fadeOutToast 0.5s ease forwards';
-        setTimeout(() => toast.remove(), 500);
-    }, 3000);
-};
-
-// ===========================================================
-// ✅ FUNCIÓN GLOBAL PARA ABRIR RESEÑAS DESDE CUALQUIER LADO
-// ===========================================================
-window.openSmartReviewModal = async (contentId, type, title) => {
-    // 1. Verificar Auth
-    if (!firebase.auth().currentUser) {
-        if (window.openConfirmationModal) {
-            window.openConfirmationModal(
-                "Inicia Sesión", 
-                "Necesitas una cuenta para escribir reseñas.", 
-                () => window.openAuthModal(true)
-            );
-        }
-        return;
-    }
-
-    // 2. Cargar módulo dinámicamente (si no está cargado)
-    // Nota: Usamos la variable reviewsModule que definiste arriba en script.js
-    // Si no tienes acceso a ella directamente aquí, importamos de nuevo es seguro.
-    const module = await import('./features/reviews.js?v=8');
-    
-    // 3. Cerrar modales que estorben (opcional, pero recomendado)
-    // Si quieres que el reproductor se cierre al reseñar:
-    // window.closeAllModals(); 
-    // O si prefieres que se quede abierto de fondo, comenta la línea de arriba.
-
-    // 4. Abrir el modal con los datos pre-cargados
-    // true = modo contextual (pre-seleccionado)
-    module.initReviews({ appState, DOM, auth, db, ErrorHandler: window.ErrorHandler, ModalManager: window.ModalManager }); // Re-init rápido por seguridad
-    
-    // Pequeño delay para asegurar que el DOM esté listo
-    setTimeout(() => {
-        module.openReviewModal(true, {
-            contentId: contentId,
-            contentTitle: title,
-            contentType: type
-        });
-    }, 50);
-};
-
-// ===========================================================
-// 🚪 LOGOUT - VERSIÓN ULTRA FINAL QUE EJECUTA EN TOUCH
-// ===========================================================
-
-// Función para mostrar el modal de logout
-function mostrarModalLogout() {
-    console.log('🚀 Mostrando modal de logout');
-    
-    const confirmModal = document.getElementById('confirmation-modal');
-    if (!confirmModal) {
-        console.error('❌ Modal no encontrado');
-        if (confirm('¿Cerrar sesión?')) {
-            ejecutarLogout();
-        }
-        return;
-    }
-
-    const confirmTitle = confirmModal.querySelector('h2');
-    const confirmText = confirmModal.querySelector('p');
-    const confirmBtn = document.getElementById('confirm-delete-btn');
-    const cancelBtn = document.getElementById('cancel-delete-btn');
-    const modalContent = confirmModal.querySelector('.confirmation-modal-content');
-
-    // Configurar texto
-    if (confirmTitle) confirmTitle.textContent = '¿Cerrar sesión?';
-    if (confirmText) confirmText.textContent = 'Se cerrará tu sesión y volverás al modo invitado.';
-    if (confirmBtn) confirmBtn.textContent = 'Cerrar Sesión';
-    
-    // Evitar que los clicks en el contenido se propaguen
-    if (modalContent) {
-        modalContent.onclick = (e) => {
-            e.stopPropagation();
-        };
-    }
-    
-    // Mostrar modal
-    confirmModal.style.display = 'flex';
-    confirmModal.style.zIndex = '99999';
-    confirmModal.style.pointerEvents = 'auto';
-    
-    setTimeout(() => {
-        document.body.classList.add('modal-open');
-        confirmModal.classList.add('show');
-    }, 10);
-
-    // ✅ BOTÓN CONFIRMAR
-    if (confirmBtn) {
-        // Limpiar listeners previos clonando el botón
-        const newConfirmBtn = confirmBtn.cloneNode(true);
-        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
-        
-        // Variable para evitar doble ejecución
-        let confirmExecuted = false;
-        
-        const executeConfirm = (e) => {
-            if (confirmExecuted) return;
-            confirmExecuted = true;
-            
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-            
-            console.log('✅ Logout confirmado - EJECUTANDO');
-            cerrarModal(confirmModal);
-            ejecutarLogout();
-        };
-        
-        // Método 1: touchstart (PRIMARIO en móvil)
-        newConfirmBtn.addEventListener('touchstart', executeConfirm, { passive: false });
-        
-        // Método 2: click (BACKUP para desktop)
-        newConfirmBtn.addEventListener('click', executeConfirm, true);
-        
-        // Método 3: onclick directo (EXTRA BACKUP)
-        newConfirmBtn.onclick = executeConfirm;
-    }
-
-    // ✅ BOTÓN CANCELAR  
-    if (cancelBtn) {
-        const newCancelBtn = cancelBtn.cloneNode(true);
-        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
-        
-        let cancelExecuted = false;
-        
-        const executeCancel = (e) => {
-            if (cancelExecuted) return;
-            cancelExecuted = true;
-            
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-            
-            console.log('❌ Logout cancelado - EJECUTANDO');
-            cerrarModal(confirmModal);
-        };
-        
-        newCancelBtn.addEventListener('touchstart', executeCancel, { passive: false });
-        newCancelBtn.addEventListener('click', executeCancel, true);
-        newCancelBtn.onclick = executeCancel;
-    }
-    
-    // Cerrar al hacer click en el fondo oscuro
-    confirmModal.onclick = (e) => {
-        if (e.target === confirmModal) {
-            console.log('🖱️ Click en fondo - cerrando');
-            cerrarModal(confirmModal);
-        }
-    };
-}
-
-// Función para cerrar el modal
-function cerrarModal(confirmModal) {
-    if (!confirmModal) return;
-    
-    confirmModal.classList.remove('show');
-    document.body.classList.remove('modal-open');
-    
-    setTimeout(() => {
-        confirmModal.style.display = 'none';
-        confirmModal.style.pointerEvents = 'none';
-    }, 300);
-}
-
-// Función para ejecutar el logout
-function ejecutarLogout() {
-    console.log('🔓 Ejecutando logout');
-    
-    if (typeof auth === 'undefined' || !auth) {
-        console.warn('⚠️ Auth no disponible, limpiando solo localStorage');
-        localStorage.removeItem('cineCornetoUser');
-        window.location.reload();
-        return;
-    }
-    
-    auth.signOut().then(() => {
-        console.log('✅ Sesión cerrada en Firebase');
-        localStorage.removeItem('cineCornetoUser');
-        
-        if (typeof appState !== 'undefined') {
-            appState.user = {
-                watchlist: new Set(),
-                historyListenerRef: null
-            };
-            
-            if (appState.user.historyListenerRef) {
-                appState.user.historyListenerRef.off();
-                appState.user.historyListenerRef = null;
-            }
-        }
-        
-        const profileHubEmail = document.getElementById('profile-hub-email');
-        if (profileHubEmail) profileHubEmail.textContent = 'Visitante';
-        
-        const hubLoggedIn = document.getElementById('hub-logged-in-content');
-        const hubGuest = document.getElementById('hub-guest-content');
-        if (hubLoggedIn) hubLoggedIn.style.display = 'none';
-        if (hubGuest) hubGuest.style.display = 'block';
-        
-        setTimeout(() => window.location.reload(), 500);
-        
-    }).catch((error) => {
-        console.error('❌ Error:', error);
-        localStorage.removeItem('cineCornetoUser');
-        window.location.reload();
-    });
-}
-
-// MÉTODO 1: Event delegation con MÚLTIPLES selectores
-document.addEventListener('click', function(e) {
-    const target = e.target;
-    
-    // Buscar si el elemento o algún padre es un botón de logout
-    const logoutBtn = target.closest('#logout-btn') || 
-                      target.closest('#logout-btn-hub') || 
-                      target.closest('#mobile-logout-btn') ||
-                      target.closest('.logout-action') ||
-                      target.closest('a[href="#"][id*="logout"]') ||
-                      target.closest('.profile-hub-menu-item.logout');
-    
-    if (logoutBtn) {
-        e.preventDefault();
-        e.stopPropagation();
-        mostrarModalLogout();
-        return;
-    }
-    
-}, true);
-
-// MÉTODO 2: Listeners directos (BACKUP)
-function attachDirectListeners() {
-    const ids = ['logout-btn', 'logout-btn-hub', 'mobile-logout-btn'];
-    
-    ids.forEach(id => {
-        const btn = document.getElementById(id);
-        if (btn) {
-            btn.removeEventListener('click', handleLogoutClick);
-            btn.addEventListener('click', handleLogoutClick, true);
-            
-            // ✅ AGREGAR TOUCH SUPPORT
-            btn.removeEventListener('touchstart', handleLogoutClick);
-            btn.addEventListener('touchstart', handleLogoutClick, { passive: false });
-        }
-    });
-    
-    const logoutLinks = document.querySelectorAll('.profile-hub-menu-item.logout');
-    logoutLinks.forEach(link => {
-        link.removeEventListener('click', handleLogoutClick);
-        link.addEventListener('click', handleLogoutClick, true);
-        
-        link.removeEventListener('touchstart', handleLogoutClick);
-        link.addEventListener('touchstart', handleLogoutClick, { passive: false });
-    });
-}
-
-function handleLogoutClick(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation();
-    mostrarModalLogout();
-}
-
-// Ejecutar cuando el DOM esté listo
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', attachDirectListeners);
-} else {
-    attachDirectListeners();
-}
-
-// Re-ejecutar después de 1 segundo
-setTimeout(attachDirectListeners, 1000);
-
-// MÉTODO 3: Observador de mutaciones
-const observer = new MutationObserver((mutations) => {
-    mutations.forEach((mutation) => {
-        mutation.addedNodes.forEach((node) => {
-            if (node.nodeType === 1) {
-                if (node.id === 'logout-btn-hub' || 
-                    node.id === 'logout-btn' || 
-                    node.classList?.contains('logout')) {
-                    attachDirectListeners();
-                }
-                const logoutBtns = node.querySelectorAll?.('#logout-btn, #logout-btn-hub, .logout');
-                if (logoutBtns?.length > 0) {
-                    attachDirectListeners();
+                
+                // --- ESTILO Y CONTENIDO MEJORADO ---
+                if (endTimeEl) {
+                    // 1. Aplicamos la clase para que se vea como una "cajita" igual al resto
+                    endTimeEl.className = 'meta-tag'; 
+                    
+                    // 2. Formato: Icono rojo + Texto claro + Hora en negrita
+                    endTimeEl.innerHTML = `
+                        <i class="fas fa-flag-checkered" style="color:#ff4d4d;"></i> 
+                        <span style="opacity: 0.9; margin-left: 5px;">Terminas de ver a las <strong style="color: #fff;">${finishTime}</strong> aprox.</span>
+                    `;
+                    
+                    endTimeEl.style.display = 'inline-flex';
+                    endTimeEl.style.alignItems = 'center';
                 }
             }
-        });
-    });
-});
+        } else {
+            if (endTimeEl) endTimeEl.style.display = 'none';
+        }
 
-observer.observe(document.body, {
-    childList: true,
-    subtree: true
-});
+        // 4.5 ACTUALIZAR SINOPSIS (de la columna "synopsis")
+        const synopsisEl = shared.DOM.cinemaModal.querySelector('#cinema-synopsis');
+        if (synopsisEl) {
+            synopsisEl.textContent = movieData.synopsis || 'Sin sinopsis disponible.';
+        }
+
+        // 5. CONFIGURAR BOTONES DE IDIOMA (DINÁMICO)
+        const tracks = getLangTracks(movieData);
+        const langSelection = shared.DOM.cinemaModal.querySelector('.movie-lang-selection');
+        const langContainer = langSelection?.parentNode;
+
+        if (langSelection) langSelection.remove(); // limpiar anterior
+
+        const iframe = shared.DOM.cinemaModal.querySelector('iframe');
+        if (iframe) iframe.src = '';
+
+        if (tracks.length === 0) {
+            // Sin video registrado
+        } else if (tracks.length === 1) {
+            // Un solo idioma: carga automática sin botones
+            loadMovieInPlayer(tracks[0].id, movieId, movieData);
+        } else {
+            // Múltiples idiomas: botones dinámicos
+            const defaultTrack = tracks[0];
+            loadMovieInPlayer(defaultTrack.id, movieId, movieData);
+
+            const buttonsHTML = buildLangButtonsHTML(tracks, defaultTrack.lang, 'lang-select-btn');
+            const wrapper = shared.DOM.cinemaModal.querySelector('.screen')?.parentNode;
+            if (wrapper) {
+                const div = document.createElement('div');
+                div.className = 'movie-lang-selection';
+                div.innerHTML = tracks.map(t => `
+                    <button class="lang-select-btn ${t.lang === defaultTrack.lang ? 'active' : ''}" data-lang="${t.lang}">
+                        ${t.label}
+                    </button>`).join('');
+                wrapper.appendChild(div);
+
+                div.querySelectorAll('.lang-select-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        div.querySelectorAll('.lang-select-btn').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        const track = tracks.find(t => t.lang === btn.dataset.lang);
+                        if (track) loadMovieInPlayer(track.id, movieId, movieData);
+                    });
+                });
+            }
+        }
+
+        // 6. CONFIGURAR CONTROLES ADICIONALES (Mi Lista + Reseñas)
+        setupMovieControls(movieId, movieData);
+
+    } catch (e) {
+        logError(e, 'Player: Open Modal');
+        shared.ErrorHandler.show('unknown', 'Error al abrir el reproductor.');
+    }
+}
+
+// Helper para cargar la película en el reproductor
+function loadMovieInPlayer(videoId, movieId, movieData) {
+    const iframe = shared.DOM.cinemaModal.querySelector('iframe');
+    if (!iframe) return;
+
+    // Cargar video (el timer ya fue iniciado desde el botón "Ver ahora" en detalles)
+    iframe.src = `https://drive.google.com/file/d/${videoId}/preview?rm=minimal`;
+}
+
+// Helper para configurar controles adicionales (Mi Lista + Reseñas)
+function setupMovieControls(movieId, movieData) {
+    const cinemaControls = shared.DOM.cinemaModal.querySelector('.cinema-controls');
+    if (!cinemaControls) return;
+    
+    let controlsHTML = '';
+    const user = shared.auth.currentUser;
+    
+    // Botón "Mi Lista" (solo si está logueado)
+    if (user) {
+        const isInList = shared.appState.user.watchlist.has(movieId);
+        const iconClass = isInList ? 'fa-check' : 'fa-plus';
+        const buttonClass = isInList ? 'btn-watchlist in-list' : 'btn-watchlist';
+        controlsHTML += `
+            <button class="${buttonClass}" data-content-id="${movieId}">
+                <i class="fas ${iconClass}"></i> 
+                ${isInList ? 'En Mi Lista' : 'Agregar a Mi Lista'}
+            </button>
+        `;
+    }
+    
+    // Botón "Escribir Reseña" (siempre visible)
+    controlsHTML += `
+        <button class="btn-review" data-content-id="${movieId}" data-type="movie">
+            <i class="fas fa-star"></i> 
+            Escribir Reseña
+        </button>
+    `;
+    
+    cinemaControls.innerHTML = controlsHTML;
+    
+    // Event listener para el botón de reseñas
+    const reviewBtn = cinemaControls.querySelector('.btn-review');
+    if (reviewBtn) {
+        reviewBtn.addEventListener('click', () => {
+            // 🔥 CORRECCIÓN: Usar la función global window.openSmartReviewModal
+            if (typeof window.openSmartReviewModal === 'function') {
+                window.openSmartReviewModal(movieId, 'movie', movieData.title);
+            } else {
+                console.error("Error: window.openSmartReviewModal no está definida en script.js");
+            }
+        });
+    }
+}
+
+// 7. FUNCIONES PÚBLICAS AUXILIARES
+export function playRandomEpisode(seriesId) {
+    const episodesData = shared.appState.content.seriesEpisodes[seriesId];
+    if (!episodesData) {
+        shared.ErrorHandler.show('content', 'No hay episodios disponibles para esta serie.');
+        return;
+    }
+
+    const allEpisodes = Object.entries(episodesData).flatMap(([seasonKey, episodes]) =>
+        episodes.map((ep, index) => ({ ...ep, season: seasonKey, index: index }))
+    );
+
+    if (allEpisodes.length === 0) {
+        shared.ErrorHandler.show('content', 'No se encontraron episodios registrados.');
+        return;
+    }
+
+    const randomEpisode = allEpisodes[Math.floor(Math.random() * allEpisodes.length)];
+    if (typeof openPlayerToEpisode === 'function') {
+        shared.closeAllModals(); 
+        openPlayerToEpisode(seriesId, randomEpisode.season, randomEpisode.index);
+    }
+}
+
+export function openSeriesPlayerDirectlyToSeason(seriesId, seasonNum) {
+    const seriesInfo = findContentData(seriesId); 
+    if (!seriesInfo) return;
+
+    shared.closeAllModals();
+    document.body.classList.add('modal-open');
+    shared.DOM.seriesPlayerModal.classList.add('show');
+    
+    renderEpisodePlayer(seriesId, seasonNum);
+}
+
+export function openPlayerToEpisode(seriesId, seasonNum, episodeIndex) {
+    const seriesInfo = findContentData(seriesId);
+    if (!seriesInfo) return;
+    
+    shared.closeAllModals();
+    document.body.classList.add('modal-open');
+    shared.DOM.seriesPlayerModal.classList.add('show');
+    
+    renderEpisodePlayer(seriesId, seasonNum, episodeIndex);
+}
+
+/**
+ * Función simplificada para reproducir un episodio específico
+ * @param {string} seriesId - ID de la serie
+ * @param {string} seasonNum - Número/clave de temporada
+ * @param {string|number} episodeNum - Número del episodio (1-indexed en la hoja)
+ */
+// NOTA: Esta función está obsoleta. Usa openPlayerToEpisode() en su lugar.
+// Mantenida aquí por compatibilidad pero no debe usarse.
+function playEpisode(seriesId, seasonKey, episodeIndex) {
+    // 1. Validar que existan los datos
+    const allEpisodes = shared.appState.content.seriesEpisodes[seriesId];
+    if (!allEpisodes || !allEpisodes[seasonKey] || !allEpisodes[seasonKey][episodeIndex]) {
+        console.error('Episodio no encontrado');
+        return;
+    }
+
+    const episode = allEpisodes[seasonKey][episodeIndex];
+    
+    // 2. Actualizar variables de estado (para saber dónde estamos)
+    state.currentSeriesId = seriesId;
+    state.currentSeason = seasonKey;
+    state.currentEpisodeIndex = episodeIndex;
+
+    // 3. Actualizar la interfaz (Título, descripción, botones)
+    updatePlayerUI(episode, seasonKey, episodeIndex, allEpisodes[seasonKey].length);
+
+    // 4. Cargar el iframe del video
+    const iframe = document.getElementById('series-iframe');
+    if (iframe) {
+        // Usar la URL directa o buscar en servidor si es necesario
+        iframe.src = episode.videoUrl || episode.url; 
+    }
+
+    // 5. Marcar visualmente el episodio activo en la lista
+    highlightCurrentEpisode(seasonKey, episodeIndex);
+
+    // 🔥 AÑADIR ESTO AL FINAL: GUARDADO AUTOMÁTICO 🔥
+    // Esto asegura que apenas cargue el video, se guarde en "Continuar Viendo"
+    if (shared.addToHistoryIfLoggedIn && typeof shared.addToHistoryIfLoggedIn === 'function') {
+        shared.addToHistoryIfLoggedIn(seriesId, 'series', {
+            season: seasonKey,
+            index: episodeIndex,
+            title: episode.title
+        });
+        console.log(`✅ Historial actualizado: ${episode.title}`);
+    }
+}
+
+// ==========================================
+// HELPER: CALCULAR HORA DE TÉRMINO (V2 INTELIGENTE)
+// ==========================================
+function calculateFinishTime(durationStr) {
+    if (!durationStr) return null;
+    
+    let hours = 0, minutes = 0, seconds = 0;
+    
+    // Limpieza básica
+    durationStr = durationStr.toString().trim();
+
+    // Caso 1: Formato con dos puntos (ej: "58:20" o "2:30:00")
+    if (durationStr.includes(':')) {
+        const parts = durationStr.split(':').map(Number);
+        
+        if (parts.length === 3) {
+            // Formato H:MM:SS
+            [hours, minutes, seconds] = parts;
+        } else if (parts.length === 2) {
+            // AMBIGÜEDAD: ¿H:MM o M:SS?
+            // 🔥 CORRECCIÓN: Si el primer número es > 7, asumimos que son MINUTOS.
+            // (Ej: "58:20" son 58 min, no 58 horas)
+            if (parts[0] > 7) {
+                [minutes, seconds] = parts; 
+            } else {
+                [hours, minutes] = parts;
+            }
+        }
+    } 
+    // Caso 2: Texto (ej: "2h 15m" o "90 min")
+    else {
+        const hMatch = durationStr.match(/(\d+)\s*h/);
+        const mMatch = durationStr.match(/(\d+)\s*m/);
+        if (hMatch) hours = parseInt(hMatch[1]);
+        if (mMatch) minutes = parseInt(mMatch[1]);
+        
+        if (!hMatch && !mMatch && durationStr.includes('min')) {
+            const minOnly = parseInt(durationStr);
+            if (!isNaN(minOnly)) minutes = minOnly;
+        }
+    }
+
+    // Calcular fecha final
+    const now = new Date();
+    const durationMs = (hours * 3600000) + (minutes * 60000) + (seconds * 1000);
+    const endTime = new Date(now.getTime() + durationMs);
+
+    return endTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+}
