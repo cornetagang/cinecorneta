@@ -58,16 +58,22 @@ export class CacheManager {
     }
 
     cleanup(aggressive = false) {
+        // Prefijos de claves del cine que NUNCA deben borrarse en cleanup
+        const PROTECTED_PREFIXES = ["cine_progreso_"];
+        const isProtected = (key) => PROTECTED_PREFIXES.some((p) => key.startsWith(p));
+
         try {
             const keysToRemove = [];
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
-                if (!key) continue;
+                if (!key || isProtected(key)) continue;
                 try {
                     const item = localStorage.getItem(key);
                     const parsed = JSON.parse(item);
                     if (parsed.version && parsed.version !== this.version) keysToRemove.push(key);
                 } catch (e) {
+                    // En modo agresivo borramos claves que no son JSON del cine,
+                    // pero nunca las protegidas (cine_progreso_*, etc.)
                     if (aggressive) keysToRemove.push(key);
                 }
             }
