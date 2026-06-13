@@ -8,11 +8,25 @@ let shared; // Dependencias compartidas
 let isInitialized = false;
 let isDropdownInitialized = false;
 
+// ── ESTILOS DEL PERFIL ────────────────────────────────────────────
+// Los estilos viven en main.css — esta función fue eliminada.
+
 // 1. INICIALIZACIÓN
 export function initProfile(dependencies) {
     if (isInitialized) return;
     shared = dependencies;
     isInitialized = true;
+
+    // ── Clases de layout desktop (reemplazan media queries) ────────
+    function _applyLayoutClass() {
+        const container = document.getElementById('profile-container');
+        if (!container) return;
+        const w = window.innerWidth;
+        container.classList.toggle('prf-desktop', w >= 1024);
+        container.classList.toggle('prf-wide',    w >= 1440);
+    }
+    _applyLayoutClass();
+    window.addEventListener('resize', _applyLayoutClass);
 }
 
 // 2. LÓGICA DEL HEADER (MENÚ DESPLEGABLE ACTUALIZADO)
@@ -69,7 +83,28 @@ export function renderProfile() {
     // Mostrar foto de perfil si existe
     _updateAvatarUI(user.photoURL);
 
+    // ── Idea 6: Miembro desde ──────────────────────────────
+    const joinedEl = document.getElementById('prf-joined-date');
+    if (joinedEl && user.metadata?.creationTime) {
+        const d = new Date(user.metadata.creationTime);
+        joinedEl.textContent = d.toLocaleDateString('es-CL', {
+            day: 'numeric', month: 'long', year: 'numeric'
+        });
+    }
+
     calculateAndDisplayUserStats();
+
+    // ── Idea 3: Nota promedio del usuario ─────────────────
+    _loadUserReviewAvg(user);
+
+    // ── Últimas 5 vistas por categoría (posters) ──────────
+    _loadRecentHistory(user);
+
+    // ── Últimas 5 reseñas por categoría ───────────────────
+    _loadRecentReviews(user);
+
+    // ── Editar perfil inline ───────────────────────────────
+    _renderInlineSettings(user);
 }
 
 // =======================================================
@@ -89,98 +124,13 @@ export function renderSettings() {
     const user = shared.auth.currentUser;
 
     if (settingsContainer) {
-         settingsContainer.innerHTML = `
-            <div class="content-header"><h1 class="main-title">Ajustes</h1></div>
-            <div class="settings-form-wrapper">
-                <div class="settings-group settings-group--avatar">
-                    <label>Foto de perfil</label>
-                    <div class="avatar-upload-row">
-                        <div class="avatar-preview-wrap" id="avatar-preview-wrap">
-                            ${user.photoURL
-                                ? `<img src="${user.photoURL}" class="avatar-preview-img" id="avatar-preview-img" alt="foto de perfil">`
-                                : `<div class="avatar-preview-placeholder" id="avatar-preview-img"><i class="fas fa-user-circle"></i></div>`
-                            }
-                            <label class="avatar-upload-btn" for="avatar-file-input" title="Cambiar foto">
-                                <i class="fas fa-camera"></i>
-                            </label>
-                            <input type="file" id="avatar-file-input" accept="image/*" style="display:none">
-                        </div>
-                        <div class="avatar-upload-info">
-                            <p class="avatar-upload-hint">JPG, PNG o GIF · Máx. 5MB</p>
-                            <button id="avatar-upload-btn" class="btn-primary" disabled>Guardar foto</button>
-                            <p id="avatar-feedback" class="feedback-message" style="display:none"></p>
-                        </div>
-                    </div>
-                </div>
-                <div class="settings-group">
-                    <label>Nombre de usuario</label>
-                    <div class="input-with-button">
-                        <input type="text" id="settings-username-input" value="${user.displayName || ''}">
-                        <button id="update-username-btn" class="btn-primary">Guardar</button>
-                    </div>
-                </div>
-                <div class="settings-group">
-                    <label>Contraseña</label>
-                    <div class="input-with-button">
-                        <input type="password" id="settings-password-input" placeholder="Nueva contraseña">
-                        <button id="update-password-btn" class="btn-primary">Actualizar</button>
-                    </div>
-                </div>
-                <p id="settings-feedback" class="feedback-message"></p>
+        settingsContainer.innerHTML = `
+            <div class="catalog-header" style="padding-bottom: 0;">
+                <p class="catalog-eyebrow">ADMINISTRACIÓN</p>
+                <h1 class="catalog-title">Panel de Admin</h1>
             </div>
-         `;
-    }
-
-    // --- LÓGICA FOTO DE PERFIL ---
-    _setupAvatarUpload(user);
-
-    // --- LÓGICA USUARIO NORMAL ---
-    const usernameInput = document.getElementById('settings-username-input');
-    const passwordInput = document.getElementById('settings-password-input');
-    const updateNameBtn = document.getElementById('update-username-btn');
-    const updatePassBtn = document.getElementById('update-password-btn');
-    const feedbackMsg = document.getElementById('settings-feedback');
-
-    const showFeedback = (msg, type = 'success') => {
-        if (feedbackMsg) {
-            feedbackMsg.textContent = msg;
-            feedbackMsg.style.color = type === 'success' ? '#46d369' : '#ff4444';
-            feedbackMsg.style.display = 'block';
-            setTimeout(() => { feedbackMsg.style.display = 'none'; }, 3000);
-        }
-    };
-
-    if (updateNameBtn) {
-        updateNameBtn.onclick = async () => {
-            const newName = usernameInput.value.trim();
-            if (!newName) return showFeedback('El nombre no puede estar vacío', 'error');
-            updateNameBtn.textContent = 'Guardando...';
-            try {
-                await user.updateProfile({ displayName: newName });
-                await shared.db.ref('users/' + user.uid).update({ username: newName });
-                showFeedback('Nombre actualizado');
-                const greeting = document.getElementById('user-greeting');
-                if (greeting) greeting.textContent = `Hola, ${newName}`;
-            } catch (e) { showFeedback('Error al actualizar', 'error'); }
-            updateNameBtn.textContent = 'Guardar';
-        };
-    }
-
-    if (updatePassBtn) {
-        updatePassBtn.onclick = async () => {
-            const newPass = passwordInput.value;
-            if (newPass.length < 6) return showFeedback('Mínimo 6 caracteres', 'error');
-            updatePassBtn.textContent = 'Actualizando...';
-            try {
-                await user.updatePassword(newPass);
-                showFeedback('Contraseña actualizada. Vuelve a entrar.');
-                passwordInput.value = '';
-            } catch (e) { 
-                if (e.code === 'auth/requires-recent-login') showFeedback('Por seguridad, cierra sesión y vuelve a entrar.', 'error');
-                else showFeedback('Error al actualizar', 'error');
-            }
-            updatePassBtn.textContent = 'Actualizar';
-        };
+            <div class="settings-form-wrapper"></div>
+        `;
     }
 
     // --- ZONA ADMIN ---
@@ -195,50 +145,58 @@ export function renderSettings() {
         if (wrapper) {
             const adminZone = document.createElement('div');
             adminZone.id = 'admin-zone';
-            adminZone.className = 'settings-group';
-            adminZone.style.cssText = 'margin-top: 40px; padding: 25px; border: 1px solid #444; border-radius: 10px; background: #151515;';
+            adminZone.className = 'admin-zone-desktop';
 
             adminZone.innerHTML = `
-                <div>
-                    <h3 style="color: #ffd700; display: flex; align-items: center; gap: 10px; margin-top: 0;">
-                        <i class="fas fa-crown"></i> Panel de Administrador
-                    </h3>
-                    <p style="color: #ccc; font-size: 0.9rem; margin-bottom: 15px;">
-                        Herramientas de mantenimiento del sistema.
-                    </p>
-                    
-                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                        <button id="admin-force-update-btn" class="btn-primary" style="background: #ffd700; color: #000; flex: 1; min-width: 160px; font-weight: 800;">
-                            <i class="fas fa-sync-alt spin-hover"></i> ACTUALIZAR TODO
+                <!-- Header -->
+                <div class="admin-header-desktop">
+                    <span class="admin-crown-desktop"><i class="fas fa-crown"></i></span>
+                    <h2 class="admin-title-desktop">Panel de Administrador</h2>
+                    <p class="admin-header-subtitle-desktop">Herramientas de mantenimiento del sistema</p>
+                </div>
+
+                <!-- Action cards -->
+                <div class="admin-actions-grid-desktop">
+                    <div class="admin-card-desktop admin-card--gold">
+                        <div class="admin-card-icon-desktop"><i class="fas fa-sync-alt"></i></div>
+                        <div>
+                            <h3 class="admin-card-title-desktop">Actualizar Todo</h3>
+                            <p class="admin-card-desc-desktop">Fuerza recarga global del sistema para todos los usuarios.</p>
+                        </div>
+                        <button id="admin-force-update-btn" class="admin-btn-desktop admin-btn--gold">
+                            <i class="fas fa-sync-alt"></i> ACTUALIZAR TODO
                         </button>
-                        <button id="admin-local-refresh-btn2" class="btn-primary" title="Actualiza los datos localmente sin recargar la página" style="background: #1a1a2e; color: #4a9eff; border: 2px solid #4a9eff; flex: 1; min-width: 160px; font-weight: 800;">
+                    </div>
+
+                    <div class="admin-card-desktop admin-card--blue">
+                        <div class="admin-card-icon-desktop"><i class="fas fa-bolt"></i></div>
+                        <div>
+                            <h3 class="admin-card-title-desktop">Actualizar Local</h3>
+                            <p class="admin-card-desc-desktop">Limpia el caché y recarga solo en tu dispositivo.</p>
+                        </div>
+                        <button id="admin-local-refresh-btn2" class="admin-btn-desktop admin-btn--blue" title="Actualiza los datos localmente sin recargar la página">
                             <i class="fas fa-bolt"></i> ACTUALIZAR LOCAL
                         </button>
                     </div>
                 </div>
 
-                <div style="margin-top: 30px; border-top: 1px dashed #333; padding-top: 25px;">
-                    <h3 style="color: #a78bfa; display: flex; align-items: center; gap: 10px; margin-top: 0; font-family: 'Bebas Neue'; letter-spacing: 1px;">
-                        <i class="fas fa-exchange-alt"></i> MIGRAR IDs DE RESEÑAS
-                    </h3>
-                    <p style="color: #ccc; font-size: 0.85rem; margin-bottom: 15px;">
+                <!-- Migrar IDs -->
+                <div class="admin-section-desktop admin-section--migrate">
+                    <div class="admin-section-header-desktop">
+                        <i class="fas fa-exchange-alt admin-section-icon-desktop"></i>
+                        <h3 class="admin-section-title-desktop">Migrar IDs de Reseñas</h3>
+                    </div>
+                    <p class="admin-section-desc-desktop">
                         Sincroniza los <code>contentId</code> de Firebase con los IDs actuales del sheet.
                         Solo modifica ese campo — el texto, estrellas y todo lo demás queda intacto.
                     </p>
-                    <button id="admin-migrate-ids-btn" class="btn-primary" style="background: #2d1f4e; color: #a78bfa; border: 2px solid #a78bfa; font-weight: 800; width: 100%;">
+                    <button id="admin-migrate-ids-btn" class="admin-btn-desktop admin-btn--migrate">
                         <i class="fas fa-search"></i> ANALIZAR Y MIGRAR
                     </button>
-                    <div id="admin-migrate-log" style="margin-top: 12px; font-size: 0.82rem; font-family: monospace; display: none; background: #0d0d0d; border: 1px solid #333; border-radius: 8px; padding: 12px; max-height: 260px; overflow-y: auto; line-height: 1.7;"></div>
+                    <div id="admin-migrate-log" class="admin-migrate-log-desktop"></div>
                 </div>
 
-                <div style="margin-top: 30px; border-top: 1px dashed #333; padding-top: 25px;">
-                    <h3 style="color: #E50914; display: flex; align-items: center; gap: 10px; margin-top: 0; font-family: 'Bebas Neue'; letter-spacing: 1px;">
-                        <i class="fas fa-bullhorn"></i> HISTORIAL DE AVISOS
-                    </h3>
-                    <div id="announcement-log-list" style="display: flex; flex-direction: column; gap: 10px;">
-                        <p style="color: #555; font-size: 0.85rem;">Cargando...</p>
-                    </div>
-                </div>
+
             `;
 
             wrapper.appendChild(adminZone);
@@ -444,10 +402,385 @@ export function renderSettings() {
                 }
             };
 
-            // 6. HISTORIAL DE AVISOS
-            loadAnnouncementLog();
+
         }
     }
+}
+
+// ===========================================================
+// EDICIÓN DE PERFIL INLINE — En el hero, in-place
+// ===========================================================
+function _renderInlineSettings(user) {
+    // La sección de abajo ya no se usa — queda vacía
+    const section = document.getElementById('profile-edit-section');
+    if (section) section.innerHTML = '';
+
+    // ── Gear button: abrir/cerrar dropdown ────────────────
+    const gearBtn  = document.getElementById('prf-settings-gear-btn');
+    const dropdown = document.getElementById('prf-settings-dropdown');
+
+    if (gearBtn && dropdown) {
+        const freshGear = gearBtn.cloneNode(true);
+        gearBtn.parentNode.replaceChild(freshGear, gearBtn);
+
+        freshGear.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = dropdown.classList.toggle('open');
+            freshGear.classList.toggle('open', isOpen);
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!dropdown.contains(e.target) && !freshGear.contains(e.target)) {
+                dropdown.classList.remove('open');
+                freshGear.classList.remove('open');
+            }
+        });
+    }
+
+    // ── Opción "Editar perfil" ─────────────────────────────
+    const toggleBtn = document.getElementById('prf-edit-toggle-btn');
+    if (!toggleBtn) return;
+
+    const fresh = toggleBtn.cloneNode(true);
+    toggleBtn.parentNode.replaceChild(fresh, toggleBtn);
+
+    fresh.addEventListener('click', () => {
+        if (dropdown) dropdown.classList.remove('open');
+        const gear = document.getElementById('prf-settings-gear-btn');
+        if (gear) gear.classList.remove('open');
+        _enterEditMode(user, fresh);
+    });
+
+    // ── Opción "Cambiar Contraseña" ───────────────────────
+    const changePwBtn = document.getElementById('prf-change-password-btn');
+    if (changePwBtn) {
+        const freshPw = changePwBtn.cloneNode(true);
+        changePwBtn.parentNode.replaceChild(freshPw, changePwBtn);
+        freshPw.addEventListener('click', () => {
+            if (dropdown) dropdown.classList.remove('open');
+            const gear = document.getElementById('prf-settings-gear-btn');
+            if (gear) gear.classList.remove('open');
+            _openChangePasswordModal(user);
+        });
+    }
+}
+
+// ═══════════════════════════════════════════════════════
+// MODAL — CAMBIAR CONTRASEÑA
+// ═══════════════════════════════════════════════════════
+function _openChangePasswordModal(user) {
+    const modal = document.getElementById('change-password-modal');
+    if (!modal) return;
+
+    // Reset campos
+    ['cpw-current','cpw-new','cpw-confirm'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    const feedback   = document.getElementById('cpw-feedback');
+    const strengthW  = document.getElementById('cpw-strength-wrap');
+    if (feedback)  { feedback.style.display = 'none'; feedback.className = 'cpw-feedback'; }
+    if (strengthW)   strengthW.style.display = 'none';
+
+    modal.classList.add('show');
+    document.body.classList.add('modal-open');
+    setTimeout(() => document.getElementById('cpw-current')?.focus(), 100);
+
+    // ── Cerrar ────────────────────────────────────────────
+    const closeModal = () => {
+        modal.classList.remove('show');
+        document.body.classList.remove('modal-open');
+    };
+    document.getElementById('cpw-close-btn').onclick = closeModal;
+    modal.onclick = (e) => { if (e.target === modal) closeModal(); };
+
+    // ── Toggle visibilidad contraseñas ────────────────────
+    modal.querySelectorAll('.cpw-eye-btn').forEach(btn => {
+        btn.onclick = () => {
+            const input = document.getElementById(btn.dataset.target);
+            if (!input) return;
+            const isText = input.type === 'text';
+            input.type = isText ? 'password' : 'text';
+            btn.querySelector('i').className = isText ? 'fas fa-eye' : 'fas fa-eye-slash';
+        };
+    });
+
+    // ── Indicador de fortaleza ────────────────────────────
+    const newInput = document.getElementById('cpw-new');
+    newInput?.addEventListener('input', () => {
+        const val = newInput.value;
+        if (!val) { if (strengthW) strengthW.style.display = 'none'; return; }
+        if (strengthW) strengthW.style.display = 'flex';
+        const score = _passwordStrength(val);
+        const fill  = document.getElementById('cpw-strength-fill');
+        const label = document.getElementById('cpw-strength-label');
+        const levels = [
+            { pct: 25, color: '#ff4444', text: 'Débil'     },
+            { pct: 50, color: '#ff9800', text: 'Regular'   },
+            { pct: 75, color: '#4a9eff', text: 'Buena'     },
+            { pct:100, color: '#46d369', text: 'Excelente' },
+        ];
+        const l = levels[score - 1] || levels[0];
+        if (fill)  { fill.style.width = l.pct + '%'; fill.style.background = l.color; }
+        if (label) { label.textContent = l.text; label.style.color = l.color; }
+    });
+
+    // ── Submit ────────────────────────────────────────────
+    const submitBtn = document.getElementById('cpw-submit-btn');
+    submitBtn.onclick = async () => {
+        const current = document.getElementById('cpw-current')?.value || '';
+        const newPass = document.getElementById('cpw-new')?.value     || '';
+        const confirm = document.getElementById('cpw-confirm')?.value  || '';
+
+        const showFb = (msg, type) => {
+            if (!feedback) return;
+            feedback.textContent = msg;
+            feedback.className = `cpw-feedback ${type}`;
+            feedback.style.display = 'block';
+        };
+
+        if (!current)              return showFb('Ingresa tu contraseña actual.', 'error');
+        if (newPass.length < 6)    return showFb('La nueva contraseña debe tener al menos 6 caracteres.', 'error');
+        if (newPass !== confirm)   return showFb('Las contraseñas no coinciden.', 'error');
+        if (current === newPass)   return showFb('La nueva contraseña debe ser diferente a la actual.', 'error');
+
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cambiando...';
+        if (feedback) feedback.style.display = 'none';
+
+        try {
+            // Reautenticar con la contraseña actual (Firebase 8 compat global)
+            const credential = firebase.auth.EmailAuthProvider.credential(user.email, current);
+            await user.reauthenticateWithCredential(credential);
+            await user.updatePassword(newPass);
+
+            showFb('¡Contraseña actualizada correctamente!', 'success');
+            submitBtn.innerHTML = '<i class="fas fa-check"></i> ¡Listo!';
+            setTimeout(closeModal, 1800);
+
+        } catch (e) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-check"></i> Cambiar Contraseña';
+            if (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') {
+                showFb('La contraseña actual es incorrecta.', 'error');
+            } else if (e.code === 'auth/too-many-requests') {
+                showFb('Demasiados intentos. Espera unos minutos.', 'error');
+            } else {
+                showFb('Error al cambiar la contraseña. Intenta de nuevo.', 'error');
+            }
+        }
+    };
+}
+
+function _passwordStrength(pass) {
+    let score = 1;
+    if (pass.length >= 8) score++;
+    if (/[A-Z]/.test(pass) && /[0-9]/.test(pass)) score++;
+    if (/[^A-Za-z0-9]/.test(pass) && pass.length >= 10) score++;
+    return Math.min(score, 4);
+}
+
+// ── Entra en modo edición ──────────────────────────────────
+function _enterEditMode(user, toggleBtn) {
+    if (document.querySelector('.prf-identity--editing')) return;
+
+    const hero     = document.querySelector('.prf-identity');
+    const heroText = document.querySelector('.prf-identity-info');
+    const avatarRing = document.querySelector('.prf-avatar-ring');
+    const usernameEl = document.getElementById('profile-username');
+    if (!hero || !usernameEl) return;
+
+    hero.classList.add('prf-hero--editing');
+    hero.classList.add('prf-identity--editing');
+
+    // ── 1. Avatar: overlay cámara ──────────────────────────
+    const camLabel = document.createElement('label');
+    camLabel.className = 'prf-inline-cam';
+    camLabel.title     = 'Cambiar foto';
+    camLabel.innerHTML = '<i class="fas fa-camera"></i>';
+    const fileInput = document.createElement('input');
+    fileInput.type    = 'file';
+    fileInput.id      = 'prf-inline-file';
+    fileInput.accept  = 'image/*';
+    fileInput.style.display = 'none';
+    avatarRing.appendChild(camLabel);
+    avatarRing.appendChild(fileInput);
+
+    // Anular pointer-events:none del CSS y conectar click directo al input
+    camLabel.style.pointerEvents = 'auto';
+    camLabel.addEventListener('click', (e) => {
+        e.stopPropagation();
+        fileInput.click();
+    });
+
+    let pendingFile = null;
+    fileInput.addEventListener('change', () => {
+        const file = fileInput.files[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) return;
+        pendingFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const avatarEl = document.getElementById('prf-avatar-el');
+            if (avatarEl) {
+                avatarEl.style.padding = '0';
+                avatarEl.style.overflow = 'hidden';
+                avatarEl.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+            }
+        };
+        reader.readAsDataURL(file);
+    });
+
+    // ── 2. Nombre: h1 → input editable ────────────────────
+    const nameInput = document.createElement('input');
+    nameInput.type      = 'text';
+    nameInput.id        = 'prf-inline-name';
+    nameInput.className = 'prf-inline-name-input';
+    nameInput.value     = usernameEl.textContent || user.displayName || '';
+    usernameEl.replaceWith(nameInput);
+    setTimeout(() => nameInput.focus(), 50);
+
+    // ── 3. Feedback inline ─────────────────────────────────
+    const fbEl = document.createElement('p');
+    fbEl.className = 'prf-inline-feedback';
+    fbEl.style.display = 'none';
+    heroText.appendChild(fbEl);
+
+    const showFb = (msg, ok = true) => {
+        fbEl.textContent = msg;
+        fbEl.style.color = ok ? '#46d369' : '#ff6b6b';
+        fbEl.style.display = 'block';
+        if (ok) setTimeout(() => { fbEl.style.display = 'none'; }, 3000);
+    };
+
+    // ── 5. Botones: Guardar + Cancelar (junto a la tuerca) ───
+    const settingsWrap = document.getElementById('prf-settings-wrap');
+    const gearBtn      = document.getElementById('prf-settings-gear-btn');
+    const dropdownEl   = document.getElementById('prf-settings-dropdown');
+    if (dropdownEl) dropdownEl.classList.remove('open');
+    if (gearBtn)    gearBtn.style.display = 'none';
+    if (settingsWrap) settingsWrap.appendChild(toggleBtn);
+
+    toggleBtn.innerHTML = '<i class="fas fa-check"></i><span>Guardar</span>';
+    toggleBtn.classList.add('prf-edit-toggle-btn--saving');
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'prf-inline-cancel-btn';
+    cancelBtn.innerHTML = '<i class="fas fa-times"></i>';
+    cancelBtn.title = 'Cancelar';
+    if (settingsWrap) settingsWrap.appendChild(cancelBtn);
+    else toggleBtn.parentNode.insertBefore(cancelBtn, toggleBtn.nextSibling);
+
+    // ── Cancel ─────────────────────────────────────────────
+    cancelBtn.onclick = () => {
+        _exitEditMode(user, toggleBtn, cancelBtn, nameInput, null, fbEl, camLabel, fileInput);
+    };
+
+    // ── Guardar ────────────────────────────────────────────
+    toggleBtn.onclick = async () => {
+        const newName = nameInput.value.trim();
+        if (!newName) { showFb('El nombre no puede estar vacío.', false); return; }
+
+        toggleBtn.disabled = true;
+        toggleBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Guardando...</span>';
+        fbEl.style.display = 'none';
+
+        try {
+            // Nombre — siempre pasamos photoURL para que Firebase no lo borre
+            if (newName !== user.displayName) {
+                await user.updateProfile({
+                    displayName: newName,
+                    photoURL: user.photoURL || null
+                });
+                await shared.db.ref('users/' + user.uid).update({ username: newName });
+                const greeting = document.getElementById('user-greeting');
+                if (greeting) greeting.textContent = `Hola, ${newName}`;
+            }
+
+            // Foto
+            if (pendingFile) {
+                const formData = new FormData();
+                formData.append('file', pendingFile);
+                formData.append('upload_preset', 'cinecorneta');
+                formData.append('folder', 'profile_photos');
+                const res  = await fetch('https://api.cloudinary.com/v1_1/djhgmmdjx/image/upload', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (data.secure_url) {
+                    await user.updateProfile({ photoURL: data.secure_url });
+                    await shared.db.ref(`users/${user.uid}`).update({ photoURL: data.secure_url });
+                    // Actualizar avatares en reseñas
+                    const reviewsSnap = await shared.db.ref('reviews').orderByChild('userId').equalTo(user.uid).once('value');
+                    if (reviewsSnap.exists()) {
+                        const updates = {};
+                        reviewsSnap.forEach(child => { updates[`reviews/${child.key}/userPhotoURL`] = data.secure_url; });
+                        await shared.db.ref().update(updates);
+                    }
+                    if (typeof window.syncAllAvatars === 'function') {
+                        const initials = newName.slice(0, 2).toUpperCase();
+                        window.syncAllAvatars(data.secure_url, initials, newName);
+                    }
+                }
+            }
+
+            _exitEditMode(user, toggleBtn, cancelBtn, nameInput, null, fbEl, camLabel, fileInput, newName);
+
+        } catch (e) {
+            console.error('[EditMode save]', e);
+            if (e.code === 'auth/requires-recent-login') {
+                showFb('Por seguridad, cierra sesión y vuelve a entrar.', false);
+            } else {
+                showFb('Error al guardar. Intenta de nuevo.', false);
+            }
+            toggleBtn.disabled = false;
+            toggleBtn.innerHTML = '<i class="fas fa-check"></i><span>Guardar</span>';
+        }
+    };
+}
+
+// ── Sale del modo edición ──────────────────────────────────
+function _exitEditMode(user, toggleBtn, cancelBtn, nameInput, passWrap, fbEl, camLabel, fileInput, finalName) {
+    // Restaurar h1 del nombre
+    const displayName = finalName || nameInput?.value || user.displayName || 'Usuario';
+    const h1 = document.createElement('h1');
+    h1.className = 'prf-name';
+    h1.id = 'profile-username';
+    h1.textContent = displayName;
+    nameInput?.replaceWith(h1);
+
+    // Limpiar elementos temporales
+    passWrap?.remove();
+    fbEl?.remove();
+    camLabel?.remove();
+    fileInput?.remove();
+
+    // Restaurar botón
+    toggleBtn.disabled = false;
+    toggleBtn.onclick = null;
+    toggleBtn.classList.remove('prf-edit-toggle-btn--saving');
+    toggleBtn.innerHTML = '<i class="fas fa-pencil-alt"></i><span>Editar perfil</span>';
+    cancelBtn?.remove();
+
+    // Devolver toggleBtn al dropdown y mostrar tuerca
+    const dropdownEl   = document.getElementById('prf-settings-dropdown');
+    const gearBtn      = document.getElementById('prf-settings-gear-btn');
+    if (dropdownEl && toggleBtn) dropdownEl.insertBefore(toggleBtn, dropdownEl.firstChild);
+    if (gearBtn) gearBtn.style.display = '';
+
+    // Quitar clase de edición
+    const heroEl = document.querySelector('.prf-identity');
+    heroEl?.classList.remove('prf-hero--editing');
+    heroEl?.classList.remove('prf-identity--editing');
+
+    // Re-conectar para el próximo click
+    const fresh = toggleBtn.cloneNode(true);
+    toggleBtn.parentNode.replaceChild(fresh, toggleBtn);
+    fresh.addEventListener('click', () => {
+        const dd = document.getElementById('prf-settings-dropdown');
+        const gb = document.getElementById('prf-settings-gear-btn');
+        if (dd) dd.classList.remove('open');
+        if (gb) gb.classList.remove('open');
+        _enterEditMode(user, fresh);
+    });
 }
 
 // ===========================================================
@@ -539,6 +872,12 @@ function _setupAvatarUpload(user) {
 
             // 4. Actualizar UI
             _updateAvatarUI(photoURL);
+            // Sincronizar nav, dropdown y todos los avatares del sitio
+            if (typeof window.syncAllAvatars === 'function') {
+                const uName = user.displayName || user.email.split('@')[0];
+                const initials = uName.slice(0, 2).toUpperCase();
+                window.syncAllAvatars(photoURL, initials, uName);
+            }
             showFb('¡Foto actualizada correctamente!');
             pendingFile = null;
         } catch (err) {
@@ -549,6 +888,103 @@ function _setupAvatarUpload(user) {
             uploadBtn.textContent = 'Guardar foto';
         }
     });
+}
+
+// ── Idea 3: Nota promedio del usuario ─────────────────────
+async function _loadUserReviewAvg(user) {
+    try {
+        const avgEl   = document.getElementById('prf-review-avg');
+        const starsEl = document.getElementById('prf-review-stars');
+        const countEl = document.getElementById('prf-review-count');
+        // Elementos del stats strip (desktop usa la info card; mobile tiene strip propio)
+        const stripAvgEl     = document.getElementById('stat-strip-avg-mobile');
+        const stripReviewsEl = document.getElementById('stat-strip-reviews-mobile');
+
+        const snap = await shared.db.ref('reviews')
+            .orderByChild('userId').equalTo(user.uid).once('value');
+
+        if (!snap.exists()) {
+            if (avgEl)         avgEl.textContent         = '—';
+            if (countEl)       countEl.textContent       = 'Sin reseñas aún';
+            if (stripAvgEl)    stripAvgEl.textContent    = '—';
+            if (stripReviewsEl) stripReviewsEl.textContent = '0';
+            return;
+        }
+
+        let total = 0, count = 0;
+        snap.forEach(child => {
+            const r = child.val().stars ?? child.val().rating;
+            if (r != null) { total += Number(r); count++; }
+        });
+
+        if (count === 0) {
+            if (avgEl)         avgEl.textContent         = '—';
+            if (countEl)       countEl.textContent       = 'Sin reseñas aún';
+            if (stripAvgEl)    stripAvgEl.textContent    = '—';
+            if (stripReviewsEl) stripReviewsEl.textContent = '0';
+            return;
+        }
+
+        const avg = total / count;
+        if (avgEl)         avgEl.textContent         = avg.toFixed(1);
+        if (countEl)       countEl.textContent       = `${count} reseña${count !== 1 ? 's' : ''}`;
+        if (stripAvgEl)    stripAvgEl.textContent    = avg.toFixed(1);
+        if (stripReviewsEl) stripReviewsEl.textContent = count;
+
+        if (starsEl) {
+            const full    = Math.floor(avg);
+            const hasHalf = (avg - full) >= 0.3;
+            let html = '';
+            for (let i = 0; i < full; i++)      html += '<i class="fas fa-star"></i>';
+            if (hasHalf)                         html += '<i class="fas fa-star-half-alt"></i>';
+            for (let i = full + (hasHalf ? 1 : 0); i < 5; i++) html += '<i class="far fa-star"></i>';
+            starsEl.innerHTML = html;
+        }
+
+        // ── Última reseña ─────────────────────────
+        // Buscamos el review con mayor timestamp; si hay empate usamos la push key
+        // (Firebase las ordena cronológicamente, key mayor = más reciente).
+        let last = null;
+        let lastTs = -1;
+        snap.forEach(child => {
+            const rev = child.val();
+            const ts  = Number(rev.timestamp || rev.createdAt || 0);
+            const key = child.key || '';
+            if (ts > lastTs || (ts === lastTs && key > (last?._key || ''))) {
+                lastTs = ts;
+                last   = { _key: key, ...rev };
+            }
+        });
+
+        const lrWrap   = document.getElementById('prf-last-review');
+        const lrPoster = document.getElementById('prf-lr-poster');
+        const lrTitle  = document.getElementById('prf-lr-title');
+        const lrStars  = document.getElementById('prf-lr-stars');
+        const lrText   = document.getElementById('prf-lr-text');
+        const lrDate   = document.getElementById('prf-lr-date');
+
+        if (last && lrWrap) {
+            if (lrPoster) {
+                if (last.poster) { lrPoster.src = last.poster; lrPoster.style.display = ''; }
+                else lrPoster.style.display = 'none';
+            }
+            if (lrTitle) lrTitle.textContent = last.contentTitle || 'Sin título';
+            if (lrStars) {
+                const s = parseFloat(last.stars) || 0;
+                const f = Math.floor(s), h = (s - f) >= 0.3;
+                let sh = '';
+                for (let i = 0; i < f; i++)               sh += '<i class="fas fa-star"></i>';
+                if (h)                                     sh += '<i class="fas fa-star-half-alt"></i>';
+                for (let i = f + (h ? 1 : 0); i < 5; i++) sh += '<i class="far fa-star"></i>';
+                lrStars.innerHTML = sh;
+            }
+            if (lrText)  lrText.textContent  = last.text || '';
+            if (lrDate)  lrDate.textContent  = last.timestamp
+                ? new Date(last.timestamp).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })
+                : '';
+            lrWrap.style.display = 'flex';
+        }
+    } catch (e) { /* silent */ }
 }
 
 // 5. HISTORIAL DE AVISOS (admin)
@@ -620,6 +1056,172 @@ function showFeedbackMessage(message, type) {
     }, 4000);
 }
 
+// ── Últimas 5 reseñas del usuario por tipo ────────────────
+async function _loadRecentReviews(user) {
+    try {
+        const wrap      = document.getElementById('prf-recent-reviews');
+        const moviesEl  = document.getElementById('prf-recent-movies');
+        const seriesEl  = document.getElementById('prf-recent-series');
+        if (!wrap || !moviesEl || !seriesEl) return;
+
+        const snap = await shared.db.ref('reviews')
+            .orderByChild('userId').equalTo(user.uid).once('value');
+
+        if (!snap.exists()) return;
+
+        // Recolectar y ordenar por timestamp desc
+        const all = [];
+        snap.forEach(child => all.push({ id: child.key, ...child.val() }));
+        all.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+        const movies = all.filter(r => r.contentType === 'movie').slice(0, 5);
+        const series = all.filter(r => r.contentType === 'series').slice(0, 5);
+
+        if (movies.length === 0 && series.length === 0) return;
+
+        // Mostrar sección
+        wrap.style.display = '';
+
+        const renderList = (container, reviews) => {
+            if (reviews.length === 0) {
+                container.innerHTML = `<p class="prf-recent-empty">Sin reseñas aún</p>`;
+                return;
+            }
+            container.innerHTML = reviews.map(r => {
+                const stars  = parseFloat(r.stars) || 0;
+                const full   = Math.floor(stars);
+                const half   = (stars - full) >= 0.3;
+                let starsHtml = '';
+                for (let i = 0; i < full; i++)                        starsHtml += '<i class="fas fa-star"></i>';
+                if (half)                                              starsHtml += '<i class="fas fa-star-half-alt"></i>';
+                for (let i = full + (half ? 1 : 0); i < 5; i++)       starsHtml += '<i class="far fa-star"></i>';
+
+                const date = r.timestamp
+                    ? new Date(r.timestamp).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })
+                    : '';
+
+                const poster = r.poster
+                    ? `<img src="${r.poster}" alt="${r.contentTitle}" class="prf-rc-poster" loading="lazy">`
+                    : `<div class="prf-rc-poster prf-rc-poster--empty"><i class="fas fa-film"></i></div>`;
+
+                const text = (r.text || '').length > 120
+                    ? r.text.substring(0, 120).trimEnd() + '…'
+                    : (r.text || '');
+
+                return `
+                <div class="prf-rc-card">
+                    ${poster}
+                    <div class="prf-rc-body">
+                        <p class="prf-rc-title">${r.contentTitle || 'Sin título'}</p>
+                        <div class="prf-rc-stars">${starsHtml} <span class="prf-rc-score">${stars.toFixed(1)}</span></div>
+                        ${text ? `<p class="prf-rc-text">${text}</p>` : ''}
+                        <span class="prf-rc-date">${date}</span>
+                    </div>
+                </div>`;
+            }).join('');
+        };
+
+        renderList(moviesEl, movies);
+        renderList(seriesEl, series);
+
+    } catch(e) { /* silent */ }
+}
+
+// ── Últimas 5 películas y series vistas (posters desde historial) ────────────
+async function _loadRecentHistory(user) {
+    const moviesEl = document.getElementById('prf-history-movies');
+    const seriesEl = document.getElementById('prf-history-series');
+    if (!moviesEl || !seriesEl) return;
+
+    // Skeleton loader mientras carga
+    const skeleton = `<div class="prf-poster-skeleton"></div>`.repeat(5);
+    moviesEl.innerHTML = `<div class="prf-poster-grid-inner">${skeleton}</div>`;
+    seriesEl.innerHTML = `<div class="prf-poster-grid-inner">${skeleton}</div>`;
+
+    try {
+        // 1. Intentar usar el cache global del listener de script.js
+        //    (ya viene ordenado: más reciente primero)
+        let history = window._cinecorneta_historyCache || null;
+
+        // 2. Si el cache no está listo aún, hacer query directa a Firebase
+        if (!history) {
+            console.log('[Profile] Cache de historial no disponible, consultando Firebase...');
+            const snap = await shared.db
+                .ref(`users/${user.uid}/history`)
+                .orderByChild('viewedAt')
+                .once('value');
+
+            history = [];
+            snap.forEach(child => {
+                const item = child.val();
+                item.key = child.key;
+                history.push(item);
+            });
+            history.reverse(); // más reciente primero
+        } else {
+            console.log('[Profile] Usando cache de historial:', history.length, 'items');
+        }
+
+        if (!history.length) {
+            moviesEl.innerHTML = '<p class="prf-poster-empty"><i class="fas fa-inbox"></i><br>Sin historial aún</p>';
+            seriesEl.innerHTML = '<p class="prf-poster-empty"><i class="fas fa-inbox"></i><br>Sin historial aún</p>';
+            return;
+        }
+
+        // Separar por tipo — el campo guardado es "movie" o "series"
+        const lastMovies = history.filter(h => h.type === 'movie').slice(0, 6);
+        const lastSeries = history.filter(h => h.type === 'series').slice(0, 6);
+
+        console.log('[Profile] Películas recientes:', lastMovies.length, '| Series recientes:', lastSeries.length);
+
+        // Render — poster y title ya vienen en la entrada del historial
+        const renderPosters = (container, items, emptyIcon) => {
+            if (items.length === 0) {
+                container.innerHTML = `<p class="prf-poster-empty"><i class="fas ${emptyIcon}"></i><br>Sin historial aún</p>`;
+                return;
+            }
+            container.innerHTML = `<div class="prf-poster-grid-inner">${
+                items.map(h => {
+                    const poster    = h.poster || '';
+                    const title     = h.title  || h.contentTitle || h.key || '';
+                    const safeTitle = title.replace(/"/g, '&quot;');
+
+                    if (poster) {
+                        return `<div class="prf-poster-item" data-id="${h.key || h.contentId}" title="${safeTitle}">
+                            <img src="${poster}" alt="${safeTitle}" loading="lazy">
+                            <div class="prf-poster-overlay">
+                                <p class="prf-poster-overlay-title">${title}</p>
+                            </div>
+                        </div>`;
+                    } else {
+                        return `<div class="prf-poster-item prf-poster-item--empty" data-id="${h.key || h.contentId}" title="${safeTitle}">
+                            <div class="prf-poster-empty-inner">
+                                <i class="fas fa-film"></i>
+                                <p class="prf-poster-empty-title">${title}</p>
+                            </div>
+                        </div>`;
+                    }
+                }).join('')
+            }</div>`;
+        };
+
+        renderPosters(moviesEl, lastMovies, 'fa-film');
+        renderPosters(seriesEl, lastSeries, 'fa-tv');
+
+    } catch(e) {
+        console.error('[Profile] Error en _loadRecentHistory:', e);
+        moviesEl.innerHTML = '<p class="prf-poster-empty"><i class="fas fa-exclamation-circle"></i><br>Error al cargar</p>';
+        seriesEl.innerHTML = '<p class="prf-poster-empty"><i class="fas fa-exclamation-circle"></i><br>Error al cargar</p>';
+    }
+}
+
+// Función pública para que script.js pueda llamarla cuando el historial se actualiza
+export function renderRecentHistory() {
+    const user = shared.auth.currentUser;
+    if (!user) return;
+    _loadRecentHistory(user);
+}
+
 async function calculateAndDisplayUserStats() {
     try {
         const user = shared.auth.currentUser;
@@ -631,77 +1233,92 @@ async function calculateAndDisplayUserStats() {
         const statMoviesEl = document.getElementById('stat-movies-watched');
         const statSeriesEl = document.getElementById('stat-series-watched');
         const statTotalEl = document.getElementById('stat-total-items');
-        const genreStatsContainer = document.getElementById('genre-stats-container');
+        // Versiones mobile del strip
+        const statMoviesMobileEl = document.getElementById('stat-movies-watched-mobile');
+        const statSeriesMobileEl = document.getElementById('stat-series-watched-mobile');
+        // Tarjetas desktop en info-cards
+        const statMoviesCardEl = document.getElementById('stat-movies-card');
+        const statSeriesCardEl = document.getElementById('stat-series-card');
 
         if (!historySnapshot.exists()) {
             if(statMoviesEl) statMoviesEl.textContent = '0';
             if(statSeriesEl) statSeriesEl.textContent = '0';
             if(statTotalEl) statTotalEl.textContent = '0';
-            if(genreStatsContainer) genreStatsContainer.innerHTML = '<p>Sin actividad reciente.</p>';
+            if(statMoviesMobileEl) statMoviesMobileEl.textContent = '0';
+            if(statSeriesMobileEl) statSeriesMobileEl.textContent = '0';
+            if(statMoviesCardEl) statMoviesCardEl.textContent = '0';
+            if(statSeriesCardEl) statSeriesCardEl.textContent = '0';
             return;
         }
 
         const history = historySnapshot.val();
         let moviesWatched = 0;
         const seriesWatched = new Set();
-        let movieGenreCounts = {};
-        let seriesGenreCounts = {};
         let totalItemsInHistory = 0;
 
         for (const item of Object.values(history)) {
             totalItemsInHistory++;
             if (item.type === 'movie') moviesWatched++;
             else if (item.type === 'series') seriesWatched.add(item.contentId);
-
-            // Buscar en todas las fuentes: movies, series, sagas, ucm
-            let content = shared.appState.content.movies?.[item.contentId]
-                || shared.appState.content.series?.[item.contentId]
-                || (shared.appState.content.ucm?.[item.contentId]);
-            if (!content && shared.appState.content.sagas) {
-                for (const sagaItems of Object.values(shared.appState.content.sagas)) {
-                    if (sagaItems?.[item.contentId]) { content = sagaItems[item.contentId]; break; }
-                }
-            }
-            
-            if (content && content.genres) {
-                const targetMap = item.type === 'series' ? seriesGenreCounts : movieGenreCounts;
-                content.genres.split(';').forEach(g => {
-                    const genre = g.trim();
-                    if (genre) targetMap[genre] = (targetMap[genre] || 0) + 1;
-                });
-            }
         }
 
         if(statMoviesEl) statMoviesEl.textContent = moviesWatched;
         if(statSeriesEl) statSeriesEl.textContent = seriesWatched.size;
         if(statTotalEl) statTotalEl.textContent = totalItemsInHistory;
+        if(statMoviesMobileEl) statMoviesMobileEl.textContent = moviesWatched;
+        if(statSeriesMobileEl) statSeriesMobileEl.textContent = seriesWatched.size;
+        if(statMoviesCardEl) statMoviesCardEl.textContent = moviesWatched;
+        if(statSeriesCardEl) statSeriesCardEl.textContent = seriesWatched.size;
 
-        if (genreStatsContainer) {
-            genreStatsContainer.innerHTML = '';
+        // ── Distribución películas / series ────────
+        const total = moviesWatched + seriesWatched.size;
+        if (total > 0) {
+            const moviePct  = Math.round((moviesWatched    / total) * 100);
+            const seriesPct = 100 - moviePct;
+            const dMovie    = document.getElementById('prf-dist-movie');
+            const dSeries   = document.getElementById('prf-dist-series');
+            const dMLbl     = document.getElementById('prf-dist-movie-lbl');
+            const dSLbl     = document.getElementById('prf-dist-series-lbl');
+            if (dMovie)  dMovie.style.width  = `${moviePct}%`;
+            if (dSeries) dSeries.style.width = `${seriesPct}%`;
+            if (dMLbl)   dMLbl.textContent   = `Películas ${moviePct}%`;
+            if (dSLbl)   dSLbl.textContent   = `Series ${seriesPct}%`;
+        }
 
-            const renderGenreBlock = (title, genreCounts) => {
-                const sorted = Object.entries(genreCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
-                if (sorted.length === 0) return;
-                const maxCount = sorted[0][1];
-                const block = document.createElement('div');
-                block.className = 'genre-block';
-                block.innerHTML = `<p class="genre-block-title">${title}</p>` +
-                    sorted.map(([genre, count]) => {
-                        const pct = maxCount > 0 ? (count / maxCount) * 100 : 0;
-                        return `
-                            <div class="genre-stat-bar">
-                                <span class="genre-label">${genre}</span>
-                                <div class="genre-progress">
-                                    <div class="genre-progress-fill" style="width:${pct}%"></div>
-                                </div>
-                                <span class="genre-count">${count}</span>
-                            </div>`;
-                    }).join('');
-                genreStatsContainer.appendChild(block);
-            };
+        // ── Géneros más vistos ────────────────────
+        const genreCount = new Map();
+        const movies  = shared.appState?.content?.movies  || {};
+        const seriesC = shared.appState?.content?.series  || {};
 
-            renderGenreBlock('Géneros — Películas', movieGenreCounts);
-            renderGenreBlock('Géneros — Series', seriesGenreCounts);
+        for (const item of Object.values(history)) {
+            const contentData = movies[item.contentId] || seriesC[item.contentId];
+            if (!contentData) continue;
+            const genresRaw = contentData.genres || contentData.Generos || contentData.Géneros || contentData.generos || '';
+            String(genresRaw).split(';').map(g => g.trim()).filter(Boolean).forEach(g => {
+                genreCount.set(g, (genreCount.get(g) || 0) + 1);
+            });
+        }
+
+        const topGenres = [...genreCount.entries()]
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5);
+
+        const genresList = document.getElementById('prf-top-genres-list');
+        const genresWrap = document.getElementById('prf-top-genres');
+        if (genresList && topGenres.length > 0) {
+            const maxCount = topGenres[0][1];
+            genresList.innerHTML = topGenres.map(([name, count]) => `
+                <div class="prf-genre-row">
+                    <span class="prf-genre-name">${name}</span>
+                    <div class="prf-genre-track">
+                        <div class="prf-genre-fill" style="width:${Math.round((count / maxCount) * 100)}%"></div>
+                    </div>
+                    <span class="prf-genre-count">${count}</span>
+                </div>
+            `).join('');
+            if (genresWrap) genresWrap.style.display = 'flex';
+        } else if (genresWrap) {
+            genresWrap.style.display = 'none';
         }
     } catch (error) {
         logError(error, 'Profile: Stats Calculation');
