@@ -3410,7 +3410,7 @@ function _bentoSideTypeHTML(data, type, id) {
       } else if (hasNewSeason) {
         info = { text: "Nueva temporada", dot: "#3b82f6" };
       } else if (hasNewEp) {
-        info = { text: "Nuevo cap", dot: "#f59e0b" };
+        info = { text: "Nuevo cap.", dot: "#f59e0b" };
       }
     }
     // Fallback: campo del backend o "Serie"
@@ -3424,10 +3424,11 @@ function _bentoSideTypeHTML(data, type, id) {
 
     const dot = `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${info.dot};margin-right:6px;vertical-align:middle;"></span>`;
 
-    // Detalle: solo mostrar conteo cuando hay nuevo cap, no nueva temporada
+    // Detalle: no mostrar cuando es estreno o nueva temporada
     const _isNewSeason = id ? hasRecentSeasonFromPosters(id) : false;
+    const _isNewEntry = isDateRecent(data.date_added);
     let detail = data.seriesDetail || data.series_detail || "";
-    if (!detail && id && !_isNewSeason) {
+    if (!detail && id && !_isNewSeason && !_isNewEntry) {
       try {
         const episodesData = (appState.content.seriesEpisodes || {})[id] || {};
         const seasonOrder =
@@ -4180,8 +4181,8 @@ function _initNovedadesSection() {
         id,
         data: d,
         type: "series",
-        typeLabel: "Nuevo cap.",
-        typeColor: "#f59e0b",
+        typeLabel: isDateRecent(d.date_added) ? "Nueva serie" : "Nuevo cap.",
+        typeColor: isDateRecent(d.date_added) ? "#22c55e" : "#f59e0b",
         sortDate: latestDate,
         epThumb,
         epDetail:
