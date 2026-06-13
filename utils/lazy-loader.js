@@ -60,7 +60,12 @@ export class LazyImageLoader {
     }
 
     observe(img) {
-        if (this.observer) this.observer.observe(img);
+        if (this.observer) {
+            this.observer.observe(img);
+        } else {
+            // Sin soporte de IntersectionObserver: cargar de inmediato
+            this.loadImage(img);
+        }
     }
 }
 
