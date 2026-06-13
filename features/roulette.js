@@ -1,5 +1,5 @@
 // ===========================================================
-// MÓDULO DE LA RULETA
+// MÓDULO DE LA RULETA — con Cover-Flow via requestAnimationFrame
 // ===========================================================
 
 let shared;
@@ -11,6 +11,114 @@ let watchedMovieIds = new Set();
 // Estado del modo personalizado
 let customMode = false;
 let customPool = []; // Array de { id, data }
+
+// ── Cover-flow state ─────────────────────────────────────────────────────────
+const cf = {
+    currentX:      0,     // posición X actualmente renderizada
+    targetX:       0,     // posición X destino (para idle lerp)
+    rafId:         null,  // handle del requestAnimationFrame activo
+    isSpinning:    false, // true mientras dure la animación del giro
+    spinFrom:      0,
+    spinTo:        0,
+    spinDuration:  0,
+    spinStartTime: 0,
+    onSpinEnd:     null,  // callback al terminar el spin
+    track:         null,  // referencia al elemento del track actual
+    wrapperWidth:  0,
+};
+
+/** Easing ease-in-out cúbico — simula slot machine */
+function easeSpin(t) {
+    return t < 0.5
+        ? 4 * t * t * t
+        : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+/** Aplica las transformaciones 3D cover-flow a cada tarjeta en base a su
+ *  distancia al centro del wrapper. Se llama en cada frame del rAF. */
+function applyCoverFlow() {
+    if (!cf.track || !cf.wrapperWidth) return;
+    const cards = cf.track.querySelectorAll('.movie-card');
+    const center  = cf.wrapperWidth / 2;
+    const maxDist = 540; // px desde el centro hasta donde la tarjeta queda "aplastada"
+
+    cards.forEach(card => {
+        // posición del centro de la tarjeta en el espacio del wrapper
+        const cardCenter = card.offsetLeft + card.offsetWidth / 2 + cf.currentX;
+        const dist    = cardCenter - center;
+        const absDist = Math.abs(dist);
+        const t       = Math.min(absDist / maxDist, 1);
+
+        const scale      = 1 - t * 0.38;                                 // 1 → 0.62
+        const rotateY    = Math.sign(dist) * Math.min(absDist / 11, 28); // ±0 → ±28 °
+        const translateZ = -t * 75;                                       // 0 → -75px
+        const opacity    = Math.max(1 - t * 0.55, 0.1);
+
+        card.style.transform = `perspective(900px) translateZ(${translateZ}px) rotateY(${rotateY}deg) scale(${scale})`;
+        card.style.opacity   = String(opacity);
+        card.style.zIndex    = String(Math.round((1 - t) * 10));
+    });
+}
+
+/** Tick principal del rAF — maneja tanto el spin como el idle lerp */
+function coverFlowTick(now) {
+    if (cf.isSpinning) {
+        const elapsed  = now - cf.spinStartTime;
+        const progress = Math.min(elapsed / cf.spinDuration, 1);
+        const eased    = easeSpin(progress);
+        cf.currentX    = cf.spinFrom + (cf.spinTo - cf.spinFrom) * eased;
+
+        if (progress >= 1) {
+            cf.isSpinning = false;
+            cf.currentX   = cf.spinTo;
+            cf.targetX    = cf.spinTo;
+            const cb = cf.onSpinEnd;
+            cf.onSpinEnd = null;
+            if (cb) cb();
+        }
+    } else {
+        // idle: suave interpolación hacia el punto inicial (settle al cargar)
+        const delta = cf.targetX - cf.currentX;
+        if (Math.abs(delta) > 0.1) {
+            cf.currentX += delta * 0.14;
+        } else {
+            cf.currentX = cf.targetX;
+        }
+    }
+
+    if (cf.track) {
+        cf.track.style.transform = `translateX(${cf.currentX}px)`;
+    }
+    applyCoverFlow();
+
+    cf.rafId = requestAnimationFrame(coverFlowTick);
+}
+
+/** Inicia (o reinicia) el loop del cover-flow */
+function startCoverFlowLoop(track, wrapperWidth) {
+    cf.track        = track;
+    cf.wrapperWidth = wrapperWidth;
+    stopCoverFlowLoop();
+    cf.rafId = requestAnimationFrame(coverFlowTick);
+}
+
+/** Detiene el loop del cover-flow */
+function stopCoverFlowLoop() {
+    if (cf.rafId !== null) {
+        cancelAnimationFrame(cf.rafId);
+        cf.rafId = null;
+    }
+}
+
+/** Reinicia el estado de posición del cover-flow (sin detener el loop) */
+function resetCoverFlowState(startX = 0) {
+    cf.isSpinning   = false;
+    cf.onSpinEnd    = null;
+    cf.currentX     = startX;
+    cf.targetX      = startX;
+}
+
+// ── Exports ──────────────────────────────────────────────────────────────────
 
 export function initRoulette(dependencies) {
     if (isInitialized) return;
@@ -35,7 +143,6 @@ async function markAsWatched(movieId) {
     if (!user || !shared.db) return;
     watchedMovieIds.add(movieId);
 
-    // Buscar datos en movies Y en sagas
     let movieData = shared.appState.content.movies?.[movieId];
     if (!movieData && shared.appState.content.sagas) {
         for (const sagaData of Object.values(shared.appState.content.sagas)) {
@@ -46,12 +153,12 @@ async function markAsWatched(movieId) {
     await Promise.all([
         shared.db.ref(`users/${user.uid}/roulette_watched/${movieId}`).set(true),
         shared.db.ref(`users/${user.uid}/history/${movieId}`).set({
-            type: 'movie',
-            contentId: movieId,
-            title: movieData?.title || movieId,
-            poster: movieData?.poster || '',
-            viewedAt: firebase.database.ServerValue.TIMESTAMP,
-            season: null,
+            type:        'movie',
+            contentId:   movieId,
+            title:       movieData?.title || movieId,
+            poster:      movieData?.poster || '',
+            viewedAt:    firebase.database.ServerValue.TIMESTAMP,
+            season:      null,
             lastEpisode: null
         })
     ]);
@@ -61,7 +168,6 @@ async function unmarkAsWatched(movieId) {
     const user = shared.auth?.currentUser;
     if (!user || !shared.db) return;
     watchedMovieIds.delete(movieId);
-    // Borrar de roulette_watched Y del historial
     await Promise.all([
         shared.db.ref(`users/${user.uid}/roulette_watched/${movieId}`).remove(),
         shared.db.ref(`users/${user.uid}/history/${movieId}`).remove()
@@ -69,6 +175,7 @@ async function unmarkAsWatched(movieId) {
 }
 
 function closeRouletteModal() {
+    stopCoverFlowLoop(); // liberar recursos al cerrar
     if (shared.DOM.rouletteModal) shared.DOM.rouletteModal.classList.remove('show');
     if (!document.querySelector('.modal.show')) document.body.classList.remove('modal-open');
 }
@@ -80,16 +187,14 @@ function setupRouletteLogic() {
     if (!shared.DOM.rouletteModal || !spinButton) return;
 
     let selectedMovie = null;
-    let spinDone = false;
+    let spinDone      = false;
 
     const setActionButtons = (enabled) => {
         if (btnVer)   btnVer.disabled   = !enabled;
         if (btnVista) btnVista.disabled = !enabled || customMode;
     };
 
-    // -------------------------------------------------------
-    // MODO TOGGLE
-    // -------------------------------------------------------
+    // ── Modo toggle ─────────────────────────────────────────────────────────
     const btnModeNormal = shared.DOM.rouletteModal.querySelector('#roulette-mode-normal');
     const btnModeCustom = shared.DOM.rouletteModal.querySelector('#roulette-mode-custom');
     const customPanel   = shared.DOM.rouletteModal.querySelector('#custom-roulette-panel');
@@ -99,33 +204,33 @@ function setupRouletteLogic() {
         customMode = toCustom;
         btnModeNormal?.classList.toggle('active', !toCustom);
         btnModeCustom?.classList.toggle('active', toCustom);
-        if (customPanel) customPanel.style.display = toCustom ? 'block' : 'none';
-        if (btnVista)    btnVista.style.display     = toCustom ? 'none'  : '';
-        if (rouletteTitle) rouletteTitle.textContent = toCustom ? 'Ruleta Personalizada' : 'Película Aleatoria';
+        if (customPanel)   customPanel.style.display = toCustom ? 'block' : 'none';
+        if (btnVista)      btnVista.style.display    = toCustom ? 'none'  : '';
+        if (rouletteTitle) rouletteTitle.textContent  = toCustom ? 'Ruleta Personalizada' : 'Película Aleatoria';
 
-        // Limpiar carrusel y estado al cambiar modo
-        spinDone = false;
+        spinDone      = false;
         selectedMovie = null;
         setActionButtons(false);
+
         const track = shared.DOM.rouletteModal.querySelector('#roulette-carousel-track');
         if (track) {
-            track.style.transition = 'none';
-            track.style.transform  = 'translateX(0px)';
+            stopCoverFlowLoop();
+            resetCoverFlowState(0);
+            track.style.transform = 'translateX(0px)';
             track.innerHTML = '';
         }
         spinButton.disabled = false;
 
         if (toCustom) {
-            // Resetear SIEMPRE el pool y toda la UI al entrar en personalizado
             customPool = [];
             const _chips  = shared.DOM.rouletteModal.querySelector('#crp-chips');
             const _hint   = shared.DOM.rouletteModal.querySelector('#crp-hint');
             const _search = shared.DOM.rouletteModal.querySelector('#crp-search-input');
             const _sugg   = shared.DOM.rouletteModal.querySelector('#crp-suggestions');
             const _sel    = shared.DOM.rouletteModal.querySelector('.roulette-selector');
-            if (_chips)  _chips.innerHTML = '';
+            if (_chips)  _chips.innerHTML  = '';
             if (_hint)   _hint.textContent = 'Agrega al menos 2 películas para girar';
-            if (_search) _search.value = '';
+            if (_search) _search.value     = '';
             if (_sugg)   _sugg.style.display = 'none';
             if (_sel)    _sel.style.visibility = 'hidden';
             spinButton.disabled = true;
@@ -136,12 +241,10 @@ function setupRouletteLogic() {
         }
     };
 
-    btnModeNormal?.addEventListener('click', () => { if (customMode) switchMode(false); });
-    btnModeCustom?.addEventListener('click', () => { if (!customMode) switchMode(true); });
+    btnModeNormal?.addEventListener('click', () => { if (customMode)  switchMode(false); });
+    btnModeCustom?.addEventListener('click', () => { if (!customMode) switchMode(true);  });
 
-    // -------------------------------------------------------
-    // LÓGICA DEL BUSCADOR (modo personalizado)
-    // -------------------------------------------------------
+    // ── Buscador (modo personalizado) ────────────────────────────────────────
     const searchInput   = shared.DOM.rouletteModal.querySelector('#crp-search-input');
     const suggestionsEl = shared.DOM.rouletteModal.querySelector('#crp-suggestions');
     const chipsEl       = shared.DOM.rouletteModal.querySelector('#crp-chips');
@@ -188,8 +291,7 @@ function setupRouletteLogic() {
                 customPool = customPool.filter(m => m.id !== id);
                 renderChips();
                 updateCustomHint();
-                // Actualizar carrusel en tiempo real
-                spinDone = false;
+                spinDone      = false;
                 selectedMovie = null;
                 setActionButtons(false);
                 loadRouletteMovies();
@@ -203,10 +305,9 @@ function setupRouletteLogic() {
         customPool.push({ id, data });
         renderChips();
         updateCustomHint();
-        if (searchInput) searchInput.value = '';
+        if (searchInput)   searchInput.value       = '';
         if (suggestionsEl) suggestionsEl.style.display = 'none';
-        // Actualizar carrusel en tiempo real
-        spinDone = false;
+        spinDone      = false;
         selectedMovie = null;
         setActionButtons(false);
         loadRouletteMovies();
@@ -242,14 +343,13 @@ function setupRouletteLogic() {
 
             suggestionsEl.querySelectorAll('.crp-suggestion-item').forEach(item => {
                 item.addEventListener('click', () => {
-                    const id = item.dataset.id;
+                    const id   = item.dataset.id;
                     const pool = getFullPool();
                     addToCustomPool(id, pool[id]);
                 });
             });
         });
 
-        // Cerrar sugerencias al hacer click fuera
         document.addEventListener('click', (e) => {
             if (suggestionsEl && !searchInput.contains(e.target) && !suggestionsEl.contains(e.target)) {
                 suggestionsEl.style.display = 'none';
@@ -257,36 +357,35 @@ function setupRouletteLogic() {
         });
     }
 
-    // -------------------------------------------------------
-    // CARGAR CARRUSEL (normal o personalizado)
-    // -------------------------------------------------------
+    // ── Cargar carrusel (normal o personalizado) ─────────────────────────────
     const loadRouletteMovies = async () => {
         const rouletteTrack = shared.DOM.rouletteModal.querySelector('#roulette-carousel-track');
         if (!rouletteTrack) return;
 
-        spinDone = false;
-        setActionButtons(false);
+        spinDone      = false;
         selectedMovie = null;
+        setActionButtons(false);
 
         if (btnVista) btnVista.innerHTML = `<i class="fas fa-eye-slash"></i> Vista`;
 
+        // Detener loop anterior y resetear
+        stopCoverFlowLoop();
+        resetCoverFlowState(0);
         rouletteTrack.classList.remove('is-spinning');
-        spinButton.disabled = false;
-        rouletteTrack.style.transition = 'none';
         rouletteTrack.style.transform = 'translateX(0px)';
         rouletteTrack.innerHTML = '';
+        spinButton.disabled = false;
 
-        // ---- MODO PERSONALIZADO ----
+        // ── MODO PERSONALIZADO ────────────────────────────────────────────────
         if (customMode) {
             if (customPool.length < 2) {
                 spinButton.disabled = true;
                 return;
             }
-            // Mostrar selector al tener películas
             const _sel = shared.DOM.rouletteModal.querySelector('.roulette-selector');
             if (_sel) _sel.style.visibility = 'visible';
+
             const shuffled = [...customPool].sort(() => Math.random() - 0.5);
-            // Repetir el pool hasta tener ~35 elementos para la animación
             const repeated = [];
             while (repeated.length < 35) {
                 for (const item of shuffled) {
@@ -307,14 +406,16 @@ function setupRouletteLogic() {
                 const wrapperWidth = rouletteTrack.parentElement.offsetWidth;
                 const card = rouletteTrack.querySelector('.movie-card');
                 if (!card) return;
-                const cardWidth = card.offsetWidth + 20;
+                const cardWidth   = card.offsetWidth + 20;
                 const startOffset = wrapperWidth / 2 - cardWidth * 2.5;
-                rouletteTrack.style.transform = `translateX(${startOffset}px)`;
+
+                resetCoverFlowState(startOffset);
+                startCoverFlowLoop(rouletteTrack, wrapperWidth);
             }, 50);
             return;
         }
 
-        // ---- MODO NORMAL ----
+        // ── MODO NORMAL ───────────────────────────────────────────────────────
         if (!shared.appState.content.movies || Object.keys(shared.appState.content.movies).length < 10) {
             rouletteTrack.innerHTML = `<p>No hay suficientes películas.</p>`;
             spinButton.disabled = true;
@@ -344,8 +445,8 @@ function setupRouletteLogic() {
             return;
         }
 
-        const shuffled = [...availableIds].sort(() => Math.random() - 0.5);
-        const batchIds = shuffled.slice(0, Math.min(35, availableIds.length));
+        const shuffled      = [...availableIds].sort(() => Math.random() - 0.5);
+        const batchIds      = shuffled.slice(0, Math.min(35, availableIds.length));
         const finalPickIndex = Math.floor(batchIds.length * 0.6);
         selectedMovie = { id: batchIds[finalPickIndex], data: fullPool[batchIds[finalPickIndex]] };
 
@@ -359,15 +460,16 @@ function setupRouletteLogic() {
             const wrapperWidth = rouletteTrack.parentElement.offsetWidth;
             const card = rouletteTrack.querySelector('.movie-card');
             if (!card) return;
-            const cardWidth = card.offsetWidth + 20;
+            const cardWidth   = card.offsetWidth + 20;
             const startOffset = wrapperWidth / 2 - cardWidth * 2.5;
-            rouletteTrack.style.transform = `translateX(${startOffset}px)`;
+
+            resetCoverFlowState(startOffset);
+            startCoverFlowLoop(rouletteTrack, wrapperWidth);
         }, 50);
     };
 
-    // GIRAR
+    // ── GIRAR ────────────────────────────────────────────────────────────────
     spinButton.addEventListener('click', async () => {
-        // Si ya giró antes O si no hay película seleccionada aún, recargar carrusel
         if (spinDone || !selectedMovie) {
             spinDone = false;
             setActionButtons(false);
@@ -375,6 +477,7 @@ function setupRouletteLogic() {
             await new Promise(r => setTimeout(r, 80));
         }
         if (!selectedMovie) return;
+
         spinButton.disabled = true;
         setActionButtons(false);
 
@@ -384,19 +487,24 @@ function setupRouletteLogic() {
         const winnerCard = rouletteTrack.querySelector('[data-winner="true"]');
         if (!winnerCard) return;
 
-        const wrapperWidth = rouletteTrack.parentElement.offsetWidth;
-        const cardWidth = winnerCard.offsetWidth;
+        const wrapperWidth  = rouletteTrack.parentElement.offsetWidth;
+        const cardWidth     = winnerCard.offsetWidth;
         const centerPosition = (wrapperWidth / 2) - winnerCard.offsetLeft - (cardWidth / 2);
-        const maxOffset = Math.floor(cardWidth * 0.50);
-        const randomJitter = Math.floor(Math.random() * (maxOffset * 2 + 1)) - maxOffset;
-        const duration = 4200 + Math.floor(Math.random() * 800);
+        const maxOffset     = Math.floor(cardWidth * 0.50);
+        const randomJitter  = Math.floor(Math.random() * (maxOffset * 2 + 1)) - maxOffset;
+        const duration      = 4200 + Math.floor(Math.random() * 800);
 
-        rouletteTrack.style.transition = `transform ${duration}ms cubic-bezier(0.05, 0.9, 0.05, 1)`;
-        rouletteTrack.style.transform = `translateX(${centerPosition + randomJitter}px)`;
+        // Arrancar animación via rAF (sin CSS transition)
+        cf.spinFrom      = cf.currentX;
+        cf.spinTo        = centerPosition + randomJitter;
+        cf.spinDuration  = duration;
+        cf.spinStartTime = performance.now();
+        cf.isSpinning    = true;
+        cf.wrapperWidth  = wrapperWidth; // por si el modal fue resizado
 
-        rouletteTrack.addEventListener('transitionend', () => {
+        cf.onSpinEnd = () => {
             rouletteTrack.classList.remove('is-spinning');
-            spinDone = true;
+            spinDone            = true;
             spinButton.disabled = false;
 
             if (btnVista) {
@@ -405,21 +513,19 @@ function setupRouletteLogic() {
                     ? `<i class="fas fa-eye"></i> Quitar`
                     : `<i class="fas fa-eye-slash"></i> Vista`;
             }
-
             setActionButtons(true);
-        }, { once: true });
+        };
     });
 
-    // VER — abre reproductor directamente y arranca timer de 30 min
+    // ── VER ──────────────────────────────────────────────────────────────────
     if (btnVer) {
         btnVer.addEventListener('click', async () => {
             if (!selectedMovie || !spinDone) return;
             closeRouletteModal();
 
-            const movieId = selectedMovie.id;
+            const movieId    = selectedMovie.id;
             const movieTitle = selectedMovie.data.title;
 
-            // Arrancar timer de 30 min (igual que "Ver ahora" en detalles)
             if (shared.appState.player.movieHistoryTimer) {
                 clearTimeout(shared.appState.player.movieHistoryTimer);
             }
@@ -430,13 +536,12 @@ function setupRouletteLogic() {
                 shared.appState.player.movieHistoryTimer = null;
             }, THIRTY_MINUTES);
 
-            // Abrir reproductor directamente
             const player = await shared.getPlayerModule();
             player.openPlayerModal(movieId, movieTitle);
         });
     }
 
-    // VISTA — toggle marcar/desmarcar
+    // ── VISTA ─────────────────────────────────────────────────────────────────
     if (btnVista) {
         btnVista.addEventListener('click', async () => {
             if (!selectedMovie || !spinDone) return;
@@ -466,9 +571,8 @@ export async function openRouletteModal() {
         document.body.classList.add('modal-open');
         shared.DOM.rouletteModal.classList.add('show');
 
-        // Resetear a modo normal cada vez que se abre
         customMode = false;
-        customPool = []; // Limpiar películas de la sesión anterior
+        customPool = [];
         const btnModeNormal = shared.DOM.rouletteModal.querySelector('#roulette-mode-normal');
         const btnModeCustom = shared.DOM.rouletteModal.querySelector('#roulette-mode-custom');
         const customPanel   = shared.DOM.rouletteModal.querySelector('#custom-roulette-panel');
@@ -476,16 +580,16 @@ export async function openRouletteModal() {
         const rouletteTitle = shared.DOM.rouletteModal.querySelector('#roulette-title');
         if (btnModeNormal) btnModeNormal.classList.add('active');
         if (btnModeCustom) btnModeCustom.classList.remove('active');
-        if (customPanel)   customPanel.style.display = 'none';
-        if (btnVista)      btnVista.style.display = '';
-        if (rouletteTitle) rouletteTitle.textContent = 'Película Aleatoria';
-        // Limpiar chips y hint del modo personalizado
-        const chipsEl = shared.DOM.rouletteModal.querySelector('#crp-chips');
-        const hintEl  = shared.DOM.rouletteModal.querySelector('#crp-hint');
+        if (customPanel)   customPanel.style.display  = 'none';
+        if (btnVista)      btnVista.style.display      = '';
+        if (rouletteTitle) rouletteTitle.textContent   = 'Película Aleatoria';
+
+        const chipsEl  = shared.DOM.rouletteModal.querySelector('#crp-chips');
+        const hintEl   = shared.DOM.rouletteModal.querySelector('#crp-hint');
         const searchEl = shared.DOM.rouletteModal.querySelector('#crp-search-input');
-        if (chipsEl) chipsEl.innerHTML = '';
-        if (hintEl)  hintEl.textContent = 'Agrega al menos 2 películas para girar';
-        if (searchEl) searchEl.value = '';
+        if (chipsEl)  chipsEl.innerHTML  = '';
+        if (hintEl)   hintEl.textContent = 'Agrega al menos 2 películas para girar';
+        if (searchEl) searchEl.value     = '';
 
         await loadWatchedFromFirebase();
         if (window.loadRouletteMovies) window.loadRouletteMovies();
@@ -496,7 +600,6 @@ export async function unmarkMovieFromRoulette(movieId) {
     await unmarkAsWatched(movieId);
 }
 
-// Funciones públicas para uso desde script.js (botón ojo en detalles)
 export function isMovieWatched(movieId) {
     return watchedMovieIds.has(movieId);
 }
