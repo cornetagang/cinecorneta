@@ -1,4 +1,3 @@
-
 /* =============================================================
    MAIN.CSS — Hoja de estilos unificada
    Estructura:
@@ -8860,6 +8859,104 @@ button.modal-review-count:hover {
   font-weight: 600;
 }
 
+/* ── Stats cards (Total / Películas / Series) ── */
+.upm-mini-stats {
+  display: flex;
+  gap: 10px;
+  margin: 14px 0 6px;
+}
+
+.upm-mini-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 12px 8px;
+}
+
+.upm-mini-stat__val {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent-color, #00e5ff);
+  line-height: 1;
+}
+
+.upm-mini-stat__lbl {
+  font-size: 0.7rem;
+  color: rgba(255,255,255,0.55);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+/* ── Secciones internas (Géneros / Últimas películas / Series) ── */
+.upm-section {
+  margin-top: 18px;
+}
+
+.upm-section-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── Barra de géneros favoritos ── */
+.upm-genres {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.upm-genre-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.upm-genre-name {
+  width: 90px;
+  font-size: 0.78rem;
+  color: rgba(255,255,255,0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
+}
+
+.upm-genre-bar-wrap {
+  flex: 1;
+  background: rgba(255,255,255,0.08);
+  border-radius: 4px;
+  height: 6px;
+  overflow: hidden;
+}
+
+.upm-genre-bar {
+  height: 100%;
+  background: var(--accent-color, #00e5ff);
+  border-radius: 4px;
+  min-width: 6px;
+  transition: width 0.4s ease;
+}
+
+.upm-genre-count {
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.45);
+  width: 18px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
 /* ================================================================
        STREAMING PAGE — Layout estilo animesdigital
        ================================================================ */
@@ -16785,6 +16882,84 @@ nav .logo.active {
   .sp-episode-controls-row.mobile-only {
     display: flex !important;
   }
+
+  /* ══ Fix: fila temporada + idioma — altura equitativa entre ambos botones ══ */
+  /* La fila necesita align-items: stretch para que los hijos puedan igualar altura */
+  #sp-ps-controls-row {
+    align-items: stretch !important;
+  }
+
+  /* Contenedor de idioma: se comporta como .sp-langs dentro de .sp-controls */
+  #sp-ps-inline-lang {
+    display: flex;         /* sin !important para que display:none del JS funcione */
+    align-items: stretch;
+    border-left: 1px solid rgba(255, 255, 255, 0.06);
+    flex-shrink: 0;
+    background: var(--ep-surface, #0d1117);
+  }
+
+  /* cc-custom-lang-wrapper: ocupa toda la altura del contenedor */
+  #sp-ps-inline-lang .cc-custom-lang-wrapper {
+    display: flex !important;
+    align-self: stretch !important;
+    height: 100% !important;
+    position: relative !important;
+  }
+
+  /* cc-lang-trigger: sobreescribe los inline-styles (padding:0, display:inline-flex) */
+  #sp-ps-inline-lang .cc-lang-trigger {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 6px !important;
+    background: none !important;
+    border: none !important;
+    padding: 14px 16px !important;
+    cursor: pointer !important;
+    height: 100% !important;
+    font-size: 0.82rem !important;
+    font-weight: 800 !important;
+    color: var(--text-light, #f1f5f9) !important;
+    letter-spacing: 0.3px !important;
+    transition: background 0.2s !important;
+    white-space: nowrap !important;
+    border-radius: 0 !important;
+  }
+
+  #sp-ps-inline-lang .cc-lang-trigger i.fa-language {
+    font-size: 14px !important;
+    color: var(--accent-color) !important;
+    pointer-events: none !important;
+  }
+
+  #sp-ps-inline-lang .cc-lang-trigger span {
+    color: var(--text-light, #f1f5f9) !important;
+    font-size: 0.82rem !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.3px !important;
+    pointer-events: none !important;
+  }
+
+  #sp-ps-inline-lang .cc-lang-trigger i.fa-chevron-down {
+    font-size: 0.65rem !important;
+    color: var(--accent-color) !important;
+    pointer-events: none !important;
+  }
+
+  /* Dentro de la fila #sp-ps-controls-row el botón de temporada NO debe ser
+     sticky ni width:100% (eso corresponde a la fila entera, no al hijo) */
+  #sp-ps-controls-row .sp-season-btn-mobile,
+  #sp-ps-controls-row button.sp-ps-mobile-season-btn {
+    position: static !important;
+    width: auto !important;
+    flex: 1 !important;           /* crece para ocupar el espacio restante */
+  }
+
+  #sp-ps-inline-lang .cc-lang-trigger:hover {
+    background: rgba(var(--accent-rgb), 0.05) !important;
+    color: #fff !important;
+  }
 }
 
 /* ── Hero backdrop (solo desktop) ── */
@@ -17675,6 +17850,77 @@ nav .logo.active {
   gap: 10px;
 }
 
+/* ── Modo "solo idioma": sin selector de temporada, el btn de idioma ocupa todo el ancho ── */
+.sp-episode-controls-row.sp-controls-solo-lang #sp-ps-inline-lang {
+  display: flex !important;
+  flex: 1;
+  width: 100%;
+}
+.sp-episode-controls-row.sp-controls-solo-lang .cc-custom-lang-wrapper {
+  display: flex !important;
+  width: 100%;
+}
+.sp-episode-controls-row.sp-controls-solo-lang .cc-lang-trigger {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 8px !important;
+  width: 100%;
+  padding: 14px 16px !important;
+  background: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  font-size: 0.82rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.4px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.sp-episode-controls-row.sp-controls-solo-lang .cc-lang-trigger::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(var(--accent-rgb), 0.06) 0%,
+    transparent 60%
+  );
+  pointer-events: none;
+}
+/* Empujar el chevron a la derecha */
+.sp-episode-controls-row.sp-controls-solo-lang .cc-lang-trigger > i:last-child {
+  margin-left: auto;
+  font-size: 0.6rem !important;
+  color: var(--accent-color) !important;
+  transition: transform 0.25s cubic-bezier(0.4,0,0.2,1) !important;
+}
+/* Icono de idioma con color accent */
+.sp-episode-controls-row.sp-controls-solo-lang .cc-lang-trigger > i:first-child {
+  color: var(--accent-color) !important;
+  font-size: 15px !important;
+}
+/* Texto del idioma */
+.sp-episode-controls-row.sp-controls-solo-lang .cc-lang-trigger > span {
+  color: var(--text-light) !important;
+}
+/* Hover */
+@media (max-width: 768px) {
+  .sp-episode-controls-row.sp-controls-solo-lang .cc-lang-trigger:hover {
+    background: rgba(var(--accent-rgb), 0.05) !important;
+  }
+}
+
+/* Hover en opciones del menú */
+.cc-lang-option:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: #fff !important;
+}
+.cc-lang-option.active:hover {
+  background: rgba(var(--accent-rgb), 0.13) !important;
+  color: var(--accent-color) !important;
+}
+
 .sp-inline-lang {
   display: flex;
   align-items: center;
@@ -18278,14 +18524,72 @@ nav .logo.active {
   /* Idioma pills */
   .sp-langs {
     display: flex;
-    align-items: center;
+    align-items: stretch;
     gap: 0;
     border-left: 1px solid var(--ep-border);
-    padding: 0 12px;
+    padding: 0;
     height: 100%;
     min-height: 48px;
     flex-shrink: 0;
     background: var(--ep-surface);
+  }
+
+  /* Sobreescribir estilos inline del cc-custom-lang-wrapper para que llene la altura */
+  .sp-controls .sp-langs .cc-custom-lang-wrapper {
+    display: flex !important;
+    align-self: stretch !important;
+    height: 100% !important;
+    position: relative !important;
+  }
+
+  /* Sobreescribir estilos inline del cc-lang-trigger para que coincida con sp-season-btn-mobile */
+  .sp-controls .sp-langs .cc-lang-trigger {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 6px !important;
+    background: none !important;
+    border: none !important;
+    padding: 14px 16px !important;
+    cursor: pointer !important;
+    height: 100% !important;
+    font-size: 0.82rem !important;
+    font-weight: 800 !important;
+    color: var(--ep-text) !important;
+    letter-spacing: 0.3px !important;
+    transition: background 0.2s !important;
+    position: relative !important;
+    white-space: nowrap !important;
+    border-radius: 0 !important;
+  }
+
+  .sp-controls .sp-langs .cc-lang-trigger:hover {
+    background: rgba(var(--ep-rgb), 0.05) !important;
+    color: #fff !important;
+  }
+
+  .sp-controls .sp-langs .cc-lang-trigger i.fa-language {
+    font-size: 14px !important;
+    color: var(--ep-accent) !important;
+    pointer-events: none !important;
+    transition: color 0.2s !important;
+  }
+
+  .sp-controls .sp-langs .cc-lang-trigger span {
+    color: var(--ep-text) !important;
+    font-size: 0.82rem !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.3px !important;
+    pointer-events: none !important;
+    transition: color 0.2s !important;
+  }
+
+  .sp-controls .sp-langs .cc-lang-trigger i.fa-chevron-down {
+    font-size: 0.65rem !important;
+    color: var(--ep-accent) !important;
+    pointer-events: none !important;
+    transition: color 0.2s, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
   }
 
   /* ══ INFO STRIP (barra bajo el video) ══ */
@@ -24568,4 +24872,13 @@ body:has(#full-review-modal.show) {
     margin-top: 2px;
     white-space: nowrap;
   }
+}
+
+/* ===========================================================
+   FIX — sp-nav-mobile redundante en el player de series
+   El header principal + sp-player-topbar ya cubren marca y nav;
+   ocultar sp-nav-mobile evita el doble botón "Volver/Cerrar".
+   =========================================================== */
+#series-player-page .sp-nav-mobile {
+  display: none !important;
 }
