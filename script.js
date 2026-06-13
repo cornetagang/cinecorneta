@@ -1896,105 +1896,84 @@ function isAdminUser() {
  * Envía un embed al canal de Discord vía webhook.
  * Solo se llama desde el botón Discord del popover (admin only).
  */
-async function notifyDiscordNewContent({ title, year, poster, type, season, episode, episodeTitle, totalSeasons, lastEpisodeType, requestedBy, seasonWord }) {
-  // Palabra para nombrar las "temporadas" de esta serie (ej. "Parte" para
-  // JoJo's Bizarre Adventure, que se divide en Partes y no en Temporadas).
-  // Por defecto "Temporada".
+// Construye un objeto embed de Discord a partir de los datos de un contenido.
+// Usado tanto por notifyDiscordNewContent como por el modal de aviso múltiple.
+function buildContentEmbed({ title, year, poster, type, season, episode, episodeTitle, totalSeasons, lastEpisodeType, requestedBy, seasonWord, compact }) {
   const _word = String(seasonWord || "").trim() || "Temporada";
-  const wordCap = _word.charAt(0).toUpperCase() + _word.slice(1).toLowerCase();
+  const wordCap   = _word.charAt(0).toUpperCase() + _word.slice(1).toLowerCase();
   const wordLower = _word.toLowerCase();
 
   const configs = {
-    "movie": {
-      emoji: "🎬",
-      label: "Película",
-      description: "¡Ya está disponible en el cine! 🍿"
-    },
-    "series-new": {
-      emoji: "📺",
-      label: "Serie",
-      description: "¡Nueva serie disponible en el cine! 🍿"
-    },
-    "series-episode": {
-      emoji: "🆕",
-      label: "Serie",
-      description: "¡Nuevo capítulo disponible! 🎬"
-    },
-    "series-season": {
-      emoji: "📅",
-      label: "Serie",
-      description: `¡Nueva ${wordLower} disponible! 🎬`
-    }
+    "movie":          { emoji: "🎬", label: "Película", description: "¡Ya está disponible en el cine! 🍿" },
+    "series-new":     { emoji: "📺", label: "Serie",    description: "¡Nueva serie disponible en el cine! 🍿" },
+    "series-episode": { emoji: "🆕", label: "Serie",    description: "¡Nuevo capítulo disponible! 🎬" },
+    "series-season":  { emoji: "📅", label: "Serie",    description: `¡Nueva ${wordLower} disponible! 🎬` }
   };
-
   const { emoji, label, description } = configs[type] || configs["movie"];
 
-  // Color del embed según tipo de cierre
-  const embedColor = lastEpisodeType === "series"
-    ? 0xFF4444   // rojo — fin de serie
-    : lastEpisodeType === "season"
-      ? 0xFFB400  // amarillo — fin de temporada
-      : 0x00D4FF; // azul — normal
+  const embedColor = lastEpisodeType === "series" ? 0xFF4444
+    : lastEpisodeType === "season" ? 0xFFB400
+    : 0x00D4FF;
 
-  // Construir fields para series-episode
   const fields = [];
-
-  // Field "Pedida por" para películas y series nuevas
   if ((type === "movie" || type === "series-new") && requestedBy) {
     fields.push({ name: "🙋 Pedida por", value: requestedBy, inline: false });
   }
-
   if (type === "series-episode" && (season || episode)) {
-    // Field temporada/parte (inline)
-    if (season && totalSeasons > 1) {
-      fields.push({ name: `📅 ${wordCap}`, value: `${season}`, inline: true });
-    }
-    // Field episodio (inline)
-    if (episode) {
-      fields.push({ name: "🎞️ Episodio", value: `${episode}`, inline: true });
-    }
-    // Field título del episodio (ancho completo)
-    if (episodeTitle) {
-      fields.push({ name: "📝 Título", value: episodeTitle, inline: false });
-    }
-    // Field cierre si aplica
-    if (lastEpisodeType === "season") {
-      fields.push({ name: "\u200b", value: `🏁 **¡Último capítulo de la ${wordLower}!**`, inline: false });
-    } else if (lastEpisodeType === "series") {
-      fields.push({ name: "\u200b", value: "🎬 **¡Último capítulo de la serie!**", inline: false });
-    }
+    if (season && totalSeasons > 1) fields.push({ name: `📅 ${wordCap}`, value: `${season}`, inline: true });
+    if (episode)      fields.push({ name: "🎞️ Episodio", value: `${episode}`, inline: true });
+    if (episodeTitle) fields.push({ name: "📝 Título", value: episodeTitle, inline: false });
+    if (lastEpisodeType === "season")  fields.push({ name: "\u200b", value: `🏁 **¡Último capítulo de la ${wordLower}!**`, inline: false });
+    else if (lastEpisodeType === "series") fields.push({ name: "\u200b", value: "🎬 **¡Último capítulo de la serie!**", inline: false });
   } else if (type === "series-season" && season) {
     fields.push({ name: `📅 ${wordCap}`, value: `${season}`, inline: true });
   }
 
-  const payload = {
-    embeds: [{
-      author: {
-        name: "Cine Corneta",
-        url: "https://cornetagang.github.io/cinecorneta/"
-      },
-      title: `${emoji} ${title} (${year || "?????"})`  ,
-      description,
-      fields: fields.length ? fields : undefined,
-      color: embedColor,
-      thumbnail: poster ? { url: poster } : undefined,
-      footer: { text: label },
-      timestamp: new Date().toISOString()
-    }]
+  return {
+    author:      compact ? undefined : { name: "Cine Corneta", url: "https://cornetagang.github.io/cinecorneta/" },
+    title:       `${emoji} ${title} (${year || "?"})`,
+    description,
+    fields:      fields.length ? fields : undefined,
+    color:       embedColor,
+    thumbnail:   poster ? { url: poster } : undefined,
+    footer:      compact ? undefined : { text: label },
+    timestamp:   compact ? undefined : new Date().toISOString()
   };
+}
+
+async function notifyDiscordNewContent(params) {
+  const payload = { embeds: [buildContentEmbed(params)] };
+  const idToken = await auth.currentUser?.getIdToken();
+  if (!idToken) throw new Error("No autenticado");
+  const res = await fetch(`${WORKER_URL}/discord-notify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) throw new Error(`Webhook error: ${res.status}`);
+}
+
+// Envía un único mensaje de Discord con múltiples embeds (máx. 10 por la API).
+async function notifyDiscordBatch(embedsData) {
+  if (!embedsData?.length) return;
+  const compact = embedsData.length > 1;
+  // En modo compacto reservamos 1 slot para el embed de encabezado (link clickeable)
+  const items   = embedsData.slice(0, compact ? 9 : 10);
+  const embeds  = items.map(data => buildContentEmbed({ ...data, compact }));
+
+  if (compact) {
+    embeds.unshift({
+      description: "📢 Nuevos estrenos disponibles en el [Cine Corneta](https://cornetagang.github.io/cinecorneta/) 🍿"
+    });
+  }
 
   const idToken = await auth.currentUser?.getIdToken();
   if (!idToken) throw new Error("No autenticado");
-
   const res = await fetch(`${WORKER_URL}/discord-notify`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${idToken}`
-    },
-    body: JSON.stringify(payload)
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
+    body: JSON.stringify({ embeds })
   });
-
   if (!res.ok) throw new Error(`Webhook error: ${res.status}`);
 }
 
@@ -2480,6 +2459,241 @@ function openDiscordNotifyModal({ initialType, seriesData, seriesId }) {
 
   renderMain();
 }
+
+// ─────────────────────────────────────────────────────────────────
+// Modal de aviso múltiple — varias pelis/series en un solo mensaje
+// ─────────────────────────────────────────────────────────────────
+function openBatchNotifyModal() {
+  document.getElementById("dc-batch-modal")?.remove();
+
+  const DISC_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>`;
+
+  // Cola de items a enviar: [{ title, year, poster, type, requestedBy }]
+  const queue = [];
+
+  // Recopilar todo el contenido disponible
+  const allMovies  = Object.entries(appState?.content?.movies  || {}).map(([id, d]) => ({ id, ...d, _kind: "movie"  }));
+  const allSeries  = Object.entries(appState?.content?.series  || {}).map(([id, d]) => ({ id, ...d, _kind: "series" }));
+  const allContent = [...allMovies, ...allSeries].sort((a, b) => (a.title || "").localeCompare(b.title || "", "es"));
+
+  // ── Overlay ──────────────────────────────────────────────────
+  const overlay = document.createElement("div");
+  overlay.id = "dc-batch-modal";
+  overlay.style.cssText = `
+    position:fixed; inset:0; z-index:99999;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(0,0,0,0.62); backdrop-filter:blur(6px);
+    animation:dcFadeIn .15s ease;`;
+  overlay.onclick = () => overlay.remove();
+
+  const card = document.createElement("div");
+  card.style.cssText = `
+    background:#1a1d27; border:1px solid rgba(255,255,255,.1);
+    border-radius:16px; padding:20px; width:440px; max-width:95vw;
+    min-height:420px; max-height:90vh; display:flex; flex-direction:column; gap:14px;
+    box-shadow:0 24px 64px rgba(0,0,0,.8);
+    animation:dcScaleIn .22s cubic-bezier(.34,1.56,.64,1);`;
+  card.onclick = e => e.stopPropagation();
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+
+  // ── Header ───────────────────────────────────────────────────
+  const header = document.createElement("div");
+  header.style.cssText = `display:flex; align-items:center; gap:9px;`;
+  header.innerHTML = `
+    <span style="color:#7289da;">${DISC_ICON}</span>
+    <span style="font-size:14px;font-weight:700;color:#fff;flex:1;">Aviso múltiple</span>
+    <button onclick="document.getElementById('dc-batch-modal').remove()"
+      style="background:none;border:none;color:rgba(255,255,255,.3);cursor:pointer;font-size:22px;line-height:1;padding:0;transition:color .15s;"
+      onmouseenter="this.style.color='rgba(255,255,255,.8)'"
+      onmouseleave="this.style.color='rgba(255,255,255,.3)'">×</button>`;
+  card.appendChild(header);
+
+  // ── Buscador ─────────────────────────────────────────────────
+  const searchWrap = document.createElement("div");
+  searchWrap.style.cssText = `position:relative;`;
+  searchWrap.innerHTML = `
+    <input id="dcb-search" placeholder="Buscar película o serie…" autocomplete="off"
+      style="width:100%;box-sizing:border-box;padding:9px 12px 9px 34px;
+             background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
+             border-radius:9px;color:#fff;font-size:13px;outline:none;
+             font-family:inherit;transition:border-color .15s;"
+      onfocus="this.style.borderColor='rgba(114,137,218,.6)'"
+      onblur="this.style.borderColor='rgba(255,255,255,.15)'">
+    <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.4;pointer-events:none;"
+         width="14" height="14" viewBox="0 0 24 24" fill="white">
+      <path d="M21 19.1l-5.6-5.6A7 7 0 1 0 4 15a7 7 0 0 0 4.6 1.8 6.9 6.9 0 0 0 4.3-1.5l5.6 5.6zM4 15a5 5 0 1 1 5 5 5 5 0 0 1-5-5z"/>
+    </svg>`;
+  card.appendChild(searchWrap);
+
+  // ── Resultados de búsqueda ────────────────────────────────────
+  const resultsBox = document.createElement("div");
+  resultsBox.style.cssText = `
+    max-height:160px; overflow-y:auto; border-radius:9px;
+    border:1px solid rgba(255,255,255,.07);
+    scrollbar-width:thin; scrollbar-color:rgba(255,255,255,.15) transparent;
+    display:none;`;
+  card.appendChild(resultsBox);
+
+  function renderResults(q) {
+    const term = q.trim().toLowerCase();
+    if (!term) { resultsBox.style.display = "none"; return; }
+    const hits = allContent.filter(c =>
+      (c.title || "").toLowerCase().includes(term) ||
+      (c.year  || "").toString().includes(term)
+    ).slice(0, 12);
+    if (!hits.length) {
+      resultsBox.style.display = "block";
+      resultsBox.innerHTML = `<div style="padding:16px;text-align:center;color:rgba(255,255,255,.3);font-size:12px;">Sin resultados</div>`;
+      return;
+    }
+    resultsBox.style.display = "block";
+    resultsBox.innerHTML = "";
+    hits.forEach(item => {
+      const alreadyIn = queue.some(q => q._id === item.id);
+      const row = document.createElement("div");
+      row.style.cssText = `
+        display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;
+        border-bottom:1px solid rgba(255,255,255,.04);transition:background .1s;
+        ${alreadyIn ? "opacity:.4;pointer-events:none;" : ""}`;
+      row.onmouseenter = () => { if (!alreadyIn) row.style.background = "rgba(114,137,218,.13)"; };
+      row.onmouseleave = () => { row.style.background = ""; };
+      const poster = item.poster || item.image || item.banner || "";
+      row.innerHTML = `
+        ${poster ? `<img src="${poster}" style="width:24px;height:35px;object-fit:cover;border-radius:3px;flex-shrink:0;">` : `<div style="width:24px;height:35px;border-radius:3px;background:rgba(255,255,255,.08);flex-shrink:0;"></div>`}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:12px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.title || ""}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.35);">${item._kind === "movie" ? "🎬 Película" : "📺 Serie"} · ${item.year || ""}</div>
+        </div>
+        ${alreadyIn ? `<span style="font-size:10px;color:rgba(255,255,255,.3);">Ya añadida</span>` : `<span style="font-size:18px;color:rgba(114,137,218,.7);">+</span>`}`;
+      if (!alreadyIn) {
+        row.onclick = () => {
+          queue.push({
+            _id:         item.id,
+            title:       item.title,
+            year:        item.year,
+            poster:      poster || null,
+            type:        item._kind === "movie" ? "movie" : "series-new",
+            requestedBy: item.pedido || item.requestedBy || item.pedidaPor || item.pedida_por || ""
+          });
+          document.getElementById("dcb-search").value = "";
+          resultsBox.style.display = "none";
+          renderQueue();
+        };
+      }
+      resultsBox.appendChild(row);
+    });
+  }
+
+  searchWrap.querySelector("input").addEventListener("input", e => renderResults(e.target.value));
+  searchWrap.querySelector("input").addEventListener("focus",  e => renderResults(e.target.value));
+  document.addEventListener("click", function hideResults(e) {
+    if (!card.contains(e.target)) { resultsBox.style.display = "none"; }
+    if (!overlay.isConnected) document.removeEventListener("click", hideResults);
+  });
+
+  // ── Cola de items ─────────────────────────────────────────────
+  const queueSection = document.createElement("div");
+  queueSection.style.cssText = `flex:1;overflow-y:auto;min-height:200px;
+    scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.15) transparent;`;
+  card.appendChild(queueSection);
+
+  function renderQueue() {
+    queueSection.innerHTML = "";
+
+    if (!queue.length) {
+      queueSection.innerHTML = `
+        <div style="padding:24px;text-align:center;color:rgba(255,255,255,.25);font-size:12px;">
+          <div style="font-size:28px;margin-bottom:8px;">📭</div>
+          Buscá y añadí contenido para avisar
+        </div>`;
+      updateSendBtn();
+      return;
+    }
+
+    const label = document.createElement("div");
+    label.style.cssText = `font-size:10px;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.09em;margin-bottom:8px;`;
+    label.textContent = `Cola de avisos (${queue.length}/9)`;
+    queueSection.appendChild(label);
+
+    queue.forEach((item, idx) => {
+      const row = document.createElement("div");
+      row.style.cssText = `
+        display:flex;align-items:center;gap:10px;padding:9px 11px;margin-bottom:6px;
+        background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);
+        border-radius:9px;`;
+      const typeLabels = { movie: "🎬 Película", "series-new": "📺 Serie nueva", "series-episode": "🆕 Episodio", "series-season": "📅 Temporada" };
+      row.innerHTML = `
+        ${item.poster ? `<img src="${item.poster}" style="width:26px;height:38px;object-fit:cover;border-radius:4px;flex-shrink:0;">` : `<div style="width:26px;height:38px;border-radius:4px;background:rgba(255,255,255,.08);flex-shrink:0;"></div>`}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:12px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.title}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.35);margin-top:2px;">${typeLabels[item.type] || item.type} · ${item.year || "?"}</div>
+        </div>
+        <button data-idx="${idx}" class="dcb-remove-btn"
+          style="background:none;border:none;color:rgba(255,80,80,.5);cursor:pointer;font-size:16px;padding:2px 6px;border-radius:5px;transition:all .15s;"
+          onmouseenter="this.style.color='rgba(255,80,80,.9)'"
+          onmouseleave="this.style.color='rgba(255,80,80,.5)'" title="Quitar">✕</button>`;
+      row.querySelector(".dcb-remove-btn").onclick = () => {
+        queue.splice(idx, 1);
+        renderQueue();
+      };
+      queueSection.appendChild(row);
+    });
+
+    // Aviso si se alcanza el máximo
+    if (queue.length >= 9) {
+      const warn = document.createElement("div");
+      warn.style.cssText = `font-size:11px;color:#FFB400;text-align:center;padding:6px;`;
+      warn.textContent = "⚠️ Máximo de Discord: 9 avisos por mensaje";
+      queueSection.appendChild(warn);
+    }
+    updateSendBtn();
+  }
+
+  // ── Botón enviar ──────────────────────────────────────────────
+  const sendBtn = document.createElement("button");
+  sendBtn.style.cssText = `
+    width:100%; padding:11px; border-radius:9px; border:none;
+    background:linear-gradient(135deg,#7289da,#5b6eae);
+    color:#fff; font-size:13px; font-weight:700;
+    cursor:pointer; transition:opacity .15s; flex-shrink:0;`;
+  sendBtn.onmouseenter = () => { if (!sendBtn.disabled) sendBtn.style.opacity = ".85"; };
+  sendBtn.onmouseleave = () => { sendBtn.style.opacity = "1"; };
+  card.appendChild(sendBtn);
+
+  function updateSendBtn() {
+    const n = queue.length;
+    sendBtn.textContent = n ? `Enviar ${n} aviso${n > 1 ? "s" : ""} en un mensaje` : "Añadí contenido para enviar";
+    sendBtn.disabled = n === 0;
+    sendBtn.style.opacity = n ? "1" : ".4";
+    sendBtn.style.cursor  = n ? "pointer" : "default";
+  }
+
+  sendBtn.onclick = async () => {
+    if (!queue.length) return;
+    sendBtn.textContent = "Enviando…";
+    sendBtn.disabled = true;
+    try {
+      await notifyDiscordBatch([...queue]);
+      sendBtn.textContent = `✓ ${queue.length} aviso${queue.length > 1 ? "s" : ""} enviado${queue.length > 1 ? "s" : ""}`;
+      sendBtn.style.background = "linear-gradient(135deg,#43b581,#3aa36e)";
+      setTimeout(() => overlay.remove(), 1800);
+    } catch (err) {
+      console.error("[Discord Batch]", err);
+      sendBtn.textContent = "✗ Error al enviar";
+      sendBtn.style.background = "linear-gradient(135deg,#f04747,#d93535)";
+      sendBtn.disabled = false;
+      setTimeout(() => {
+        sendBtn.textContent = `Enviar ${queue.length} aviso${queue.length > 1 ? "s" : ""} en un mensaje`;
+        sendBtn.style.background = "linear-gradient(135deg,#7289da,#5b6eae)";
+      }, 3000);
+    }
+  };
+
+  renderQueue();
+}
+window.openBatchNotifyModal = openBatchNotifyModal;
+
 function isAdminContent(item) {
   return item && (item.admin === "si" || item.admin === "yes" || item.admin === "true");
 }
@@ -8721,6 +8935,16 @@ function injectOnlineCounter() {
           Sin datos todavía
         </div>
       </div>
+      <button onclick="openBatchNotifyModal()" style="
+        width:100%;padding:11px 14px;border-radius:10px;border:1px solid rgba(114,137,218,.35);
+        background:rgba(114,137,218,.12);color:#fff;font-size:13px;font-weight:600;
+        cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
+        transition:background .15s;margin-bottom:0;"
+        onmouseenter="this.style.background='rgba(114,137,218,.22)'"
+        onmouseleave="this.style.background='rgba(114,137,218,.12)'">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+        Aviso múltiple (varias pelis/series)
+      </button>
       <div class="adash-discord-card" id="adash-discord-card">
         <div class="adash-discord-header">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;opacity:.7"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
