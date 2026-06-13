@@ -4181,7 +4181,7 @@ function _initNovedadesSection() {
         id,
         data: d,
         type: "series",
-        typeLabel: isDateRecent(d.date_added) ? "Nueva serie" : "Nuevo cap.",
+        typeLabel: isDateRecent(d.date_added) ? "Estreno" : "Nuevo cap.",
         typeColor: isDateRecent(d.date_added) ? "#22c55e" : "#f59e0b",
         sortDate: latestDate,
         epThumb,
@@ -4261,7 +4261,7 @@ function _initNovedadesSection() {
         ${typeLabel}
       </span>`;
       const subLabel =
-        isSeries && epDetail
+        isSeries && epDetail && typeLabel === "Nuevo cap."
           ? `<div style="font-size:0.6rem;color:rgba(255,255,255,0.6);margin-top:2px;font-weight:600">${epDetail}</div>`
           : "";
 
