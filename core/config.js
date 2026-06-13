@@ -3,6 +3,11 @@
 // ===========================================================
 
 /**
+ * URL del Cloudflare Worker para el Reproductor (ArtPlayer + Subtitles)
+ */
+export const WORKER_URL = "https://cinecorneta.benja104lokito.workers.dev";
+
+/**
  * Configuración de Firebase
  */
 export const firebaseConfig = {
@@ -46,30 +51,17 @@ export const API_URL = {
  */
 export const UI = {
     // ── Layout dinámico ──────────────────────────────────────
-    // El número de items por página se calcula siempre en base
-    // al tamaño real del viewport: columnas × filas deseadas.
-    // Así cada pantalla ve exactamente N filas completas, sin
-    // huecos ni scroll infinito.
-    
     CARD_MIN_WIDTH: 200,  // px — coincide con minmax(200px,1fr) del CSS
     GRID_GAP: 20,         // px — coincide con gap: 20px del CSS
     GRID_PADDING_VW: 8,   // vw total (4vw cada lado)
     ROWS_PER_PAGE: 4,     // cuántas filas quieres ver por página
 
-    /**
-     * Calcula cuántas columnas caben en el viewport actual.
-     * Usa la misma lógica que CSS auto-fill/minmax.
-     */
     getColumns() {
         const padding = window.innerWidth * (this.GRID_PADDING_VW / 100);
         const available = window.innerWidth - padding;
         return Math.max(2, Math.floor((available + this.GRID_GAP) / (this.CARD_MIN_WIDTH + this.GRID_GAP)));
     },
 
-    /**
-     * Items por página = columnas × filas.
-     * Usar este getter en lugar de ITEMS_PER_LOAD directamente.
-     */
     get ITEMS_PER_LOAD() {
         return this.getColumns() * this.ROWS_PER_PAGE;
     },
@@ -143,13 +135,14 @@ export const PERMISSIONS = {
  * Configuración del Reproductor
  */
 export const PLAYER = {
-    HISTORY_DEBOUNCE_MS: 3000, // 3 segundos antes de guardar en historial
-    EPISODE_OPEN_DELAY: 1000, // 1 segundo antes de abrir episodio
-    MIN_WATCH_TIME: 30, // 30 segundos mínimos para contar como visto
+    HISTORY_DEBOUNCE_MS: 3000, 
+    EPISODE_OPEN_DELAY: 1000, 
+    MIN_WATCH_TIME: 30, 
     
     providers: {
         hls: 'HLS',
-        iframe: 'IFRAME'
+        iframe: 'IFRAME',
+        artplayer: 'ARTPLAYER' // Añadido como referencia
     }
 };
 
@@ -157,28 +150,10 @@ export const PLAYER = {
  * Configuración de Validación
  */
 export const VALIDATION = {
-    username: {
-        minLength: 3,
-        maxLength: 20,
-        pattern: /^[a-zA-Z0-9_]+$/,
-        message: 'El nombre debe tener entre 3 y 20 caracteres (solo letras, números y guión bajo)'
-    },
-    
-    password: {
-        minLength: 6,
-        message: 'La contraseña debe tener al menos 6 caracteres'
-    },
-    
-    email: {
-        pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-        message: 'Ingresa un email válido'
-    },
-    
-    review: {
-        minLength: 2,
-        maxLength: 1000,
-        message: 'La reseña debe tener entre 2 y 1000 caracteres'
-    }
+    username: { minLength: 3, maxLength: 20, pattern: /^[a-zA-Z0-9_]+$/, message: 'El nombre debe tener entre 3 y 20 caracteres (solo letras, números y guión bajo)' },
+    password: { minLength: 6, message: 'La contraseña debe tener al menos 6 caracteres' },
+    email: { pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Ingresa un email válido' },
+    review: { minLength: 2, maxLength: 1000, message: 'La reseña debe tener entre 2 y 1000 caracteres' }
 };
 
 /**
@@ -195,7 +170,6 @@ export const MESSAGES = {
         unauthorized: 'No tienes permiso para realizar esta acción.',
         serverError: 'Error del servidor. Intenta más tarde.'
     },
-    
     success: {
         login: 'Bienvenido de vuelta',
         register: 'Cuenta creada exitosamente',
@@ -206,7 +180,6 @@ export const MESSAGES = {
         addedToList: 'Agregado a Mi Lista',
         removedFromList: 'Eliminado de Mi Lista'
     },
-    
     info: {
         loading: 'Cargando contenido...',
         searching: 'Buscando...',
@@ -222,51 +195,39 @@ export const MESSAGES = {
  * Configuración de Ruleta
  */
 export const ROULETTE = {
-    TOTAL_ITEMS: 35, // Número de items en el carrusel
-    WINNER_OFFSET: 5, // Posición del ganador desde el final
-    SPIN_DURATION: 4500, // Duración de la animación en ms
-    SPIN_CURVE: 'cubic-bezier(0.1, 0.7, 0.1, 1)', // Curva de animación
-    PAUSE_BEFORE_DETAILS: 800, // Pausa antes de abrir detalles (ms)
-    MIN_MOVIES_REQUIRED: 10 // Mínimo de películas para activar ruleta
+    TOTAL_ITEMS: 35, WINNER_OFFSET: 5, SPIN_DURATION: 4500, SPIN_CURVE: 'cubic-bezier(0.1, 0.7, 0.1, 1)', PAUSE_BEFORE_DETAILS: 800, MIN_MOVIES_REQUIRED: 10
 };
 
 /**
  * Configuración de Performance
  */
 export const PERFORMANCE = {
-    LOW_SPEC_CORES: 4, // Si tiene 4 núcleos o menos, activar modo low-spec
-    PRELOAD_IMAGES: true,
-    ENABLE_LAZY_LOADING: true,
-    DEBOUNCE_SEARCH_MS: 300,
-    THROTTLE_SCROLL_MS: 100
+    LOW_SPEC_CORES: 4, PRELOAD_IMAGES: true, ENABLE_LAZY_LOADING: true, DEBOUNCE_SEARCH_MS: 300, THROTTLE_SCROLL_MS: 100
 };
 
 /**
- * Feature Flags (para habilitar/deshabilitar funcionalidades)
+ * Feature Flags
  */
 export const FEATURES = {
-    ENABLE_REVIEWS: true,
-    ENABLE_ROULETTE: true,
-    ENABLE_FESTIVAL: false, // Activar solo durante eventos
-    ENABLE_CHRISTMAS_THEME: false, // Activar en diciembre
-    ENABLE_ADVANCED_SEARCH: true,
-    ENABLE_WATCHLIST: true,
-    ENABLE_HISTORY: true,
-    ENABLE_RECOMMENDATIONS: false // Para futuro
+    ENABLE_REVIEWS: true, ENABLE_ROULETTE: true, ENABLE_FESTIVAL: false, ENABLE_CHRISTMAS_THEME: false, ENABLE_ADVANCED_SEARCH: true, ENABLE_WATCHLIST: true, ENABLE_HISTORY: true, ENABLE_RECOMMENDATIONS: false
 };
 
 /**
- * Configuración de Analytics (si lo implementas en el futuro)
+ * Configuración de Analytics
  */
-export const ANALYTICS = {
-    ENABLED: false,
-    TRACK_PAGE_VIEWS: true,
-    TRACK_ERRORS: true,
-    TRACK_USER_ACTIONS: true
-};
+export const ANALYTICS = { ENABLED: false, TRACK_PAGE_VIEWS: true, TRACK_ERRORS: true, TRACK_USER_ACTIONS: true };
+
+/**
+ * Notas de seguridad:
+ * El webhook de Discord ya NO se expone en el frontend.
+ * El envío se hace vía WORKER_URL + "/discord-notify",
+ * que verifica el token de Firebase del usuario antes de reenviar
+ * al webhook real (guardado como secret en Cloudflare).
+ */
 
 // Exportar todo como objeto único también
 export default {
+    WORKER_URL,
     firebaseConfig,
     API_URL,
     UI,
