@@ -1,686 +1,2198 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
     <title>Cine Corneta</title>
-    <link id="app-icon" rel="icon" type="image/png" href="https://res.cloudinary.com/djhgmmdjx/image/upload/v1759209689/u71QEFc_bet4rv.png">
-    
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
-    
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="css/style.css">
-    <style>
-        .cinema-title-above {
-            margin: 0 0 10px 0 !important;
-            padding: 0 !important;
-            text-align: center !important;
-            font-size: 1.8rem !important;
-            line-height: 1.2 !important;
-            color: #fff !important;
-            white-space: nowrap !important;
-            overflow: hidden !important;
-            text-overflow: ellipsis !important;
-        }
-    </style>
-
+    <link
+      id="app-icon"
+      rel="icon"
+      type="image/png"
+      href="https://res.cloudinary.com/djhgmmdjx/image/upload/v1759209689/u71QEFc_bet4rv.png"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <!-- ArtPlayer CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/artplayer/dist/artplayer.css">
+    <link rel="stylesheet" href="css/main.css" />
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-</head>
-<body class="">
 
+  <style>
+    @keyframes roulette-sweep {
+      0%   { background-position: 0% 50%; }
+      100% { background-position: 200% 50%; }
+    }
+
+    @keyframes roulette-glow {
+      0%   { box-shadow: 0 0 6px 1px rgba(255,107,107,0.5); }
+      16%  { box-shadow: 0 0 6px 1px rgba(255,169,77,0.5); }
+      33%  { box-shadow: 0 0 6px 1px rgba(255,224,102,0.5); }
+      50%  { box-shadow: 0 0 6px 1px rgba(105,219,124,0.5); }
+      66%  { box-shadow: 0 0 6px 1px rgba(116,192,252,0.5); }
+      83%  { box-shadow: 0 0 6px 1px rgba(204,93,232,0.5); }
+      100% { box-shadow: 0 0 6px 1px rgba(255,107,107,0.5); }
+    }
+
+    a.nav-dropdown-item.nav-roulette-btn {
+      background-image: linear-gradient(90deg,
+        #ff6b6b, #ffa94d, #ffe066, #69db7c, #74c0fc, #cc5de8, #ff6b6b) !important;
+      background-size: 200% auto !important;
+      -webkit-background-clip: text !important;
+      -webkit-text-fill-color: transparent !important;
+      background-clip: text !important;
+      animation: roulette-sweep 3s linear infinite !important;
+      transition: none !important;
+      border-radius: 10px;
+    }
+
+    a.nav-dropdown-item.nav-roulette-btn svg {
+      color: #cc5de8 !important;
+      opacity: 1 !important;
+      animation: roulette-rainbow 3s linear infinite !important;
+      transition: none !important;
+    }
+
+    @keyframes roulette-rainbow {
+      0%   { color: #ff6b6b; }
+      16%  { color: #ffa94d; }
+      33%  { color: #ffe066; }
+      50%  { color: #69db7c; }
+      66%  { color: #74c0fc; }
+      83%  { color: #cc5de8; }
+      100% { color: #ff6b6b; }
+    }
+
+    a.nav-dropdown-item.nav-roulette-btn:hover {
+      animation: roulette-sweep 1s linear infinite,
+                 roulette-glow 1s linear infinite !important;
+      background-color: rgba(255,255,255,0.06) !important;
+    }
+
+    a.nav-dropdown-item.nav-roulette-btn:hover svg {
+      animation: roulette-rainbow 1s linear infinite !important;
+    }
+
+    .mob-roulette-btn {
+      background-image: linear-gradient(90deg,
+        #ff6b6b, #ffa94d, #ffe066, #69db7c, #74c0fc, #cc5de8, #ff6b6b) !important;
+      background-size: 200% auto !important;
+      -webkit-background-clip: text !important;
+      -webkit-text-fill-color: transparent !important;
+      background-clip: text !important;
+      animation: roulette-sweep 3s linear infinite !important;
+      transition: none !important;
+    }
+
+    .mob-roulette-btn svg {
+      color: #cc5de8 !important;
+      opacity: 1 !important;
+      animation: roulette-rainbow 3s linear infinite !important;
+      transition: none !important;
+    }
+  </style>
+  </head>
+  <body class="">
+    <!-- ══ PRECARGADOR ══════════════════════════════════════════ -->
     <div id="preloader">
-        <div class="spinner"></div>
+      <div class="spinner"></div>
     </div>
 
-    <div class="page-wrapper" style="display: none;">
-        <header class="main-header">
-            <div class="header-container">
-                <div class="header-left">
-                    <div class="logo">
-                        <img id="app-logo" src="https://res.cloudinary.com/djhgmmdjx/image/upload/v1759209688/vgJjqSM_oicebo.png" alt="Cine Corneta Logo" loading="lazy">
-                    </div>
-
-                    <nav class="main-nav">
-                        <ul>
-                            <li><a href="#" class="active" data-filter="all">Inicio</a></li>
-                            <li><a href="#" data-filter="movie">Películas</a></li>
-                            <li><a href="#" data-filter="series">Series</a></li>
-                            <li><a href="#" data-filter="sagas">Universos</a></li>
-                            <li><a href="#" data-filter="roulette">Ruleta</a></li>
-                            <li><a href="#" data-filter="reviews">Reseñas</a></li>
-                            <li><a href="#" data-filter="requests">Pedidos</a></li>
-                        </ul>
-                    </nav>
-                </div>
-                <div class="header-right">
-                    <div id="search-container">
-                        <input type="text" id="search-input" placeholder="Buscar..." autocomplete="off">
-                        <i class="fas fa-search search-icon"></i>
-                    </div>
-
-                    <div id="user-profile-container" style="display: none;">
-                        <div class="user-dropdown-wrapper">
-                            <button id="user-greeting" class="user-greeting-btn">Hola, Usuario</button>
-                            <div id="user-menu-dropdown" class="user-menu-dropdown">
-                                <a href="#" id="my-list-nav-link" data-filter="my-list" style="display: none;">
-                                    <i class="fas fa-list" style="width: 18px;"></i> Mi Lista
-                                </a>
-                                <a href="#" id="history-nav-link" data-filter="history" style="display: none;">
-                                    <i class="fas fa-history" style="width: 18px;"></i> Historial
-                                </a>
-                                <div style="border-top: 1px solid rgba(255,255,255,0.1); margin: 5px 10px;"></div>
-                                
-                                <a href="#" data-filter="profile">
-                                    <i class="fas fa-user-circle" style="width: 18px;"></i> Mi Perfil
-                                </a>
-                                <a href="#" data-filter="settings">
-                                    <i class="fas fa-cog" style="width: 18px;"></i> Ajustes de Cuenta
-                                </a>
-                                <a href="#" id="reports-nav-link" data-filter="reports" style="display: none;">
-                                    <i class="fas fa-flag" style="width: 18px;"></i> Reportes
-                                    <span id="reports-badge" class="dropdown-reports-badge" style="display:none;"></span>
-                                </a>
-                                <a href="#" id="logout-btn" data-action="logout">
-                                    <i class="fas fa-sign-out-alt" style="width: 18px;"></i> Cerrar Sesión
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="auth-buttons" style="display: flex;">
-                        <a href="#" id="login-btn-header" class="btn btn-login">Ingresar</a>
-                        <a href="#" id="register-btn-header" class="btn btn-register">Registrarse</a>
-                    </div>
-                </div>
-            </div>
-        </header>
-
-        <main>
-            <section id="hero-section" class="hero-section"></section>
-
-            <div id="carousel-container"></div>
-
-            <div id="full-grid-container" style="display: none;">
-                <div class="filter-controls" id="filter-controls">
-                    <button id="back-to-sagas-btn" class="sort-btn back-saga-btn" style="display: none;">
-                        <i class="fas fa-arrow-left"></i> Universos
-                    </button>
-
-                    <div class="custom-dropdown" id="genre-dropdown-visual">
-                        <div class="dropdown-trigger" id="genre-trigger">
-                            <span id="genre-text">Todos</span>
-                            <i class="fas fa-chevron-down"></i>
-                        </div>
-                        <div class="dropdown-menu" id="genre-menu-list"></div>
-                    </div>
-                    
-                    <select id="genre-filter" style="display: none !important;"></select>
-                    <select id="lang-filter" style="display: none !important;"></select>
-                    <select id="sort-by" style="display: none !important;"></select>
-
-                    <div class="custom-dropdown" id="lang-dropdown-visual">
-                        <div class="dropdown-trigger" id="lang-trigger">
-                            <span id="lang-text">Idioma</span>
-                            <i class="fas fa-chevron-down"></i>
-                        </div>
-                        <div class="dropdown-menu" id="lang-menu-list"></div>
-                    </div>
-
-                    <div class="custom-dropdown" id="request-dropdown-visual">
-                        <div class="dropdown-trigger" id="request-trigger">
-                            <span id="request-text">Pedidos</span>
-                            <i class="fas fa-chevron-down"></i>
-                        </div>
-                            <div class="dropdown-menu" id="request-menu-list">
-                        </div>
-                            <select id="request-filter" style="display:none;">
-                            <option value="all">Todos</option>
-                        </select>
-                    </div>
-                    
-                    <div class="custom-dropdown" id="sort-dropdown-visual">
-                        <div class="dropdown-trigger" id="sort-trigger">
-                            <span id="sort-text">Recientes</span>
-                            <i class="fas fa-chevron-down"></i>
-                        </div>
-                        <div class="dropdown-menu" id="sort-menu-list"></div>
-                    </div>
-
-                    <div id="ucm-sort-buttons" style="display: none;">
-                        <button class="sort-btn active" data-sort="release">Orden de Salida</button>
-                        <button class="sort-btn" data-sort="chronological">Orden Cronológico</button>
-                    </div>
-                </div>
-                <div class="grid"></div>
-            </div>
-
-            <div id="reviews-container" style="display: none;">
-                <div class="reviews-page-header">
-                    <div class="reviews-page-header-inner">
-                        <div class="reviews-title-block">
-                            <h2 class="reviews-page-title">Reseñas</h2>
-                            <p class="reviews-page-subtitle">Reseñas hechas por profesionales en la materia</p>
-                        </div>
-                        <button id="open-review-modal-btn" class="btn-primary" style="padding: 13px 28px; font-size: 1rem; flex-shrink:0;">
-                            <i class="fas fa-edit"></i> Escribir Reseña
-                        </button>
-                    </div>
-                </div>
-                <!-- Barra de pestañas / filtros de vista -->
-                <div class="reviews-tabs-bar" id="reviews-tabs-bar">
-                    <div class="rv-tabs-left">
-                        <button class="rv-tab active" data-tab="all">
-                            <i class="fas fa-layer-group"></i> Todas
-                        </button>
-                        <button class="rv-tab" data-tab="mine" id="rv-tab-mine">
-                            <i class="fas fa-user"></i> Mis reseñas
-                        </button>
-                    </div>
-                    <div class="rv-tabs-right">
-                        <div class="rv-user-search-wrap">
-                            <i class="fas fa-search rv-user-search-icon"></i>
-                            <input type="text" id="rv-user-search-input" class="rv-user-search-input" placeholder="Buscar por @usuario...">
-                            <button class="rv-user-search-clear" id="rv-user-search-clear" style="display:none;" title="Limpiar búsqueda">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="reviews-two-col">
-                    <!-- Columna izquierda: Stats fijos -->
-                    <aside class="reviews-sidebar">
-                        <div id="reviews-stats-panel" class="reviews-stats-panel" style="display:none;">
-                            <div class="rsp-avg-block">
-                                <span class="rsp-big-num" id="rsp-avg">—</span>
-                                <div>
-                                    <div class="rsp-stars" id="rsp-stars"></div>
-                                    <span class="rsp-count" id="rsp-count"></span>
-                                </div>
-                            </div>
-                            <div class="rsp-bars" id="rsp-bars"></div>
-                        </div>
-                        <!-- Filtro por estrellas -->
-                        <div id="reviews-star-filter" class="reviews-star-filter" style="display:none;">
-                            <p class="rsf-label">Filtrar por estrellas</p>
-                            <div class="rsf-buttons">
-                                <button class="rsf-btn active" data-stars="all">Todas</button>
-                                <button class="rsf-btn" data-stars="5"><i class="fas fa-star"></i> 5</button>
-                                <button class="rsf-btn" data-stars="4"><i class="fas fa-star"></i> 4</button>
-                                <button class="rsf-btn" data-stars="3"><i class="fas fa-star"></i> 3</button>
-                                <button class="rsf-btn" data-stars="2"><i class="fas fa-star"></i> 2</button>
-                                <button class="rsf-btn" data-stars="1"><i class="fas fa-star"></i> 1</button>
-                            </div>
-                        </div>
-                    </aside>
-                    <!-- Columna derecha: Lista de reseñas -->
-                    <div id="reviews-grid" class="reviews-grid"></div>
-                </div>
-            </div>
-
-            <!-- SECCIÓN PEDIDOS -->
-            <div id="requests-container" class="content-container" style="display: none;"></div>
-            <div id="reports-container" class="content-container" style="display: none;"></div>
-
-
-            <div id="my-list-container" style="display: none;">
-                <div class="content-header"><h2>Mi Lista</h2></div>
-                <div id="my-list-grid" class="grid"></div>
-            </div>
-
-            <div id="history-container" style="display: none;">
-                <div class="content-header"><h2>Historial de Reproducción</h2></div>
-                <div id="history-grid" class="grid"></div>
-            </div>
-
-            <div id="sagas-hub-container" style="display: none;">
-                <div class="content-header"><h1 class="main-title"></h1></div>
-                <div class="sagas-grid" id="sagas-grid-dynamic"></div>
-            </div>
-
-            <div id="profile-hub-container" class="content-container" style="display: none;">
-                <div class="profile-hub-header">
-                    <h2>Mi Perfil</h2>
-                    <p id="profile-hub-email">Cargando...</p>
-                </div>
-                
-                <div id="hub-logged-in-content" style="display: none;">
-                    
-                    <h4 style="color: #666; font-size: 0.9rem; margin: 10px 0 10px 5px; text-transform: uppercase;">Explorar</h4>
-
-
-                    <a href="#" class="profile-hub-menu-item" data-filter="reviews">
-                        <i class="fas fa-star" style="color: #00f2ff;"></i>
-                        <span>Reseñas</span>
-                    </a>
-                    
-                    <a href="#" class="profile-hub-menu-item" data-filter="requests">
-                        <i class="fas fa-film" style="color: #d42279;"></i>
-                        <span>Pedidos</span>
-                    </a>
-                    
-                    <a href="#" class="profile-hub-menu-item" data-filter="roulette">
-                        <i class="fas fa-dice" style="color: #ffffff;"></i>
-                        <span>Ruleta</span>
-                    </a>
-
-                    <div style="border-top: 1px solid rgba(255,255,255,0.1); margin: 20px 0;"></div>
-
-                    <h4 style="color: #666; font-size: 0.9rem; margin: 10px 0 10px 5px; text-transform: uppercase;">Mi Cuenta</h4>
-
-                    <a href="#" class="profile-hub-menu-item" data-filter="my-list">
-                        <i class="fas fa-list"></i><span>Mi Lista</span>
-                    </a>
-                    <a href="#" class="profile-hub-menu-item" data-filter="history">
-                        <i class="fas fa-history"></i><span>Historial</span>
-                    </a>
-                    <a href="#" class="profile-hub-menu-item" data-filter="profile">
-                        <i class="fas fa-chart-line"></i><span>Estadísticas</span>
-                    </a>
-                    <a href="#" class="profile-hub-menu-item" data-filter="settings">
-                        <i class="fas fa-cog"></i><span>Ajustes</span>
-                    </a>
-                    
-                    <div style="margin-top: 20px;">
-                        <a href="#" id="logout-btn-hub" class="profile-hub-menu-item logout" style="justify-content: center; background: rgba(255,0,0,0.1); border: 1px solid rgba(255,0,0,0.3);">
-                            <i class="fas fa-sign-out-alt"></i><span>Cerrar Sesión</span>
-                        </a>
-                    </div>
-                </div>
-
-                <div id="hub-guest-content" style="display: none; text-align: center; padding: 30px 20px;">
-                    <i class="fas fa-user-lock" style="font-size: 4rem; color: #444; margin-bottom: 20px;"></i>
-                    <h3 style="margin: 0 0 10px 0; color: var(--text-light);">Modo Invitado</h3>
-                    <button id="login-btn-hub" class="btn-primary" style="width: 100%; padding: 15px; font-size: 1.1rem; display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 15px;">
-                        <i class="fas fa-sign-in-alt"></i> Iniciar Sesión
-                    </button>
-                    <button id="register-btn-hub" class="btn-secondary" style="width: 100%; padding: 15px; font-size: 1.1rem; display: flex; justify-content: center; align-items: center; gap: 10px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); margin-top: 15px;">
-                        <i class="fas fa-user-plus"></i> Registrarse
-                    </button>
-                </div>
-            </div>
-
-            <div id="profile-container" class="content-container" style="display: none;">
-                <div class="profile-header-wrapper">
-                    <div class="profile-main-info">
-                        <div class="profile-avatar-placeholder"><i class="fas fa-user-circle"></i></div>
-                        <div class="profile-text-info">
-                            <h3 id="profile-username"></h3>
-                            <p id="profile-email"></p>
-                        </div>
-                    </div>
-                </div>
-                <div class="profile-tab-content active" id="activity-tab">
-                    <div class="stats-container">
-                        <div class="stat-card"><i class="fas fa-film"></i><span id="stat-movies-watched" class="stat-value">0</span><span class="stat-label">Películas</span></div>
-                        <div class="stat-card"><i class="fas fa-tv"></i><span id="stat-series-watched" class="stat-value">0</span><span class="stat-label">Series</span></div>
-                    </div>
-                    <div id="genre-stats-container"></div>
-                </div>
-            </div>
-
-            <div id="settings-container" class="content-container" style="display: none;">
-                <div class="content-header">
-                    <h1 class="main-title">Ajustes</h1>
-                </div>
-                <div class="settings-form-wrapper">
-                    <div class="settings-group">
-                        <label>Nombre de usuario</label>
-                        <div class="input-with-button">
-                            <input type="text" id="settings-username-input">
-                            <button id="update-username-btn" class="btn-primary">Guardar</button>
-                        </div>
-                    </div>
-                    <div class="settings-group">
-                        <label>Contraseña</label>
-                        <div class="input-with-button">
-                            <input type="password" id="settings-password-input">
-                            <button id="update-password-btn" class="btn-primary">Actualizar</button>
-                        </div>
-                    </div>
-                    <p id="settings-feedback" class="feedback-message"></p>
-                </div>
-            </div>
-        </main>
-    </div>
-
-    <div id="details-modal" class="modal">
-        <div class="details-panel">
-            <button class="close-btn">&times;</button>
-            <div class="details-content">
-                <div class="details-poster"><img id="details-poster-img" src="" alt="Poster"></div>
-                <div class="details-info">
-                    <h2 id="details-title"></h2>
-                    <div class="details-meta">
-                        <span id="details-year"></span>
-                        <span id="details-language" style="display: none;"></span>
-                        <span id="details-genres"></span>
-                    </div>
-                    <p id="details-synopsis"></p>
-                    <div id="details-buttons"></div>
-                </div>
-            </div>
+    <!-- ══ APP ═════════════════════════════════════════════════ -->
+    <div class="page-wrapper" style="display: none">
+      <!-- ── TOP BAR MÓVIL (fixed, solo mobile) ────────────── -->
+      <div class="mobile-top-bar" id="mobileTopBar">
+        <a href="#" class="mobile-top-logo" data-filter="all">CINE CORNETA</a>
+        <div class="mobile-top-right">
+          <button
+            class="mobile-top-icon-btn"
+            id="mobileSearchBtn"
+            onclick="toggleMobileSearch()"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.35-4.35" />
+            </svg>
+          </button>
+          <div
+            class="mobile-top-avatar mobile-top-avatar--guest"
+            id="mobileGuestBtn"
+            onclick="toggleMobileDrawer()"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+          </div>
+          <div
+            class="mobile-top-avatar"
+            id="mobileAvatarBtn"
+            onclick="toggleMobileDrawer()"
+            style="display: none"
+          >
+            <span id="mobileAvatarInitials">CC</span>
+          </div>
         </div>
-    </div>
+      </div>
 
-    <div id="cinema" class="modal">
-        <button class="close-btn">&times;</button>
-        <div class="movie-player-layout-container">
-            <div class="movie-player-container">
-                <h2 id="cinema-title" class="movie-player-title cinema-title-above"></h2>
-                <div class="screen"><iframe src="" allowfullscreen allow="autoplay; fullscreen; encrypted-media; picture-in-picture"></iframe></div>
-                <div class="movie-lang-selection">
-                    <button class="lang-select-btn active" data-lang="original">Original</button>
-                    <button class="lang-select-btn" data-lang="spanish">Español</button>
-                </div>
-            </div>
-            <div class="movie-info-sidebar">
-                <div class="movie-poster-container">
-                    <img id="cinema-poster" src="" alt="Poster">
-                </div>
-                <div class="movie-details-info">
-                    <div class="movie-meta-info">
-                        <span id="cinema-requester"></span>
-                        <span id="cinema-year"></span>
-                        <span id="cinema-duration"></span>
-                    </div>
-                    <p id="cinema-synopsis" class="movie-synopsis"></p>
-                    <div class="cinema-controls"></div>
-                </div>
-            </div>
+      <!-- ── SEARCH OVERLAY MÓVIL (baja desde arriba) ──────── -->
+      <div class="mobile-search-overlay" id="mobileSearchOverlay">
+        <div class="mobile-search-bar">
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.35-4.35" />
+          </svg>
+          <input
+            type="text"
+            id="mobileSearchInput"
+            placeholder="Buscar películas, series..."
+            autocomplete="off"
+          />
         </div>
-    </div>
+        <div id="mobile-search-results" class="mobile-search-results"></div>
+        <button class="mobile-search-close" onclick="toggleMobileSearch()">
+          CANCELAR
+        </button>
+      </div>
 
-    <div id="roulette-modal" class="modal">
-        <div class="roulette-modal-content">
-            <button class="close-btn">&times;</button>
-            <h2 id="roulette-title">Película Aleatoria</h2>
+      <!-- ── NAV ESCRITORIO ─────────────────────────────────── -->
+      <nav class="main-nav">
+        <!-- Logo -->
+        <a href="#" class="logo" data-filter="all">CINE CORNETA</a>
 
-            <!-- Toggle de modo -->
-            <div class="roulette-mode-toggle">
-                <button id="roulette-mode-normal" class="roulette-mode-btn active">
-                    <i class="fas fa-random"></i> Normal
-                </button>
-                <button id="roulette-mode-custom" class="roulette-mode-btn">
-                    <i class="fas fa-list-ul"></i> Personalizada
-                </button>
-            </div>
-
-            <!-- Panel de ruleta personalizada -->
-            <div id="custom-roulette-panel" style="display:none;">
-                <div class="crp-search-wrapper">
-                    <input type="text" id="crp-search-input" class="crp-search-input" placeholder="Buscar película del catálogo...">
-                    <div id="crp-suggestions" class="crp-suggestions"></div>
-                </div>
-                <div id="crp-chips" class="crp-chips"></div>
-                <p id="crp-hint" class="crp-hint">Agrega al menos 2 películas para girar</p>
-            </div>
-
-            <!-- Carrusel (compartido entre modos) -->
-            <div class="roulette-carousel-wrapper">
-                <div id="roulette-carousel-track" class="roulette-carousel-track"></div>
-                <div class="roulette-selector"></div>
-            </div>
-            <div class="roulette-actions">
-                <button id="roulette-btn-ver" class="roulette-action-btn" disabled>
-                    <i class="fas fa-play"></i> Ver
-                </button>
-                <button id="spin-roulette-btn" class="btn-spin">
-                    <i class="fas fa-dice"></i> Girar
-                </button>
-                <button id="roulette-btn-vista" class="roulette-action-btn" disabled>
-                    <i class="fas fa-eye-slash"></i> Vista
-                </button>
-            </div>
+        <!-- Buscador -->
+        <div class="nav-search" id="search-container">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.35-4.35" />
+          </svg>
+          <input
+            type="text"
+            id="search-input"
+            placeholder="Buscar películas, series, universos..."
+            autocomplete="off"
+          />
         </div>
-    </div>
 
-    <div id="series-player-modal" class="modal"></div>
+        <!-- Pill de navegación + color picker + avatar -->
+        <div class="nav-right">
+          <div class="nav-pill">
+            <a href="#" class="active" data-filter="all">Inicio</a>
+            <a href="#" data-filter="movie">Películas</a>
+            <a href="#" data-filter="series">Series</a>
+            <a href="#" data-filter="sagas">Universos</a>
+            <a href="#" data-filter="reviews">Reseñas</a>
+          </div>
 
-    <div id="auth-modal" class="modal">
-    <div class="auth-modal-content">
-        <button class="close-btn">&times;</button>
+          <!-- Color picker -->
+          <button
+            class="color-picker-btn"
+            onclick="toggleColorPanel()"
+            title="Personalizar color"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z"/><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/></svg>
+          </button>
 
+          <!-- Auth: avatar de invitado -->
+          <button
+            class="nav-avatar-btn"
+            id="guest-avatar-btn"
+            onclick="openAuthModal(true)"
+            title="Ingresar"
+          >
+            <div class="nav-avatar-placeholder">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+            </div>
+          </button>
+
+          <!-- Auth: avatar de usuario (oculto hasta login) -->
+          <div id="user-profile-container" style="display: none">
+            <button
+              class="nav-avatar-btn"
+              id="navAvatarBtn"
+              onclick="toggleUserDropdown()"
+              title="Mi cuenta"
+            >
+              <div class="nav-avatar-placeholder" id="user-greeting">CC</div>
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      <!-- ── DROPDOWN DE USUARIO (escritorio) ──────────────── -->
+      <div class="nav-dropdown" id="navDropdown">
+        <div class="nav-dropdown-header">
+          <div class="nav-dropdown-avatar" id="dropdownAvatar">CC</div>
+          <div>
+            <div class="nav-dropdown-name" id="dropdownName">Usuario</div>
+            <div class="nav-dropdown-handle" id="dropdownHandle">@usuario</div>
+          </div>
+        </div>
+
+        <a
+          href="#"
+          id="history-nav-link"
+          class="nav-dropdown-item"
+          data-filter="history"
+          style="display: none"
+        >
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+          Historial
+        </a>
+
+        <a
+          href="#"
+          id="my-list-nav-link"
+          class="nav-dropdown-item"
+          data-filter="my-list"
+          style="display: none"
+        >
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+          Ver más tarde
+        </a>
+
+        <div class="nav-dropdown-divider"></div>
+
+        <a href="#" class="nav-dropdown-item" data-filter="profile">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+          Mi Perfil
+        </a>
+
+        <a href="#" class="nav-dropdown-item nav-roulette-btn" data-filter="roulette">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12a1 1 0 0 1-10 0 1 1 0 0 0-10 0"/><path d="M7 20.7a1 1 0 1 1 5-8.7 1 1 0 1 0 5-8.6"/><path d="M7 3.3a1 1 0 1 1 5 8.6 1 1 0 1 0 5 8.6"/><circle cx="12" cy="12" r="10"/></svg>
+          Ruleta
+        </a>
+
+        <a href="#" class="nav-dropdown-item" data-filter="settings">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+            <circle cx="8" cy="8" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="8" r="1.5" fill="currentColor" stroke="none"/><circle cx="16" cy="8" r="1.5" fill="currentColor" stroke="none"/>
+            <circle cx="8" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="16" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+          </svg>
+          Panel de Admin
+        </a>
+
+        <div class="nav-dropdown-divider"></div>
+
+        <button
+          class="nav-dropdown-item danger"
+          id="logout-btn"
+          data-action="logout"
+        >
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"
+            />
+          </svg>
+          Cerrar Sesión
+        </button>
+      </div>
+
+      <!-- ── AUTH DROPDOWN (escritorio, invitado) ─────────── -->
+      <div class="nav-dropdown nav-auth-dropdown" id="auth-dropdown">
         <form id="register-form" class="auth-form">
-            <h2>Crear Cuenta</h2>
-            <input type="text" id="register-username" placeholder="Usuario" required>
-            <input type="email" id="register-email" placeholder="Email" required>
-            
-            <div class="password-wrapper">
-                <input type="password" id="register-password" placeholder="Contraseña" required>
-                <i class="fas fa-eye toggle-password" id="toggle-register-pass"></i>
-            </div>
-            
-            <p id="register-error" class="auth-error"></p>
-            <button type="submit">Registrarse</button>
+          <h2>Crear Cuenta</h2>
+          <input
+            type="text"
+            id="register-username"
+            placeholder="Usuario"
+            required
+          />
+          <input
+            type="email"
+            id="register-email"
+            placeholder="Email"
+            required
+          />
+          <div class="password-wrapper">
+            <input
+              type="password"
+              id="register-password"
+              placeholder="Contraseña"
+              required
+            />
+            <i class="fas fa-eye toggle-password" id="toggle-register-pass"></i>
+          </div>
+          <p id="register-error" class="auth-error"></p>
+          <button type="submit">Registrarse</button>
         </form>
-
-        <form id="login-form" class="auth-form" style="display:none;">
-            <h2>Login</h2>
-            <input type="email" id="login-email" placeholder="Email" required>
-            
-            <div class="password-wrapper">
-                <input type="password" id="login-password" placeholder="Contraseña" required>
-                <i class="fas fa-eye toggle-password" id="toggle-login-pass"></i>
-            </div>
-            
-            <div class="forgot-container">
-                <a href="#" id="forgot-password-link" class="forgot-link">¿Olvidaste tu contraseña?</a>
-            </div>
-
-            <p id="login-error" class="auth-error"></p>
-            <button type="submit">Ingresar</button>
+        <form id="login-form" class="auth-form" style="display: none">
+          <h2>Login</h2>
+          <input type="email" id="login-email" placeholder="Email" required />
+          <div class="password-wrapper">
+            <input
+              type="password"
+              id="login-password"
+              placeholder="Contraseña"
+              required
+            />
+            <i class="fas fa-eye toggle-password" id="toggle-login-pass"></i>
+          </div>
+          <div class="forgot-container">
+            <a href="#" id="forgot-password-link" class="forgot-link"
+              >¿Olvidaste tu contraseña?</a
+            >
+          </div>
+          <p id="login-error" class="auth-error"></p>
+          <button type="submit">Ingresar</button>
         </form>
-
-        <form id="recovery-form" class="auth-form" style="display:none;">
-            <h2>Recuperar</h2>
-                <p style="color: #ccc; font-size: 0.9rem; margin-bottom: 20px; line-height: 1.5;">
-                    Ingresa tu correo y te enviaremos un enlace para restablecer tu acceso.
-                </p>
-            <input type="email" id="recovery-email-input" placeholder="Tu Email registrado" required>
-                
-            <button type="submit">Enviar correo</button>
-
-            <p class="spam-notice" style="font-size: 0.8rem; color: #888; margin-top: 10px; text-align: center;">
-                <i class="fas fa-info-circle"></i> Si no recibes el correo, revisa tu carpeta de <strong>Spam</strong>.
-            </p>
-            <p id="recovery-message" class="auth-error"></p>
-    
-            <div style="text-align: center; margin-top: 15px;">
-                <a href="#" id="back-to-login-link" class="forgot-link">Volver a Iniciar Sesión</a>
-            </div>
+        <form id="recovery-form" class="auth-form" style="display: none">
+          <h2>Recuperar</h2>
+          <p
+            style="
+              color: #ccc;
+              font-size: 0.9rem;
+              margin-bottom: 20px;
+              line-height: 1.5;
+            "
+          >
+            Ingresa tu correo y te enviaremos un enlace para restablecer tu
+            acceso.
+          </p>
+          <input
+            type="email"
+            id="recovery-email-input"
+            placeholder="Tu Email registrado"
+            required
+          />
+          <button type="submit">Enviar correo</button>
+          <p
+            class="spam-notice"
+            style="
+              font-size: 0.8rem;
+              color: #888;
+              margin-top: 10px;
+              text-align: center;
+            "
+          >
+            <i class="fas fa-info-circle"></i> Si no recibes el correo, revisa
+            tu carpeta de <strong>Spam</strong>.
+          </p>
+          <p id="recovery-message" class="auth-error"></p>
+          <div style="text-align: center; margin-top: 15px">
+            <a href="#" id="back-to-login-link" class="forgot-link"
+              >Volver a Iniciar Sesión</a
+            >
+          </div>
         </form>
+        <p class="auth-switch">
+          <a href="#" id="switch-auth-mode">¿No tienes cuenta? Regístrate</a>
+        </p>
+      </div>
 
-        <p class="auth-switch"><a href="#" id="switch-auth-mode">¿No tienes cuenta? Regístrate</a></p>
-    </div>
-    </div>
+      <!-- ── COLOR PANEL ────────────────────────────────────── -->
+      <div class="color-panel" id="colorPanel">
+        <p class="color-panel-title">Color del cine</p>
+        <div class="color-swatches" id="colorSwatches"></div>
+        <label class="color-custom-label">
+          Personalizado
+          <input
+            type="color"
+            id="customColor"
+            value="#3b82f6"
+            oninput="applyColor(this.value)"
+          />
+        </label>
+      </div>
 
-    <div id="new-password-modal" class="modal">
-    <div class="auth-modal-content">
-        <h2 style="font-family: 'Bebas Neue'; font-size: 2.5rem; margin-bottom: 10px;">Restablecer Contraseña</h2>
-        <p style="color: #ccc; margin-bottom: 20px;">Ingresa tu nueva clave para recuperar el acceso.</p>
-        
-        <form id="new-password-form" class="auth-form">
-            <div class="password-wrapper">
-                <input type="password" id="new-password-input" placeholder="Nueva contraseña" required minlength="6">
-                <i class="fas fa-eye toggle-password" id="toggle-new-pass"></i>
+      <!-- ── CONTENIDO PRINCIPAL ────────────────────────────── -->
+      <main>
+        <!-- HERO: bento (escritorio) + hero móvil -->
+        <section
+          id="hero-section"
+          style="display: flex; flex-direction: column; padding: 0"
+        >
+          <!-- Bento — escritorio -->
+          <div class="featured-section">
+            <div class="featured-label">Corneta Gang</div>
+            <div class="bento-grid">
+              <!-- Panel grande: recomendación del día -->
+              <div class="bento-main" id="bentoMain">
+  <div class="bento-tag" id="bentoTag">
+    <svg width="7" height="7" viewBox="0 0 8 8" fill="currentColor">
+      <circle cx="4" cy="4" r="4" />
+    </svg>
+    <span id="bentoTagText">Recomendación del día</span>
+  </div>
+  <div class="bento-main-content">
+    <img id="bentoLogo"
+                    class="bento-logo"
+                    src=""
+                    alt=""
+                    style="display: none"
+                  />
+                  <h2
+                    id="bentoTitleText"
+                    style="
+                      font-size: 2rem;
+                      font-weight: 900;
+                      margin: 0 0 12px;
+                      display: none;
+                    "
+                  ></h2>
+                  <p class="bento-desc" id="bentoDesc"></p>
+                  <div class="bento-meta">
+                    <span class="bento-rating" id="bentoRating"></span>
+                    <span class="bento-meta-dot">·</span>
+                    <span id="bentoYear"></span>
+                    <span class="bento-meta-dot bento-dot-genres">·</span>
+                    <span id="bentoGenres"></span>
+                    <span class="bento-meta-dot bento-dot-duration">·</span>
+                    <span id="bentoDuration"></span>
+                  </div>
+                  <div class="bento-actions">
+                    <button class="btn-bento-play" id="bentoPlayBtn">
+                      <svg
+                        width="13"
+                        height="13"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                      >
+                        <path d="M5 3l14 9-14 9V3z" />
+                      </svg>
+                      Reproducir
+                    </button>
+                    <button class="btn-bento-info" id="bentoInfoBtn">
+                      Más info
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Panel lado 1: última película -->
+              <div class="bento-side" id="bentoSide1">
+                <div class="bento-side-content">
+                  <div>
+                    <div class="bento-side-type" id="bentoSide1Type"></div>
+                    <div class="bento-side-title" id="bentoSide1Title"></div>
+                  </div>
+                  <div class="bento-side-play">
+                    <svg
+                      width="13"
+                      height="13"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                    >
+                      <path d="M5 3l14 9-14 9V3z" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Panel lado 2: última serie -->
+              <div class="bento-side" id="bentoSide2">
+                <div class="bento-side-content">
+                  <div>
+                    <div class="bento-side-type" id="bentoSide2Type"></div>
+                    <div class="bento-side-title" id="bentoSide2Title"></div>
+                  </div>
+                  <div class="bento-side-play">
+                    <svg
+                      width="13"
+                      height="13"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                    >
+                      <path d="M5 3l14 9-14 9V3z" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
             </div>
-            <button type="submit" class="btn-primary" style="width: 100%; margin-top: 10px;">Guardar Nueva Contraseña</button>
-        </form>
-        
-        <p id="new-pass-feedback" class="auth-error" style="margin-top: 15px; font-weight: bold;"></p>
-    </div>
-    </div>
+          </div>
 
-    <div id="review-form-modal" class="modal">
-        <div class="auth-modal-content" style="max-width: 500px;">
-            <button class="close-btn">&times;</button>
-            <form id="review-submission-form" class="auth-form">
-                <h2 style="font-family: 'Bebas Neue'; font-size: 2.5rem; margin-bottom: 20px;">Escribe tu opinión</h2>
-                
-                <label style="text-align: left; margin-bottom: 5px; color: var(--text-muted); display:block;">Título:</label>
-                <div class="custom-select-wrapper">
-                    <div id="review-selected-display" class="review-selected-display" style="display: none;">
+          <!-- Hero móvil — estilo TMDB (solo mobile) -->
+          <div class="mobile-hero" id="mobileHero">
+
+            <!-- ── Zona de medios: poster izq + backdrop der ── -->
+            <div class="mh-media">
+              <div class="mh-backdrop" id="mobileHeroBanner"></div>
+              <img class="mh-poster" id="mobileHeroPoster" src="" alt="" />
+            </div>
+
+            <!-- ── Título + año ── -->
+            <div class="mh-title-block">
+              <img id="mobileHeroLogo" class="mh-logo" src="" alt="" style="display:none" />
+              <h2 class="mh-title" id="mobileHeroTitle"></h2>
+              <span class="mh-year" id="mobileHeroYear"></span>
+            </div>
+
+            <!-- ── Fila score: anillo · label | divider | Reproducir ── -->
+            <div class="mh-score-row">
+              <div class="mh-ring-wrap">
+                <svg class="mh-ring-svg" viewBox="0 0 36 36">
+                  <circle class="mh-ring-bg" cx="18" cy="18" r="15.9" fill="none" stroke-width="2.8"/>
+                  <circle class="mh-ring-fill" id="mhRingFill" cx="18" cy="18" r="15.9" fill="none"
+                    stroke-width="2.8" stroke-dasharray="0 100" stroke-linecap="round"/>
+                </svg>
+                <span class="mh-ring-num" id="mobileHeroRating">—</span>
+              </div>
+              <div class="mh-score-label">
+                <span class="mh-score-title">Puntuación</span>
+                <span class="mh-score-sub">Comunidad</span>
+              </div>
+              <div class="mh-score-divider"></div>
+              <button class="mh-play-btn" id="mobileHeroPlayBtn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M5 3l14 9-14 9V3z"/>
+                </svg>
+                Reproducir
+              </button>
+            </div>
+
+            <!-- ── Pill: tag / recomendación ── -->
+            <div class="mh-pill" id="mobileHeroTag">
+              <svg width="5" height="5" viewBox="0 0 8 8" fill="currentColor">
+                <circle cx="4" cy="4" r="4"/>
+              </svg>
+              <span id="mobileHeroTagText">Recomendación del día</span>
+            </div>
+
+            <!-- ── Meta: duración · géneros ── -->
+            <div class="mh-meta">
+              <span id="mobileHeroDuration"></span>
+              <span class="mh-meta-dot">•</span>
+              <span id="mobileHeroGenres"></span>
+            </div>
+
+            <!-- ── Sinopsis ── -->
+            <p class="mh-desc" id="mobileHeroDesc"></p>
+
+            <!-- ── Botón más info ── -->
+            <button class="mh-info-btn" id="mobileHeroInfoBtn">Más Información</button>
+
+          </div>
+        </section>
+
+        <!-- Carruseles -->
+        <div id="carousel-container" class="content-sections"></div>
+
+        <!-- Grid completo (filtros) -->
+        <div id="full-grid-container" style="display: none">
+          <!-- Catalog header (nuevo diseño, solo visible en movie/series) -->
+          <div class="catalog-header">
+            <p class="catalog-eyebrow">Catálogo</p>
+            <h1 class="catalog-title"><span class="catalog-title-text"></span></h1>
+            <p class="catalog-count" id="catalog-count"></p>
+            <button class="catalog-filters-btn" id="catalog-filters-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="4" y1="6" x2="20" y2="6"/>
+                <line x1="8" y1="12" x2="16" y2="12"/>
+                <line x1="11" y1="18" x2="13" y2="18"/>
+              </svg>
+              Filtros
+            </button>
+          </div>
+
+                    <div class="filter-controls" id="filter-controls">
+            <button
+              id="back-to-sagas-btn"
+              class="sort-btn back-saga-btn"
+              style="display: none"
+            >
+              <i class="fas fa-arrow-left"></i> Universos
+            </button>
+            <div class="custom-dropdown" id="genre-dropdown-visual">
+              <div class="dropdown-trigger" id="genre-trigger">
+                <span id="genre-text">Todos</span>
+                <i class="fas fa-chevron-down"></i>
+              </div>
+              <div class="dropdown-menu" id="genre-menu-list"></div>
+            </div>
+            <select id="genre-filter" style="display: none !important"></select>
+            <select id="lang-filter" style="display: none !important"></select>
+            <select id="sort-by" style="display: none !important"></select>
+            <div class="custom-dropdown" id="lang-dropdown-visual">
+              <div class="dropdown-trigger" id="lang-trigger">
+                <span id="lang-text">Idioma</span>
+                <i class="fas fa-chevron-down"></i>
+              </div>
+              <div class="dropdown-menu" id="lang-menu-list"></div>
+            </div>
+            <div class="custom-dropdown" id="request-dropdown-visual">
+              <div class="dropdown-trigger" id="request-trigger">
+                <span id="request-text">Pedidos</span>
+                <i class="fas fa-chevron-down"></i>
+              </div>
+              <div class="dropdown-menu" id="request-menu-list"></div>
+            </div>
+            <select
+              id="request-filter"
+              style="display: none !important"
+            ></select>
+            <div class="custom-dropdown" id="sort-dropdown-visual">
+              <div class="dropdown-trigger" id="sort-trigger">
+                <span id="sort-text">Recientes</span>
+                <i class="fas fa-chevron-down"></i>
+              </div>
+              <div class="dropdown-menu" id="sort-menu-list"></div>
+            </div>
+          </div>
+          <div id="ucm-sort-buttons" style="display: none">
+            <button class="sort-btn active" data-sort="release">
+              Orden de Salida
+            </button>
+            <button class="sort-btn" data-sort="chronological">
+              Orden Cronológico
+            </button>
+          </div>
+          <div class="grid"></div>
+        </div>
+
+        <!-- Reseñas -->
+        <div id="reviews-container" style="display: none">
+          <!-- Encabezado de página -->
+          <div class="reviews-page-header catalog-header">
+            <p class="catalog-eyebrow">Corneta</p>
+            <h2 class="catalog-title reviews-page-title">Reseñas</h2>
+            <p class="catalog-count reviews-page-subtitle" id="reviews-page-count">Reseñas redactadas por expertos en la materia.</p>
+          </div>
+
+          <!-- Layout de dos columnas -->
+          <div class="reviews-two-col">
+
+            <!-- Sidebar con estadísticas + filtro unificado -->
+            <aside class="reviews-sidebar">
+              <p class="catalog-eyebrow" style="font-size:0.62rem;letter-spacing:3px;color:var(--accent-color);font-weight:700;margin:0 0 4px;text-transform:uppercase;">Reseñas</p>
+              <h2 class="catalog-title" style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:1px;line-height:1;margin:0 0 20px;color:#fff;">Profesionales</h2>
+              <div
+                id="reviews-stats-panel"
+                class="reviews-stats-panel"
+                style="display: none"
+              >
+                <!-- Promedio + estrellas + total -->
+                <div class="rsp-avg-block">
+                  <span class="rsp-big-num" id="rsp-avg">—</span>
+                  <div>
+                    <div class="rsp-stars" id="rsp-stars"></div>
+                    <span class="rsp-count" id="rsp-count"></span>
+                  </div>
+                </div>
+                <!-- Chips de filtro (scroll horizontal en móvil) -->
+                <div class="rsp-chips" id="rsp-chips"></div>
+              </div>
+
+              <!-- Panel de usuarios con reseñas -->
+              <div class="rsp-users-panel" id="rsp-users-panel" style="display:none;">
+                <p class="rsp-users-label">CRÍTICOS</p>
+                <ul class="rsp-users-list" id="rsp-users-list"></ul>
+              </div>
+            </aside>
+
+            <!-- Feed principal -->
+            <div class="reviews-feed-col">
+
+              <!-- Composer inline de reseña -->
+              <div class="inline-review-composer hidden" id="inline-review-composer">
+
+                <!-- Estado colapsado (barra) -->
+                <div class="irc-collapsed" id="irc-collapsed" onclick="expandReviewComposer()">
+                  <div class="wrt-avatar" id="wrt-avatar"><span>CC</span></div>
+                  <div class="wrt-placeholder">Escribir una reseña...</div>
+                </div>
+
+                <!-- Estado expandido (formulario inline) -->
+                <div class="irc-expanded" id="irc-expanded">
+
+                  <!-- Header del drawer (solo visible en móvil) -->
+                  <div class="irc-drawer-header">
+                    <div class="irc-drawer-handle"></div>
+                    <span class="irc-drawer-title">Escribir Reseña</span>
+                    <button class="irc-drawer-close" type="button" onclick="collapseReviewComposer()">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                      </svg>
+                    </button>
+                  </div>
+
+                  <!-- Avatar -->
+                  <div class="wrt-avatar irc-avatar-fixed" id="wrt-avatar-exp"><span>CC</span></div>
+
+                  <!-- Fila: buscador + estrellas -->
+                  <div class="irc-fields-row">
+
+                    <!-- Selector de película/serie -->
+                    <div class="custom-select-wrapper irc-search-wrap">
+                      <div class="custom-select-input-container" id="irc-search-container">
+                        <input type="text" id="review-movie-search" class="custom-select-input"
+                               placeholder="Película / Serie (Ej: Oppenheimer)" autocomplete="off" />
+                        <div class="custom-options-list" id="review-movie-options"></div>
+                      </div>
+                      <div id="review-selected-display" class="review-selected-display" style="display:none">
                         <span id="review-selected-title"></span>
-                        <button type="button" class="btn-change-selection" style="background:none; border:none; color: #aaa; cursor: pointer; font-size: 0.8rem; margin-left: auto;">(Cambiar)</button>
+                        <button class="btn-change-selection" type="button">Cambiar</button>
+                      </div>
+                      <input type="hidden" id="review-selected-id" />
+                      <input type="hidden" id="review-content-type" />
                     </div>
-                    
-                    <div class="custom-select-input-container">
-                        <input type="text" id="review-movie-search" placeholder="Escribe para buscar..." autocomplete="off">
+
+                    <!-- Estrellas + label -->
+                    <div class="irc-stars-box">
+                      <div id="star-rating-input" class="star-rating-input"></div>
+                      <span id="review-rating-label" class="review-rating-label">0/5</span>
+                      <input type="hidden" id="review-rating-value" value="0" />
                     </div>
-                    
-                    <input type="hidden" id="review-selected-id">
-                    <input type="hidden" id="review-content-type">
-                    <div id="review-movie-options" class="custom-options-list"></div>
+
+                  </div>
+
+                  <!-- Textarea -->
+                  <textarea id="review-text-input" class="irc-textarea"
+                            placeholder="Escribe tu opinión de crítico experto..." rows="4"></textarea>
+
+                  <!-- Botones de acción -->
+                  <div class="irc-actions">
+                    <button class="irc-cancel-btn" type="button" onclick="collapseReviewComposer()">Cancelar</button>
+                    <button class="irc-submit-btn" type="button" id="irc-submit-btn">Publicar reseña</button>
+                  </div>
+
                 </div>
 
-                <label style="text-align: left; margin-bottom: 5px; color: var(--text-muted); margin-top: 15px;">Calificación: <span id="review-rating-label" style="color:#f5c518; font-weight:600;"></span></label>
-                <div class="star-rating-input" id="star-rating-input" style="display: flex; gap: 8px; justify-content: center; margin-bottom: 20px; font-size: 2rem;">
-                    <!-- Generado por JS: setupStarRating() -->
+              </div>
+
+              <!-- Controles: tabs -->
+              <div class="reviews-tabs-bar" id="reviews-tabs-bar">
+                <div class="rv-tabs-left">
+                  <button class="rv-tab active" data-tab="all">
+                    <i class="fas fa-layer-group"></i> Todas las Reseñas
+                  </button>
+                  <button class="rv-tab" data-tab="mine" id="rv-tab-mine">
+                    <i class="fas fa-user"></i> Mis Reseñas
+                  </button>
                 </div>
-                <input type="hidden" id="review-rating-value" value="0">
-                
-                <textarea id="review-text-input" placeholder="¿Qué te pareció?" required style="height: 140px; background: rgba(255,255,255,0.05); color: white; border: 1px solid #333; padding: 15px; border-radius: 8px; margin-bottom: 20px; resize: none; width: 100%;"></textarea>
-                
-                <button type="submit" class="btn-primary" style="width: 100%;">Publicar Reseña</button>
-            </form>
+              </div>
+
+              <!-- Grid de tarjetas -->
+              <div id="reviews-grid" class="reviews-grid"></div>
+            </div>
+
+          </div>
         </div>
+
+        <!-- Mi Lista -->
+        <div id="my-list-container" style="display: none">
+          <!-- Botón volver — solo mobile -->
+          <button class="ml-mobile-back" onclick="switchMobileTab('all')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M19 12H5M12 5l-7 7 7 7"/>
+            </svg>
+            Inicio
+          </button>
+          <div class="ml-header">
+            <div class="ml-header-top">
+              <div class="ml-eyebrow">
+                <span class="ml-eyebrow-line"></span>
+                Mi Colección
+              </div>
+              <h2 class="ml-title">Ver más tarde</h2>
+              <p class="ml-count" id="ml-count"></p>
+            </div>
+            <div class="ml-controls">
+              <div class="ml-filter-pills" id="ml-filter-pills">
+                <button class="ml-pill active" data-ml-filter="all">Todos</button>
+                <button class="ml-pill" data-ml-filter="movie">Películas</button>
+                <button class="ml-pill" data-ml-filter="series">Series</button>
+              </div>
+              <!-- sort oculto para mantener compatibilidad con el JS -->
+              <div style="display:none">
+                <div class="ml-sort-dropdown" id="ml-sort-dropdown">
+                  <button class="ml-sort-trigger" id="ml-sort-trigger"><span id="ml-sort-label">Más recientes</span></button>
+                  <div class="ml-sort-menu" id="ml-sort-menu">
+                    <button class="ml-sort-option active" data-value="recent">Más recientes</button>
+                    <button class="ml-sort-option" data-value="az">A → Z</button>
+                    <button class="ml-sort-option" data-value="za">Z → A</button>
+                    <button class="ml-sort-option" data-value="rating">Mayor puntuación</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div id="my-list-grid" class="grid"></div>
+        </div>
+
+        <!-- Historial -->
+        <div id="history-container" style="display: none">
+          <!-- Botón volver — solo mobile -->
+          <button class="ml-mobile-back" onclick="switchMobileTab('all')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M19 12H5M12 5l-7 7 7 7"/>
+            </svg>
+            Inicio
+          </button>
+          <div class="ml-header">
+            <div class="ml-header-top">
+              <div class="ml-eyebrow">
+                <span class="ml-eyebrow-line"></span>
+                Tu Actividad
+              </div>
+              <h2 class="ml-title">Historial</h2>
+              <p class="ml-count" id="history-count"></p>
+              <div class="ml-stats" id="history-stats"></div>
+            </div>
+            <div class="ml-controls">
+              <div class="ml-filter-pills" id="history-filter-pills">
+                <button class="ml-pill active" data-history-filter="all">Todos</button>
+                <button class="ml-pill" data-history-filter="movie">Películas</button>
+                <button class="ml-pill" data-history-filter="series">Series</button>
+              </div>
+              <!-- sort oculto para mantener compatibilidad con el JS -->
+              <div style="display:none">
+                <div class="ml-sort-dropdown" id="history-sort-dropdown">
+                  <button class="ml-sort-trigger" id="history-sort-trigger"><span id="history-sort-label">Más recientes</span></button>
+                  <div class="ml-sort-menu" id="history-sort-menu">
+                    <button class="ml-sort-option active" data-history-sort="recent">Más recientes</button>
+                    <button class="ml-sort-option" data-history-sort="az">A → Z</button>
+                    <button class="ml-sort-option" data-history-sort="za">Z → A</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div id="history-grid" class="grid"></div>
+        </div>
+
+        <!-- Universos hub -->
+        <div id="sagas-hub-container" style="display: none">
+          <div class="content-header"><h1 class="main-title"></h1></div>
+          <div class="sagas-grid" id="sagas-grid-dynamic"></div>
+        </div>
+
+        <!-- Perfil hub -->
+        <div
+          id="profile-hub-container"
+          class="content-container"
+          style="display: none"
+        >
+          <div class="profile-hub-header">
+            <h2>Mi Perfil</h2>
+            <p id="profile-hub-email">Cargando...</p>
+          </div>
+          <div id="hub-logged-in-content" style="display: none">
+            <h4
+              style="
+                color: #666;
+                font-size: 0.9rem;
+                margin: 10px 0 10px 5px;
+                text-transform: uppercase;
+              "
+            >
+              Explorar
+            </h4>
+            <a href="#" class="profile-hub-menu-item" data-filter="reviews"
+              ><i class="fas fa-star" style="color: #00f2ff"></i
+              ><span>Reseñas</span></a
+            >
+            <a href="#" class="profile-hub-menu-item" data-filter="roulette"
+              ><i class="fas fa-dice" style="color: #fff"></i
+              ><span>Ruleta</span></a
+            >
+            <div
+              style="
+                border-top: 1px solid rgba(255, 255, 255, 0.1);
+                margin: 20px 0;
+              "
+            ></div>
+            <h4
+              style="
+                color: #666;
+                font-size: 0.9rem;
+                margin: 10px 0 10px 5px;
+                text-transform: uppercase;
+              "
+            >
+              Mi Cuenta
+            </h4>
+            <a href="#" class="profile-hub-menu-item" data-filter="my-list"
+              ><i class="fas fa-list"></i><span>Mi Lista</span></a
+            >
+            <a href="#" class="profile-hub-menu-item" data-filter="history"
+              ><i class="fas fa-eye"></i><span>Historial</span></a
+            >
+            <a href="#" class="profile-hub-menu-item" data-filter="profile"
+              ><i class="fas fa-chart-line"></i><span>Estadísticas</span></a
+            >
+            <a href="#" class="profile-hub-menu-item" data-filter="settings"
+              ><i class="fas fa-cog"></i><span>Panel de Admin</span></a
+            >
+
+            <div style="margin-top: 20px">
+              <a
+                href="#"
+                id="logout-btn-hub"
+                class="profile-hub-menu-item logout"
+                style="
+                  justify-content: center;
+                  background: rgba(255, 0, 0, 0.1);
+                  border: 1px solid rgba(255, 0, 0, 0.3);
+                "
+              >
+                <i class="fas fa-sign-out-alt"></i><span>Cerrar Sesión</span>
+              </a>
+            </div>
+          </div>
+          <div
+            id="hub-guest-content"
+            style="display: none; text-align: center; padding: 30px 20px"
+          >
+            <i
+              class="fas fa-user-lock"
+              style="font-size: 4rem; color: #444; margin-bottom: 20px"
+            ></i>
+            <h3 style="margin: 0 0 10px 0; color: var(--text-light)">
+              Modo Invitado
+            </h3>
+            <button
+              id="login-btn-hub"
+              class="btn-primary"
+              style="
+                width: 100%;
+                padding: 15px;
+                font-size: 1.1rem;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 15px;
+              "
+            >
+              <i class="fas fa-sign-in-alt"></i> Iniciar Sesión
+            </button>
+            <button
+              id="register-btn-hub"
+              class="btn-secondary"
+              style="
+                width: 100%;
+                padding: 15px;
+                font-size: 1.1rem;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                gap: 10px;
+                background: rgba(255, 255, 255, 0.1);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                margin-top: 15px;
+              "
+            >
+              <i class="fas fa-user-plus"></i> Registrarse
+            </button>
+          </div>
+        </div>
+
+        <!-- Perfil estadísticas -->
+        <div id="profile-container" class="content-container" style="display: none">
+
+          <!-- ── AJUSTES ────────────────────────────────────────── -->
+          <div class="prf-settings-wrap" id="prf-settings-wrap">
+            <button class="prf-settings-gear-btn" id="prf-settings-gear-btn" title="Ajustes">
+              <i class="fas fa-cog"></i>
+            </button>
+            <div class="prf-settings-dropdown" id="prf-settings-dropdown">
+              <button class="prf-settings-option prf-edit-toggle-btn" id="prf-edit-toggle-btn">
+                <i class="fas fa-pencil-alt"></i>
+                <span>Editar perfil</span>
+              </button>
+              <button class="prf-settings-option" id="prf-change-password-btn">
+                <i class="fas fa-lock"></i>
+                <span>Cambiar Contraseña</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- ── IDENTIDAD ────────────────────────────────────────── -->
+          <div class="prf-identity">
+            <div class="prf-avatar-outer">
+              <div class="prf-avatar-ring">
+                <div class="profile-avatar-placeholder" id="prf-avatar-el">
+                  <i class="fas fa-user-circle"></i>
+                </div>
+              </div>
+              <span class="prf-status-dot" title="En línea"></span>
+            </div>
+            <div class="prf-identity-info">
+              <span class="prf-eyebrow">Perfil de usuario</span>
+              <h1 class="prf-name" id="profile-username"></h1>
+              <p class="prf-email" id="profile-email"></p>
+            </div>
+          </div>
+
+          <!-- ── INFO CARDS ────────────────────────────────────────── -->
+          <div class="prf-info-cards">
+
+            <!-- Cuenta creada el -->
+            <div class="prf-info-card prf-info-card--date">
+              <svg class="prf-ic-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+              <span class="prf-ic-label">Cuenta creada el</span>
+              <span class="prf-ic-value" id="prf-joined-date">—</span>
+            </div>
+
+            <!-- Nota promedio (span 2 filas) -->
+            <div class="prf-info-card prf-info-card--reviews">
+              <svg class="prf-ic-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
+              <span class="prf-ic-label">Promedio reseñas</span>
+              <div class="prf-ic-rating-row">
+                <span class="prf-ic-value prf-ic-value--accent" id="prf-review-avg">—</span>
+                <span class="prf-ic-rating-max">&thinsp;/ 5</span>
+              </div>
+              <div class="prf-ic-stars" id="prf-review-stars"></div>
+              <span class="prf-ic-sub" id="prf-review-count"></span>
+              <div class="prf-last-review" id="prf-last-review" style="display:none">
+                <div class="prf-last-review-divider"></div>
+                <span class="prf-last-review-label">Última reseña</span>
+                <div class="prf-last-review-card">
+                  <img id="prf-lr-poster" class="prf-lr-poster" src="" alt="" loading="lazy" />
+                  <div class="prf-lr-body">
+                    <p class="prf-lr-title" id="prf-lr-title"></p>
+                    <div class="prf-lr-stars" id="prf-lr-stars"></div>
+                    <p class="prf-lr-text" id="prf-lr-text"></p>
+                    <span class="prf-lr-date" id="prf-lr-date"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Distribución (span 2 filas) -->
+            <div class="prf-info-card prf-info-card--dist">
+              <svg class="prf-ic-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M18 20V10M12 20V4M6 20v-6"/>
+              </svg>
+              <span class="prf-ic-label">Distribución</span>
+              <div class="prf-dist-wrap">
+                <div class="prf-dist-bar">
+                  <div class="prf-dist-movie" id="prf-dist-movie" style="width:50%"></div>
+                  <div class="prf-dist-series" id="prf-dist-series" style="width:50%"></div>
+                </div>
+                <div class="prf-dist-legend">
+                  <span class="prf-dist-dot prf-dist-dot--movie"></span>
+                  <span class="prf-dist-leg-label" id="prf-dist-movie-lbl">Películas 0%</span>
+                  <span class="prf-dist-dot prf-dist-dot--series"></span>
+                  <span class="prf-dist-leg-label" id="prf-dist-series-lbl">Series 0%</span>
+                </div>
+              </div>
+
+              <div class="prf-top-genres" id="prf-top-genres">
+                <span class="prf-top-genres-title">Géneros favoritos</span>
+                <div class="prf-top-genres-list" id="prf-top-genres-list"></div>
+              </div>
+            </div>
+
+            <!-- Películas + Series (un solo card compartido) -->
+            <div class="prf-info-card prf-stat-pair">
+              <div class="prf-stat-pair-item">
+                <svg class="prf-ic-icon prf-ic-icon--series" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/>
+                </svg>
+                <span class="prf-ic-label">Películas</span>
+                <span class="prf-ic-value prf-ic-value--accent" id="stat-movies-card">0</span>
+                <span class="prf-ic-sub">vistas</span>
+              </div>
+              <div class="prf-stat-pair-divider"></div>
+              <div class="prf-stat-pair-item">
+                <svg class="prf-ic-icon prf-ic-icon--series" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/>
+                </svg>
+                <span class="prf-ic-label">Series</span>
+                <span class="prf-ic-value prf-ic-value--accent" id="stat-series-card">0</span>
+                <span class="prf-ic-sub">vistas</span>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- ── ÚLTIMAS RESEÑAS ──────────────────────────────────── -->
+          <div id="prf-recent-reviews" class="prf-recent-reviews-wrap" style="display:none">
+            <div class="prf-recent-col">
+              <p class="genre-stat-section-title"><i class="fas fa-film"></i> Últimas reseñas — Películas</p>
+              <div id="prf-recent-movies" class="prf-recent-list"></div>
+            </div>
+            <div class="prf-recent-col">
+              <p class="genre-stat-section-title"><i class="fas fa-tv"></i> Últimas reseñas — Series</p>
+              <div id="prf-recent-series" class="prf-recent-list"></div>
+            </div>
+          </div>
+
+          <!-- ── SECCIONES: ÚLTIMAS PELÍCULAS + SERIES ─────────────── -->
+          <div class="prf-sections-wrap">
+
+            <div class="prf-section">
+              <div class="prf-section-header">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="2" y="2" width="20" height="20" rx="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/>
+                </svg>
+                <span>Últimas Películas</span>
+              </div>
+              <div id="prf-history-movies" class="prf-poster-grid"></div>
+            </div>
+
+            <div class="prf-section">
+              <div class="prf-section-header">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/>
+                </svg>
+                <span>Últimas Series</span>
+              </div>
+              <div id="prf-history-series" class="prf-poster-grid"></div>
+            </div>
+
+          </div>
+
+          <!-- ── EDITAR PERFIL ──────────────────────────────────────── -->
+          <div id="profile-edit-section"></div>
+
+        </div>
+
+        <!-- Panel de Admin -->
+        <div
+          id="settings-container"
+          class="content-container"
+          style="display: none"
+        >
+          <div class="catalog-header" style="padding-bottom: 0;">
+            <p class="catalog-eyebrow">ADMINISTRACIÓN</p>
+            <h1 class="catalog-title">Panel de Admin</h1>
+          </div>
+          <div class="settings-form-wrapper">
+            <div class="settings-group">
+              <label>Nombre de usuario</label>
+              <div class="input-with-button">
+                <input type="text" id="settings-username-input" />
+                <button id="update-username-btn" class="btn-primary">
+                  Guardar
+                </button>
+              </div>
+            </div>
+            <div class="settings-group">
+              <label>Contraseña</label>
+              <div class="input-with-button">
+                <input type="password" id="settings-password-input" />
+                <button id="update-password-btn" class="btn-primary">
+                  Actualizar
+                </button>
+              </div>
+            </div>
+            <p id="settings-feedback" class="feedback-message"></p>
+          </div>
+        </div>
+
+        <!-- Reproductor de Series -->
+        <div
+          id="series-player-page"
+          class="series-player-page"
+          style="display: none"
+        ></div>
+      </main>
+
+      <!-- Drawer: Filtros del catálogo -->
+<div class="mobile-drawer-backdrop" id="filtersDrawerBackdrop" onclick="closeFiltersDrawer()"></div>
+<div class="mobile-drawer filters-drawer" id="filtersDrawer">
+  <div class="mobile-drawer-handle" onclick="closeFiltersDrawer()"></div>
+  <div class="fd-body">
+    <!-- Columna izquierda: tabs -->
+    <div class="fd-tabs">
+      <button class="fd-tab active" data-tab="genre">
+        <i class="fas fa-masks-theater"></i>
+        <span>Géneros</span>
+        <span class="fd-tab-badge" id="fd-badge-genre"></span>
+      </button>
+      <button class="fd-tab" data-tab="lang">
+        <i class="fas fa-language"></i>
+        <span>Idioma</span>
+        <span class="fd-tab-badge" id="fd-badge-lang"></span>
+      </button>
+      <button class="fd-tab" data-tab="request">
+        <i class="fas fa-user-check"></i>
+        <span>Pedidos</span>
+        <span class="fd-tab-badge" id="fd-badge-request"></span>
+      </button>
+      <button class="fd-tab" data-tab="sort">
+        <i class="fas fa-arrow-up-wide-short"></i>
+        <span>Orden</span>
+        <span class="fd-tab-badge" id="fd-badge-sort"></span>
+      </button>
+    </div>
+    <!-- Columna derecha: opciones del tab activo -->
+    <div class="fd-panels">
+      <div class="fd-panel active" id="fd-panel-genre"></div>
+      <div class="fd-panel"       id="fd-panel-lang"></div>
+      <div class="fd-panel"       id="fd-panel-request"></div>
+      <div class="fd-panel"       id="fd-panel-sort"></div>
+    </div>
+  </div>
+</div>
+
+      <!-- Drawer: Temporadas -->
+<div class="mobile-drawer-backdrop" id="seasonDrawerBackdrop" onclick="closeSeasonDrawer()"></div>
+<div class="mobile-drawer" id="seasonDrawer">
+  <div class="mobile-drawer-handle"></div>
+  <p class="mobile-drawer-color-label" id="seasonDrawerTitle" style="padding: 0 8px 16px; margin:0">TEMPORADAS</p>
+  <div class="sp-season-drawer-grid" id="seasonDrawerGrid"></div>
+</div>
+
+      <!-- Drawer: Filtro Sagas / Fases / Géneros -->
+<div class="mobile-drawer-backdrop" id="genreDrawerBackdrop" onclick="closeGenreDrawer()"></div>
+<div class="mobile-drawer genre-drawer" id="genreDrawer">
+  <div class="mobile-drawer-handle" onclick="closeGenreDrawer()"></div>
+  <p class="genre-drawer-title" id="genreDrawerTitle">SAGAS</p>
+  <div class="genre-drawer-list" id="genreDrawerList"></div>
+</div>
+
+      <!-- ── BOTTOM TAB BAR MÓVIL (solo mobile) ────────────── -->
+      <nav class="mobile-tab-bar" id="mobileTabBar">
+        <a
+          class="mobile-tab-item active"
+          data-tab="all"
+          onclick="switchMobileTab('all')"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+            <polyline points="9 22 9 12 15 12 15 22" />
+          </svg>
+          <span class="mobile-tab-label">Inicio</span>
+        </a>
+        <a
+          class="mobile-tab-item"
+          data-tab="movie"
+          onclick="switchMobileTab('movie')"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18" />
+            <line x1="7" y1="2" x2="7" y2="22" />
+            <line x1="17" y1="2" x2="17" y2="22" />
+            <line x1="2" y1="12" x2="22" y2="12" />
+            <line x1="2" y1="7" x2="7" y2="7" />
+            <line x1="2" y1="17" x2="7" y2="17" />
+            <line x1="17" y1="7" x2="22" y2="7" />
+            <line x1="17" y1="17" x2="22" y2="17" />
+          </svg>
+          <span class="mobile-tab-label">Películas</span>
+        </a>
+        <a
+          class="mobile-tab-item"
+          data-tab="series"
+          onclick="switchMobileTab('series')"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <rect x="2" y="7" width="20" height="15" rx="2" />
+            <polyline points="17 2 12 7 7 2" />
+          </svg>
+          <span class="mobile-tab-label">Series</span>
+        </a>
+        <a
+          class="mobile-tab-item"
+          data-tab="sagas"
+          onclick="switchMobileTab('sagas')"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="2" y1="12" x2="22" y2="12" />
+            <path d="M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20" />
+          </svg>
+          <span class="mobile-tab-label">Universos</span>
+        </a>
+        <a
+          class="mobile-tab-item"
+          data-tab="reviews"
+          onclick="switchMobileTab('reviews')"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"
+            />
+          </svg>
+          <span class="mobile-tab-label">Reseñas</span>
+        </a>
+      </nav>
+    </div>
+    <!-- /page-wrapper -->
+
+    <!-- ── USER DRAWER MÓVIL ──────────────────────────────── -->
+    <div
+      class="mobile-drawer-backdrop"
+      id="mobileDrawerBackdrop"
+      onclick="closeMobileDrawer()"
+    ></div>
+    <div class="mobile-drawer" id="mobileUserDrawer">
+      <div class="mobile-drawer-handle"></div>
+
+      <!-- Estado: invitado -->
+      <div class="mobile-drawer-guest" id="mobileDrawerGuest">
+
+        <!-- Bienvenida -->
+        <p class="mobile-drawer-guest-title">¡Bienvenido!</p>
+        <p class="mobile-drawer-guest-sub">Inicia sesión o regístrate para acceder a más funciones.</p>
+
+        <!-- Botones siempre visibles -->
+        <div class="mobile-drawer-guest-btns">
+          <button class="mobile-drawer-guest-btn primary" id="mob-btn-login"
+            onclick="toggleMobileAuthForm('login')">Ingresar</button>
+          <button class="mobile-drawer-guest-btn" id="mob-btn-register"
+            onclick="toggleMobileAuthForm('register')">Registrarse</button>
+        </div>
+
+        <!-- Panel acordeón (oculto por defecto) -->
+        <div id="mob-auth-panel" class="mob-auth-panel">
+
+          <!-- Form: Login -->
+          <form id="mob-login-form" class="auth-form mob-auth-form">
+            <input type="email" id="mob-login-email" placeholder="Email" required autocomplete="email" />
+            <div class="password-wrapper">
+              <input type="password" id="mob-login-password" placeholder="Contraseña" required autocomplete="current-password" />
+              <i class="fas fa-eye toggle-password" id="mob-toggle-login-pass"></i>
+            </div>
+            <div class="forgot-container">
+              <a href="#" id="mob-forgot-password-link" class="forgot-link">¿Olvidaste tu contraseña?</a>
+            </div>
+            <p id="mob-login-error" class="auth-error"></p>
+            <button type="submit">Ingresar</button>
+          </form>
+
+          <!-- Form: Register -->
+          <form id="mob-register-form" class="auth-form mob-auth-form" style="display:none">
+            <input type="text" id="mob-register-username" placeholder="Usuario" required autocomplete="username" />
+            <input type="email" id="mob-register-email" placeholder="Email" required autocomplete="email" />
+            <div class="password-wrapper">
+              <input type="password" id="mob-register-password" placeholder="Contraseña" required autocomplete="new-password" />
+              <i class="fas fa-eye toggle-password" id="mob-toggle-register-pass"></i>
+            </div>
+            <p id="mob-register-error" class="auth-error"></p>
+            <button type="submit">Registrarse</button>
+          </form>
+
+          <!-- Form: Recovery -->
+          <form id="mob-recovery-form" class="auth-form mob-auth-form" style="display:none">
+            <p class="mob-recovery-hint">Ingresa tu correo y te enviaremos un enlace para restablecer tu acceso.</p>
+            <input type="email" id="mob-recovery-email" placeholder="Tu Email registrado" required autocomplete="email" />
+            <button type="submit">Enviar correo</button>
+            <p class="spam-notice"><i class="fas fa-info-circle"></i> Revisa también tu carpeta de <strong>Spam</strong>.</p>
+            <p id="mob-recovery-message" class="auth-error"></p>
+            <a href="#" id="mob-back-to-login-link" class="forgot-link" style="display:block;text-align:center;margin-top:12px">← Volver a Iniciar Sesión</a>
+          </form>
+
+        </div><!-- /mob-auth-panel -->
+      </div>
+
+      <!-- Estado: usuario logueado -->
+      <div class="mobile-drawer-user" id="mobileDrawerUser" style="display: none">
+        <div class="mobile-drawer-avatar" id="mobileDrawerAvatar">CC</div>
+        <div>
+          <div class="mobile-drawer-name" id="mobileDrawerName">Usuario</div>
+          <div class="mobile-drawer-handle-text" id="mobileDrawerHandle">
+            @usuario
+          </div>
+        </div>
+      </div>
+
+      <div id="mobileDrawerLoggedIn" style="display: none">
+
+      <a href="#" class="mobile-drawer-item" onclick="closeMobileDrawer(); switchView('profile')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+          <circle cx="12" cy="7" r="4" />
+        </svg>
+        Mi Perfil
+      </a>
+      <a href="#" class="mobile-drawer-item" data-filter="history" onclick="closeMobileDrawer(); switchView('history')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+        Historial
+      </a>
+      <a href="#" class="mobile-drawer-item" data-filter="my-list" onclick="closeMobileDrawer(); switchView('my-list')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12 6 12 12 16 14"/>
+        </svg>
+        Ver más tarde
+      </a>
+      <a href="#" class="mobile-drawer-item mob-roulette-btn" onclick="closeMobileDrawer(); switchView('roulette')">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12a1 1 0 0 1-10 0 1 1 0 0 0-10 0"/><path d="M7 20.7a1 1 0 1 1 5-8.7 1 1 0 1 0 5-8.6"/><path d="M7 3.3a1 1 0 1 1 5 8.6 1 1 0 1 0 5 8.6"/><circle cx="12" cy="12" r="10"/></svg>
+        Ruleta
+      </a>
+      <a href="#" class="mobile-drawer-item" onclick="closeMobileDrawer(); switchView('settings')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+          <circle cx="8" cy="8" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="8" r="1.5" fill="currentColor" stroke="none"/><circle cx="16" cy="8" r="1.5" fill="currentColor" stroke="none"/>
+          <circle cx="8" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="16" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+        </svg>
+        Panel de Admin
+      </a>
+
+      <!-- Color del cine — siempre visible, para todos -->
+      <div class="mobile-drawer-color-panel">
+        <p class="mobile-drawer-color-label">Color del cine</p>
+        <div class="mobile-color-swatches" id="mobileColorSwatches"></div>
+      </div>
+
+      <div class="mobile-drawer-divider" style="margin-top: 16px"></div>
+      <button
+        class="mobile-drawer-item danger"
+        onclick="
+          firebase.auth().signOut();
+          closeMobileDrawer();
+        "
+      >
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path
+            d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"
+          />
+        </svg>
+        Cerrar Sesión
+      </button>
+      </div><!-- /mobileDrawerLoggedIn -->
+
+
+    </div>
+    <!-- ══ MODALES ══════════════════════════════════════════════ -->
+
+    <!-- ══ VISTA DETALLE (reemplaza modal de detalles + cinema) ══ -->
+    <div id="detail-view" class="detail-view" style="display: none">
+      <!-- Botón volver -->
+      <a href="#" class="dv-back-btn" id="dv-back-btn">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+        >
+          <path d="M19 12H5M12 5l-7 7 7 7" />
+        </svg>
+        Volver
+      </a>
+
+      <!-- HERO -->
+      <header class="dv-hero" id="dv-hero">
+        <!-- Banner: imagen de fondo, altura controlable independiente del contenido -->
+        <div class="dv-hero-banner" id="dv-hero-banner">
+          <div class="dv-hero-overlay"></div>
+        </div>
+        <div class="dv-hero-content">
+
+          <!-- MOBILE: poster + info lateral -->
+          <div class="dv-mobile-header">
+            <div class="dv-mobile-poster">
+              <img id="dv-poster-img" src="" alt="" />
+            </div>
+            <div class="dv-mobile-info">
+              <img
+                id="dv-logo"
+                class="dv-logo details-logo-img"
+                src=""
+                alt=""
+                style="display: none"
+              />
+              <h1 id="dv-title" class="dv-title"></h1>
+              <div class="dv-genres" id="dv-genres"></div>
+              <div class="dv-orig-title" id="dv-orig-title" style="display:none"></div>
+              <div class="dv-meta" id="dv-meta">
+                <span class="dv-rating" id="dv-rating" style="display: none"></span>
+                <span class="dv-badge" id="dv-year"></span>
+                <!-- Toggle idioma desktop: solo si hay 2 idiomas -->
+                <div
+                  class="dv-lang-toggle"
+                  id="dv-lang-toggle"
+                  style="display: none"
+                >
+                  <button
+                    class="dv-lang-btn active"
+                    id="dv-lang-btn-latino"
+                    onclick="dvSetLang('latino', this)"
+                  >
+                    Latino
+                  </button>
+                  <span class="dv-lang-sep">|</span>
+                  <button
+                    class="dv-lang-btn"
+                    id="dv-lang-btn-ingles"
+                    onclick="dvSetLang('ingles', this)"
+                  >
+                    Inglés
+                  </button>
+                </div>
+                <span class="dv-badge" id="dv-lang-badge" style="display:none"></span>
+                <span class="dv-badge dv-badge-duration" id="dv-duration">
+                  <span id="dv-duration-text"></span>
+                  <span class="dv-duration-tooltip" id="dv-duration-tooltip"></span>
+                </span>
+              </div>
+            </div>
+          </div>
+          <!-- Score row mobile -->
+          <div class="dv-mob-score-row" id="dv-mob-score-row">
+            <button class="dv-mob-play-inline" id="dv-mob-play-inline">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M5 3l14 9-14 9V3z"/>
+              </svg>
+              Reproducir
+            </button>
+            <div class="dv-mob-score-divider"></div>
+            <button class="dv-mob-list-btn" id="dv-mob-list-btn" data-content-id="">
+              <i class="fas fa-plus"></i><span>Mi Lista</span>
+            </button>
+          </div>
+
+          <div class="dv-pedido" id="dv-pedido" style="display: none">
+  <span class="dv-pedido-label">Pedida por</span>
+  <span class="dv-pedido-user" id="dv-pedido-user"></span>
+</div>
+<p class="dv-synopsis" id="dv-synopsis"></p>
+          <!-- MOBILE: selector de idioma como botones grandes -->
+          <div class="dv-lang-section" id="dv-lang-section" style="display: none">
+            <span class="dv-lang-section-label">Idioma</span>
+            <div class="dv-lang-section-btns">
+              <button class="dv-lang-option" id="dv-lang-opt-1" onclick="dvSetLang('en', this)">Inglés</button>
+              <button class="dv-lang-option active" id="dv-lang-opt-2" onclick="dvSetLang('es', this)">Latino</button>
+            </div>
+          </div>
+          <div class="dv-btn-group" id="dv-btn-group">
+            <!-- Botones generados por JS -->
+          </div>
+        </div>
+      </header>
+
+      <!-- REPRODUCTOR: fuera del hero. Desktop → debajo normal. Mobile → reordenado por CSS -->
+      <section
+        class="dv-player-section"
+        id="dv-player-section"
+        style="display: none; opacity: 0"
+      >
+        <div class="dv-video-wrap" id="dv-video-container"></div>
+        <div class="dv-player-info">
+          <span class="dv-player-title" id="dv-player-title-bar"></span>
+          <span class="dv-player-dot">·</span>
+          <span id="dv-player-lang">Latino</span>
+          <span class="dv-player-dot">·</span>
+          <span id="dv-player-duration"></span>
+          <span class="dv-player-dot">·</span>
+          <span id="dv-player-finish-time"></span>
+        </div>
+      </section>
+
     </div>
 
-    <div id="full-review-modal" class="modal">
-        <div class="auth-modal-content" style="max-width: 700px; padding: 0; overflow: hidden; border-radius: 20px;">
-            <button class="close-btn" onclick="closeAllModals()">&times;</button>
-            <div id="read-review-header" style="height: 250px; background-size: cover; background-position: center; position: relative;">
-                <div style="position: absolute; inset: 0; background: linear-gradient(to top, #181818 0%, transparent 60%, rgba(0,0,0,0.4) 100%);"></div>
-                <div style="position: absolute; bottom: 20px; left: 30px; display: flex; gap: 20px; align-items: flex-end; z-index: 1;">
-                    <img id="read-review-poster" src="" style="width: 100px; height: 150px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.7);">
-                    <div>
-                        <h2 id="read-review-movie-title" style="font-family: 'Bebas Neue'; font-size: 2.5rem; margin: 0; color: white; text-shadow: 2px 2px 8px rgba(0,0,0,0.8);"></h2>
-                    </div>
-                </div>
-            </div>
-            <div style="padding: 30px; background: #181818; max-height: 400px; overflow-y: auto;">
-                <div id="read-review-stars" style="color: #ffd700; font-size: 1.2rem; margin-bottom: 20px;"></div>
-                <p id="read-review-text" style="color: #eee; line-height: 1.8; font-size: 1.1rem; font-style: italic; white-space: pre-wrap;"></p>
-            </div>
-            <div style="padding: 20px 30px; background: #111; border-top: 1px solid #222; display: flex; justify-content: space-between; align-items: center;">
-                <p id="read-review-user" style="color: var(--primary-red); font-weight: bold; margin: 0; font-size: 0.95rem;"></p>
-                <span id="read-review-date" style="color: #555; font-size: 0.9rem; font-weight: bold;"></span>
-            </div>
+    <!-- ══ VISTA DETALLE SERIES (espejo de detail-view con prefijo sp-) ══ -->
+    <div id="sp-detail-view" class="sp-detail-view" style="display: none">
+
+      <!-- Botón volver -->
+      <a href="#" class="sp-back-btn" id="sp-back-btn">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+        >
+          <path d="M19 12H5M12 5l-7 7 7 7" />
+        </svg>
+        Volver
+      </a>
+
+      <!-- HERO -->
+      <header class="sp-hero" id="sp-hero">
+        <!-- Banner: imagen de fondo, altura controlable independiente del contenido -->
+        <div class="sp-hero-banner" id="sp-hero-banner">
+          <div class="sp-hero-overlay"></div>
         </div>
+        <div class="sp-hero-content">
+
+          <!-- MOBILE: poster + info lateral -->
+          <div class="sp-mobile-header">
+            <div class="sp-mobile-poster">
+              <img id="sp-poster-img" src="" alt="" />
+            </div>
+            <div class="sp-mobile-info">
+              <img
+                id="sp-logo"
+                class="sp-logo details-logo-img"
+                src=""
+                alt=""
+                style="display: none"
+              />
+              <h1 id="sp-title" class="sp-title"></h1>
+              <div class="sp-genres" id="sp-genres"></div>
+              <div class="sp-meta" id="sp-meta">
+                <span class="sp-rating" id="sp-rating" style="display: none"></span>
+                <span class="sp-badge" id="sp-year"></span>
+                <span class="sp-badge" id="sp-seasons" style="display:none"></span>
+                <span class="sp-badge" id="sp-lang-badge" style="display:none"></span>
+                <!-- Toggle idioma: solo si hay 2 idiomas -->
+                <div class="sp-lang-toggle" id="sp-lang-toggle" style="display: none">
+                <div
+                  class="sp-lang-toggle"
+                  id="sp-lang-toggle"
+                  style="display: none"
+                >
+                  <button
+                    class="sp-lang-btn active"
+                    id="sp-lang-btn-1"
+                  >
+                    Latino
+                  </button>
+                  <span class="sp-lang-sep">|</span>
+                  <button
+                    class="sp-lang-btn"
+                    id="sp-lang-btn-2"
+                  >
+                    Inglés
+                  </button>
+                </div>
+                <span class="sp-badge sp-badge-duration" id="sp-duration">
+                  <span id="sp-duration-text"></span>
+                  <span class="sp-duration-tooltip" id="sp-duration-tooltip"></span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="sp-mob-score-row" id="sp-mob-score-row">
+            <button class="sp-mob-play-inline" id="sp-mob-play-inline">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M5 3l14 9-14 9V3z"/>
+              </svg>
+              Reproducir
+            </button>
+            <div class="sp-mob-score-divider"></div>
+            <button class="sp-mob-list-btn" id="sp-mob-list-btn" data-content-id="">
+              <i class="fas fa-plus"></i><span>Mi Lista</span>
+            </button>
+            <div class="sp-mob-score-divider"></div>
+            <div class="dv-more-wrap" id="sp-mob-more-wrap"></div>
+          </div>
+
+          <div class="sp-pedido" id="sp-pedido" style="display: none">
+            <span class="sp-pedido-label">Pedida por</span>
+            <span class="sp-pedido-user" id="sp-pedido-user"></span>
+          </div>
+
+          <p class="sp-synopsis" id="sp-synopsis"></p>
+
+          <!-- MOBILE: selector de idioma como botones grandes -->
+          <div class="sp-lang-section" id="sp-lang-section" style="display: none">
+            <span class="sp-lang-section-label">Idioma</span>
+            <div class="sp-lang-section-btns">
+              <button class="sp-lang-option" id="sp-lang-opt-1">Inglés</button>
+              <button class="sp-lang-option active" id="sp-lang-opt-2">Latino</button>
+            </div>
+          </div>
+
+          <div class="sp-btn-group" id="sp-btn-group">
+            <!-- Botones generados por JS -->
+          </div>
+
+        </div>
+      </header>
+
+      <!-- REPRODUCTOR: layout dos columnas como el boceto -->
+      <section
+        class="sp-player-section"
+        id="sp-player-section"
+        style="display: none; opacity: 0"
+      >
+        <!-- ── Columna izquierda: video + franja info ── -->
+        <div class="sp-ps-left">
+          <div class="sp-video-wrap" id="sp-video-container"></div>
+
+          <!-- Franja info episodio — boceto expandido/colapsado -->
+          <div class="sp-ep-info-strip sp-ps-info-strip" id="sp-ps-info-strip">
+
+            <!-- HEADER: temporada, título, hora fin, chevron -->
+            <div class="sp-ps-info-header" id="sp-ps-info-toggle">
+              <div class="sp-ep-info-text">
+                <span class="sp-ep-season-label" id="sp-player-title-bar"></span>
+                <h2 class="sp-ep-title" id="sp-ps-ep-title"></h2>
+                <span class="sp-ps-finish-time desktop-only" id="sp-player-finish-time"></span>
+                <span class="sp-ps-finish-time mobile-only" id="sp-player-finish-time-mobile"></span>
+                <span class="sp-ps-estreno" id="sp-player-estreno"></span>
+              </div>
+              <button class="sp-ps-chevron-btn" id="sp-ps-chevron" aria-label="Ver más">
+                <svg class="sp-ps-chevron-icon" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
+              </button>
+            </div>
+
+            <!-- EXPANDIBLE: oculto por defecto -->
+            <div class="sp-ps-expand-wrap" id="sp-ps-synopsis-wrap">
+
+
+
+              <!-- Sinopsis + reportar -->
+              <div class="sp-ps-synopsis-wrap">
+                <strong class="sp-ps-synopsis-label">Sinopsis:</strong>
+                <p class="sp-ep-synopsis-text" id="sp-ps-synopsis-text"></p>
+                <button class="sp-report-btn-mobile" id="sp-ps-report-btn">
+                  <i class="fas fa-flag" aria-hidden="true"></i> Reportar problema
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Columna derecha: temporadas + episodios ── -->
+        <div class="sp-ps-right sp-right-col" id="sp-ps-right">
+
+          <!-- Carrusel temporadas (desktop) -->
+          <div class="sp-season-carousel sp-ps-season-carousel desktop-only" id="sp-ps-season-carousel">
+            <div class="sp-panel-section-header">
+              <span class="sp-panel-section-title">Temporadas</span>
+            </div>
+            <div class="sp-season-tabs-wrap">
+              <button class="sp-carousel-arrow sp-carousel-arrow-left" id="sp-ps-carousel-prev" aria-label="Anterior">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <polyline points="15 18 9 12 15 6"/>
+                </svg>
+              </button>
+              <div class="sp-season-tabs" id="sp-ps-season-tabs"></div>
+              <button class="sp-carousel-arrow sp-carousel-arrow-right" id="sp-ps-carousel-next" aria-label="Siguiente">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Header "Capítulos" (desktop) -->
+          <div class="sp-panel-section-header desktop-only">
+            <span class="sp-panel-section-title">Capítulos</span>
+            <div id="sp-ps-inline-lang-desktop" style="display:none"></div>
+          </div>
+
+          <!-- Fila: botón temporada + selector idioma inline (mobile) -->
+<div class="sp-episode-controls-row mobile-only" id="sp-ps-controls-row" style="display:none">
+  <button class="sp-season-btn-mobile" id="sp-ps-mobile-season-btn">
+    Temporada 1 <i class="fas fa-chevron-down"></i>
+  </button>
+  <div id="sp-ps-inline-lang" style="display:none"></div>
+</div>
+
+<!-- Lista episodios -->
+<div class="sp-episode-list sp-ps-episode-list" id="sp-ps-episode-list"></div>
+
+        </div>
+      </section>
+
+    </div>
+    <!-- /sp-detail-view -->
+
+    <!-- Modal: Ruleta -->
+    <div id="roulette-modal" class="modal">
+      <div class="roulette-modal-content">
+        <button class="close-btn">&times;</button>
+        <h2 id="roulette-title">Película Aleatoria</h2>
+        <div class="roulette-mode-toggle">
+          <button id="roulette-mode-normal" class="roulette-mode-btn active">
+            <i class="fas fa-random"></i> Normal
+          </button>
+          <button id="roulette-mode-custom" class="roulette-mode-btn">
+            <i class="fas fa-list-ul"></i> Personalizada
+          </button>
+        </div>
+        <div id="custom-roulette-panel" style="display: none">
+          <div class="crp-search-wrapper">
+            <input
+              type="text"
+              id="crp-search-input"
+              class="crp-search-input"
+              placeholder="Buscar película del catálogo..."
+            />
+            <div id="crp-suggestions" class="crp-suggestions"></div>
+          </div>
+          <div id="crp-chips" class="crp-chips"></div>
+          <p id="crp-hint" class="crp-hint">
+            Agrega al menos 2 películas para girar
+          </p>
+        </div>
+        <div class="roulette-carousel-wrapper">
+          <div
+            id="roulette-carousel-track"
+            class="roulette-carousel-track"
+          ></div>
+          <div class="roulette-selector"></div>
+        </div>
+        <div class="roulette-actions">
+          <button id="roulette-btn-ver" class="roulette-action-btn" disabled>
+            <i class="fas fa-play"></i> Ver
+          </button>
+          <button id="spin-roulette-btn" class="btn-spin">
+            <i class="fas fa-dice"></i> Girar
+          </button>
+          <button id="roulette-btn-vista" class="roulette-action-btn" disabled>
+            <i class="fas fa-eye-slash"></i> Vista
+          </button>
+        </div>
+      </div>
     </div>
 
-    <!-- MODAL: RESEÑAS DE UN CONTENIDO ESPECÍFICO -->
+    <!-- Modal: Nueva contraseña -->
+    <div id="new-password-modal" class="modal">
+      <div class="auth-modal-content">
+        <h2
+          style="
+            font-family: &quot;Bebas Neue&quot;;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+          "
+        >
+          Restablecer Contraseña
+        </h2>
+        <p style="color: #ccc; margin-bottom: 20px">
+          Ingresa tu nueva clave para recuperar el acceso.
+        </p>
+        <form id="new-password-form" class="auth-form">
+          <div class="password-wrapper">
+            <input
+              type="password"
+              id="new-password-input"
+              placeholder="Nueva contraseña"
+              required
+              minlength="6"
+            />
+            <i class="fas fa-eye toggle-password" id="toggle-new-pass"></i>
+          </div>
+          <button
+            type="submit"
+            class="btn-primary"
+            style="width: 100%; margin-top: 10px"
+          >
+            Guardar Nueva Contraseña
+          </button>
+        </form>
+        <p
+          id="new-pass-feedback"
+          class="auth-error"
+          style="margin-top: 15px; font-weight: bold"
+        ></p>
+      </div>
+    </div>
+
+    <!-- Modal: Leer reseña completa -->
+    <!-- Modal: Reseña completa (nuevo diseño) -->
+    <div id="full-review-modal" class="modal frm-overlay">
+      <div class="frm-content">
+        <button class="frm-close-btn" onclick="closeAllModals()" aria-label="Cerrar">
+          <i class="fas fa-times"></i>
+        </button>
+
+        <!-- Hero: banner + poster + info de película -->
+        <div class="frm-hero">
+          <div id="frm-banner" class="frm-banner"></div>
+          <div class="frm-hero-gradient"></div>
+          <div class="frm-hero-info">
+            <img id="frm-poster" class="frm-poster" src="" alt="">
+            <div class="frm-title-block">
+              <h2 id="frm-title" class="frm-title"></h2>
+              <div class="frm-author-row">
+                <div id="frm-avatar" class="frm-avatar"></div>
+                <span id="frm-author" class="frm-author-name"></span>
+                <span class="frm-dot">·</span>
+                <span id="frm-date" class="frm-date"></span>
+              </div>
+              <div id="frm-stars" class="frm-stars"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cuerpo: texto + comentarios -->
+        <div class="frm-body">
+          <p id="frm-text" class="frm-text"></p>
+
+          <div class="frm-comments-section">
+            <div class="frm-comments-header">
+              <i class="far fa-comment-dots"></i>
+              <span id="frm-comments-label">Comentarios</span>
+            </div>
+            <div id="frm-comments-list" class="frm-comments-list"></div>
+            <div id="frm-comment-input-area" class="frm-comment-input-area"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Reseñas de un contenido específico -->
     <div id="content-reviews-modal" class="modal">
-        <div class="content-reviews-modal-inner">
-            <button class="close-btn" onclick="(function(){ var m=document.getElementById('content-reviews-modal'); if(m) m.classList.remove('show'); if(!document.querySelector('.modal.show')) document.body.classList.remove('modal-open'); })()">&times;</button>
-            <div id="crm-header" class="crm-header">
-                <div class="crm-header-overlay"></div>
-                <div class="crm-header-info">
-                    <img id="crm-poster" src="" alt="" class="crm-poster">
-                    <div>
-                        <h2 id="crm-title" class="crm-title"></h2>
-                        <div class="crm-meta">
-                            <span id="crm-avg" class="crm-avg-badge"></span>
-                            <span id="crm-count" class="crm-count-text"></span>
-                        </div>
-                    </div>
-                </div>
+      <div class="content-reviews-modal-inner">
+        <button
+          class="close-btn"
+          onclick="
+            (function () {
+              var m = document.getElementById('content-reviews-modal');
+              if (m) m.classList.remove('show');
+              if (!document.querySelector('.modal.show'))
+                document.body.classList.remove('modal-open');
+            })()
+          "
+        >
+          &times;
+        </button>
+        <div id="crm-header" class="crm-header">
+          <div class="crm-header-overlay"></div>
+          <div class="crm-header-info">
+            <img id="crm-poster" src="" alt="" class="crm-poster" />
+            <div>
+              <h2 id="crm-title" class="crm-title"></h2>
+              <div class="crm-meta">
+                <span id="crm-avg" class="crm-avg-badge"></span>
+                <span id="crm-count" class="crm-count-text"></span>
+              </div>
             </div>
-            <div id="crm-body" class="crm-body">
-                <div id="crm-loading" class="crm-loading">
-                    <i class="fas fa-spinner fa-spin"></i> Cargando reseñas...
-                </div>
-                <div id="crm-list" class="crm-list"></div>
-                <div id="crm-empty" class="crm-empty" style="display:none;">
-                    <i class="far fa-comment-dots"></i>
-                    <p>Aún no hay reseñas para este título.</p>
-                </div>
-            </div>
+          </div>
         </div>
+        <div id="crm-body" class="crm-body">
+          <div id="crm-loading" class="crm-loading">
+            <i class="fas fa-spinner fa-spin"></i> Cargando reseñas...
+          </div>
+          <div id="crm-list" class="crm-list"></div>
+          <div id="crm-empty" class="crm-empty" style="display: none">
+            <i class="far fa-comment-dots"></i>
+            <p>Aún no hay reseñas para este título.</p>
+          </div>
+        </div>
+      </div>
     </div>
 
+    <!-- Modal: Cambiar Contraseña -->
+    <div id="change-password-modal" class="modal">
+      <div class="cpw-modal">
+        <button class="cpw-close" id="cpw-close-btn" title="Cerrar">&times;</button>
+        <div class="cpw-icon-wrap">
+          <i class="fas fa-lock"></i>
+        </div>
+        <h2 class="cpw-title">Cambiar Contraseña</h2>
+        <p class="cpw-subtitle">Elige una contraseña segura de al menos 6 caracteres.</p>
+        <div class="cpw-fields">
+          <div class="cpw-field-wrap">
+            <label class="cpw-label">Contraseña actual</label>
+            <div class="cpw-input-row">
+              <input type="password" id="cpw-current" class="cpw-input" placeholder="Tu contraseña actual" autocomplete="current-password" />
+              <button class="cpw-eye-btn" data-target="cpw-current"><i class="fas fa-eye"></i></button>
+            </div>
+          </div>
+          <div class="cpw-field-wrap">
+            <label class="cpw-label">Nueva contraseña</label>
+            <div class="cpw-input-row">
+              <input type="password" id="cpw-new" class="cpw-input" placeholder="Nueva contraseña" autocomplete="new-password" />
+              <button class="cpw-eye-btn" data-target="cpw-new"><i class="fas fa-eye"></i></button>
+            </div>
+          </div>
+          <div class="cpw-field-wrap">
+            <label class="cpw-label">Confirmar contraseña</label>
+            <div class="cpw-input-row">
+              <input type="password" id="cpw-confirm" class="cpw-input" placeholder="Repite la nueva contraseña" autocomplete="new-password" />
+              <button class="cpw-eye-btn" data-target="cpw-confirm"><i class="fas fa-eye"></i></button>
+            </div>
+          </div>
+        </div>
+        <div class="cpw-strength-wrap" id="cpw-strength-wrap" style="display:none">
+          <div class="cpw-strength-bar">
+            <div class="cpw-strength-fill" id="cpw-strength-fill"></div>
+          </div>
+          <span class="cpw-strength-label" id="cpw-strength-label"></span>
+        </div>
+        <p class="cpw-feedback" id="cpw-feedback" style="display:none"></p>
+        <button class="cpw-submit-btn" id="cpw-submit-btn">
+          <i class="fas fa-check"></i> Cambiar Contraseña
+        </button>
+      </div>
+    </div>
+
+    <!-- Modal: Confirmación -->
     <div id="confirmation-modal" class="modal">
-        <div class="confirmation-modal-content">
-            <h2></h2><p></p>
-            <div class="confirmation-buttons">
-                <button id="cancel-delete-btn" class="btn-cancel">Cancelar</button>
-                <button id="confirm-delete-btn" class="btn-confirm">Confirmar</button>
-            </div>
+      <div class="confirmation-modal-content">
+        <h2></h2>
+        <p></p>
+        <div class="confirmation-buttons">
+          <button id="cancel-delete-btn" class="btn-cancel">Cancelar</button>
+          <button id="confirm-delete-btn" class="btn-confirm">Confirmar</button>
         </div>
+      </div>
     </div>
-    
-    <footer class="bottom-nav">
-        <a href="#" class="nav-link active" data-filter="all">
-            <i class="fas fa-home"></i>
-            <span>Inicio</span>
-        </a>
-        
-        <a href="#" class="nav-link" data-filter="movie">
-            <i class="fas fa-film"></i>
-            <span>Peliculas</span>
-        </a>
 
-        <a href="#" class="nav-link" data-filter="sagas">
-            <i class="fas fa-layer-group"></i>
-            <span>Universos</span>
-        </a>
-
-        <a href="#" class="nav-link" data-filter="series">
-            <i class="fas fa-tv"></i>
-            <span>Series</span>
-        </a>
-
-        <a href="#" class="nav-link" data-filter="profile-hub">
-            <i class="fas fa-bars"></i>
-            <span>Menú</span>
-        </a>
-    </footer>
+    <!-- Modal: Perfil de usuario -->
+    <div id="user-profile-modal" class="modal">
+      <div class="upm-content">
+        <button class="close-btn" onclick="closeAllModals()">&times;</button>
+        <div class="upm-header" id="upm-header">
+          <div class="upm-header-overlay"></div>
+          <div class="upm-header-info">
+            <div class="upm-avatar-wrap">
+              <img
+                id="upm-avatar"
+                src=""
+                alt="avatar"
+                class="upm-avatar"
+                style="display: none"
+              />
+              <div id="upm-avatar-placeholder" class="upm-avatar-placeholder">
+                <i class="fas fa-user-circle"></i>
+              </div>
+            </div>
+            <div>
+              <h2 id="upm-username" class="upm-username"></h2>
+              <div class="upm-stats-row">
+                <span id="upm-stat-movies"
+                  ><i class="fas fa-film"></i> <b>0</b> Películas</span
+                >
+                <span id="upm-stat-series"
+                  ><i class="fas fa-tv"></i> <b>0</b> Series</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="upm-body">
+          <div id="upm-loading" class="upm-loading">
+            <i class="fas fa-spinner fa-spin"></i>
+          </div>
+          <div id="upm-empty" class="upm-empty" style="display: none">
+            <i class="far fa-film"></i>
+            <p>Este usuario no tiene actividad aún.</p>
+          </div>
+          <div id="upm-tabs" class="upm-tabs" style="display: none">
+            <button class="upm-tab active" data-tab="movies">Películas</button>
+            <button class="upm-tab" data-tab="series">Series</button>
+          </div>
+          <div id="upm-movies-grid" class="upm-grid"></div>
+          <div
+            id="upm-series-grid"
+            class="upm-grid"
+            style="display: none"
+          ></div>
+        </div>
+      </div>
+    </div>
 
     <div id="toast-container"></div>
 
-    <!-- MODAL: PERFIL DE USUARIO -->
-    <div id="user-profile-modal" class="modal">
-        <div class="upm-content">
-            <button class="close-btn" onclick="closeAllModals()">&times;</button>
-            <div class="upm-header" id="upm-header">
-                <div class="upm-header-overlay"></div>
-                <div class="upm-header-info">
-                    <div class="upm-avatar-wrap">
-                        <img id="upm-avatar" src="" alt="avatar" class="upm-avatar" style="display:none">
-                        <div id="upm-avatar-placeholder" class="upm-avatar-placeholder"><i class="fas fa-user-circle"></i></div>
-                    </div>
-                    <div>
-                        <h2 id="upm-username" class="upm-username"></h2>
-                        <div class="upm-stats-row">
-                            <span id="upm-stat-movies"><i class="fas fa-film"></i> <b>0</b> Películas</span>
-                            <span id="upm-stat-series"><i class="fas fa-tv"></i> <b>0</b> Series</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="upm-body">
-                <div id="upm-loading" class="upm-loading"><i class="fas fa-spinner fa-spin"></i></div>
-                <div id="upm-empty" class="upm-empty" style="display:none">
-                    <i class="far fa-film"></i>
-                    <p>Este usuario no tiene actividad aún.</p>
-                </div>
-                <div id="upm-tabs" class="upm-tabs" style="display:none">
-                    <button class="upm-tab active" data-tab="movies">Películas</button>
-                    <button class="upm-tab" data-tab="series">Series</button>
-                </div>
-                <div id="upm-movies-grid" class="upm-grid"></div>
-                <div id="upm-series-grid" class="upm-grid" style="display:none"></div>
-            </div>
-        </div>
-    </div>
+    <!-- Backdrop del composer de reseña (solo móvil) -->
+    <div id="irc-backdrop" class="irc-backdrop" onclick="collapseReviewComposer()"></div>
 
+    <!-- ══ LIBRERÍAS ════════════════════════════════════════════ -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
-    <script src="script.js?v=8" type="module" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/artplayer/dist/artplayer.js"></script>
+
+    <!-- SCRIPT PRINCIPAL -->
+    <script src="script.js?v=27" type="module" defer></script>
+    <!-- Scroll to top (catálogo) -->
+  <button class="catalog-scroll-top" id="catalog-scroll-top" aria-label="Volver arriba">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <path d="M18 15l-6-6-6 6"/>
+    </svg>
+  </button>
 </body>
 </html>
