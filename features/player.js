@@ -6143,9 +6143,12 @@ function _fillSpPsPanel(seriesId, activeSeasonKey, activeEpIndex, lang) {
   if (mobileSeasonsBtn) {
     if (Object.keys(episodesData).length <= 1) {
       mobileSeasonsBtn.style.setProperty("display", "none", "important");
+      // Marcar la fila como "solo idioma" para que el botón ocupe todo el ancho
+      if (spControlsRow) spControlsRow.classList.add("sp-controls-solo-lang");
       // No tocar spControlsRow — mobile-only en CSS lo gestiona
     } else {
       mobileSeasonsBtn.style.display = "";
+      if (spControlsRow) spControlsRow.classList.remove("sp-controls-solo-lang");
       // No tocar spControlsRow — mobile-only en CSS lo gestiona
 
       // Construir mapa de etiquetas y posters para el drawer
@@ -6222,24 +6225,27 @@ function _fillSpPsPanel(seriesId, activeSeasonKey, activeEpIndex, lang) {
         .map(
           (t) => `
       <div class="cc-lang-option ${t.lang === lang ? "active" : ""}" data-lang="${t.lang}"
-        style="padding:10px 15px;cursor:pointer;
-               color:${t.lang === lang ? "#fff" : "#aaa"};
-               background:${t.lang === lang ? "var(--accent-color)" : "transparent"};
-               font-size:11px;font-weight:bold;text-transform:uppercase;
-               transition:0.2s;border-bottom:1px solid #222;">
-        ${t.label}
+        style="display:flex;align-items:center;gap:12px;padding:13px 16px;cursor:pointer;
+               color:${t.lang === lang ? "var(--accent-color)" : "rgba(255,255,255,0.65)"};
+               background:${t.lang === lang ? "rgba(var(--accent-rgb),0.08)" : "transparent"};
+               border-left:3px solid ${t.lang === lang ? "var(--accent-color)" : "transparent"};
+               font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;
+               transition:all 0.15s;border-bottom:1px solid rgba(255,255,255,0.05);">
+        <i class="fas fa-globe" style="font-size:12px;opacity:0.7;pointer-events:none;flex-shrink:0;"></i>
+        <span style="flex:1;pointer-events:none;">${t.label}</span>
+        ${t.lang === lang ? `<i class="fas fa-check" style="font-size:10px;pointer-events:none;flex-shrink:0;"></i>` : ""}
       </div>`,
         )
         .join("");
 
       langContainer.innerHTML = `
       <div class="cc-custom-lang-wrapper" style="position:relative;display:inline-block;font-family:'Montserrat',sans-serif;">
-        <div class="cc-lang-trigger" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;padding:0;cursor:pointer;transition:color 0.2s;">
-          <i class="fas fa-language" style="font-size:14px;color:var(--text-muted);pointer-events:none;transition:color 0.2s;"></i>
-          <span style="color:var(--text-light);font-size:0.9rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;pointer-events:none;transition:color 0.2s;">${currentLabel}</span>
-          <i class="fas fa-chevron-down" style="font-size:0.7rem;color:var(--text-muted);pointer-events:none;transition:color 0.2s;"></i>
+        <div class="cc-lang-trigger" style="display:inline-flex;align-items:center;gap:8px;background:none;border:none;padding:0;cursor:pointer;transition:color 0.2s;">
+          <i class="fas fa-language" style="font-size:15px;color:var(--accent-color);pointer-events:none;transition:color 0.2s;"></i>
+          <span style="color:var(--text-light);font-size:0.82rem;font-weight:800;text-transform:uppercase;letter-spacing:0.4px;pointer-events:none;transition:color 0.2s;">${currentLabel}</span>
+          <i class="fas fa-chevron-down" style="font-size:0.6rem;color:var(--accent-color);pointer-events:none;transition:transform 0.25s,color 0.2s;"></i>
         </div>
-        <div class="cc-lang-menu" style="display:none;position:absolute;top:calc(100% + 5px);right:0;background:#141414;border:1px solid #333;border-radius:8px;overflow:hidden;z-index:999999;min-width:130px;box-shadow:0 10px 25px rgba(0,0,0,0.9);">
+        <div class="cc-lang-menu" style="display:none;position:absolute;top:100%;left:0;right:0;background:#0d1117;border:1px solid rgba(255,255,255,0.1);border-top:2px solid var(--accent-color);border-radius:0 0 12px 12px;overflow:hidden;z-index:999999;box-shadow:0 12px 30px rgba(0,0,0,0.85);">
           ${optionsHtml}
         </div>
       </div>`;
@@ -6268,27 +6274,44 @@ function _fillSpPsPanel(seriesId, activeSeasonKey, activeEpIndex, lang) {
 
       trigger.addEventListener("click", (e) => {
         e.stopPropagation();
-        menu.style.display = menu.style.display === "block" ? "none" : "block";
+        const isOpen = menu.style.display === "block";
+        menu.style.display = isOpen ? "none" : "block";
+        // Rotar chevron cuando el menu está abierto
+        const chev = trigger.querySelector("i:last-child");
+        if (chev) chev.style.transform = isOpen ? "" : "rotate(180deg)";
       });
       document.addEventListener("click", () => {
         menu.style.display = "none";
+        const chev = trigger.querySelector("i:last-child");
+        if (chev) chev.style.transform = "";
       });
 
       langContainer.querySelectorAll(".cc-lang-option").forEach((opt) => {
         opt.addEventListener("click", (e) => {
           e.stopPropagation();
           menu.style.display = "none";
+          const chev = trigger.querySelector("i:last-child");
+          if (chev) chev.style.transform = "";
           _spChangeLang(seriesId, opt.dataset.lang);
           langContainer.querySelectorAll(".cc-lang-option").forEach((o) => {
             const isActive = o.dataset.lang === opt.dataset.lang;
-            o.style.background = isActive
-              ? "var(--accent-color)"
-              : "transparent";
-            o.style.color = isActive ? "#fff" : "#aaa";
+            o.style.background = isActive ? "rgba(var(--accent-rgb),0.08)" : "transparent";
+            o.style.color = isActive ? "var(--accent-color)" : "rgba(255,255,255,0.65)";
+            o.style.borderLeft = isActive ? "3px solid var(--accent-color)" : "3px solid transparent";
+            // Actualizar/quitar el checkmark
+            const existingCheck = o.querySelector(".fa-check");
+            if (isActive && !existingCheck) {
+              const chkIcon = document.createElement("i");
+              chkIcon.className = "fas fa-check";
+              chkIcon.style.cssText = "font-size:10px;pointer-events:none;flex-shrink:0;";
+              o.appendChild(chkIcon);
+            } else if (!isActive && existingCheck) {
+              existingCheck.remove();
+            }
             o.classList.toggle("active", isActive);
           });
           const span = trigger.querySelector("span");
-          if (span) span.textContent = opt.textContent.trim();
+          if (span) span.textContent = opt.querySelector("span")?.textContent.trim() || opt.dataset.lang;
         });
       });
 
