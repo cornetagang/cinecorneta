@@ -4253,7 +4253,9 @@ function _initNovedadesSection() {
       lastEpIdx,
     }) => {
       const isSeries = type === "series";
-      const bgImage = epThumb || data.banner || data.poster || "";
+      const bgImage = isSeries
+        ? (data.banner || data.poster || epThumb || "")
+        : (epThumb || data.banner || data.poster || "");
       const labelHTML = `<span style="display:inline-flex;align-items:center;gap:5px">
         <span style="width:6px;height:6px;border-radius:50%;background:${typeColor};display:inline-block"></span>
         ${typeLabel}
