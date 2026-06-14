@@ -519,6 +519,7 @@ async function smartRefreshAndPatch() {
     );
     const currentFilter = activeNav?.dataset.filter || "all";
     generateCarousels();
+    setupHero();
     restoreContinueWatchingCarousel();
 
     if (["movie", "series"].includes(currentFilter) ||
@@ -3944,10 +3945,13 @@ function _bentoPopulateSide(sideId, typeId, titleId, id, data, type) {
   if (titleEl) titleEl.textContent = data.title || "";
 }
 
-// ── Cache del pick diario ─────────────────────────────────────
-// El pick se calcula una vez y se guarda en localStorage con clave
-// bento_pick_YYYYMMDD (invitado) o bento_pick_{uid}_YYYYMMDD (usuario).
-// Al día siguiente la clave no coincide → se recalcula automáticamente.
+// ── Cache del pick diario (solo INVITADOS) ────────────────────
+// El pick de invitado se calcula una vez y se guarda en localStorage con
+// clave bento_pick_guest_YYYYMMDD. Al día siguiente la clave no coincide
+// → se recalcula automáticamente.
+//
+// Para usuarios logueados, el pick se guarda por cuenta en Firebase
+// (users/{uid}/bentoPick), ver setupHero().
 //
 // Esto evita que agregar/quitar contenido al catálogo durante el día
 // cambie la recomendación (pool.length cambia → seed%pool cambia).
@@ -4007,36 +4011,53 @@ function setupHero() {
     }
   }
 
-  // 2. Si hay usuario logueado, verificar su cache personal.
-  //    Solo consulta Firebase si no hay cache del día para ese usuario.
+  // 2. Si hay usuario logueado, el pick personal se guarda POR CUENTA
+  //    en Firebase (users/{uid}/bentoPick), no en localStorage.
+  //    Así es consistente entre dispositivos/dominios (local, producción, etc),
+  //    en vez de depender de la caché del navegador de cada origen.
   const user = auth.currentUser;
   if (user) {
-    const userCached = _getBentoCachedPick(user.uid, movies, series);
-    if (userCached) {
-      // Ya tiene su pick personal del día → mostrarlo directo, sin Firebase
-      _bentoPopulateMain(userCached.id, userCached.data, userCached.type);
-    } else {
-      // Primera carga del día con este usuario → calcular pick personal y cachearlo
-      db.ref(`users/${user.uid}/history`)
-        .once("value")
-        .then((snap) => {
-          if (!snap.exists()) return;
-          const watchedIds = new Set();
-          snap.forEach((child) => {
-            const { contentId } = child.val();
-            if (contentId) watchedIds.add(contentId);
-          });
-          // Pasar siempre watchedIds — _bentoDailyPick excluye vistos
-          // aunque no haya géneros identificables
-          const topGenres = _extractTopGenresFromHistory(snap, movies, series);
-          const personalPick = _bentoDailyPick(movies, series, watchedIds, topGenres);
-          if (personalPick) {
-            _bentoPopulateMain(personalPick.id, personalPick.data, personalPick.type);
-            _setBentoCachedPick(user.uid, personalPick);
+    const today = _bentoDayStr();
+    db.ref(`users/${user.uid}/bentoPick`)
+      .once("value")
+      .then((pickSnap) => {
+        const saved = pickSnap.val();
+        if (saved && saved.date === today) {
+          const data = saved.type === "movie" ? movies[saved.id] : series[saved.id];
+          if (data) {
+            // Ya tiene su pick personal del día guardado → mostrarlo directo
+            _bentoPopulateMain(saved.id, data, saved.type);
+            return;
           }
-        })
-        .catch(() => {}); // si falla Firebase, queda el pick de invitado
-    }
+          // El contenido del pick guardado ya no existe → recalcular abajo
+        }
+
+        // Sin pick guardado para hoy → calcular uno nuevo a partir del
+        // historial y guardarlo en la cuenta para que sea el mismo en
+        // cualquier dispositivo/dominio durante el resto del día.
+        db.ref(`users/${user.uid}/history`)
+          .once("value")
+          .then((snap) => {
+            if (!snap.exists()) return; // sin historial: queda el pick de invitado
+            const watchedIds = new Set();
+            snap.forEach((child) => {
+              const { contentId } = child.val();
+              if (contentId) watchedIds.add(contentId);
+            });
+            // Pasar siempre watchedIds — _bentoDailyPick excluye vistos
+            // aunque no haya géneros identificables
+            const topGenres = _extractTopGenresFromHistory(snap, movies, series);
+            const personalPick = _bentoDailyPick(movies, series, watchedIds, topGenres);
+            if (personalPick) {
+              _bentoPopulateMain(personalPick.id, personalPick.data, personalPick.type);
+              db.ref(`users/${user.uid}/bentoPick`)
+                .set({ id: personalPick.id, type: personalPick.type, date: today })
+                .catch(() => {});
+            }
+          })
+          .catch(() => {}); // si falla Firebase, queda el pick de invitado
+      })
+      .catch(() => {}); // si falla Firebase, queda el pick de invitado
   }
 
   // Panel lado 1: última película
