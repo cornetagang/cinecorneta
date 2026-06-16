@@ -139,6 +139,12 @@ const ANIME_FONT_MAP = {
 
 let shared;
 
+// ── PRESENCIA SOCIAL — estado del módulo ────────────────────────────────────
+let _presenceRef = null;
+let _presenceListener = null;
+let _lastPresenceData = {};
+let _activePresenceSeriesId = null;
+
 // ─── Utilidad: descarga el sub, auto-detecta encoding y recodifica a UTF-8 ───
 // Devuelve un blob:// URL listo para pasarle a Artplayer.
 // Si el fetch falla, devuelve la URL original como fallback silencioso.
@@ -3608,6 +3614,270 @@ function loadProgress(seriesId, seasonNum) {
   }
 }
 
+// ── PRESENCIA SOCIAL ─────────────────────────────────────────────────────────
+// Escribe la posición actual del usuario en Firebase para que otros la vean.
+function publishMyPresence(seriesId, season, episodeIndex) {
+  const user = shared.auth?.currentUser;
+  if (!user || !seriesId || season == null) return;
+  const ref = shared.db.ref(`series_presence/${seriesId}/${user.uid}`);
+  // El dato persiste intencionalmente: queremos que otros usuarios vean
+  // el último episodio que cada quien vio, incluso cuando no está conectado.
+  // onDisconnect().remove() fue eliminado para este propósito.
+  ref.set({
+    season: String(season),
+    episode: Number(episodeIndex ?? 0),
+    photoURL: user.photoURL || null,
+    displayName: user.displayName || user.email?.split("@")[0] || "Usuario",
+    updatedAt: Date.now(),
+  });
+}
+
+// ── API pública: borra la presencia del usuario en una serie ─────────────────
+// Llamar desde el módulo de historial/continuar-viendo cuando el usuario
+// elimina un título de su historial o de "Continuar viendo".
+//
+// Uso:
+//   import { clearPresenceForSeries } from "./player.js";
+//   clearPresenceForSeries("shingekinokyojin");
+//
+// Si seriesId es null/undefined limpia la presencia de TODAS las series
+// donde el usuario tenga datos (útil para "borrar todo el historial").
+export async function clearPresenceForSeries(seriesId) {
+  const user = shared?.auth?.currentUser;
+  if (!user) return;
+
+  try {
+    if (seriesId) {
+      // Borrar presencia de una serie específica
+      await shared.db.ref(`series_presence/${seriesId}/${user.uid}`).remove();
+
+      // Si el listener activo es de esa misma serie, limpiar el avatar del DOM
+      if (_activePresenceSeriesId === seriesId) {
+        document.querySelectorAll(".sp-presence-cluster").forEach((el) => el.remove());
+      }
+    } else {
+      // Sin seriesId → borrar presencia de todas las series del usuario
+      // Busca todos los nodos series_presence/*/uid y los elimina
+      const snap = await shared.db.ref("series_presence").once("value");
+      const batch = [];
+      snap.forEach((seriesSnap) => {
+        if (seriesSnap.child(user.uid).exists()) {
+          batch.push(
+            shared.db.ref(`series_presence/${seriesSnap.key}/${user.uid}`).remove()
+          );
+        }
+      });
+      await Promise.all(batch);
+      document.querySelectorAll(".sp-presence-cluster").forEach((el) => el.remove());
+    }
+  } catch (e) {
+    console.warn("[CinePlayer] clearPresenceForSeries error:", e);
+  }
+}
+
+// ── API pública: refresca el carrusel "Continuar Viendo" ─────────────────────
+// Reutiliza la misma lógica que closeSeriesPlayerModal para que el carrusel
+// se actualice desde cualquier módulo externo (historial, perfil, etc.)
+// sin necesidad de cerrar el reproductor.
+//
+// Uso:
+//   import { refreshContinueWatchingCarousel } from "./player.js"; // ajustar ruta
+//
+//   // Borrar una serie del historial → actualizar carrusel al momento:
+//   await db.ref(`users/${uid}/history/${seriesId}`).remove();
+//   refreshContinueWatchingCarousel();
+//
+//   // Borrar TODO el historial:
+//   await db.ref(`users/${uid}/history`).remove();
+//   document.getElementById("continue-watching-carousel")?.remove();
+//   // (no hace falta llamar refreshContinueWatchingCarousel, ya no hay datos)
+export function refreshContinueWatchingCarousel() {
+  const user = shared?.auth?.currentUser;
+  if (!user) return;
+
+  shared.db
+    .ref(`users/${user.uid}/history`)
+    .orderByChild("viewedAt")
+    .once("value", (snapshot) => {
+      const existing = document.getElementById("continue-watching-carousel");
+      if (existing) existing.remove();
+      if (
+        snapshot.exists() &&
+        typeof window.generateContinueWatchingCarousel === "function"
+      ) {
+        window.generateContinueWatchingCarousel(snapshot);
+      }
+    });
+}
+
+// Suscribe al listener en tiempo real de presencia para esta serie.
+function subscribeToPresence(seriesId) {
+  if (_activePresenceSeriesId === seriesId && _presenceRef) return;
+  detachPresence();
+  _activePresenceSeriesId = seriesId;
+  _presenceRef = shared.db.ref(`series_presence/${seriesId}`);
+  _presenceListener = _presenceRef.on("value", (snap) => {
+    _lastPresenceData = snap.val() || {};
+    _applyPresenceAvatars(seriesId);
+  });
+}
+
+// Desuscribe el listener de presencia al salir de la serie.
+// NO borra el dato de Firebase: la presencia persiste para que otros usuarios
+// vean el último episodio visto aunque el usuario ya no esté conectado.
+function detachPresence() {
+  if (_presenceRef && _presenceListener) {
+    _presenceRef.off("value", _presenceListener);
+  }
+  _presenceRef = null;
+  _presenceListener = null;
+  _lastPresenceData = {};
+  _activePresenceSeriesId = null;
+}
+
+// Dibuja (o redibuja) los avatares de presencia sobre episodios y pestañas de temporada.
+// Se llama tanto desde el listener en tiempo real como después de cada rebuild del DOM.
+//
+// Diseño de avatares:
+//   • Tamaño 20 px — no compite con el badge de número ni con el de duración.
+//   • Posición: esquina superior-derecha del thumb (top-right), donde no hay otros overlays.
+//   • Múltiples usuarios → fila con solapamiento de -6 px (estilo "pilha de fotos").
+//   • Los usuarios del mismo episodio se agrupan en un único contenedor (.sp-presence-cluster)
+//     para evitar el problema anterior de un div por usuario apilados en la misma coordenada.
+//
+// Guard de timing: si Firebase respondió antes de que _fillSpPsPanel insertara los cards,
+// reintenta en el siguiente frame de animación.
+function _applyPresenceAvatars(seriesId) {
+  const myUid = shared.auth?.currentUser?.uid;
+
+  // Limpiar clusters/avatares anteriores
+  document.querySelectorAll(".sp-presence-cluster").forEach((el) => el.remove());
+
+  // Guard: si los cards todavía no están en el DOM, reintentar en el próximo frame
+  const probeId = `sp-ps-ep-${seriesId}-`;
+  const anyCard = [...document.querySelectorAll("[id]")].find((el) =>
+    el.id.startsWith(probeId)
+  );
+  if (!anyCard) {
+    requestAnimationFrame(() => _applyPresenceAvatars(seriesId));
+    return;
+  }
+
+  const presence = _lastPresenceData;
+  if (!presence || !seriesId) return;
+
+  const currentSeason = String(shared.appState.player.state[seriesId]?.season || "");
+
+  // ── Agrupar usuarios por destino ─────────────────────────────────────────
+  // byEpisode["season-ep"] = [ { name, photoURL }, ... ]
+  // bySeason["season"]     = [ { name, photoURL }, ... ]
+  const byEpisode = {};
+  const bySeason  = {};
+
+  // Presencia persistente: solo mostrar datos de los últimos 30 días
+  // para evitar que aparezcan usuarios que vieron la serie hace meses.
+  const PRESENCE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 días
+  const now = Date.now();
+
+  Object.entries(presence).forEach(([uid, data]) => {
+    if (uid === myUid || !data) return;
+    // Filtrar por antigüedad (updatedAt puede faltar en datos legacy → los incluimos)
+    if (data.updatedAt && now - data.updatedAt > PRESENCE_MAX_AGE_MS) return;
+
+    const userSeason = String(data.season || "");
+    const userEp     = Number(data.episode ?? 0);
+    const entry      = { name: data.displayName || "Usuario", photoURL: data.photoURL || null };
+
+    if (userSeason === currentSeason) {
+      const key = `${userSeason}-${userEp}`;
+      (byEpisode[key] = byEpisode[key] || []).push(entry);
+    } else {
+      (bySeason[userSeason] = bySeason[userSeason] || []).push(entry);
+    }
+  });
+
+  // ── Helper: construye un <div> avatar individual ──────────────────────────
+  const AVATAR_SIZE = 20; // px — pequeño para no saturar la miniatura
+  function _makeAvatarEl(name, photoURL, isFirst) {
+    const el = document.createElement("div");
+    el.className = "sp-presence-avatar";
+    el.title     = name;
+    el.style.cssText = [
+      `width:${AVATAR_SIZE}px`,
+      `height:${AVATAR_SIZE}px`,
+      "border-radius:50%",
+      "overflow:hidden",
+      "border:1.5px solid var(--accent-color,#22c55e)",
+      "box-shadow:0 1px 5px rgba(0,0,0,.85)",
+      "flex-shrink:0",
+      isFirst ? "" : "margin-left:-6px",   // solapamiento a partir del 2.°
+    ].filter(Boolean).join(";");
+
+    el.innerHTML = photoURL
+      ? `<img src="${photoURL}" style="width:100%;height:100%;object-fit:cover;" alt="${name}">`
+      : `<div style="width:100%;height:100%;background:var(--accent-color,#22c55e);
+                     display:flex;align-items:center;justify-content:center;
+                     font-size:7px;color:#fff;font-weight:700;line-height:1;">
+           ${name.slice(0, 2).toUpperCase()}
+         </div>`;
+    return el;
+  }
+
+  // ── Helper: construye el cluster container ────────────────────────────────
+  // Posición: top-right del thumb → no choca con el número de episodio (bottom-left)
+  // ni con el badge de duración (bottom-right).
+  function _makeCluster(users, positionStyle) {
+    const cluster = document.createElement("div");
+    cluster.className   = "sp-presence-cluster";
+    cluster.style.cssText = [
+      "position:absolute",
+      "z-index:20",
+      "display:flex",
+      "flex-direction:row",
+      "align-items:center",
+      positionStyle,
+    ].join(";");
+    users.forEach((u, i) => cluster.appendChild(_makeAvatarEl(u.name, u.photoURL, i === 0)));
+    return cluster;
+  }
+
+  // ── Episodios en la temporada activa ─────────────────────────────────────
+  // El cluster se monta sobre el CARD (no el thumb): borde derecho, centrado vertical.
+  // position:absolute sobre el card no altera el layout flex existente y funciona en mobile.
+  Object.entries(byEpisode).forEach(([key, users]) => {
+    const [userSeason, userEpStr] = key.split("-");
+    const userEp = Number(userEpStr);
+    const card =
+      document.getElementById(`sp-ps-ep-${seriesId}-${userSeason}-${userEp}`) ||
+      document.getElementById(`episode-card-${seriesId}-${userSeason}-${userEp}`);
+    if (!card) return;
+
+    // Asegurar que el card sea el containing block
+    if (getComputedStyle(card).position === "static") {
+      card.style.position = "relative";
+    }
+
+    // right:6px centrado vertical → fuera del thumb, sutil en el borde del card
+    card.appendChild(_makeCluster(users, "bottom:4px;right:4px"));
+  });
+
+  // ── Temporadas distintas a la activa → avatar en la pestaña de temporada ─
+  Object.entries(bySeason).forEach(([userSeason, users]) => {
+    [
+      document.getElementById("sp-ps-season-tabs"),
+      document.getElementById(`sp-season-tabs-${seriesId}`),
+    ]
+      .filter(Boolean)
+      .forEach((container) => {
+        const tab = container.querySelector(`.sp-season-tab[data-season="${userSeason}"]`);
+        if (!tab) return;
+        tab.style.position = "relative";
+        // En el tab de temporada usamos bottom-right para no tapar la imagen de portada
+        tab.appendChild(_makeCluster(users, "bottom:4px;right:4px"));
+      });
+  });
+}
+
 export function commitAndClearPendingSave() {
   if (shared.appState.player.pendingHistorySave) {
     try {
@@ -3678,6 +3948,7 @@ function _openSeriesPlayerPage() {
 
 export function closeSeriesPlayerModal() {
   clearTimeout(shared.appState.player.episodeOpenTimer);
+  detachPresence();
   commitAndClearPendingSave();
 
   // ✅ NUEVO: Regenerar carrusel "Continuar Viendo" después de guardar historial
@@ -4062,6 +4333,7 @@ export async function renderEpisodePlayer(
 ) {
   try {
     shared.appState.player.activeSeriesId = seriesId;
+    subscribeToPresence(seriesId);
     const savedEpisodeIndex = loadProgress(seriesId, seasonNum);
     const initialEpisodeIndex =
       startAtIndex !== null ? startAtIndex : savedEpisodeIndex;
@@ -5017,6 +5289,7 @@ export async function renderEpisodePlayer(
 
     if (!isSingleMovie) populateEpisodeList(seriesId, seasonNum);
     if (!isSingleMovie) populateSeasonTabs(seriesId, seasonNum);
+    _applyPresenceAvatars(seriesId);
     openEpisode(seriesId, seasonNum, initialEpisodeIndex);
   } catch (e) {
     logError(e, "Player: Render Episode");
@@ -5111,6 +5384,7 @@ function populateSeasonTabs(seriesId, activeSeasonNum) {
     tab.className =
       "sp-season-tab" +
       (String(key) === String(activeSeasonNum) ? " active" : "");
+    tab.dataset.season = key;
 
     const posterUrl =
       posterEntry?.posterUrl ||
@@ -5586,6 +5860,12 @@ export async function playSeriesInDetailView(seriesId) {
     }
     seriesId = seriesData.id || seriesId;
 
+    // ── Presencia social: registrar listener ANTES de renderizar el panel ──
+    // subscribeToPresence es idempotente (no-op si ya está suscrito a esta serie).
+    // El callback de Firebase es siempre async (event loop), así que llega DESPUÉS
+    // de que _fillSpPsPanel construye el DOM → _applyPresenceAvatars lo encuentra listo.
+    subscribeToPresence(seriesId);
+
     // Obtener primer episodio de la primera temporada disponible
     const episodesData = shared.appState.content.seriesEpisodes[seriesId] || {};
     const seasonKeys = Object.keys(episodesData);
@@ -5872,6 +6152,9 @@ export function playEpisodeInDetailView(seriesId, season, episodeIndex) {
     }
     seriesId = seriesData.id || seriesId;
 
+    // ── Presencia social: registrar listener antes de que _fillSpPsPanel construya el DOM ──
+    subscribeToPresence(seriesId);
+
     const episodesData = shared.appState.content.seriesEpisodes[seriesId] || {};
     const episodes = episodesData[season] || [];
     const episode = episodes[episodeIndex] ?? episodes[0];
@@ -6080,6 +6363,11 @@ function _fillSpPsPanel(seriesId, activeSeasonKey, activeEpIndex, lang) {
     // Ocultar toda la sección si hay solo una temporada
     if (_spPsSeasonCarousel)
       _spPsSeasonCarousel.style.display = orderedKeys.length <= 1 ? "none" : "";
+    // Sin temporadas: alinear lista de episodios al tope del panel
+    const _spPsRight = document.getElementById("sp-ps-right");
+    if (_spPsRight) {
+      _spPsRight.classList.toggle("no-seasons", orderedKeys.length <= 1);
+    }
     orderedKeys.forEach((key) => {
       const posterEntry = postersData[key];
       const label =
@@ -6095,6 +6383,7 @@ function _fillSpPsPanel(seriesId, activeSeasonKey, activeEpIndex, lang) {
       tab.className =
         "sp-season-tab" +
         (String(key) === String(activeSeasonKey) ? " active" : "");
+      tab.dataset.season = key;
       tab.innerHTML = posterUrl
         ? `<img src="${posterUrl}" alt="${label}" loading="lazy">
            <div class="sp-season-tab-overlay"><span class="sp-season-tab-label">${label}</span></div>`
@@ -6495,6 +6784,7 @@ function _fillSpPsPanel(seriesId, activeSeasonKey, activeEpIndex, lang) {
       activeEpIndex,
     );
   }
+  _applyPresenceAvatars(seriesId);
 }
 
 // ── Actualiza la franja info debajo del video ──
@@ -6646,6 +6936,7 @@ function loadSeriesInDetailPlayer(videoId, seriesId, episodeData, lang = "es") {
       episodeIndex: episodeData._index ?? 0,
       lang,
     };
+    publishMyPresence(seriesId, episodeData._season, episodeData._index ?? 0);
   }
 
   // Guardar pendingHistorySave para registrar historial al cerrar
