@@ -22,6 +22,7 @@
 
   /* ── Nuevas utilidades ── */
   --glass-bg: rgba(var(--accent-rgb), 0.05);
+  --scrollbar-w: 6px;
   --font-main: "Montserrat", sans-serif;
   --transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
 }
@@ -35,6 +36,25 @@
 html {
   scroll-behavior: smooth;
   overflow-x: hidden; /* Evita scrollbar horizontal a nivel viewport */
+  scrollbar-width: thin; /* Firefox: scrollbar delgada */
+  scrollbar-color: rgba(var(--accent-rgb), 0.4) transparent; /* Firefox: pulgar y pista */
+}
+
+html::-webkit-scrollbar {
+  width: var(--scrollbar-w);
+}
+
+html::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html::-webkit-scrollbar-thumb {
+  background: rgba(var(--accent-rgb), 0.4);
+  border-radius: 3px;
+}
+
+html::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--accent-rgb), 0.7);
 }
 
 body {
@@ -44,11 +64,6 @@ body {
   color: var(--text-light);
   font-family: "Montserrat", sans-serif;
   overflow-x: clip; /* clip en vez de hidden: no crea scroll container, position:fixed funciona correctamente */
-  scrollbar-width: none;
-}
-
-body::-webkit-scrollbar {
-  display: none;
 }
 
 .page-wrapper {
@@ -3728,7 +3743,7 @@ body.modal-open {
 }
 
 #continue-watching-carousel .movie-card:hover {
-  transform: scale(1.05) translateY(-4px);
+  transform: translateY(4px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
   z-index: 10;
 }
@@ -8993,7 +9008,7 @@ button.modal-review-count:hover {
     max-width: 1500px;
     margin: 0 auto;
     box-sizing: border-box;
-    align-items: start;
+    align-items: stretch; /* ambas columnas igualan la altura de la más alta */
   }
 
   /* --- COLUMNA IZQUIERDA --- */
@@ -9002,6 +9017,7 @@ button.modal-review-count:hover {
     flex-direction: column;
     width: 100%;
     min-width: 0;
+    align-self: start; /* su altura natural (player + info) define la fila */
   }
 
   .sp-left-column .cc-top-fixed {
@@ -9099,16 +9115,17 @@ button.modal-review-count:hover {
     margin: 0;
   }
 
-  /* --- COLUMNA DERECHA (EPISODIOS CON TAMAÑO FIJO) --- */
+  /* --- COLUMNA DERECHA (EPISODIOS — altura = columna izquierda) --- */
   .sp-right-column.cc-scroll {
     background-color: var(--yt-surface, #272727) !important;
     border-radius: 12px !important;
     border: 1px solid var(--cc-border, #2a2a2a) !important;
     padding: 20px 25px !important;
+    box-sizing: border-box !important;
 
-    /* Altura dinámica: 100% de la pantalla menos el espacio de arriba/abajo */
-    height: calc(100vh - 140px) !important;
-    min-height: 500px !important; /* Para evitar que se aplaste mucho */
+    /* Ocupa exactamente la misma altura que el player + info a la izquierda */
+    height: 100% !important;
+    min-height: 400px !important;
 
     overflow-y: auto !important;
     display: flex;
@@ -9116,18 +9133,18 @@ button.modal-review-count:hover {
   }
 
   .sp-right-column.cc-scroll::-webkit-scrollbar {
-    width: 6px;
+    width: var(--scrollbar-w);
     display: block;
   }
   .sp-right-column.cc-scroll::-webkit-scrollbar-track {
     background: transparent;
   }
   .sp-right-column.cc-scroll::-webkit-scrollbar-thumb {
-    background: #444;
-    border-radius: 10px;
+    background: rgba(var(--accent-rgb), 0.4);
+    border-radius: 3px;
   }
   .sp-right-column.cc-scroll::-webkit-scrollbar-thumb:hover {
-    background: #666;
+    background: rgba(var(--accent-rgb), 0.7);
   }
 
   /* Estilo de Tarjetas de Episodio para PC */
@@ -11835,7 +11852,8 @@ nav.main-nav {
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   position: fixed;
   top: 0;
-  width: 100%;
+  left: 0;
+  right: calc(-1 * var(--scrollbar-w)); /* cubre el carril de la scrollbar */
   z-index: 1000;
 }
 
@@ -12973,7 +12991,7 @@ nav .logo.active {
     box-shadow 0.3s ease;
 }
 .card-wide:hover {
-  transform: scale(1.02);
+  transform: translateY(4px);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
@@ -13159,8 +13177,8 @@ nav .logo.active {
     min-height: 300px !important;
     max-height: 360px !important;
     border-radius: 16px !important;
-    background-size: 100% 75% !important;
-    background-position: center top !important;
+    background-size: cover !important;
+    background-position: center 20% !important;
     background-repeat: no-repeat !important;
     background-color: var(--bg-dark) !important;
     display: flex !important;
@@ -14200,11 +14218,21 @@ nav .logo.active {
   background: var(--bg-dark, #05070a);
   overflow-y: auto;
   overflow-x: hidden;
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE / Edge */
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: rgba(var(--accent-rgb), 0.4) transparent;
 }
 .detail-view::-webkit-scrollbar {
-  display: none; /* Chrome / Safari */
+  width: var(--scrollbar-w);
+}
+.detail-view::-webkit-scrollbar-track {
+  background: transparent;
+}
+.detail-view::-webkit-scrollbar-thumb {
+  background: rgba(var(--accent-rgb), 0.4);
+  border-radius: 3px;
+}
+.detail-view::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--accent-rgb), 0.7);
 }
 
 /* ── BOTÓN VOLVER ── */
@@ -15016,8 +15044,8 @@ nav .logo.active {
   .dv-mob-score-row {
     display: flex;
     align-items: center;
-    justify-content: space-evenly;
-    gap: 0;
+    justify-content: center;
+    gap: 12px;
     padding: 22px 5% 18px;
   }
 
@@ -15088,12 +15116,14 @@ nav .logo.active {
     gap: 9px;
     background: none;
     border: none;
+    border-right: 1px solid rgba(255, 255, 255, 0.14);
     color: var(--text-light);
     font-family: var(--font-main);
     font-weight: 700;
     font-size: 0.82rem;
     cursor: pointer;
-    padding: 6px 0;
+    padding: 6px 16px 6px 0;
+    margin-right: 16px;
     white-space: nowrap;
   }
 
@@ -15108,12 +15138,14 @@ nav .logo.active {
     gap: 9px;
     background: none;
     border: none;
+    border-right: 1px solid rgba(255, 255, 255, 0.14);
     color: var(--text-light);
     font-family: var(--font-main);
     font-weight: 700;
     font-size: 0.82rem;
     cursor: pointer;
-    padding: 6px 0;
+    padding: 6px 16px 6px 0;
+    margin-right: 16px;
     white-space: nowrap;
   }
 
@@ -15123,6 +15155,11 @@ nav .logo.active {
 
   .dv-mob-list-btn:active {
     opacity: 0.7;
+  }
+
+  /* Ocultar divisores del HTML (el CSS ya los pone vía border-right en los botones) */
+  .dv-mob-score-row .dv-mob-score-divider {
+    display: none;
   }
 
   /* ── Botón ⋮ en score row mobile ── */
@@ -15277,6 +15314,134 @@ nav .logo.active {
   }
 }
 /* ══════════════════════════════════════════════════════════════
+   DETAIL VIEW — LAPTOP / PANTALLAS MEDIANAS (769px – 1440px)
+   Estrategia: min-height = viewport completo para que el hero
+   llene la pantalla sin hueco negro, pero la info es compacta.
+   ══════════════════════════════════════════════════════════════ */
+@media (min-width: 769px) and (max-width: 1440px) {
+  /* Hero llena el viewport: sin hueco negro debajo del contenido */
+  .dv-hero {
+    min-height: 100vh;
+    padding: 0 5% 50px 5%; /* bottom reducido: de 100px a 50px */
+  }
+
+  /* Logo más pequeño */
+  .dv-logo {
+    height: 105px;
+    max-width: 290px;
+    margin-bottom: 12px;
+  }
+
+  /* Título compacto */
+  .dv-title {
+    font-size: 2.5rem;
+    margin-bottom: 6px;
+  }
+
+  /* Géneros */
+  .dv-genres {
+    margin-bottom: 8px;
+    font-size: 0.68rem;
+    letter-spacing: 2.5px;
+  }
+
+  .dv-orig-title {
+    margin-bottom: 6px;
+  }
+
+  /* Fila de meta */
+  .dv-meta {
+    gap: 7px;
+    margin-bottom: 12px;
+    font-size: 0.8rem;
+  }
+
+  .dv-badge {
+    padding: 5px 11px;
+    font-size: 0.77rem;
+  }
+
+  .dv-rating {
+    padding: 5px 11px;
+  }
+
+  /* Sinopsis */
+  .dv-synopsis {
+    font-size: 0.86rem;
+    line-height: 1.6;
+    margin-bottom: 12px;
+    max-width: 490px;
+  }
+
+  /* Pedida por */
+  .dv-pedido {
+    margin-bottom: 14px;
+  }
+
+  /* Botones */
+  .dv-btn {
+    padding: 12px 28px;
+    font-size: 0.75rem;
+  }
+
+  .dv-btn-icon,
+  .dv-more-btn,
+  .btn-discord-circle {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* Sección del reproductor */
+  .dv-player-section {
+    padding: 30px 5% 50px;
+  }
+
+  /* Player acotado por viewport: en laptop 1366px el video
+     no puede ser más alto que el viewport - nav - padding.
+     min() elige el menor entre 1300px y el ancho que daría
+     esa altura máxima manteniendo 16:9. */
+  .dv-video-wrap {
+    max-width: min(1300px, calc((100vh - 190px) * (16 / 9)));
+  }
+}
+
+/* Pantallas de laptop con altura reducida (≤ 800px):
+   aquí sí ajustamos el min-height para no exagerar en vertical */
+@media (min-width: 769px) and (max-width: 1440px) and (max-height: 800px) {
+  .dv-hero {
+    min-height: 92vh;
+    padding-bottom: 36px;
+  }
+
+  .dv-title {
+    font-size: 2.1rem;
+  }
+
+  .dv-logo {
+    height: 85px;
+    margin-bottom: 8px;
+  }
+
+  .dv-synopsis {
+    font-size: 0.82rem;
+    line-height: 1.55;
+    margin-bottom: 10px;
+  }
+
+  .dv-meta {
+    margin-bottom: 10px;
+  }
+
+  .dv-pedido {
+    margin-bottom: 10px;
+  }
+
+  .dv-genres {
+    margin-bottom: 6px;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
    DETAIL VIEW — ESTADO PLAYING MÓVIL
    El dv-hero-content está DENTRO del dv-hero, así que no podemos
    colapsar el dv-hero (se llevaría el contenido). En cambio:
@@ -15374,6 +15539,21 @@ nav .logo.active {
   background: var(--bg-dark, #05070a);
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--accent-rgb), 0.4) transparent;
+}
+.sp-detail-view::-webkit-scrollbar {
+  width: var(--scrollbar-w);
+}
+.sp-detail-view::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sp-detail-view::-webkit-scrollbar-thumb {
+  background: rgba(var(--accent-rgb), 0.4);
+  border-radius: 3px;
+}
+.sp-detail-view::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--accent-rgb), 0.7);
 }
 
 /* ── BOTÓN VOLVER ── */
@@ -15769,7 +15949,7 @@ nav .logo.active {
   gap: 20px;
   max-width: 1650px;
   margin: 0 auto;
-  align-items: flex-start;
+  align-items: stretch;   /* columnas igualan la altura de la fila */
   padding: 88px 5% 88px;
   width: 100%;
   box-sizing: border-box;
@@ -15781,6 +15961,7 @@ nav .logo.active {
   min-width: 0;
   display: flex;
   flex-direction: column;
+  align-self: flex-start; /* su altura natural (video + info) dicta la fila */
 }
 
 /* ── Video — exactamente .cc-video-wrap del boceto ── */
@@ -15814,12 +15995,12 @@ nav .logo.active {
 /* Header: temporada + título + hora fin + chevron */
 .sp-ps-info-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  padding: 10px 14px 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 12px 18px 11px;
+  border-bottom: 1px solid rgba(var(--accent-rgb), 0.18);
   cursor: pointer;
-  gap: 10px;
+  gap: 14px;
 }
 
 /* Hora de fin debajo del título */
@@ -15832,26 +16013,27 @@ nav .logo.active {
 
 /* Botón chevron */
 .sp-ps-chevron-btn {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
-  border-radius: 5px;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   color: var(--text-muted);
   padding: 0;
-  margin-top: 2px;
   transition:
     background 0.2s,
-    border-color 0.2s;
+    border-color 0.2s,
+    color 0.2s;
 }
 .sp-ps-chevron-btn:hover {
   background: rgba(var(--accent-rgb), 0.1);
   border-color: rgba(var(--accent-rgb), 0.35);
+  color: var(--accent-color);
 }
 .sp-ps-chevron-icon {
   display: block;
@@ -15908,10 +16090,7 @@ nav .logo.active {
   overflow: clip;
   display: flex;
   flex-direction: column;
-  position: sticky;
-  top: 80px;
-  max-height: calc(100vh - 100px);
-  align-self: flex-start;
+  /* align-self: stretch heredado del contenedor → iguala la columna izquierda */
   scrollbar-width: thin;
   scrollbar-color: rgba(var(--accent-rgb), 0.3) transparent;
 }
@@ -15926,6 +16105,15 @@ nav .logo.active {
   border-radius: 4px;
 }
 
+/* ── Sin temporadas: lista de episodios pegada arriba ── */
+.sp-ps-right.no-seasons {
+  padding-top: 0;
+}
+.sp-ps-right.no-seasons .sp-panel-section-header {
+  border-top: none;
+  padding-top: 12px;
+}
+
 /* ── Carrusel temporadas ── */
 .sp-ps-season-carousel {
   flex-shrink: 0;
@@ -15937,7 +16125,7 @@ nav .logo.active {
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(var(--accent-rgb), 0.3) transparent;
-  max-height: 496px;
+  min-height: 0; /* crucial para que flex:1 active overflow en flexbox */
 }
 .sp-ps-episode-list::-webkit-scrollbar {
   width: 4px;
@@ -16411,6 +16599,164 @@ nav .logo.active {
   .sp-hero.sp-hero--playing .sp-mobile-header,
   .sp-hero.sp-hero--playing .sp-hero-content {
     display: none !important;
+  }
+}
+
+/* ===========================================================
+   SP-DETAIL-VIEW — LAPTOP / PANTALLAS MEDIANAS (769px – 1440px)
+   Espejo del bloque dv- laptop + ajustes del player de series.
+   =========================================================== */
+@media (min-width: 769px) and (max-width: 1440px) {
+  /* ── HERO: mismo tratamiento que dv- ── */
+  .sp-hero {
+    min-height: 100vh;
+    padding: 0 5% 50px 5%;
+  }
+
+  .sp-logo {
+    height: 105px;
+    max-width: 290px;
+    margin-bottom: 12px;
+  }
+
+  .sp-title {
+    font-size: 2.5rem;
+    margin-bottom: 6px;
+  }
+
+  .sp-genres {
+    font-size: 0.68rem;
+    letter-spacing: 2.5px;
+    margin-bottom: 8px;
+  }
+
+  .sp-meta {
+    gap: 7px;
+    margin-bottom: 12px;
+    font-size: 0.8rem;
+  }
+
+  .sp-badge {
+    padding: 5px 11px;
+    font-size: 0.77rem;
+  }
+
+  .sp-rating {
+    padding: 5px 11px;
+  }
+
+  .sp-synopsis {
+    font-size: 0.86rem;
+    line-height: 1.6;
+    margin-bottom: 12px;
+    max-width: 490px;
+  }
+
+  .sp-pedido {
+    margin-bottom: 14px;
+  }
+
+  .sp-btn {
+    padding: 12px 28px;
+    font-size: 0.75rem;
+  }
+
+  .sp-btn-icon,
+  .btn-discord-circle {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* ── PLAYER SECTION: padding reducido ── */
+  /* Estado inicial (hero visible encima) */
+  .sp-player-section {
+    padding: 80px 5% 60px;
+  }
+
+  /* Estado flex (playing): dos columnas centradas */
+  .sp-player-section[style*="flex"] {
+    padding: 40px 5% 60px;
+    justify-content: center;
+  }
+
+  /* Columna izquierda: ancho limitado para que video + info-strip quepan bajo la nav */
+  .sp-player-section .sp-ps-left {
+    max-width: min(100%, calc((100vh - 280px) * (16 / 9)));
+  }
+
+  /* Video reducido en laptops */
+  .sp-player-section .sp-video-wrap {
+    max-width: 100%;
+    max-height: calc(100vh - 280px);
+  }
+
+  /* Panel de episodios ligeramente más compacto */
+  .sp-ps-right {
+    width: 290px;
+    top: 80px;
+    max-height: calc(100vh - 100px);
+  }
+
+  .sp-player-section[style*="flex"] .sp-ps-right {
+    top: 80px;
+  }
+
+  .sp-ps-episode-list {
+    max-height: 380px;
+  }
+}
+
+/* Altura reducida (≤ 800px) */
+@media (min-width: 769px) and (max-width: 1440px) and (max-height: 800px) {
+  .sp-hero {
+    min-height: 92vh;
+    padding-bottom: 36px;
+  }
+
+  .sp-title {
+    font-size: 2.1rem;
+  }
+
+  .sp-logo {
+    height: 85px;
+    margin-bottom: 8px;
+  }
+
+  .sp-synopsis {
+    font-size: 0.82rem;
+    line-height: 1.55;
+    margin-bottom: 10px;
+  }
+
+  .sp-meta {
+    margin-bottom: 10px;
+  }
+
+  .sp-pedido {
+    margin-bottom: 10px;
+  }
+
+  .sp-genres {
+    margin-bottom: 6px;
+  }
+
+  .sp-player-section {
+    padding-top: 50px;
+  }
+
+  .sp-player-section[style*="flex"] {
+    padding-top: 30px;
+  }
+
+  .sp-ps-right {
+    top: 80px; /* explícito también en altura reducida */
+    max-height: calc(100vh - 100px);
+  }
+
+  /* Lista dinámica: evita desbordamiento del panel en laptops ≤ 800px de alto.
+     Resta: navbar(80) + encabezado panel(50) + tabs(40) + seasons(60) + margen(20) = 250px */
+  .sp-ps-episode-list {
+    max-height: calc(100vh - 250px);
   }
 }
 
@@ -17557,7 +17903,7 @@ nav .logo.active {
   flex-direction: column;
   position: sticky;
   top: 100px;
-  max-height: calc(100vh - 140px);
+  max-height: calc(100vh - 190px);
   align-self: flex-start;
 }
 
@@ -17570,6 +17916,21 @@ nav .logo.active {
 .sp-right-col::-webkit-scrollbar-thumb {
   background: rgba(var(--accent-rgb), 0.3);
   border-radius: 4px;
+}
+
+/* ── sp-right-col: max-height por breakpoint ── */
+@media (min-width: 1024px) and (max-width: 1439px) {
+  /* Laptop */
+  .sp-right-col {
+    max-height: calc(100vh - 190px);
+  }
+}
+
+@media (min-width: 1440px) {
+  /* Desktop */
+  .sp-right-col {
+    max-height: calc(100vh - 275px);
+  }
 }
 
 /* ── Meta info (solo mobile) ── */
