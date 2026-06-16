@@ -6929,9 +6929,12 @@ async function removeFromHistory(entryKey) {
   const user = auth.currentUser;
   if (!user) return;
 
+  // entryKey === contentId → limpiar presencia de Firebase en paralelo
+  const playerMod = await getPlayerModule();
   await Promise.all([
     db.ref(`users/${user.uid}/history/${entryKey}`).remove(),
     db.ref(`users/${user.uid}/roulette_watched/${entryKey}`).remove(),
+    playerMod.clearPresenceForSeries?.(entryKey),
   ]);
   try {
     const roulette = await getRouletteModule();
@@ -7929,7 +7932,12 @@ async function removeFromContinueWatching(historyKey, cardElement) {
     cardElement.style.opacity = "0";
     cardElement.style.transform = "scale(0.8) translateY(20px)";
 
-    await db.ref(`users/${user.uid}/history/${historyKey}`).remove();
+    // historyKey === contentId → limpiar presencia de Firebase en paralelo
+    const playerMod = await getPlayerModule();
+    await Promise.all([
+      db.ref(`users/${user.uid}/history/${historyKey}`).remove(),
+      playerMod.clearPresenceForSeries?.(historyKey),
+    ]);
 
     setTimeout(() => {
       if (cardElement.parentNode) {
