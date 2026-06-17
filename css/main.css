@@ -12597,14 +12597,28 @@ nav .logo.active {
   gap: 10px;
 }
 
+/* DESPUÉS */
 .bento-side-type {
+  position: absolute;
+  top: 14px;
+  left: 18px;
+  z-index: 3;
   font-size: 0.7rem;
   font-weight: 900;
   letter-spacing: 3px;
   text-transform: uppercase;
   color: var(--accent-color);
-  margin-bottom: 4px;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+
+  /* contenedor legible */
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 5px 10px 5px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+
+  /* ya no hace falta el text-shadow con bg */
+  line-height: 1.3;
 }
 
 .bento-side-title {
@@ -12613,6 +12627,16 @@ nav .logo.active {
   color: var(--text-light);
   letter-spacing: 0.5px;
   line-height: 1.2;
+}
+
+.bento-side-logo {
+  max-width: 200px;
+  max-height: 34px;
+  object-fit: contain;
+  object-position: left;
+  display: block;
+  margin-bottom: 6px;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.6));
 }
 
 .bento-side-play {
@@ -13193,8 +13217,8 @@ nav .logo.active {
     left: 0 !important;
     right: 0 !important;
     top: 30% !important;
-    height: 50% !important;
-    background: linear-gradient(to bottom, transparent 0%, var(--bg-dark) 100%) !important;
+    bottom: 0 !important;
+    background: linear-gradient(to bottom, transparent 0%, var(--bg-dark) 60%) !important;
     pointer-events: none !important;
     z-index: 1 !important;
     border-radius: 16px !important;
@@ -16208,12 +16232,7 @@ nav .logo.active {
   }
 
   .sp-back-btn {
-    position: fixed;
-    top: calc(var(--top-h, 56px) + 10px);
-    left: 5%;
-    z-index: 450;
-    color: rgba(255, 255, 255, 0.9);
-    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+    display: none !important; /* Solo series: botón redundante en móvil (ya está el header/topbar) */
   }
 
   /* ══ OPCIÓN C: banner full-bleed, sin poster, título encima ══ */
