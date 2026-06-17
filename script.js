@@ -3621,7 +3621,7 @@ function _bentoSideTypeHTML(data, type, id) {
       const hasNewEp = hasRecentEpisodes(id);
 
       if (isNew) {
-        info = { text: "Estreno", dot: "#22c55e" };
+        info = { text: "Estreno · Serie", dot: "#22c55e" };
       } else if (hasNewSeason) {
         info = { text: "Nueva temporada", dot: "#3b82f6" };
       } else if (hasNewEp) {
@@ -3674,7 +3674,13 @@ function _bentoSideTypeHTML(data, type, id) {
       : "";
     return { main: dot + info.text, sub };
   }
-  return { main: "Película", sub: "" };
+  // Película: mostrar "Estreno · Película" si es reciente, si no solo "Película"
+  const isNewMovie = isDateRecent(data.date_added);
+  const movieDot = isNewMovie
+    ? `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#22c55e;margin-right:6px;vertical-align:middle;"></span>`
+    : `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent-color);margin-right:6px;vertical-align:middle;"></span>`;
+  const movieLabel = isNewMovie ? "Estreno · Película" : "Película";
+  return { main: movieDot + movieLabel, sub: "" };
 }
 
 // ── Poblar panel principal ────────────────────────────────────
@@ -3929,7 +3935,7 @@ function _populateMobileHero(id, data, type) {
 }
 
 // ── Poblar panel lateral ──────────────────────────────────────
-function _bentoPopulateSide(sideId, typeId, titleId, id, data, type) {
+function _bentoPopulateSide(sideId, typeId, titleId, logoId, id, data, type) {
   const el = document.getElementById(sideId);
   if (!el) return;
   el.style.backgroundImage = `url('${data.banner || data.poster || ""}')`;
@@ -3938,11 +3944,27 @@ function _bentoPopulateSide(sideId, typeId, titleId, id, data, type) {
 
   const typeEl = document.getElementById(typeId);
   const titleEl = document.getElementById(titleId);
+  const logoEl = document.getElementById(logoId);
   if (typeEl) {
     const { main, sub } = _bentoSideTypeHTML(data, type, id);
     typeEl.innerHTML = main + sub;
   }
-  if (titleEl) titleEl.textContent = data.title || "";
+
+  // Logo o título
+  if (data.logoUrl) {
+    if (logoEl) {
+      setLogoSrc(logoEl, data.logoUrl);
+      logoEl.alt = data.title || "";
+      logoEl.style.display = "block";
+    }
+    if (titleEl) titleEl.style.display = "none";
+  } else {
+    if (logoEl) logoEl.style.display = "none";
+    if (titleEl) {
+      titleEl.textContent = data.title || "";
+      titleEl.style.display = "block";
+    }
+  }
 }
 
 // ── Cache del pick diario (solo INVITADOS) ────────────────────
@@ -4067,6 +4089,7 @@ function setupHero() {
       "bentoSide1",
       "bentoSide1Type",
       "bentoSide1Title",
+      "bentoSide1Logo",
       latestMovie.id,
       latestMovie.data,
       "movie",
@@ -4079,6 +4102,7 @@ function setupHero() {
       "bentoSide2",
       "bentoSide2Type",
       "bentoSide2Title",
+      "bentoSide2Logo",
       latestSerie.id,
       latestSerie.data,
       "series",
@@ -8453,8 +8477,8 @@ async function _getTrimmedSvgUrl(url) {
     if (vw <= 0 || vh <= 0) return url;
 
     svg.setAttribute("viewBox", `${vx} ${vy} ${vw} ${vh}`);
-    svg.removeAttribute("width");
-    svg.removeAttribute("height");
+    svg.setAttribute("width",   vw);
+    svg.setAttribute("height",  vh);
 
     const objectUrl = URL.createObjectURL(
       new Blob([new XMLSerializer().serializeToString(svg)], {
