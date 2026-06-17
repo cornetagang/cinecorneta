@@ -452,7 +452,8 @@ class CinePlayer {
       theme: "var(--accent-color)",
       volume: 1,
       autoplay: false,
-      autoSize: true,
+      autoSize: false,   // No redimensionar el contenedor (evita que videos 2.39:1 queden pegados arriba)
+      fit: "contain",    // object-fit:contain → barras negras laterales/verticales + video centrado
       fastForward: true,
       autoMini: false,
       autoPlayback: false,
@@ -5814,7 +5815,7 @@ function loadMovieInPlayer(videoId, movieId, movieData, lang = "es", onHalfway =
 
   const artContainer = document.createElement("div");
   artContainer.className = "artplayer-container";
-  artContainer.style.cssText = "width:100%;height:100%;background:#000";
+  artContainer.style.cssText = "width:100%;height:100%;background:#000;display:flex;align-items:center;justify-content:center;";
   container.appendChild(artContainer);
 
   shared.appState.player.activeCineInstance = new CinePlayer(artContainer);
@@ -6980,7 +6981,7 @@ function loadSeriesInDetailPlayer(videoId, seriesId, episodeData, lang = "es") {
   artContainer.className = "artplayer-container";
   // Forzamos posición absoluta para que respete milimétricamente a su contenedor padre
   artContainer.style.cssText =
-    "position:absolute !important; top:0 !important; left:0 !important; width:100% !important; height:100% !important; background:#000 !important;";
+    "position:absolute !important; top:0 !important; left:0 !important; width:100% !important; height:100% !important; background:#000 !important; display:flex !important; align-items:center !important; justify-content:center !important;";
   container.appendChild(artContainer);
 
   shared.appState.player.activeCineInstance = new CinePlayer(artContainer);
