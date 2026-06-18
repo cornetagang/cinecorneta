@@ -12630,10 +12630,10 @@ nav .logo.active {
 }
 
 .bento-side-logo {
-  max-width: 200px;
-  max-height: 34px;
+  max-width: 240px;
+  max-height: 56px;
   object-fit: contain;
-  object-position: left;
+  object-position: left bottom;
   display: block;
   margin-bottom: 6px;
   filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.6));
