@@ -1048,20 +1048,26 @@ async function switchView(filter) {
     if (appState?.player?.pendingHistorySave) {
       const { contentId, type, episodeInfo } =
         appState.player.pendingHistorySave;
-      addToHistoryIfLoggedIn(contentId, type, episodeInfo);
+      // Capturamos la promesa del write — mismo fix de race condition (Bug 2).
+      const writePromise = addToHistoryIfLoggedIn(contentId, type, episodeInfo);
       appState.player.pendingHistorySave = null;
-      // ✅ FIX: Regenerar carrusel "Continuar Viendo" después de guardar historial
+      // ✅ FIX: Regenerar carrusel "Continuar Viendo" DESPUÉS de que Firebase
+      //         confirme el write, no en paralelo.
       const user = auth.currentUser;
       if (user) {
-        db.ref(`users/${user.uid}/history`)
-          .orderByChild("viewedAt")
-          .once("value", (snapshot) => {
-            const existing = document.getElementById(
-              "continue-watching-carousel",
-            );
-            if (existing) existing.remove();
-            if (snapshot.exists()) generateContinueWatchingCarousel(snapshot);
-          });
+        const safeWrite =
+          writePromise instanceof Promise ? writePromise : Promise.resolve();
+        safeWrite.then(() => {
+          db.ref(`users/${user.uid}/history`)
+            .orderByChild("viewedAt")
+            .once("value", (snapshot) => {
+              const existing = document.getElementById(
+                "continue-watching-carousel",
+              );
+              if (existing) existing.remove();
+              if (snapshot.exists()) generateContinueWatchingCarousel(snapshot);
+            });
+        });
       }
     }
     spDetailView.classList.remove("visible", "sp-detail-view--playing");
@@ -4948,26 +4954,32 @@ function generateContinueWatchingCarousel(snapshot) {
   });
   historyItems.reverse();
 
-  const SPECIAL_KEYWORDS = [
-    "pelicula",
-    "película",
-    "especial",
-    "tespecial",
-    "movie",
-    "special",
-    "ova",
-  ];
-  const isSpecialSeason = (season) => {
+  // Solo excluimos temporadas que son en realidad películas sueltas guardadas
+  // bajo una entrada de tipo "series". Los OVA, especiales y specials SÍ son
+  // contenido de serie válido y deben aparecer en "Continuar Viendo".
+  const MOVIE_SEASON_KEYWORDS = ["pelicula", "película", "movie"];
+  const isMovieSeason = (season) => {
     if (season == null) return false;
     const s = String(season).toLowerCase();
-    return SPECIAL_KEYWORDS.some((kw) => s.includes(kw));
+    return MOVIE_SEASON_KEYWORDS.some((kw) => s.includes(kw));
   };
 
-  const seriesToShow = historyItems
-    .filter((item) => item.type === "series" && !isSpecialSeason(item.season))
+  // Incluimos series Y películas que estén enlazadas a una entrada de serie
+  // (ej. JJK 0 almacenada como "movie" pero bajo el mismo contentId de la serie).
+  // Las películas del catálogo general (solo en appState.content.movies) quedan fuera.
+  const itemsToShow = historyItems
+    .filter((item) => {
+      if (item.progress != null && item.progress >= 0.9) return false;
+      if (item.type === "movie") {
+        // Solo si el contentId también existe en el catálogo de series
+        return !!appState.content.series[item.contentId];
+      }
+      if (item.type === "series") return !isMovieSeason(item.season);
+      return false;
+    })
     .slice(0, 15);
 
-  if (seriesToShow.length === 0) return;
+  if (itemsToShow.length === 0) return;
 
   // Wrapper con nuevo sistema visual
   const carouselEl = document.createElement("div");
@@ -4994,15 +5006,17 @@ function generateContinueWatchingCarousel(snapshot) {
 
   const track = carouselEl.querySelector(`#${rowId}`);
 
-  seriesToShow.forEach((historyItem) => {
-    const seriesData = findContentData(historyItem.contentId);
-    if (!seriesData) return;
+  itemsToShow.forEach((historyItem) => {
+    const contentData = findContentData(historyItem.contentId);
+    if (!contentData) return;
+
+    const isSeries = historyItem.type === "series";
 
     let episodeThumbnail = null;
     let episodeTitle = null;
     let episodeNombreEspecial = null;
 
-    if (historyItem.season != null && historyItem.lastEpisode != null) {
+    if (isSeries && historyItem.season != null && historyItem.lastEpisode != null) {
       const seriesEpisodes =
         appState.content.seriesEpisodes[historyItem.contentId];
       if (seriesEpisodes?.[historyItem.season]?.[historyItem.lastEpisode]) {
@@ -5013,14 +5027,17 @@ function generateContinueWatchingCarousel(snapshot) {
       }
     }
 
-    const totalSeasons = Object.keys(
-      appState.content.seriesEpisodes[historyItem.contentId] || {},
-    ).length;
+    const totalSeasons = isSeries
+      ? Object.keys(
+          appState.content.seriesEpisodes[historyItem.contentId] || {},
+        ).length
+      : 0;
 
     const card = createMovieCardElement(
       historyItem.contentId,
-      seriesData,
-      "series",
+      contentData,
+      // Pasamos el tipo real del item — antes siempre era "series"
+      historyItem.type,
       "carousel",
       false,
       {
@@ -5029,10 +5046,10 @@ function generateContinueWatchingCarousel(snapshot) {
         lastEpisode: historyItem.lastEpisode,
         episodeThumbnail,
         episodeTitle,
-        seriesTitle: seriesData.title,
+        seriesTitle: contentData.title,
         historyKey: historyItem.key,
         totalSeasons,
-        nombreTemporadas: String(seriesData.nombreTemporadas || "").trim(),
+        nombreTemporadas: String(contentData.nombreTemporadas || "").trim(),
         nombreEspecial: episodeNombreEspecial,
         progress: historyItem.progress,
       },
@@ -6269,19 +6286,25 @@ function closeSeriesDetailView() {
   // Guardar historial antes de destruir el player
   if (appState?.player?.pendingHistorySave) {
     const { contentId, type, episodeInfo } = appState.player.pendingHistorySave;
-    addToHistoryIfLoggedIn(contentId, type, episodeInfo);
+    // Capturamos la promesa del write para no leer el historial antes de que
+    // Firebase confirme la escritura (race condition — Bug 2).
+    const writePromise = addToHistoryIfLoggedIn(contentId, type, episodeInfo);
     appState.player.pendingHistorySave = null;
     const user = auth.currentUser;
     if (user) {
-      db.ref(`users/${user.uid}/history`)
-        .orderByChild("viewedAt")
-        .once("value", (snapshot) => {
-          const existing = document.getElementById(
-            "continue-watching-carousel",
-          );
-          if (existing) existing.remove();
-          if (snapshot.exists()) generateContinueWatchingCarousel(snapshot);
-        });
+      const safeWrite =
+        writePromise instanceof Promise ? writePromise : Promise.resolve();
+      safeWrite.then(() => {
+        db.ref(`users/${user.uid}/history`)
+          .orderByChild("viewedAt")
+          .once("value", (snapshot) => {
+            const existing = document.getElementById(
+              "continue-watching-carousel",
+            );
+            if (existing) existing.remove();
+            if (snapshot.exists()) generateContinueWatchingCarousel(snapshot);
+          });
+      });
     }
   }
 
@@ -6943,7 +6966,10 @@ function addToHistoryIfLoggedIn(contentId, type, episodeInfo = {}) {
         : 0,
   };
 
-  db.ref(`users/${user.uid}/history/${historyKey}`).set(historyEntry);
+  // Devolvemos la promesa del write para que los callers puedan
+  // encadenar .then() / await y evitar race conditions al leer el historial
+  // inmediatamente después (Bug 2).
+  return db.ref(`users/${user.uid}/history/${historyKey}`).set(historyEntry);
 }
 
 // ===========================================================
@@ -7785,7 +7811,10 @@ function createMovieCardElement(
       type === "series" &&
       options.season
     ) {
+      // Bug 3: la vista sp-detail-view debe estar montada y visible antes de
+      // llamar a playEpisodeInDetailView, igual que el flujo "continuar-viendo".
       (async () => {
+        await openSeriesDetailView(id);
         const player = await getPlayerModule();
         player.playEpisodeInDetailView(id, options.season, options.lastEpisode);
       })();
@@ -7882,17 +7911,39 @@ function createMovieCardElement(
     if (options.season != null && options.lastEpisode != null) {
       const episodeNum = parseInt(options.lastEpisode) + 1;
       if (options.nombreEspecial) {
-        // "Parte 2" → "P2 E3", "Stage 3" → "S3 E5"
+        // Etiqueta a nivel de episodio: "Parte 2" → "P2 E3", "Stage 3" → "S3 E5"
         const firstLetter = options.nombreEspecial[0].toUpperCase();
         const numMatch = options.nombreEspecial.match(/\d+/);
         const abbr = numMatch ? `${firstLetter}${numMatch[0]}` : firstLetter;
         episodeInfo = `${abbr} E${episodeNum}`;
-      } else if (options.totalSeasons > 1) {
-        const _word = options.nombreTemporadas || "";
-        const _prefix = _word ? _word[0].toUpperCase() : "T";
-        episodeInfo = `${_prefix}${options.season} E${episodeNum}`;
       } else {
-        episodeInfo = `Episodio ${episodeNum}`;
+        // Etiqueta a nivel de temporada desde seasonPosters (ej. "Especial", "Parte 4").
+        // Tiene prioridad sobre el raw season key para evitar mostrar "TESPECIAL E1".
+        const seasonPosterEntry =
+          appState.content.seasonPosters?.[id]?.[options.season];
+        const etiqueta = (
+          typeof seasonPosterEntry === "object"
+            ? seasonPosterEntry.etiqueta || ""
+            : ""
+        ).trim();
+
+        if (etiqueta) {
+          const firstLetter = etiqueta[0].toUpperCase();
+          const numMatch = etiqueta.match(/\d+/);
+          const abbr = numMatch ? `${firstLetter}${numMatch[0]}` : etiqueta;
+          // Si la temporada tiene un solo episodio (especial, película) no
+          // añadir "E1" — no aporta info y queda redundante.
+          const seasonEps = appState.content.seriesEpisodes?.[id]?.[options.season];
+          const seasonEpCount = seasonEps ? Object.keys(seasonEps).length : 0;
+          episodeInfo = seasonEpCount <= 1 ? abbr : `${abbr} E${episodeNum}`;
+        } else if (options.totalSeasons > 1) {
+          // Fallback: prefijo de nombreTemporadas + número de temporada
+          const _word = options.nombreTemporadas || "";
+          const _prefix = _word ? _word[0].toUpperCase() : "T";
+          episodeInfo = `${_prefix}${options.season} E${episodeNum}`;
+        } else {
+          episodeInfo = `Episodio ${episodeNum}`;
+        }
       }
     }
 
