@@ -135,6 +135,104 @@ const ANIME_FONT_MAP = {
     "https://cdn.jsdelivr.net/npm/@expo-google-fonts/oswald/700Bold/Oswald_700Bold.ttf",
   "comic sans ms":
     "https://cdn.jsdelivr.net/npm/@expo-google-fonts/comic-neue/400Regular/ComicNeue_400Regular.ttf",
+  "comic sans ms bold":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/comic-neue/700Bold/ComicNeue_700Bold.ttf",
+
+  // ── Variantes bold/italic explícitas de las fuentes de sistema ya mapeadas ──
+  // libass puede pedir "arial bold" como clave separada en lugar de inferirlo
+  // desde el campo Bold=-1 del estilo, dependiendo del build de fontconfig.
+  "arial italic":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/arimo/400Regular_Italic/Arimo_400Regular_Italic.ttf",
+  "arial bold italic":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/arimo/700Bold_Italic/Arimo_700Bold_Italic.ttf",
+  "arial narrow":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/arimo/400Regular/Arimo_400Regular.ttf",
+  "times new roman bold":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/tinos/700Bold/Tinos_700Bold.ttf",
+  "times new roman italic":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/tinos/400Regular_Italic/Tinos_400Regular_Italic.ttf",
+  "times new roman bold italic":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/tinos/700Bold_Italic/Tinos_700Bold_Italic.ttf",
+  "verdana bold":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/pt-sans/700Bold/PTSans_700Bold.ttf",
+  "verdana italic":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/pt-sans/400Regular_Italic/PTSans_400Regular_Italic.ttf",
+  "trebuchet ms bold":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/fira-sans/700Bold/FiraSans_700Bold.ttf",
+  "trebuchet ms italic":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/fira-sans/400Regular_Italic/FiraSans_400Regular_Italic.ttf",
+  "tahoma bold":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans/700Bold/NotoSans_700Bold.ttf",
+  "georgia bold":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/lora/700Bold/Lora_700Bold.ttf",
+  "georgia italic":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/lora/400Regular_Italic/Lora_400Regular_Italic.ttf",
+  "georgia bold italic":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/lora/700Bold_Italic/Lora_700Bold_Italic.ttf",
+  "courier new bold":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/cousine/700Bold/Cousine_700Bold.ttf",
+  "courier new italic":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/cousine/400Regular_Italic/Cousine_400Regular_Italic.ttf",
+
+  // ── Fuentes Microsoft comunes no cubiertas ────────────────────────────
+  // Segoe UI → Noto Sans (sustituto sans-serif neutro, misma sensación)
+  "segoe ui":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans/400Regular/NotoSans_400Regular.ttf",
+  "segoe ui bold":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans/700Bold/NotoSans_700Bold.ttf",
+  "segoe ui italic":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans/400Regular_Italic/NotoSans_400Regular_Italic.ttf",
+
+  // Calibri → Nunito Sans (proporciones muy similares, mismo color tipográfico)
+  calibri:
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/nunito-sans/400Regular/NunitoSans_400Regular.ttf",
+  "calibri bold":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/nunito-sans/700Bold/NunitoSans_700Bold.ttf",
+  "calibri italic":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/nunito-sans/400Regular_Italic/NunitoSans_400Regular_Italic.ttf",
+
+  // Cambria → Lora (serif de lectura, misma categoría)
+  cambria:
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/lora/400Regular/Lora_400Regular.ttf",
+  "cambria bold":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/lora/700Bold/Lora_700Bold.ttf",
+  "cambria math":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/lora/400Regular/Lora_400Regular.ttf",
+
+  // Palatino Linotype / Book Antiqua → EB Garamond (serif clásico equivalente)
+  "palatino linotype":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/eb-garamond/400Regular/EBGaramond_400Regular.ttf",
+  "palatino linotype bold":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/eb-garamond/700Bold/EBGaramond_700Bold.ttf",
+  "book antiqua":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/eb-garamond/400Regular/EBGaramond_400Regular.ttf",
+
+  // Century Gothic → Comfortaa (geométrica sans, proporciones anchas similares)
+  "century gothic":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/comfortaa/400Regular/Comfortaa_400Regular.ttf",
+  "century gothic bold":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/comfortaa/700Bold/Comfortaa_700Bold.ttf",
+
+  // Lucida → Ubuntu / Cousine según variante
+  "lucida sans":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/ubuntu/400Regular/Ubuntu_400Regular.ttf",
+  "lucida sans unicode":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/ubuntu/400Regular/Ubuntu_400Regular.ttf",
+  "lucida console":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/cousine/400Regular/Cousine_400Regular.ttf",
+  "lucida bright":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/lora/400Regular/Lora_400Regular.ttf",
+
+  // MS Gothic / MS PGothic / MS Mincho → Noto Sans
+  // (en subs de anime traducidos el texto es latino, solo importa el fallback glyph)
+  "ms gothic":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans/400Regular/NotoSans_400Regular.ttf",
+  "ms pgothic":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans/400Regular/NotoSans_400Regular.ttf",
+  "ms mincho":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans/400Regular/NotoSans_400Regular.ttf",
+  "ms ui gothic":
+    "https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans/400Regular/NotoSans_400Regular.ttf",
 };
 
 let shared;
@@ -4391,7 +4489,7 @@ export async function renderEpisodePlayer(
       seasonLower.includes("movie") ||
       seasonLower.includes("special");
 
-    const isSingleMovie = isSpecialContent && episodes.length === 1;
+    const isSingleMovie = isSpecialContent;
 
     const postersData =
       shared.appState.content.seasonPosters[seriesId]?.[seasonNum] || {};
@@ -4416,10 +4514,19 @@ export async function renderEpisodePlayer(
 
     const _nombreTmp = String(seriesInfo.nombreTemporadas || "").trim();
 
-    const seasonDisplayName = postersData.etiqueta
-      ? postersData.etiqueta
+    const _specialLabel =
+      seasonLower.includes("pelicula") ||
+      seasonLower.includes("película") ||
+      seasonLower.includes("movie")
+        ? "Película"
+        : seasonLower.includes("ova")
+          ? "OVA"
+          : "Especial";
+
+    const seasonDisplayName = (episodes[initialEpisodeIndex]?.nombreEspecial?.trim() || postersData.etiqueta)
+      ? (episodes[initialEpisodeIndex]?.nombreEspecial?.trim() || postersData.etiqueta)
       : isSpecialContent
-        ? "Especial / Película"
+        ? _specialLabel
         : `${_nombreTmp || "Temporada"} ${seasonNum}`;
 
     let seasonWordPlural = "Temporadas";
@@ -4453,36 +4560,148 @@ export async function renderEpisodePlayer(
       : "";
 
     if (isSingleMovie) {
+      // Badge de tipo: detectar si es OVA, Especial, o Película
+      const _sLower = String(seasonNum).toLowerCase();
+      const _contentTypeBadge =
+        _sLower.includes("ova")     ? "OVA" :
+        _sLower.includes("especial") || _sLower.includes("special") ? "ESPECIAL" :
+        "PELÍCULA";
+
+      // Selector de idioma inline para películas
+      let _movieLangHtml = "";
+      if (hasLangOptions) {
+        const _curLabel = seriesTracks.find(t => t.lang === initialLang)?.label || "Original";
+        const _opts = seriesTracks.map(t => `
+          <div class="cm-lang-opt${t.lang === initialLang ? " active" : ""}" data-lang="${t.lang}">
+            ${t.label}
+          </div>`).join("");
+        _movieLangHtml = `
+          <div class="cm-lang-wrapper">
+            <div class="cm-lang-trigger">
+              <i class="fas fa-language"></i>
+              <span>${_curLabel}</span>
+              <i class="fas fa-chevron-down"></i>
+            </div>
+            <div class="cm-lang-menu">${_opts}</div>
+          </div>`;
+      }
+
       shared.DOM.seriesPlayerModal.innerHTML = `
-                <button class="close-btn streaming-back-btn"><i class="fas fa-arrow-left"></i> Volver</button>
-                <div class="player-layout-container movie-mode">
-                    <div class="movie-player-container">
-                        <h2 id="cinema-title-${seriesId}" class="movie-player-title cinema-title-above">${displayTitle}</h2>
-                        <div class="screen"><div id="video-container-${seriesId}" style="width:100%; height:100%; background:#000;"></div></div>
-                    </div>
-                    <div class="movie-info-sidebar">
-                        <div class="movie-info-sidebar-inner">
-                            ${backButtonHTML}
-                            <div class="movie-poster-container">
-                                <img src="${specificPoster}" alt="Poster" onerror="this.src='https://via.placeholder.com/150'">
-                            </div>
-                            <div class="movie-details-info">
-                                <div class="movie-meta-info">
-                                    ${movieRequester ? `<span class="meta-tag request-tag"><i class="fas fa-user-circle"></i> ${movieRequester}</span>` : ""}
-                                    ${movieYear ? `<span class="meta-tag"><i class="fas fa-calendar"></i> ${movieYear}</span>` : ""}
-                                    ${movieDuration ? `<span class="meta-tag"><i class="fas fa-clock"></i> ${movieDuration}</span>` : ""}
-                                    ${endTimeHTML}
-                                </div>
-                                <p id="cinema-synopsis-sp" class="movie-synopsis">${movieSynopsis}</p>
-                                <div class="cinema-controls-sp">
-                                    <button id="btn-review-player-${seriesId}" class="btn btn-review"><i class="fas fa-star"></i> Escribir Reseña</button>
-                                    <button class="btn btn-report-sp"><i class="fas fa-flag"></i> Reportar problema</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+        <div class="cm-page">
+
+          <!-- ── COLUMNA IZQUIERDA: video + franja info ── -->
+          <div class="cm-left">
+
+            <!-- Topbar con volver -->
+            <div class="cm-topbar">
+              <button class="streaming-back-btn cm-back-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M19 12H5M12 5l-7 7 7 7"/>
+                </svg>
+                Volver
+              </button>
+              <span class="cm-topbar-title">${displayTitle}</span>
+            </div>
+
+            <!-- Video -->
+            <div class="cm-video-wrap">
+              <div id="video-container-${seriesId}" style="width:100%;height:100%;background:#000;"></div>
+            </div>
+
+            <!-- Franja info debajo del video -->
+            <div class="cm-info-strip" id="cm-info-strip-${seriesId}">
+              <div class="cm-info-strip-main">
+                <div class="cm-info-strip-text">
+                  <span class="cm-type-badge">${_contentTypeBadge}</span>
+                  <h2 class="cm-strip-title">${displayTitle}</h2>
+                  <div class="cm-strip-meta">
+                    ${movieYear ? `<span><i class="fas fa-calendar-alt"></i> ${movieYear}</span>` : ""}
+                    ${movieDuration ? `<span><i class="fas fa-clock"></i> ${movieDuration}</span>` : ""}
+                    ${movieRequester ? `<span><i class="fas fa-user-circle"></i> Pedido por <strong>${movieRequester}</strong></span>` : ""}
+                    ${endTimeHTML ? `<span class="cm-finish-time">${endTimeHTML}</span>` : ""}
+                  </div>
                 </div>
-            `;
+                <div class="cm-info-strip-actions">
+                  ${_movieLangHtml}
+                  <button class="cm-strip-chevron" id="cm-chevron-${seriesId}" aria-label="Ver sinopsis">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <path d="M6 9l6 6 6-6"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <!-- Sinopsis expandible -->
+              <div class="cm-synopsis-wrap" id="cm-synopsis-${seriesId}">
+                <p class="cm-synopsis-text">${movieSynopsis}</p>
+                <div class="cm-strip-btns">
+                  <button id="btn-review-strip-${seriesId}" class="cm-btn cm-btn-review">
+                    <i class="fas fa-star"></i> Escribir Reseña
+                  </button>
+                  <button class="cm-btn cm-btn-report btn-report-sp">
+                    <i class="fas fa-flag"></i> Reportar
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+          <!-- /cm-left -->
+
+          <!-- ── COLUMNA DERECHA: ficha cinematográfica ── -->
+          <div class="cm-sidebar">
+
+            <!-- Fondo con poster blureado -->
+            <div class="cm-sidebar-bg" style="background-image:url('${specificPoster}');"></div>
+            <div class="cm-sidebar-overlay"></div>
+
+            <!-- Contenido de la sidebar -->
+            <div class="cm-sidebar-inner">
+
+              ${backButtonHTML ? `<div class="cm-back-seasons">${backButtonHTML}</div>` : ""}
+
+              <!-- Poster + datos clave -->
+              <div class="cm-poster-block">
+                <img class="cm-poster-img" src="${specificPoster}" alt="${displayTitle}" onerror="this.style.display='none'">
+                <div class="cm-poster-meta">
+                  <span class="cm-poster-badge">${_contentTypeBadge}</span>
+                  <h3 class="cm-poster-title">${displayTitle}</h3>
+                  <div class="cm-poster-chips">
+                    ${movieYear     ? `<span class="cm-chip"><i class="fas fa-calendar-alt"></i> ${movieYear}</span>` : ""}
+                    ${movieDuration ? `<span class="cm-chip"><i class="fas fa-clock"></i> ${movieDuration}</span>` : ""}
+                    ${movieRequester ? `<span class="cm-chip cm-chip-req"><i class="fas fa-user-circle"></i> ${movieRequester}</span>` : ""}
+                  </div>
+                  ${endTimeHTML ? `<div class="cm-finish-chip">${endTimeHTML}</div>` : ""}
+                </div>
+              </div>
+
+              <!-- Sinopsis -->
+              <div class="cm-sidebar-synopsis">
+                <span class="cm-section-label">Sinopsis</span>
+                <p id="cinema-synopsis-sp" class="cm-synopsis-p">${movieSynopsis}</p>
+              </div>
+
+              <!-- Selector de idioma (sidebar) -->
+              ${_movieLangHtml ? `<div class="cm-sidebar-lang">${_movieLangHtml}</div>` : ""}
+
+              <!-- Botones -->
+              <div class="cm-sidebar-btns">
+                <button id="btn-review-player-${seriesId}" class="cm-btn cm-btn-review">
+                  <i class="fas fa-star"></i> Escribir Reseña
+                </button>
+                <button class="cm-btn cm-btn-report btn-report-sp">
+                  <i class="fas fa-flag"></i> Reportar problema
+                </button>
+              </div>
+
+            </div>
+            <!-- /cm-sidebar-inner -->
+
+          </div>
+          <!-- /cm-sidebar -->
+
+        </div>
+        <!-- /cm-page -->
+      `;
     } else {
       let langDropdown = "";
       if (hasLangOptions) {
@@ -5223,64 +5442,90 @@ export async function renderEpisodePlayer(
     );
     if (backButton) backButton.onclick = () => renderSeasonGrid(seriesId);
 
-    const reviewBtn = shared.DOM.seriesPlayerModal.querySelector(
-      `#btn-review-player-${seriesId}`,
-    );
-    if (reviewBtn) {
-      reviewBtn.onclick = () => {
-        let correctTitle = "";
-        let correctType = "movie";
-        if (isSpecialContent || isSingleMovie) {
-          correctTitle = displayTitle;
-          correctType = "movie";
-        } else {
-          correctTitle = seriesInfo.title || displayTitle;
-          correctType = "series";
-        }
-        if (window.openSmartReviewModal) {
-          window.openSmartReviewModal(seriesId, correctType, correctTitle);
-        } else {
-          console.error(
-            "La función window.openSmartReviewModal no está definida en script.js",
-          );
-        }
-      };
-    }
+    // Botones de review — pueden existir en el strip Y en la sidebar (cm-page),
+    // así que usamos querySelectorAll para cubrir ambos.
+    const _reviewHandler = () => {
+      let correctTitle = "";
+      let correctType = "movie";
+      if (isSpecialContent || isSingleMovie) {
+        correctTitle = displayTitle;
+        correctType = "movie";
+      } else {
+        correctTitle = seriesInfo.title || displayTitle;
+        correctType = "series";
+      }
+      if (window.openSmartReviewModal) {
+        window.openSmartReviewModal(seriesId, correctType, correctTitle);
+      } else {
+        console.error(
+          "La función window.openSmartReviewModal no está definida en script.js",
+        );
+      }
+    };
+    shared.DOM.seriesPlayerModal
+      .querySelectorAll(`#btn-review-player-${seriesId}, #btn-review-strip-${seriesId}`)
+      .forEach(btn => { btn.onclick = _reviewHandler; });
 
-    const reportBtnSp =
-      shared.DOM.seriesPlayerModal.querySelector(".btn-report-sp");
-    if (reportBtnSp) {
-      reportBtnSp.onclick = async () => {
-        try {
-          const rptMod = await import("./features/reports.js");
-          rptMod.openReportModal({
-            contentId: seriesId,
-            contentTitle: displayTitle,
-            contentType: "movie",
-          });
-        } catch (e) {
-          console.error("Error al abrir reporte:", e);
-        }
-      };
-    }
+    // Botones de reporte — ídem, querySelectorAll para strip + sidebar.
+    const _reportHandler = async () => {
+      try {
+        const rptMod = await import("./features/reports.js");
+        rptMod.openReportModal({
+          contentId: seriesId,
+          contentTitle: displayTitle,
+          contentType: "movie",
+        });
+      } catch (e) {
+        console.error("Error al abrir reporte:", e);
+      }
+    };
+    shared.DOM.seriesPlayerModal
+      .querySelectorAll(".btn-report-sp")
+      .forEach(btn => { btn.onclick = _reportHandler; });
 
     if (isSingleMovie) {
-      const synopsisEl = shared.DOM.seriesPlayerModal.querySelector(
-        "#cinema-synopsis-sp",
-      );
+      // ── Chevron toggle sinopsis (franja inferior desktop) ──
+      const _cmChevron = shared.DOM.seriesPlayerModal.querySelector(`#cm-chevron-${seriesId}`);
+      const _cmSynWrap = shared.DOM.seriesPlayerModal.querySelector(`#cm-synopsis-${seriesId}`);
+      if (_cmChevron && _cmSynWrap) {
+        _cmChevron.addEventListener("click", () => {
+          const open = _cmSynWrap.classList.toggle("cm-synopsis--open");
+          _cmChevron.classList.toggle("cm-chevron--open", open);
+        });
+      }
+
+      // ── Selector de idioma (.cm-lang-wrapper) ──
+      shared.DOM.seriesPlayerModal.querySelectorAll(".cm-lang-wrapper").forEach(wrapper => {
+        const trigger = wrapper.querySelector(".cm-lang-trigger");
+        const menu    = wrapper.querySelector(".cm-lang-menu");
+        if (!trigger || !menu) return;
+
+        trigger.addEventListener("click", e => {
+          e.stopPropagation();
+          menu.classList.toggle("cm-lang-menu--open");
+        });
+        menu.querySelectorAll(".cm-lang-opt").forEach(opt => {
+          opt.addEventListener("click", e => {
+            e.stopPropagation();
+            menu.classList.remove("cm-lang-menu--open");
+            changeLanguage(seriesId, opt.dataset.lang);
+          });
+        });
+        document.addEventListener("click", () => menu.classList.remove("cm-lang-menu--open"));
+      });
+
+      // ── Synopsis clamp en sidebar (scroll toggle) ──
+      const synopsisEl = shared.DOM.seriesPlayerModal.querySelector("#cinema-synopsis-sp");
       if (synopsisEl) {
         requestAnimationFrame(() => {
-          const isClamped =
-            synopsisEl.scrollHeight > synopsisEl.clientHeight + 2;
+          const isClamped = synopsisEl.scrollHeight > synopsisEl.clientHeight + 2;
           if (isClamped) {
             const toggleBtn = document.createElement("button");
             toggleBtn.className = "synopsis-toggle-btn";
             toggleBtn.textContent = "Leer sinopsis ▾";
             toggleBtn.onclick = () => {
               const isExpanded = synopsisEl.classList.toggle("expanded");
-              toggleBtn.textContent = isExpanded
-                ? "Ver menos ▴"
-                : "Leer sinopsis ▾";
+              toggleBtn.textContent = isExpanded ? "Ver menos ▴" : "Leer sinopsis ▾";
             };
             synopsisEl.insertAdjacentElement("afterend", toggleBtn);
           }
@@ -5430,6 +5675,7 @@ function populateSeasonTabs(seriesId, activeSeasonNum) {
       }),
     );
   }
+  updateSeasonHeaderLabel();
 }
 
 function openEpisode(seriesId, season, newEpisodeIndex) {
@@ -5544,7 +5790,8 @@ function openEpisode(seriesId, season, newEpisodeIndex) {
 
   const postersDataEp =
     shared.appState.content.seasonPosters[seriesId]?.[season] || {};
-  const customLabelEp = postersDataEp.etiqueta || "";
+  // nombreEspecial del episodio tiene prioridad sobre la etiqueta global de la temporada
+  const customLabelEp = episode.nombreEspecial?.trim() || postersDataEp.etiqueta || "";
 
   const allSeriesSeasons = Object.keys(
     shared.appState.content.seriesEpisodes[seriesId] || {}
@@ -5556,8 +5803,17 @@ function openEpisode(seriesId, season, newEpisodeIndex) {
   });
   const isSingleSeason = allSeriesSeasons.length <= 1;
 
+  // isSpecialContent tiene prioridad; si hay etiqueta personalizada se usa, sin "Ep N"
+  const _subSpecialLabel =
+    seasonLower.includes("pelicula") ||
+    seasonLower.includes("película") ||
+    seasonLower.includes("movie")
+      ? "Película"
+      : seasonLower.includes("ova")
+        ? "OVA"
+        : "Especial";
   const subTitleText = isSpecialContent
-    ? "Especial / Película"
+    ? (customLabelEp || _subSpecialLabel)
     : customLabelEp
       ? `${customLabelEp} | Ep ${episodeNumber}`
       : isSingleSeason
@@ -6340,6 +6596,24 @@ function _spChangeLang(seriesId, lang) {
   loadSeriesInDetailPlayer(resolvedVideoId, seriesId, currentEp, lang);
 }
 
+// ── Actualiza el data-season del título de sección para que el ::after CSS
+//    muestre "Temporadas — NombreTemporada" en el header del carrusel.
+//    Lee el label del tab activo (.sp-season-tab.active .sp-season-tab-label).
+//    Sin ese atributo, el ::after no muestra nada → se llama en:
+//      1. _fillSpPsPanel  → inicialización + cambio de temporada en sp-ps
+//      2. populateSeasonTabs → carrusel del player de episodios
+function updateSeasonHeaderLabel() {
+  const activeTab = document.querySelector(".sp-season-tab.active");
+  const label = activeTab?.querySelector(".sp-season-tab-label")?.textContent?.trim() || "";
+  document.querySelectorAll(".sp-panel-section-title").forEach((el) => {
+    if (label) {
+      el.dataset.season = label;
+    } else {
+      delete el.dataset.season;
+    }
+  });
+}
+
 // ── Función auxiliar: llena el panel sp-ps con temporadas y episodios ──
 function _fillSpPsPanel(seriesId, activeSeasonKey, activeEpIndex, lang) {
   const episodesData = shared.appState.content.seriesEpisodes[seriesId] || {};
@@ -6702,6 +6976,22 @@ function _fillSpPsPanel(seriesId, activeSeasonKey, activeEpIndex, lang) {
   if (!listContainer) return;
   listContainer.innerHTML = "";
 
+  // Detectar si la temporada activa es una película / especial / OVA
+  const _spAKLower = String(activeSeasonKey).toLowerCase();
+  const _isSpecialSeason =
+    _spAKLower.includes("pelicula") || _spAKLower.includes("película") ||
+    _spAKLower.includes("especial") || _spAKLower.includes("special") ||
+    _spAKLower.includes("ova")      || _spAKLower.includes("movie");
+
+  // Poster de la temporada (para el card de película)
+  const _seasonPE = postersData[activeSeasonKey] || {};
+  const _seasonPosterUrl =
+    _seasonPE.poster || _seasonPE.posterUrl || _seasonPE.url || _seasonPE.image || "";
+  const _movieBadge = _seasonPE.etiqueta ||
+    (_spAKLower.includes("ova")      ? "OVA" :
+     _spAKLower.includes("especial") || _spAKLower.includes("special") ? "ESPECIAL" :
+     "PELÍCULA");
+
   const episodes = (episodesData[activeSeasonKey] || [])
     .filter(ep => String(ep?.proximamente || "").trim().toLowerCase() !== "si");
   episodes.forEach((ep, idx) => {
@@ -6713,10 +7003,31 @@ function _fillSpPsPanel(seriesId, activeSeasonKey, activeEpIndex, lang) {
     const isActive = idx === activeEpIndex;
 
     const item = document.createElement("div");
-    item.className =
-      "sp-episode-item sp-episode-item-mobile" + (isActive ? " active" : "");
     item.id = `sp-ps-ep-${seriesId}-${activeSeasonKey}-${idx}`;
-    item.innerHTML = `
+
+    if (_isSpecialSeason) {
+      // ── Card cinematográfico para películas / especiales / OVAs ──
+      const posterSrc = _seasonPosterUrl || thumbUrl;
+      item.className = "sp-episode-item sp-episode-item-mobile sp-movie-card" + (isActive ? " active" : "");
+      item.innerHTML = `
+  <div class="sp-movie-poster-thumb">
+    ${posterSrc
+      ? `<img src="${posterSrc}" alt="${epTitle}" loading="lazy">`
+      : `<span class="sp-ep-thumb-num">${String(epNum).padStart(2, "0")}</span>`}
+    <div class="sp-ep-play-overlay">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><polygon points="5,3 19,12 5,21"/></svg>
+    </div>
+  </div>
+  <div class="sp-movie-card-info">
+    <span class="sp-movie-card-badge">${_movieBadge}</span>
+    <div class="sp-movie-card-title">${epTitle}</div>
+    ${epDesc ? `<div class="sp-movie-card-desc">${epDesc}</div>` : ""}
+    ${epDur  ? `<div class="sp-movie-card-dur"><i class="fas fa-clock"></i> ${epDur}</div>` : ""}
+  </div>`;
+    } else {
+      // ── Card estándar de episodio ──
+      item.className = "sp-episode-item sp-episode-item-mobile" + (isActive ? " active" : "");
+      item.innerHTML = `
   <div class="sp-ep-thumb">
     ${thumbUrl ? `<img src="${thumbUrl}" alt="${epTitle}" loading="lazy">` : `<span class="sp-ep-thumb-num">E${String(epNum).padStart(2, "0")}</span>`}
     <span class="sp-ep-num">${String(epNum).padStart(2, "0")}</span>
@@ -6729,6 +7040,7 @@ function _fillSpPsPanel(seriesId, activeSeasonKey, activeEpIndex, lang) {
     <div class="sp-ep-name">${epTitle}</div>
     ${epDesc ? `<div class="sp-ep-desc">${epDesc}</div>` : ""}
   </div>`;
+    }
 
     item.addEventListener("click", () => {
       // Marcar activo
@@ -6785,6 +7097,7 @@ function _fillSpPsPanel(seriesId, activeSeasonKey, activeEpIndex, lang) {
       activeEpIndex,
     );
   }
+  updateSeasonHeaderLabel();
   _applyPresenceAvatars(seriesId);
 }
 
@@ -6792,7 +7105,9 @@ function _fillSpPsPanel(seriesId, activeSeasonKey, activeEpIndex, lang) {
 function _updateSpPsInfo(ep, seasonKey, seriesId, langLabel, epIndex = 0) {
   const postersData =
     shared.appState.content.seasonPosters[seriesId]?.[seasonKey] || {};
-  const customLabel = postersData.etiqueta || "";
+  // nombreEspecial del episodio tiene prioridad sobre la etiqueta global de la temporada
+  const customLabel = ep.nombreEspecial?.trim() || postersData.etiqueta || "";
+  const seasonKeyLower = String(seasonKey).toLowerCase();
   const isSpecial = [
     "pelicula",
     "película",
@@ -6800,7 +7115,7 @@ function _updateSpPsInfo(ep, seasonKey, seriesId, langLabel, epIndex = 0) {
     "ova",
     "movie",
     "special",
-  ].some((s) => String(seasonKey).toLowerCase().includes(s));
+  ].some((s) => seasonKeyLower.includes(s));
   const epNum = ep.episodeNumber || epIndex + 1;
   const allRealSeasons = Object.keys(
     shared.appState.content.seriesEpisodes[seriesId] || {}
@@ -6811,10 +7126,19 @@ function _updateSpPsInfo(ep, seasonKey, seriesId, langLabel, epIndex = 0) {
            !sl.includes("movie") && !sl.includes("special");
   });
   const isSingleSeasonPs = allRealSeasons.length <= 1;
-  const seasonLabel = customLabel
-    ? `${customLabel} · Ep ${epNum}`
-    : isSpecial
-      ? "Especial / Película"
+  const _psSpecialLabel =
+    seasonKeyLower.includes("pelicula") ||
+    seasonKeyLower.includes("película") ||
+    seasonKeyLower.includes("movie")
+      ? "Película"
+      : seasonKeyLower.includes("ova")
+        ? "OVA"
+        : "Especial";
+  // isSpecial tiene prioridad: si es película/ova/especial nunca añadir "· Ep N"
+  const seasonLabel = isSpecial
+    ? (customLabel || _psSpecialLabel)
+    : customLabel
+      ? `${customLabel} · Ep ${epNum}`
       : isSingleSeasonPs
         ? `Episodio ${epNum}`
         : `Temporada ${String(seasonKey).replace("T", "")} · Ep ${epNum}`;
