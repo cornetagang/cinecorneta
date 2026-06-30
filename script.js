@@ -92,6 +92,13 @@ async function getPlayerModule() {
     THEMES,
     closeAllModals: () => modalManager.closeAll(),
     openDetailsModal,
+    // Puente hacia roulette.js: al marcar una película como vista en el
+    // historial (80% de avance), también se excluye del pool de la ruleta.
+    // Se carga el módulo de forma perezosa, igual que getRouletteModule().
+    markMovieAsRouletteWatched: async (movieId) => {
+      const roulette = await getRouletteModule();
+      if (roulette.markMovieAsWatched) await roulette.markMovieAsWatched(movieId);
+    },
   });
   playerModule = module;
   return playerModule;
@@ -4964,15 +4971,15 @@ function generateContinueWatchingCarousel(snapshot) {
     return MOVIE_SEASON_KEYWORDS.some((kw) => s.includes(kw));
   };
 
-  // Incluimos series Y películas que estén enlazadas a una entrada de serie
-  // (ej. JJK 0 almacenada como "movie" pero bajo el mismo contentId de la serie).
-  // Las películas del catálogo general (solo en appState.content.movies) quedan fuera.
+  // Incluimos series Y CUALQUIER película (del catálogo general o enlazada
+  // a una serie, ej. JJK 0) siempre que tenga progreso parcial real
+  // (>0 y <90%). Películas marcadas como vistas (progress>=0.9, o sin
+  // progreso registrado por venir del sistema viejo) quedan afuera.
   const itemsToShow = historyItems
     .filter((item) => {
       if (item.progress != null && item.progress >= 0.9) return false;
       if (item.type === "movie") {
-        // Solo si el contentId también existe en el catálogo de series
-        return !!appState.content.series[item.contentId];
+        return typeof item.progress === "number" && item.progress > 0;
       }
       if (item.type === "series") return !isMovieSeason(item.season);
       return false;
@@ -5025,6 +5032,9 @@ function generateContinueWatchingCarousel(snapshot) {
         episodeTitle = ep.title;
         episodeNombreEspecial = ep.nombreEspecial || null;
       }
+    } else if (!isSeries) {
+      // Películas: mostrar el banner (horizontal) en vez del poster vertical
+      episodeThumbnail = contentData.banner || contentData.poster;
     }
 
     const totalSeasons = isSeries
@@ -6937,7 +6947,7 @@ function addToHistoryIfLoggedIn(contentId, type, episodeInfo = {}) {
   // temporada tiene una "etiqueta" custom definida (ej. "Parte 5"), la
   // usamos en vez de asumir season == parte.
   const etiqueta =
-    typeof seasonPosterEntry === "object"
+    seasonPosterEntry && typeof seasonPosterEntry === "object"
       ? (seasonPosterEntry.etiqueta || "").trim()
       : "";
   if (etiqueta) {
@@ -7950,7 +7960,7 @@ function createMovieCardElement(
     overlay.innerHTML = `
             <div class="cw-overlay-content">
                 <p class="cw-series-title">${options.seriesTitle || data.title}</p>
-                <p class="cw-episode-number">${episodeInfo}</p>
+                ${episodeInfo ? `<p class="cw-episode-number">${episodeInfo}</p>` : ""}
                 ${options.episodeTitle ? `<p class="cw-episode-title">${options.episodeTitle}</p>` : ""}
             </div>
         `;
