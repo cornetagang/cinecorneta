@@ -455,7 +455,7 @@ class CinePlayer {
     title = "",
     poster = "",
     grayscale = false,
-    onHalfway = null,
+    onMovieProgress = null,
   }) {
     // Limpiar timers y doc-listeners de la carga anterior (evita acumulación de handlers)
     if (this._epSetupTimer) {
@@ -507,9 +507,10 @@ class CinePlayer {
     if (!isDriveId(videoId)) {
       this._mountIframeFallback(videoId);
       // Sin ArtPlayer no hay eventos de progreso; usamos 30 min como proxy
-      if (onHalfway) {
+      // y marcamos directo como vista (no hay forma de trackear % real).
+      if (onMovieProgress) {
         clearTimeout(this._halfwayTimer);
-        this._halfwayTimer = setTimeout(onHalfway, 30 * 60 * 1000);
+        this._halfwayTimer = setTimeout(() => onMovieProgress("watched", 1), 30 * 60 * 1000);
       }
       return;
     }
@@ -715,13 +716,40 @@ class CinePlayer {
       this.showError(msg);
     });
 
-    // ─── Listener de 50% para historial de películas ─────────
-    if (onHalfway) {
-      let halfwayFired = false;
-      art.on("timeupdate", () => {
-        if (!halfwayFired && art.duration > 0 && art.currentTime >= art.duration * 0.5) {
-          halfwayFired = true;
-          onHalfway();
+    // ─── Tracking de progreso para historial / "Continuar viendo" de películas ───
+    // Checkpoint 1: a partir de 1:30 (90s) de reproducción real → se guarda
+    //               como "Continuar viendo" con el % de avance real.
+    // Tiempo real: cada 5s, mientras siga por debajo del 80%, se actualiza
+    //              el progreso guardado (así la barra de "Continuar viendo"
+    //              avanza en vivo sin esperar a que cierre el reproductor).
+    // Checkpoint 2: al pasar el 80% de avance → se marca como vista
+    //               (progress = 1), lo que la saca de "Continuar viendo"
+    //               y queda registrada en el historial.
+    if (onMovieProgress) {
+      let continueSaved = false;
+      let watchedFired = false;
+      let lastProgressWrite = 0;
+
+      art.on("video:timeupdate", () => {
+        if (watchedFired || !art.duration || art.duration <= 0) return;
+
+        const progress = Math.min(1, Math.max(0, art.currentTime / art.duration));
+
+        if (!continueSaved && art.currentTime >= 90) {
+          continueSaved = true;
+          lastProgressWrite = Date.now();
+          onMovieProgress("continue", progress);
+        } else if (continueSaved) {
+          const now = Date.now();
+          if (now - lastProgressWrite >= 5000) {
+            lastProgressWrite = now;
+            onMovieProgress("continue", progress);
+          }
+        }
+
+        if (progress >= 0.8) {
+          watchedFired = true;
+          onMovieProgress("watched", 1);
         }
       });
     }
@@ -5949,10 +5977,6 @@ export function openPlayerModal(movieId, movieTitle) {
       movieId,
       movieData,
       preferredTrack.lang,
-      () => {
-        // Se llama una sola vez al llegar al 50% → guardar en historial
-        shared.addToHistoryIfLoggedIn(movieId, "movie");
-      },
     );
 
     // Barra de info: usar el track real cargado
@@ -6056,7 +6080,7 @@ export function openPlayerModal(movieId, movieTitle) {
   }
 }
 
-function loadMovieInPlayer(videoId, movieId, movieData, lang = "es", onHalfway = null) {
+function loadMovieInPlayer(videoId, movieId, movieData, lang = "es") {
   const container = document.getElementById("dv-video-container");
   if (!container) return;
 
@@ -6097,7 +6121,18 @@ function loadMovieInPlayer(videoId, movieId, movieData, lang = "es", onHalfway =
     title: movieData.title || "",
     poster: movieData.banner || movieData.poster || movieData.image || "",
     grayscale: movieData.blancoynegro === "si",
-    onHalfway,
+    onMovieProgress: (stage, progress) => {
+      if (stage === "continue") {
+        // 1:30 reproducidos → entra/actualiza en "Continuar viendo"
+        shared.addToHistoryIfLoggedIn(movieId, "movie", { progress });
+      } else if (stage === "watched") {
+        // 80% de avance → se marca como vista (progress=1 la saca de
+        // "Continuar viendo" y queda registrada en el historial), y además
+        // se excluye automáticamente del pool de la ruleta.
+        shared.addToHistoryIfLoggedIn(movieId, "movie", { progress: 1 });
+        shared.markMovieAsRouletteWatched?.(movieId);
+      }
+    },
   });
 }
 
