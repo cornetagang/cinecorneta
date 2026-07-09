@@ -455,7 +455,7 @@ class CinePlayer {
     title = "",
     poster = "",
     grayscale = false,
-    onMovieProgress = null,
+    onHalfway = null,
   }) {
     // Limpiar timers y doc-listeners de la carga anterior (evita acumulación de handlers)
     if (this._epSetupTimer) {
@@ -507,10 +507,9 @@ class CinePlayer {
     if (!isDriveId(videoId)) {
       this._mountIframeFallback(videoId);
       // Sin ArtPlayer no hay eventos de progreso; usamos 30 min como proxy
-      // y marcamos directo como vista (no hay forma de trackear % real).
-      if (onMovieProgress) {
+      if (onHalfway) {
         clearTimeout(this._halfwayTimer);
-        this._halfwayTimer = setTimeout(() => onMovieProgress("watched", 1), 30 * 60 * 1000);
+        this._halfwayTimer = setTimeout(onHalfway, 30 * 60 * 1000);
       }
       return;
     }
@@ -716,40 +715,13 @@ class CinePlayer {
       this.showError(msg);
     });
 
-    // ─── Tracking de progreso para historial / "Continuar viendo" de películas ───
-    // Checkpoint 1: a partir de 1:30 (90s) de reproducción real → se guarda
-    //               como "Continuar viendo" con el % de avance real.
-    // Tiempo real: cada 5s, mientras siga por debajo del 80%, se actualiza
-    //              el progreso guardado (así la barra de "Continuar viendo"
-    //              avanza en vivo sin esperar a que cierre el reproductor).
-    // Checkpoint 2: al pasar el 80% de avance → se marca como vista
-    //               (progress = 1), lo que la saca de "Continuar viendo"
-    //               y queda registrada en el historial.
-    if (onMovieProgress) {
-      let continueSaved = false;
-      let watchedFired = false;
-      let lastProgressWrite = 0;
-
-      art.on("video:timeupdate", () => {
-        if (watchedFired || !art.duration || art.duration <= 0) return;
-
-        const progress = Math.min(1, Math.max(0, art.currentTime / art.duration));
-
-        if (!continueSaved && art.currentTime >= 90) {
-          continueSaved = true;
-          lastProgressWrite = Date.now();
-          onMovieProgress("continue", progress);
-        } else if (continueSaved) {
-          const now = Date.now();
-          if (now - lastProgressWrite >= 5000) {
-            lastProgressWrite = now;
-            onMovieProgress("continue", progress);
-          }
-        }
-
-        if (progress >= 0.8) {
-          watchedFired = true;
-          onMovieProgress("watched", 1);
+    // ─── Listener de 50% para historial de películas ─────────
+    if (onHalfway) {
+      let halfwayFired = false;
+      art.on("timeupdate", () => {
+        if (!halfwayFired && art.duration > 0 && art.currentTime >= art.duration * 0.5) {
+          halfwayFired = true;
+          onHalfway();
         }
       });
     }
@@ -2398,6 +2370,18 @@ if (grayscale) {
     let stopped = false;
     let active = 0;
 
+    // ─── AbortController del prefetch (FIX: freeze al retroceder/seek) ────
+    // ANTES: los fetch() de adelanto (chunks de 4MB) nunca se cancelaban.
+    // Al hacer seek (manual, botones o teclado), esas descargas viejas
+    // seguían en curso compitiendo por ancho de banda / conexiones justo
+    // cuando el <video> nativo necesitaba su propia petición para saltar
+    // al nuevo byte-range → el seek quedaba en cola detrás del prefetch
+    // "zombie" y todo se sentía trabado.
+    // AHORA: cada seek aborta de inmediato cualquier chunk en vuelo y abre
+    // un controller nuevo, liberando la conexión al instante para que el
+    // <video> pueda buscar sin pelear por ancho de banda.
+    let abortCtrl = new AbortController();
+
     // ─── Estado expuesto para el indicador de buffer ────────────────────
     // El indicador de red no puede usar art.video.buffered para medir este
     // pre-fetch (esos bytes van al caché HTTP, no al buffer del <video>).
@@ -2468,15 +2452,26 @@ if (grayscale) {
       try {
         const resp = await fetch(url, {
           headers: { Range: `bytes=${start}-${end}` },
+          signal: abortCtrl.signal,
         });
         await resp.arrayBuffer(); // consume el body → queda en caché HTTP
-      } catch {
+      } catch (err) {
         fetched.delete(idx); // permitir reintento en el siguiente ciclo
+        // AbortError es esperado cuando un seek cancela este chunk — no es un error real
       } finally {
         active--;
         pump(); // libera el "slot" → encadena el siguiente chunk si toca
       }
     };
+
+    // ─── Margen hacia atrás (FIX freeze al retroceder) ─────────────────────
+    // El prefetch original solo miraba hacia ADELANTE del playhead. Un
+    // retroceso corto (unos segundos) caía siempre en zona sin cachear ni
+    // por el prefetch ni por el buffer nativo del <video> (que descarta lo
+    // ya reproducido) → cada rewind pegaba contra el Worker desde cero.
+    // Con 1 chunk (4MB) de colchón hacia atrás, un rewind corto encuentra
+    // esos bytes ya en la caché HTTP del navegador.
+    const BEHIND = 1;
 
     const pump = () => {
       if (stopped) return;
@@ -2488,16 +2483,25 @@ if (grayscale) {
           ? (art.currentTime / art.duration) * contentLength
           : 0;
       const currentChunk = Math.floor(estimatedByte / CHUNK);
-      for (let i = 0; i <= limits.ahead; i++) {
-        fetchChunk(currentChunk + i, limits.concurrent);
+      for (let i = -BEHIND; i <= limits.ahead; i++) {
+        const idx = currentChunk + i;
+        if (idx < 0) continue;
+        fetchChunk(idx, limits.concurrent);
       }
     };
 
     // Cambios de estado relevantes → reevaluar y bombear
     const onStateChange = () => pump();
 
-    // Seek → el "chunk actual" cambia de golpe; recalcular ya mismo
-    const onSeeking = () => pump();
+    // Seek → el "chunk actual" cambia de golpe. FIX: primero cancelamos
+    // cualquier chunk de prefetch en vuelo (libera banda ancha de inmediato
+    // para el <video>) y recién después recalculamos desde la nueva posición.
+    const onSeeking = () => {
+      abortCtrl.abort();
+      abortCtrl = new AbortController();
+      fetched.clear(); // los chunks viejos ya no interesan tras el salto
+      pump();
+    };
 
     // Mientras reproduce, recalcular cada pocos segundos para ir
     // "siguiendo" al playhead con el colchón ligero
@@ -2521,6 +2525,7 @@ if (grayscale) {
 
     this._stopPreFetch = () => {
       stopped = true;
+      abortCtrl.abort();
       this._prefetchState = null;
       art.off?.("play",       onStateChange);
       art.off?.("playing",    onStateChange);
@@ -5977,6 +5982,10 @@ export function openPlayerModal(movieId, movieTitle) {
       movieId,
       movieData,
       preferredTrack.lang,
+      () => {
+        // Se llama una sola vez al llegar al 50% → guardar en historial
+        shared.addToHistoryIfLoggedIn(movieId, "movie");
+      },
     );
 
     // Barra de info: usar el track real cargado
@@ -6080,7 +6089,7 @@ export function openPlayerModal(movieId, movieTitle) {
   }
 }
 
-function loadMovieInPlayer(videoId, movieId, movieData, lang = "es") {
+function loadMovieInPlayer(videoId, movieId, movieData, lang = "es", onHalfway = null) {
   const container = document.getElementById("dv-video-container");
   if (!container) return;
 
@@ -6121,18 +6130,7 @@ function loadMovieInPlayer(videoId, movieId, movieData, lang = "es") {
     title: movieData.title || "",
     poster: movieData.banner || movieData.poster || movieData.image || "",
     grayscale: movieData.blancoynegro === "si",
-    onMovieProgress: (stage, progress) => {
-      if (stage === "continue") {
-        // 1:30 reproducidos → entra/actualiza en "Continuar viendo"
-        shared.addToHistoryIfLoggedIn(movieId, "movie", { progress });
-      } else if (stage === "watched") {
-        // 80% de avance → se marca como vista (progress=1 la saca de
-        // "Continuar viendo" y queda registrada en el historial), y además
-        // se excluye automáticamente del pool de la ruleta.
-        shared.addToHistoryIfLoggedIn(movieId, "movie", { progress: 1 });
-        shared.markMovieAsRouletteWatched?.(movieId);
-      }
-    },
+    onHalfway,
   });
 }
 
