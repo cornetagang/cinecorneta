@@ -5,6 +5,8 @@
 // Uso: initUniverses(dependencies) → renderUniversesHub()
 // ===========================================================
 
+import { setLogoSrc } from "../utils/svg-logo-trim.js";
+
 let shared;
 let isInitialized = false;
 let domBuilt = false;
@@ -277,9 +279,10 @@ function injectStyles() {
 
 /* Header del universo dentro del overlay */
 .univ-ov-logo {
-    height: 48px;
-    max-width: 180px;
+    width: 180px;
+    height: 64px;
     object-fit: contain;
+    object-position: left center;
     filter: drop-shadow(0 2px 12px rgba(0,0,0,.9)) brightness(1.1);
     flex-shrink: 0;
 }
@@ -502,27 +505,65 @@ function injectStyles() {
     margin: 0 auto;
 }
 .univ-grid-card {
-    background: rgba(255,255,255,.04);
-    border: 1px solid rgba(255,255,255,.07);
+    position: relative;
+    overflow: hidden;
     border-radius: 18px;
-    padding: 22px 16px 18px;
+    padding: 0;
     cursor: pointer;
+    display: flex;
+    align-items: flex-end;
+    aspect-ratio: 16 / 9;
+    background-color: rgba(255,255,255,.04);
+    background-size: cover;
+    background-position: center;
+    transition: transform .25s, border-color .25s, box-shadow .25s;
+}
+.univ-grid-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: linear-gradient(
+        to top,
+        rgba(5,7,10,.92) 0%,
+        rgba(5,7,10,.4) 55%,
+        rgba(5,7,10,.08) 100%
+    );
+    transition: opacity .25s ease;
+}
+.univ-grid-card:hover {
+    transform: translateY(-3px) scale(1.015);
+    border-color: rgba(var(--univ-card-glow-rgb, 59,130,246), .5);
+    box-shadow: 0 10px 38px -4px rgba(var(--univ-card-glow-rgb, 59,130,246), .55);
+}
+.univ-grid-card-overlay {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    padding: 14px 16px 16px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
-    transition: background .25s, border-color .25s, transform .25s;
+    gap: 6px;
     text-align: center;
 }
-.univ-grid-card:hover {
-    background: rgba(59,130,246,.09);
-    border-color: rgba(59,130,246,.35);
-    transform: translateY(-3px);
-    box-shadow: 0 8px 32px rgba(59,130,246,.12);
-}
-.univ-grid-card-logo  { width:160px; height:64px; object-fit:contain; filter:drop-shadow(0 2px 10px rgba(0,0,0,.85)); }
+.univ-grid-card-logo  { width:100%; max-width:180px; height:56px; object-fit:contain; object-position:center bottom; filter:drop-shadow(0 2px 10px rgba(0,0,0,.85)); }
 .univ-grid-card-name  { font-size:.72rem; font-weight:800; color:#f8fafc; }
 .univ-grid-card-count { font-size:.6rem; font-weight:700; color:var(--accent-color,#3b82f6); letter-spacing:1.2px; text-transform:uppercase; }
+
+/* Fallback: sagas sin banner cargado conservan el layout centrado anterior */
+.univ-grid-card.no-banner {
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(255,255,255,.04);
+}
+.univ-grid-card.no-banner::before { content: none; }
+.univ-grid-card.no-banner .univ-grid-card-overlay {
+    align-items: center;
+    text-align: center;
+    padding: 22px 16px 18px;
+}
+.univ-grid-card.no-banner .univ-grid-card-logo { width:160px; height:72px; object-position:center; margin: 0 auto; }
 
 /* ── Scrollbar ─────────────────────────────── */
 #univ-grid-view::-webkit-scrollbar,
@@ -546,8 +587,11 @@ function injectStyles() {
     #univ-grid-view { padding-left: 12px; padding-right: 12px; padding-bottom: 90px; }
 
     /* Logo y card adaptados al ancho real disponible */
-    .univ-grid-card { padding: 16px 10px 14px; border-radius: 14px; gap: 8px; }
-    .univ-grid-card-logo { width: 100%; max-width: 120px; height: 52px; }
+    .univ-grid-card { border-radius: 14px; }
+    .univ-grid-card-overlay { padding: 10px 12px 12px; gap: 4px; }
+    .univ-grid-card-logo { width: 120px; height: 48px; }
+    .univ-grid-card.no-banner .univ-grid-card-overlay { padding: 16px 10px 14px; }
+    .univ-grid-card.no-banner .univ-grid-card-logo { width: 120px; height: 56px; }
 
     /* Universe overlay con espacio para la barra */
     #univ-universe-inner { padding-top: calc(var(--univ-nav-h,56px) + 72px); }
@@ -1466,7 +1510,7 @@ function buildGalaxy(sagas) {
       const lw = document.createElement("div");
       lw.className = "univ-planet-logo-wrap";
       const lg = document.createElement("img");
-      lg.src = saga.logo || "";
+      setLogoSrc(lg, saga.logo || "");
       lg.alt = "";
       lg.draggable = false;
       lw.appendChild(lg);
@@ -1676,7 +1720,7 @@ function buildUniverseGrid(saga) {
 
   // Header — logo, título, count
   if (logo) {
-    logo.src = saga.logo || "";
+    setLogoSrc(logo, saga.logo || "");
     logo.alt = saga.title || "";
   }
   if (title)
@@ -2053,21 +2097,53 @@ function exitUniverse() {
 // ─────────────────────────────────────────────────────────────
 // 17. GRID VIEW (toggle alternativo)
 // ─────────────────────────────────────────────────────────────
+
+// Convierte "#RRGGBB" (o "#RGB") a "r,g,b" para poder combinarlo con
+// alpha en un rgba() vía variable CSS. Devuelve null si el hex es inválido.
+function hexToRgbString(hex) {
+  if (!hex) return null;
+  const clean = String(hex).trim().replace(/^#/, "");
+  const full =
+    clean.length === 3
+      ? clean.split("").map((c) => c + c).join("")
+      : clean;
+  if (full.length !== 6 || /[^0-9a-fA-F]/.test(full)) return null;
+  const r = parseInt(full.substring(0, 2), 16);
+  const g = parseInt(full.substring(2, 4), 16);
+  const b = parseInt(full.substring(4, 6), 16);
+  return `${r},${g},${b}`;
+}
+
 function buildGridView(sagas) {
   const inner = document.getElementById("univ-grid-inner");
   if (!inner) return;
   inner.innerHTML = "";
   sagas.forEach((saga) => {
     const count = getSagaMovieCount(saga.id);
+    const hasBanner = !!saga.banner;
     const card = document.createElement("div");
-    card.className = "univ-grid-card";
+    card.className = hasBanner ? "univ-grid-card" : "univ-grid-card no-banner";
+    if (hasBanner) {
+      card.style.backgroundImage = `url('${saga.banner}')`;
+    }
+    // El brillo/sombra de la card usa el color asignado a la saga en el
+    // sheet (columna "color"). Si no es un hex válido, cae al azul default
+    // definido en el CSS (--univ-card-glow-rgb, 59,130,246).
+    const glowRgb = hexToRgbString(saga.color);
+    if (glowRgb) {
+      card.style.setProperty("--univ-card-glow-rgb", glowRgb);
+    }
     card.innerHTML = `
-            <img class="univ-grid-card-logo" src="${saga.logo || ""}" alt="${saga.title || ""}" onerror="this.style.opacity=0"/>
-            <div class="univ-grid-card-name">${saga.title || saga.titulo || saga.id}</div>
-            <div class="univ-grid-card-count">${count} ${count === 1 ? "título" : "títulos"}</div>
+            <div class="univ-grid-card-overlay">
+                <img class="univ-grid-card-logo" src="${saga.logo || ""}" alt="${saga.title || ""}" onerror="this.style.opacity=0"/>
+                <div class="univ-grid-card-name">${saga.title || saga.titulo || saga.id}</div>
+                <div class="univ-grid-card-count">${count} ${count === 1 ? "título" : "títulos"}</div>
+            </div>
         `;
     card.addEventListener("click", () => showUniverseGrid(saga));
     inner.appendChild(card);
+    const cardLogoImg = card.querySelector(".univ-grid-card-logo");
+    if (cardLogoImg) setLogoSrc(cardLogoImg, saga.logo || "");
   });
 }
 
@@ -2129,6 +2205,10 @@ function renderSearchDropdown(q) {
     .join("");
 
   dropdown.style.display = "block";
+  dropdown.querySelectorAll(".univ-sdrop-item").forEach((item, i) => {
+    const logoImg = item.querySelector(".univ-sdrop-logo");
+    if (logoImg) setLogoSrc(logoImg, matches[i].logo || "");
+  });
   // El listener de click está en el dropdown como delegación (se registra una sola vez en buildDOM)
 }
 
