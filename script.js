@@ -13,6 +13,7 @@ import ModalManager from "./utils/modal-manager.js";
 import ContentManager from "./utils/content-manager.js";
 import ThemeManager, { updateThemeAssets } from "./utils/theme-manager.js";
 import LazyImageLoader, { injectLazyLoadingStyles } from "./utils/lazy-loader.js";
+import { setLogoSrc } from "./utils/svg-logo-trim.js";
 import { initUniverses, renderUniversesHub } from "./features/universes.js";
 
 // Instancias vacías (se llenan abajo)
@@ -1052,7 +1053,7 @@ async function switchView(filter) {
   // Si sp-detail-view estaba activo, guardar historial y cerrarlo sin redirigir
   const spDetailView = document.getElementById("sp-detail-view");
   if (spDetailView && spDetailView.classList.contains("visible")) {
-    if (appState?.player?.pendingHistorySave) {
+    if (appState?.player?.pendingHistorySave?.minWatchMet) {
       const { contentId, type, episodeInfo } =
         appState.player.pendingHistorySave;
       // Capturamos la promesa del write — mismo fix de race condition (Bug 2).
@@ -1076,6 +1077,10 @@ async function switchView(filter) {
             });
         });
       }
+    } else if (appState?.player?.pendingHistorySave) {
+      // No se llegó a los 90s de reproducción: se descarta sin escribir,
+      // para no crear una entrada en "Continuar Viendo" con progreso 0.
+      appState.player.pendingHistorySave = null;
     }
     spDetailView.classList.remove("visible", "sp-detail-view--playing");
     if (appState?.player?.activeCineInstance) {
@@ -4971,17 +4976,65 @@ function generateContinueWatchingCarousel(snapshot) {
     return MOVIE_SEASON_KEYWORDS.some((kw) => s.includes(kw));
   };
 
-  // Incluimos series Y CUALQUIER película (del catálogo general o enlazada
-  // a una serie, ej. JJK 0) siempre que tenga progreso parcial real
-  // (>0 y <90%). Películas marcadas como vistas (progress>=0.9, o sin
-  // progreso registrado por venir del sistema viejo) quedan afuera.
+  // Determina si (season, episodeIndex) corresponde al último episodio de
+  // toda la serie (última temporada con episodios, último índice de esa
+  // temporada), usando el mismo criterio de orden que el botón "Siguiente
+  // Capítulo" (appState.content.seasonOrder, con fallback a Object.keys).
+  //
+  // IMPORTANTE: si la serie está marcada como "en emisión" (campo
+  // enEmision = "si" en el catálogo), nunca se considera terminada por esta
+  // vía — el hecho de que hoy no exista un capítulo siguiente no significa
+  // que la serie haya acabado, solo que el próximo capítulo todavía no salió
+  // (ej. series semanales). Se necesita marcar manualmente enEmision = "no"
+  // (o dejarlo vacío) cuando la serie finalice para que vuelva a aplicar
+  // la exclusión automática de "Continuar Viendo".
+  const isLastEpisodeOfSeries = (contentId, season, episodeIndex) => {
+    if (season == null || episodeIndex == null) return false;
+
+    const seriesData =
+      typeof findContentData === "function" ? findContentData(contentId) : null;
+    const enEmision =
+      String(seriesData?.enEmision ?? seriesData?.en_emision ?? "")
+        .trim()
+        .toLowerCase() === "si";
+    if (enEmision) return false;
+
+    const allSeasons = appState.content.seriesEpisodes[contentId] || {};
+    const seasonOrderRaw =
+      appState.content.seasonOrder?.[contentId] || Object.keys(allSeasons);
+    const seasonKeys = seasonOrderRaw.filter(
+      (key) => (allSeasons[key] || []).length > 0,
+    );
+    if (seasonKeys.length === 0) return false;
+    const lastSeasonKey = seasonKeys[seasonKeys.length - 1];
+    const lastIdx = (allSeasons[lastSeasonKey] || []).length - 1;
+    return (
+      String(season) === String(lastSeasonKey) &&
+      Number(episodeIndex) === lastIdx
+    );
+  };
+
+  // Películas: se excluyen apenas quedan marcadas como vistas (progress>=0.9),
+  // igual que siempre. Series: solo se excluyen cuando lo que se terminó es
+  // el último episodio real de la serie — terminar un episodio intermedio no
+  // debe sacarla de "Continuar Viendo", porque todavía queda más por ver.
   const itemsToShow = historyItems
     .filter((item) => {
-      if (item.progress != null && item.progress >= 0.9) return false;
       if (item.type === "movie") {
+        if (item.progress != null && item.progress >= 0.9) return false;
         return typeof item.progress === "number" && item.progress > 0;
       }
-      if (item.type === "series") return !isMovieSeason(item.season);
+      if (item.type === "series") {
+        if (isMovieSeason(item.season)) return false;
+        if (
+          item.progress != null &&
+          item.progress >= 0.9 &&
+          isLastEpisodeOfSeries(item.contentId, item.season, item.lastEpisode)
+        ) {
+          return false; // Serie completa: se marca como vista, igual que las pelis.
+        }
+        return true;
+      }
       return false;
     })
     .slice(0, 15);
@@ -6294,7 +6347,7 @@ function closeSeriesDetailView() {
   if (!view) return;
 
   // Guardar historial antes de destruir el player
-  if (appState?.player?.pendingHistorySave) {
+  if (appState?.player?.pendingHistorySave?.minWatchMet) {
     const { contentId, type, episodeInfo } = appState.player.pendingHistorySave;
     // Capturamos la promesa del write para no leer el historial antes de que
     // Firebase confirme la escritura (race condition — Bug 2).
@@ -6316,6 +6369,10 @@ function closeSeriesDetailView() {
           });
       });
     }
+  } else if (appState?.player?.pendingHistorySave) {
+    // No se llegó a los 90s de reproducción: se descarta sin escribir,
+    // para no crear una entrada en "Continuar Viendo" con progreso 0.
+    appState.player.pendingHistorySave = null;
   }
 
   // Destruir player si estaba activo
@@ -8464,106 +8521,6 @@ window._heroEditPaused = false;
 function getLogoSlot(base) {
   const device = window.innerWidth <= 768 ? "mobile" : "desktop";
   return base + "-" + device;
-}
-
-// ── Logo SVG: ajuste automático de viewBox para recortar espacios vacíos ──────
-const _svgTrimCache = new Map();
-
-async function _getTrimmedSvgUrl(url) {
-  if (!url || !url.toLowerCase().endsWith(".svg")) return url;
-  if (_svgTrimCache.has(url)) return _svgTrimCache.get(url);
-
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return url;
-    const svgText = await res.text();
-
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(svgText, "image/svg+xml");
-    const svg = doc.querySelector("svg");
-    if (!svg) return url;
-
-    const CANVAS_W = 800,
-      CANVAS_H = 310;
-    svg.setAttribute("width", CANVAS_W);
-    svg.setAttribute("height", CANVAS_H);
-    svg.setAttribute("viewBox", "0 0 800 310");
-
-    const svgBlob = new Blob([new XMLSerializer().serializeToString(svg)], {
-      type: "image/svg+xml",
-    });
-    const blobUrl = URL.createObjectURL(svgBlob);
-
-    const bounds = await new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = CANVAS_W;
-        canvas.height = CANVAS_H;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0, CANVAS_W, CANVAS_H);
-        URL.revokeObjectURL(blobUrl);
-        const data = ctx.getImageData(0, 0, CANVAS_W, CANVAS_H).data;
-        let minX = CANVAS_W,
-          minY = CANVAS_H,
-          maxX = 0,
-          maxY = 0,
-          found = false;
-        for (let y = 0; y < CANVAS_H; y++) {
-          for (let x = 0; x < CANVAS_W; x++) {
-            if (data[(y * CANVAS_W + x) * 4 + 3] > 10) {
-              if (x < minX) minX = x;
-              if (y < minY) minY = y;
-              if (x > maxX) maxX = x;
-              if (y > maxY) maxY = y;
-              found = true;
-            }
-          }
-        }
-        resolve(found ? { minX, minY, maxX, maxY } : null);
-      };
-      img.onerror = () => {
-        URL.revokeObjectURL(blobUrl);
-        resolve(null);
-      };
-      img.src = blobUrl;
-    });
-
-    if (!bounds) return url;
-    const pad = 6;
-    const vx = Math.max(0, bounds.minX - pad);
-    const vy = Math.max(0, bounds.minY - pad);
-    const vw = Math.min(CANVAS_W, bounds.maxX + pad) - vx;
-    const vh = Math.min(CANVAS_H, bounds.maxY + pad) - vy;
-    if (vw <= 0 || vh <= 0) return url;
-
-    svg.setAttribute("viewBox", `${vx} ${vy} ${vw} ${vh}`);
-    svg.setAttribute("width",   vw);
-    svg.setAttribute("height",  vh);
-
-    const objectUrl = URL.createObjectURL(
-      new Blob([new XMLSerializer().serializeToString(svg)], {
-        type: "image/svg+xml",
-      }),
-    );
-    _svgTrimCache.set(url, objectUrl);
-    return objectUrl;
-  } catch (e) {
-    console.warn("[setLogoSrc] No se pudo trimar SVG:", e);
-    return url;
-  }
-}
-
-/**
- * Asigna el src de un logo <img> trimando automáticamente el viewBox
- * del SVG para eliminar espacios vacíos a los lados.
- * Para PNG/otros formatos actúa igual que asignar .src directamente.
- */
-async function setLogoSrc(imgEl, url) {
-  if (!imgEl || !url) return;
-  imgEl.src = url; // mostrar de inmediato para evitar flash vacío
-  const trimmedUrl = await _getTrimmedSvgUrl(url);
-  if (imgEl.isConnected) imgEl.src = trimmedUrl;
 }
 
 function loadLogoSettings(id, container, callback, slot = "modal-desktop") {
