@@ -24,7 +24,7 @@ export const firebaseConfig = {
  * URLs de API
  */
 export const API_URL = {
-    BASE_URL: 'https://script.google.com/macros/s/AKfycbwAJT7ElT1guBUiZpzKaHoI7dr4Zy3D9ZNS9_taqAWZyhGgTq5ttDdWBekVA_kjgnU/exec',
+    BASE_URL: 'https://script.google.com/macros/s/AKfycbwVU0jgVzV_TbtSWZzV0utl-DwSVh7cnTTXDSDxP0tVfEEYA7vYoAJOjOmHU1l0Y9Wz/exec',
     
     endpoints: {
         series: 'series',
