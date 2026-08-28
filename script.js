@@ -93,9 +93,10 @@ async function getPlayerModule() {
     THEMES,
     closeAllModals: () => modalManager.closeAll(),
     openDetailsModal,
-    // Puente hacia roulette.js: al marcar una película como vista en el
-    // historial (80% de avance), también se excluye del pool de la ruleta.
-    // Se carga el módulo de forma perezosa, igual que getRouletteModule().
+    // Puente hacia roulette.js: al llegar a PLAYER.WATCHED_THRESHOLD (75%
+    // de la duración real), la película se marca automáticamente como
+    // vista y se excluye del pool de la ruleta. Se carga el módulo de
+    // forma perezosa, igual que getRouletteModule().
     markMovieAsRouletteWatched: async (movieId) => {
       const roulette = await getRouletteModule();
       if (roulette.markMovieAsWatched) await roulette.markMovieAsWatched(movieId);
@@ -340,6 +341,119 @@ document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("mozfullscreenchange", handleFullscreenChange);
   document.addEventListener("msfullscreenchange", handleFullscreenChange);
 });
+
+// ===========================================================
+// DEEP LINKING POR HASH (#pelicula/<slug>, #serie/<slug> y
+// #universo/<slug>). Permite que un link externo (ej. desde el
+// bot de Discord) abra directamente la vista correspondiente.
+// El slug es una version legible del id (sin tildes/espacios/
+// puntuacion) — no es reversible, asi que al cargar buscamos
+// en el catalogo ya en memoria cual id, slugificado, coincide.
+// ===========================================================
+function slugify(texto) {
+  if (!texto) return "";
+  return texto
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "") // quitar tildes
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+// tipo: "pelicula" | "serie" | "universo"
+function buildDeepLinkHash(id, tipo) {
+  return `#${tipo}/${slugify(id)}`;
+}
+
+function setDeepLinkHash(id, tipo) {
+  const hash = buildDeepLinkHash(id, tipo);
+  if (window.location.hash !== hash) {
+    window.history.pushState({ deepLink: true }, "", hash);
+  }
+}
+
+function clearDeepLinkHash() {
+  if (window.location.hash) {
+    window.history.pushState(
+      {},
+      "",
+      window.location.pathname + window.location.search,
+    );
+  }
+}
+
+// Busca, entre pelis/series sueltas + todo lo que hay dentro de cada
+// saga (o en la lista de sagas), cual id (al slugificarlo) coincide
+// con el slug de la URL.
+function resolveIdFromSlug(slug, tipo) {
+  if (tipo === "universo") {
+    const sagasList = appState.content.sagasList || [];
+    const encontrada = sagasList.find((s) => slugify(s.title) === slug);
+    return encontrada ? encontrada.id : null;
+  }
+
+  const tipoBuscado = tipo === "pelicula" ? "movie" : "serie";
+  const coleccionSuelta =
+    tipo === "pelicula"
+      ? appState.content.movies
+      : appState.content.series;
+
+  // Pelis: el id ES el título original (ej. "Cars"). Series: el id es
+  // un slug interno (ej. "mandarinas"), asi que comparamos por secondTitle.
+  const campoParaComparar = (key, item) =>
+    tipo === "pelicula" ? key : item?.secondTitle || key;
+
+  for (const key of Object.keys(coleccionSuelta || {})) {
+    if (slugify(campoParaComparar(key, coleccionSuelta[key])) === slug) {
+      return key;
+    }
+  }
+
+  const sagas = appState.content.sagas || {};
+  for (const sagaId of Object.keys(sagas)) {
+    const items = sagas[sagaId] || {};
+    for (const key of Object.keys(items)) {
+      const item = items[key];
+      if (item?.type !== tipoBuscado) continue;
+      if (slugify(campoParaComparar(key, item)) === slug) {
+        return key;
+      }
+    }
+  }
+
+  return null;
+}
+
+function handleDeepLinkFromHash() {
+  const hash = window.location.hash;
+  if (!hash) return;
+  const match = hash.match(/^#(pelicula|serie|universo)\/(.+)$/);
+  if (!match) return;
+  const [, tipo, slug] = match;
+
+  const id = resolveIdFromSlug(slug, tipo);
+  if (!id) {
+    console.warn(`[DeepLink] No se encontró para el slug: ${slug} (${tipo})`);
+    return;
+  }
+
+  if (tipo === "pelicula") {
+    openDetailsModal(id, "movie");
+  } else if (tipo === "serie") {
+    openSeriesDetailView(id);
+  } else {
+    // universo: mismo flujo que el click en una card del hub de sagas
+    appState.ui._fromUniverse = id;
+    switchView("sagas");
+  }
+}
+window.addEventListener("popstate", handleDeepLinkFromHash);
+
+// Expuestas para que universes.js (modulo aparte) pueda usarlas.
+window.slugify = slugify;
+window.buildDeepLinkHash = buildDeepLinkHash;
+window.setDeepLinkHash = setDeepLinkHash;
+window.clearDeepLinkHash = clearDeepLinkHash;
 
 function preloadImage(url) {
   return new Promise((resolve) => {
@@ -771,6 +885,7 @@ async function fetchInitialDataWithCache() {
     processData(cachedContent);
     await getReviewsModule();
     await setupAndShow(cachedMetadata?.movies, cachedMetadata?.series);
+    handleDeepLinkFromHash();
     refreshDataInBackground();
 
     const user = auth.currentUser;
@@ -846,6 +961,7 @@ async function fetchInitialDataWithCache() {
       }
 
       await setupAndShow(freshMetadata.movies, freshMetadata.series);
+      handleDeepLinkFromHash();
 
       const user = auth.currentUser;
       if (user) {
@@ -5774,15 +5890,32 @@ async function openDetailsModal(id, type, triggerElement = null) {
         closeDetailView();
       };
     }
+
+    // ── Actualizar URL para deep-linking ───────────────────────
+    setDeepLinkHash(id, "pelicula");
   } catch (e) {
     console.error("Error abriendo detalle:", e);
     if (window.logError) window.logError(e, "Open Detail View");
   }
 }
 
-function closeDetailView() {
+async function closeDetailView() {
   const view = document.getElementById("detail-view");
   if (!view) return;
+
+  // Confirmar a Firebase el progreso pendiente ANTES de destruir el
+  // player (cubre películas cerradas con "Volver" — antes solo se
+  // confirmaba al cerrar la pestaña o cambiar de capítulo en series).
+  // Se espera (await) porque destroy() invalida el reproductor: si no
+  // esperamos, el flush podría correr después y leer un player ya muerto.
+  if (appState?.player?.activeCineInstance) {
+    try {
+      const player = await getPlayerModule();
+      player.flushAndCommitPendingSave?.();
+    } catch (e) {
+      logError?.(e, "closeDetailView: flush pendiente");
+    }
+  }
 
   // Destruir player si estaba activo
   if (appState?.player?.activeCineInstance) {
@@ -5833,6 +5966,8 @@ function closeDetailView() {
   // Restaurar filtro activo y página
   const lastFilter = view.dataset.fromFilter || "all";
   switchView(lastFilter);
+
+  clearDeepLinkHash();
 }
 
 window.closeDetailView = closeDetailView;
@@ -6336,6 +6471,9 @@ async function openSeriesDetailView(id) {
         closeSeriesDetailView();
       };
     }
+
+    // ── Actualizar URL para deep-linking ───────────────────────
+    setDeepLinkHash(data.secondTitle || id, "serie");
   } catch (e) {
     console.error("Error abriendo detalle de serie:", e);
     if (window.logError) window.logError(e, "Open Series Detail View");
@@ -6423,6 +6561,8 @@ function closeSeriesDetailView() {
   // Restaurar filtro y URL
   const lastFilter = view.dataset.fromFilter || "all";
   switchView(lastFilter);
+
+  clearDeepLinkHash();
 }
 
 window.closeSeriesDetailView = closeSeriesDetailView;
