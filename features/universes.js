@@ -1704,6 +1704,9 @@ function showUniverseGrid(saga) {
 
   const overlay = document.getElementById("univ-universe-overlay");
   overlay?.classList.add("active");
+
+  // Deep-linking: refleja la saga actual en la URL (#universo/<slug>)
+  window.setDeepLinkHash?.(saga.title, "universo");
 }
 
 function buildUniverseGrid(saga) {
@@ -2036,6 +2039,9 @@ function exitUniverse() {
   currentUniverseId = null;
   currentSagaObj = null;
   sortMode = "saga";
+
+  // Deep-linking: sacamos el #universo/<slug> de la URL
+  window.clearDeepLinkHash?.();
 
   // Limpiar botones de sort y filtros para el próximo universo
   const sortWrap = document.getElementById("univ-ov-sort-wrap");
