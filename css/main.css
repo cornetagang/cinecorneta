@@ -16243,7 +16243,17 @@ nav .logo.active {
   }
 
   .sp-back-btn {
-    display: none !important; /* Solo series: botón redundante en móvil (ya está el header/topbar) */
+    position: fixed;
+    top: calc(var(--top-h, 56px) + 10px);
+    left: 5%;
+    z-index: 450;
+    color: rgba(255, 255, 255, 0.9);
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+  }
+
+  /* Oculto solo mientras se reproduce: ahí manda el back-btn del topbar del player */
+  .sp-detail-view.sp-detail-view--playing .sp-back-btn {
+    display: none !important;
   }
 
   /* ══ OPCIÓN C: banner full-bleed, sin poster, título encima ══ */
