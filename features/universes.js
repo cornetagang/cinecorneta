@@ -92,6 +92,12 @@ export function renderUniversesHub() {
 
   invalidateDataCache();
   const sagas = getSortedSagas();
+  // El universo "oculto" (columna 'oculto'=si en sagas_list) no se dibuja
+  // en la galaxia ni en el grid — solo es accesible vía el código secreto
+  // o deep-link directo. Usamos la lista SIN filtrar (getSortedSagas)
+  // en cualquier otro lado (restoreUniverseOverlay, etc.) para que siga
+  // siendo encontrable por id.
+  const visibleSagas = sagas.filter((s) => !isHiddenSaga(s));
 
   // Reset state
   currentUniverseId = null;
@@ -100,8 +106,8 @@ export function renderUniversesHub() {
 
   resetUI();
   syncSettingsUI();
-  buildGalaxy(sagas);
-  buildGridView(sagas);
+  buildGalaxy(visibleSagas);
+  buildGridView(visibleSagas);
   startStarCanvas();
   startParticleLoop();
   updateNavOffset();
@@ -110,6 +116,40 @@ export function renderUniversesHub() {
   gPan = { x: 0, y: 0 };
   gScale = 1;
   applyGalaxy();
+}
+
+// Marca si una saga está oculta del hub público (columna 'oculto' del
+// sheet sagas_list, valor 'si'). Insensible a mayúsculas/espacios.
+function isHiddenSaga(saga) {
+  return (
+    (saga?.oculto || saga?.Oculto || "").toString().toLowerCase().trim() ===
+    "si"
+  );
+}
+
+// Universo "modo youtube" (columna 'modo'='youtube' en sagas_list): sin
+// sinopsis, sin logo/banner, sin filtros de fase/saga — solo miniaturas
+// en el orden del sheet. Cualquier 'tipo' que no sea video/película
+// (vacío, "video", "pelicula") forma su propia carpeta, agrupada por
+// ese valor de 'tipo' — así "clip", "marveliada", o lo que venga
+// después, salen solos sin tocar código. Click en un item abre un
+// lightbox de video en vez del modal de detalles de película.
+function isYoutubeModeSaga(saga) {
+  return (
+    (saga?.modo || saga?.Modo || "").toString().toLowerCase().trim() ===
+    "youtube"
+  );
+}
+
+// Tipos que van sueltos en la grilla principal (no forman carpeta).
+const YT_MAIN_GRID_TIPOS = new Set(["", "video", "pelicula", "película"]);
+
+function getItemTipoRaw(m) {
+  return (m?.tipo || m?.type || "").toString().trim();
+}
+
+function isYtMainGridItem(m) {
+  return YT_MAIN_GRID_TIPOS.has(getItemTipoRaw(m).toLowerCase());
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -953,6 +993,76 @@ function injectStyles() {
     .univ-phase-drawer-trigger { display: flex !important; }
 }
 
+/* ═══ MODO YOUTUBE (universos tipo CornetaGang) ═══════════════ */
+.univ-ov-grid--yt .univ-ov-card-poster {
+    aspect-ratio: 16/9;
+    object-fit: cover;
+    background: #0a0d12;
+}
+.univ-ov-grid--yt .univ-ov-card-info { padding: 8px 10px 10px; }
+.univ-ov-card--folder .univ-ov-card-poster,
+.univ-ov-card--back .univ-ov-card-poster {
+    aspect-ratio: 16/9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, rgba(59,130,246,.12), rgba(59,130,246,.03));
+    color: #60a5fa;
+    font-size: 1.8rem;
+}
+.univ-ov-card--folder:hover .univ-ov-card-poster { color: #93c5fd; }
+
+/* Lightbox de video simple (sin sinopsis/logo/tracks) */
+.univ-yt-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(2,4,8,.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4vh 4vw;
+    opacity: 0;
+    transition: opacity .2s ease;
+}
+.univ-yt-lightbox.active { opacity: 1; }
+.univ-yt-lightbox-box {
+    position: relative;
+    width: 100%;
+    max-width: 1100px;
+    aspect-ratio: 16/9;
+    background: #000;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,.6);
+    transform: scale(.96);
+    transition: transform .2s ease;
+}
+.univ-yt-lightbox.active .univ-yt-lightbox-box { transform: scale(1); }
+.univ-yt-lightbox-box iframe { width: 100%; height: 100%; border: 0; display: block; }
+.univ-yt-lightbox-close {
+    position: absolute;
+    top: -44px;
+    right: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.15);
+    color: #f8fafc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 16px;
+}
+.univ-yt-lightbox-close:hover { background: rgba(255,255,255,.18); }
+@media (max-width: 700px) {
+    .univ-yt-lightbox { padding: 0; }
+    .univ-yt-lightbox-box { max-width: 100%; border-radius: 0; }
+    .univ-yt-lightbox-close { top: 10px; right: 10px; background: rgba(0,0,0,.6); }
+}
+
 /* ═══════════════════════════════════════════════════════════ */
     `;
   document.head.appendChild(s);
@@ -1744,6 +1854,7 @@ function renderMovieCards(saga) {
 
   // ── 1. (Reset ya hecho en buildUniverseGrid) ──
   currentSagaObj = saga;
+  grid.classList.remove("univ-ov-grid--yt"); // por si el universo anterior era modo youtube
 
   // ── 2. RESCATAR DATOS ORIGINALES ──
   let baseMovies = getSagaMovies(saga.id);
@@ -1773,6 +1884,16 @@ function renderMovieCards(saga) {
 
     return fullData;
   });
+
+  // ── 2.5 MODO YOUTUBE: sin filtros, sin sinopsis, sin reverse ──
+  // Corta acá y usa un render completamente aparte.
+  if (isYoutubeModeSaga(saga)) {
+    // Por si quedó de un universo anterior (Marvel, etc.)
+    document.getElementById("univ-filters-container")?.remove();
+    document.getElementById("univ-ov-sort-wrap")?.remove();
+    renderYoutubeGrid(saga, movies, grid);
+    return;
+  }
 
   // ── 3. FILTROS (sagas + orden) ──
   const hasSagas = movies.some((m) => m.saga);
@@ -1985,6 +2106,51 @@ function renderMovieCards(saga) {
 
   // ── 6. ORDEN ──
   if (sortMode === "cronologico") {
+    // Series cuyas temporadas están repartidas entre distintos puntos de la
+    // línea de tiempo (ej: una temporada antes de una peli, otra después)
+    // declaran esos puntos extra en "cronologiaMulti" (columna G del sheet).
+    // Sin esto, la tarjeta completa de la serie se ubicaba como un solo bloque
+    // en su "cronologia" primaria, aunque parte de ella ocurriera después de
+    // películas intercaladas. Acá la expandimos en una tarjeta por temporada
+    // (T1, T2, ...) para que cada una caiga en su lugar cronológico real —
+    // mismo patrón que ya usa el catálogo principal en script.js.
+    const expanded = [];
+    movies.forEach((m) => {
+      const multiChrono = m.cronologiaMulti || m.cronologia_multi;
+      if (multiChrono) {
+        const seriesPosters =
+          shared.appState.content.seasonPosters?.[m.id] || {};
+        const getSeasonPoster = (num) => {
+          const p = seriesPosters[num];
+          if (!p) return m.poster;
+          return typeof p === "object" ? p.posterUrl : p;
+        };
+
+        expanded.push({
+          ...m,
+          title: `${m.title} (T1)`,
+          poster: getSeasonPoster(1),
+        });
+
+        String(multiChrono)
+          .split(",")
+          .map((c) => c.trim())
+          .filter(Boolean)
+          .forEach((chronoVal, index) => {
+            const sNum = index + 2;
+            expanded.push({
+              ...m,
+              title: `${m.title} (T${sNum})`,
+              cronologia: Number(chronoVal),
+              poster: getSeasonPoster(sNum),
+            });
+          });
+      } else {
+        expanded.push(m);
+      }
+    });
+    movies = expanded;
+
     movies.sort((a, b) => {
       if (a.cronologia === null) return 1;
       if (b.cronologia === null) return -1;
@@ -2028,6 +2194,189 @@ function renderMovieCards(saga) {
     if (isSeries) window.openSeriesDetailView(movie.id);
     else window.openDetailsModal(movie.id, "movie");
   };
+}
+
+// ─────────────────────────────────────────────────────────────
+// 10.5 MODO YOUTUBE — grid plano de miniaturas + carpeta de clips
+// ─────────────────────────────────────────────────────────────
+
+// Acepta ID pelado (11 chars) o URL completa de YouTube. Copia local
+// y mínima — no depende de player.js para mantener este universo
+// autocontenido.
+function extractYoutubeId(value) {
+  if (!value || typeof value !== "string") return null;
+  const v = value.trim();
+  const urlMatch = v.match(
+    /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/,
+  );
+  if (urlMatch) return urlMatch[1];
+  if (/^[A-Za-z0-9_-]{11}$/.test(v)) return v;
+  return null;
+}
+
+function getItemVideoId(m) {
+  const raw = m.videoId || m.videoId_es || m.videoId_en || "";
+  return (raw || "").toString().trim();
+}
+
+function renderYoutubeGrid(saga, movies, grid) {
+  grid.classList.add("univ-ov-grid--yt");
+
+  // Sin reverse, sin sort por cronología: el orden es el del sheet.
+  const videos = movies.filter(isYtMainGridItem);
+
+  // Agrupar todo lo que no es "video/pelicula" por su valor de 'tipo'
+  // (case-insensitive), respetando el orden de aparición en el sheet
+  // tanto de las carpetas como de los items adentro de cada una.
+  // El label de la carpeta es el texto tal cual está en la columna
+  // 'tipo' del primer item que la usa — escribilo con la mayúscula
+  // que querés ver (ej: "Marveliada", "Clips").
+  const folders = [];
+  const folderByKey = new Map();
+  movies.forEach((m) => {
+    if (isYtMainGridItem(m)) return;
+    const rawTipo = getItemTipoRaw(m);
+    const key = rawTipo.toLowerCase();
+    let folder = folderByKey.get(key);
+    if (!folder) {
+      folder = { key, label: rawTipo, items: [] };
+      folderByKey.set(key, folder);
+      folders.push(folder);
+    }
+    folder.items.push(m);
+  });
+
+  const state = { openFolderKey: null };
+
+  function cardHTML(m, i) {
+    const yid = extractYoutubeId(getItemVideoId(m));
+    const thumb = yid
+      ? `https://i.ytimg.com/vi/${yid}/hqdefault.jpg`
+      : m.poster || m.banner || "";
+    return `
+        <div class="univ-ov-card" data-id="${m.id}" style="animation-delay:${i * 0.03}s">
+            <img class="univ-ov-card-poster"
+                 src="${thumb}"
+                 alt="${m.title}"
+                 loading="lazy"
+                 onerror="this.style.opacity=0"/>
+            <div class="univ-ov-card-info">
+                <div class="univ-ov-card-title">${m.title}</div>
+            </div>
+        </div>`;
+  }
+
+  function folderCardHTML(folder) {
+    return `
+        <div class="univ-ov-card univ-ov-card--folder" data-action="open-folder" data-key="${folder.key}">
+            <div class="univ-ov-card-poster"><i class="fas fa-folder"></i></div>
+            <div class="univ-ov-card-info">
+                <div class="univ-ov-card-title">${folder.label}</div>
+                <span class="univ-ov-card-year">${folder.items.length} video${folder.items.length === 1 ? "" : "s"}</span>
+            </div>
+        </div>`;
+  }
+
+  function backCardHTML(label) {
+    return `
+        <div class="univ-ov-card univ-ov-card--back" data-action="back">
+            <div class="univ-ov-card-poster"><i class="fas fa-arrow-left"></i></div>
+            <div class="univ-ov-card-info">
+                <div class="univ-ov-card-title">Volver</div>
+            </div>
+        </div>`;
+  }
+
+  function paint() {
+    if (state.openFolderKey) {
+      const folder = folderByKey.get(state.openFolderKey);
+      const list = folder ? folder.items : [];
+      grid.innerHTML =
+        backCardHTML(folder?.label) + list.map(cardHTML).join("");
+      return;
+    }
+    let html = folders.map(folderCardHTML).join("");
+    html += videos.map(cardHTML).join("");
+    grid.innerHTML = html;
+  }
+
+  grid.onclick = (e) => {
+    const card = e.target.closest(".univ-ov-card");
+    if (!card) return;
+
+    if (card.dataset.action === "open-folder") {
+      state.openFolderKey = card.dataset.key;
+      paint();
+      return;
+    }
+    if (card.dataset.action === "back") {
+      state.openFolderKey = null;
+      paint();
+      return;
+    }
+
+    const list = state.openFolderKey
+      ? folderByKey.get(state.openFolderKey)?.items || []
+      : videos;
+    const item = list.find((m) => m.id === card.dataset.id);
+    if (!item) return;
+    openVideoLightbox(getItemVideoId(item), item.title);
+  };
+
+  paint();
+}
+
+// Overlay mínimo: sin sinopsis, sin tracks de idioma, sin "continuar
+// viendo" — solo el video centrado y una X que corta la reproducción
+// al cerrar (saca el src del iframe, no solo lo oculta).
+function openVideoLightbox(videoIdRaw, title = "") {
+  const yid = extractYoutubeId(videoIdRaw);
+  if (!yid) {
+    console.warn("[universo youtube] videoId inválido:", videoIdRaw);
+    return;
+  }
+
+  document.getElementById("univ-yt-lightbox")?.remove();
+
+  const overlay = document.createElement("div");
+  overlay.id = "univ-yt-lightbox";
+  overlay.className = "univ-yt-lightbox";
+  overlay.innerHTML = `
+      <div class="univ-yt-lightbox-box">
+          <button class="univ-yt-lightbox-close" aria-label="Cerrar" title="Cerrar">
+              <i class="fas fa-times"></i>
+          </button>
+          <iframe
+              src="https://www.youtube-nocookie.com/embed/${yid}?autoplay=1&rel=0"
+              title="${title.replace(/"/g, "&quot;")}"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowfullscreen>
+          </iframe>
+      </div>`;
+
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add("active"));
+
+  function close() {
+    overlay.classList.remove("active");
+    setTimeout(() => {
+      // Sacar el src antes de remover: corta la reproducción de una.
+      const iframe = overlay.querySelector("iframe");
+      if (iframe) iframe.src = "";
+      overlay.remove();
+      document.removeEventListener("keydown", onKey);
+    }, 200);
+  }
+
+  function onKey(e) {
+    if (e.key === "Escape") close();
+  }
+
+  overlay.querySelector(".univ-yt-lightbox-close").onclick = close;
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) close();
+  });
+  document.addEventListener("keydown", onKey);
 }
 
 // ─────────────────────────────────────────────────────────────
