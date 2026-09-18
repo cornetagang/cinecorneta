@@ -455,6 +455,70 @@ window.buildDeepLinkHash = buildDeepLinkHash;
 window.setDeepLinkHash = setDeepLinkHash;
 window.clearDeepLinkHash = clearDeepLinkHash;
 
+// ===========================================================
+// UNIVERSO SECRETO: se activa escribiendo un código en cualquier
+// momento (mientras no estés escribiendo en un input/textarea real).
+// El universo a revelar es el que tenga 'oculto'='si' en el sheet
+// sagas_list — no se dibuja en la galaxia ni en el grid, pero sigue
+// siendo un id válido, así que reusamos el mismo camino que ya usan
+// los deep links de universo (#universo/<slug>).
+// ===========================================================
+const SECRET_UNIVERSE_CODE = "CornetaGang"; // 👈 cambiá esto por tu código real
+let _secretCodeBuffer = "";
+let _secretCodeLastKeyAt = 0;
+
+function isHiddenSagaEntry(saga) {
+  return (
+    (saga?.oculto || saga?.Oculto || "").toString().toLowerCase().trim() ===
+    "si"
+  );
+}
+
+function findHiddenUniverseId() {
+  const list = appState?.content?.sagasList || [];
+  const arr = Array.isArray(list) ? list : Object.values(list);
+  const found = arr.find(isHiddenSagaEntry);
+  return found ? found.id : null;
+}
+
+document.addEventListener("keydown", (e) => {
+  // No interferir si el usuario está escribiendo en un campo real
+  // (buscador, reseña, perfil, etc.)
+  const activeEl = document.activeElement;
+  const isEditing =
+    activeEl &&
+    (activeEl.tagName === "INPUT" ||
+      activeEl.tagName === "TEXTAREA" ||
+      activeEl.isContentEditable);
+  if (isEditing) return;
+
+  // Ignorar combinaciones con modificadores y teclas que no sean un
+  // solo carácter (Shift, Enter, flechas, etc.)
+  if (e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1) return;
+
+  const now = Date.now();
+  // Si pasó mucho tiempo desde la última tecla, arrancamos el buffer de nuevo
+  if (now - _secretCodeLastKeyAt > 2000) _secretCodeBuffer = "";
+  _secretCodeLastKeyAt = now;
+
+  _secretCodeBuffer = (_secretCodeBuffer + e.key)
+    .slice(-SECRET_UNIVERSE_CODE.length)
+    .toLowerCase();
+
+  if (_secretCodeBuffer === SECRET_UNIVERSE_CODE.toLowerCase()) {
+    _secretCodeBuffer = "";
+    const hiddenId = findHiddenUniverseId();
+    if (hiddenId) {
+      appState.ui._fromUniverse = hiddenId;
+      switchView("sagas");
+    } else {
+      console.warn(
+        "[Universo secreto] No se encontró ninguna saga con 'oculto'='si' en sagas_list.",
+      );
+    }
+  }
+});
+
 function preloadImage(url) {
   return new Promise((resolve) => {
     if (!url) {
@@ -1127,6 +1191,13 @@ async function switchView(filter) {
 
   appState.currentFilter = filter;
 
+  // Al navegar (Inicio, tabs, categorías, etc.) la URL no debe seguir
+  // apuntando a la última peli/serie/universo que se tenía abierto —
+  // si no, un F5 después de "salir" te regresa ahí en vez de al home.
+  // Si el destino de esta navegación es en sí mismo deep-linkeable
+  // (una peli/serie suelta, o un universo restaurado desde _fromUniverse),
+  // el propio flujo de apertura más abajo vuelve a setear el hash correcto.
+  clearDeepLinkHash();
 
   updateActiveNav(filter);
 
@@ -4591,7 +4662,7 @@ function _initNovedadesSection() {
   // ── Universos (sagas) con date_added en sagas_list ───────────
   const sagasList = appState.content.sagasList || [];
   const sagaItems = sagasList
-    .filter((s) => s.date_added)
+    .filter((s) => s.date_added && !isHiddenSagaEntry(s))
     .map((s) => ({
       id: s.id,
       data: { title: s.titulo || s.title || "" },
@@ -4704,10 +4775,13 @@ function _bentoCreateUniversosCarousel() {
   if (!sagas || !sagas.length) return;
   const container = DOM.carouselContainer;
 
-  // Ordenar por recientes (orden inverso al campo order)
+  // Ordenar por recientes (orden inverso al campo order), sin el/los
+  // universo(s) marcado(s) oculto=si en sagas_list.
   const sorted = [...sagas]
+    .filter((s) => !isHiddenSagaEntry(s))
     .sort((a, b) => (Number(b.order) || 0) - (Number(a.order) || 0))
     .slice(0, 8);
+  if (!sorted.length) return;
   const rowId = "bento-row-universos";
 
   const block = document.createElement("div");
