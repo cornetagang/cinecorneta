@@ -384,6 +384,23 @@ function isDriveId(id) {
   );
 }
 
+// Acepta tanto el ID "pelado" de YouTube (11 caracteres) como una URL
+// completa (youtube.com/watch?v=, youtu.be/, /embed/, /shorts/) y
+// devuelve solo el ID, o null si no es de YouTube.
+function getYouTubeId(value) {
+  if (!value || typeof value !== "string") return null;
+  const v = value.trim();
+
+  const urlMatch = v.match(
+    /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/,
+  );
+  if (urlMatch) return urlMatch[1];
+
+  if (/^[A-Za-z0-9_-]{11}$/.test(v)) return v;
+
+  return null;
+}
+
 function buildWorkerUrl(type, driveId) {
   if (!driveId) return null;
   return `${WORKER_URL}/?id=${driveId}&type=${type}`;
@@ -2244,6 +2261,15 @@ if (grayscale) {
   }
 
   _mountIframeFallback(videoId) {
+    const ytId = getYouTubeId(videoId);
+    if (ytId) {
+      // youtube-nocookie.com: modo de privacidad ampliada, no setea
+      // cookies de tracking hasta que el usuario le da play.
+      const src = `https://www.youtube-nocookie.com/embed/${ytId}?rel=0&modestbranding=1`;
+      this.container.innerHTML = `<iframe src="${src}" style="width:100%; height:100%; border:none;" allowfullscreen allow="autoplay; fullscreen; encrypted-media; picture-in-picture"></iframe>`;
+      return;
+    }
+
     let src = `https://streamtape.com/e/${videoId}/`;
     if (/^\d+$/.test(videoId))
       src = `https://ok.ru/videoembed/${videoId}?nochat=1`;
