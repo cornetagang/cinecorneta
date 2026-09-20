@@ -481,6 +481,18 @@ function findHiddenUniverseId() {
   return found ? found.id : null;
 }
 
+function revealHiddenUniverse() {
+  const hiddenId = findHiddenUniverseId();
+  if (hiddenId) {
+    appState.ui._fromUniverse = hiddenId;
+    switchView("sagas");
+  } else {
+    console.warn(
+      "[Universo secreto] No se encontró ninguna saga con 'oculto'='si' en sagas_list.",
+    );
+  }
+}
+
 document.addEventListener("keydown", (e) => {
   // No interferir si el usuario está escribiendo en un campo real
   // (buscador, reseña, perfil, etc.)
@@ -507,15 +519,36 @@ document.addEventListener("keydown", (e) => {
 
   if (_secretCodeBuffer === SECRET_UNIVERSE_CODE.toLowerCase()) {
     _secretCodeBuffer = "";
-    const hiddenId = findHiddenUniverseId();
-    if (hiddenId) {
-      appState.ui._fromUniverse = hiddenId;
-      switchView("sagas");
-    } else {
-      console.warn(
-        "[Universo secreto] No se encontró ninguna saga con 'oculto'='si' en sagas_list.",
-      );
-    }
+    revealHiddenUniverse();
+  }
+});
+
+// ── Versión mobile: 5 taps seguidos sobre el logo ──
+// En celular no hay teclado físico, así que el código tecleado de
+// arriba nunca se puede disparar (el teclado en pantalla solo
+// aparece con un input enfocado). Este es el equivalente táctil:
+// 5 taps rápidos (menos de 600ms entre cada uno) sobre el logo del
+// header hacen lo mismo que escribir el código.
+//
+// Requiere que el elemento del logo en el HTML tenga el atributo
+// data-secret-logo, ej: <a class="logo" data-secret-logo>CINE CORNETA</a>
+const SECRET_TAP_COUNT = 5;
+const SECRET_TAP_WINDOW_MS = 600;
+let _secretTapCount = 0;
+let _secretTapLastAt = 0;
+
+document.addEventListener("click", (e) => {
+  const logoEl = e.target.closest("[data-secret-logo]");
+  if (!logoEl) return;
+
+  const now = Date.now();
+  if (now - _secretTapLastAt > SECRET_TAP_WINDOW_MS) _secretTapCount = 0;
+  _secretTapLastAt = now;
+  _secretTapCount++;
+
+  if (_secretTapCount >= SECRET_TAP_COUNT) {
+    _secretTapCount = 0;
+    revealHiddenUniverse();
   }
 });
 
