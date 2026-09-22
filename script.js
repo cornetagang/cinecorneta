@@ -78,6 +78,7 @@ let profileModule = null;
 let rouletteModule = null;
 let reviewsModule = null;
 let universesModule = null;
+let statsModule = null;
 
 async function getPlayerModule() {
   if (playerModule) return playerModule;
@@ -136,6 +137,17 @@ async function getRouletteModule() {
     addToHistoryIfLoggedIn,
   });
   rouletteModule = module;
+  return module;
+}
+
+// Estadísticas del cine: todo se calcula en memoria a partir de lo
+// que ya está en appState.content (catálogo + universos), no pide
+// nada nuevo al servidor. Igual de perezoso que Ruleta.
+async function getStatsModule() {
+  if (statsModule) return statsModule;
+  const module = await import("./features/stats.js?v=2");
+  module.initStats({ appState });
+  statsModule = module;
   return module;
 }
 
@@ -1176,6 +1188,12 @@ async function handleFilterClick(event) {
     return;
   }
 
+  if (filter === "stats") {
+    const stats = await getStatsModule();
+    stats.openStatsModal();
+    return;
+  }
+
   if (
     link.classList.contains("active") &&
     !["history", "my-list", "profile", "profile-hub", "settings"].includes(
@@ -1197,6 +1215,7 @@ async function handleFilterClick(event) {
 
 function updateActiveNav(filter) {
   if (filter === "roulette") return;
+  if (filter === "stats") return;
 
   document.querySelectorAll("a[data-filter]").forEach((link) => {
     link.classList.remove("active");
@@ -1219,6 +1238,12 @@ async function switchView(filter) {
   if (filter === "roulette") {
     const roulette = await getRouletteModule();
     roulette.openRouletteModal();
+    return;
+  }
+
+  if (filter === "stats") {
+    const stats = await getStatsModule();
+    stats.openStatsModal();
     return;
   }
 
