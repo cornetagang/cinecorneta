@@ -82,7 +82,7 @@ let statsModule = null;
 
 async function getPlayerModule() {
   if (playerModule) return playerModule;
-  const module = await import("./features/player.js?v=27");
+  const module = await import("./features/player.js?v=29");
   module.initPlayer({
     appState,
     DOM,
@@ -109,7 +109,7 @@ async function getPlayerModule() {
 
 async function getProfileModule() {
   if (profileModule) return profileModule;
-  const module = await import("./features/profile.js?v=8");
+  const module = await import("./features/profile.js?v=29");
   module.initProfile({
     appState,
     DOM,
@@ -125,7 +125,7 @@ async function getProfileModule() {
 
 async function getRouletteModule() {
   if (rouletteModule) return rouletteModule;
-  const module = await import("./features/roulette.js?v=8");
+  const module = await import("./features/roulette.js?v=29");
   module.initRoulette({
     appState,
     DOM,
@@ -145,7 +145,7 @@ async function getRouletteModule() {
 // nada nuevo al servidor. Igual de perezoso que Ruleta.
 async function getStatsModule() {
   if (statsModule) return statsModule;
-  const module = await import("./features/stats.js?v=2");
+  const module = await import("./features/stats.js?v=29");
   module.initStats({ appState });
   statsModule = module;
   return module;
@@ -153,7 +153,7 @@ async function getStatsModule() {
 
 async function getReviewsModule() {
   if (reviewsModule) return reviewsModule;
-  const module = await import("./features/reviews.js?v=8");
+  const module = await import("./features/reviews.js?v=29");
   module.initReviews({
     appState,
     DOM,
@@ -169,7 +169,7 @@ async function getReviewsModule() {
 
 async function getUniversesModule() {
   if (universesModule) return universesModule;
-  const module = await import("./features/universes.js?v=8");
+  const module = await import("./features/universes.js?v=29");
   module.initUniverses({
     appState,
     switchView,
@@ -8521,7 +8521,7 @@ window.openSmartReviewModal = async (contentId, type, title) => {
     return;
   }
 
-  const module = await import("./features/reviews.js?v=8");
+  const module = await import("./features/reviews.js?v=29");
 
   module.initReviews({
     appState,
