@@ -7,6 +7,32 @@
 
 let appState, DOM, auth, db, ErrorHandler, ModalManager, openConfirmationModal;
 
+// ===========================================================
+// SEGURIDAD: ESCAPE DE HTML PARA DATOS DE USUARIO
+// ===========================================================
+// Todo texto que venga de Firebase (reseñas, comentarios, nombres, URLs)
+// debe pasar por estas funciones antes de insertarse con innerHTML.
+function esc(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// Solo permite URLs http(s); cualquier otra cosa (javascript:, data:, etc.) se descarta.
+function safeUrl(url) {
+  const u = String(url ?? "").trim();
+  return /^https?:\/\//i.test(u) ? esc(u) : "";
+}
+
+// Iniciales seguras: solo letras/números (sirve dentro de atributos y HTML).
+function safeInitials(name, len = 2) {
+  const clean = String(name ?? "").replace(/[^\p{L}\p{N}]/gu, "");
+  return (clean.substring(0, len) || "U").toUpperCase();
+}
+
 // Handler global para avatar roto — evita problemas de escaping en onerror HTML
 window.onAvatarError = function(el) {
   el.parentElement.innerHTML = '<i class="fas fa-user rc-avatar-icon"></i>';
@@ -129,7 +155,7 @@ function _syncWriteReviewTrigger() {
   avatarEls.forEach((avatarEl) => {
     if (!avatarEl) return;
     if (user.photoURL) {
-      avatarEl.innerHTML = `<img src="${user.photoURL}" alt="">`;
+      avatarEl.innerHTML = `<img src="${safeUrl(user.photoURL)}" alt="">`;
     } else {
       const name = user.displayName || user.email?.split("@")[0] || "U";
       const initials = name.slice(0, 2).toUpperCase();
@@ -405,8 +431,17 @@ function updateStarVisuals(value, isHover = false) {
 
 function resetReviewForm() {
   editingReviewId = null;
-  const submitBtn = DOM.reviewForm?.querySelector('button[type="submit"]');
-  if (submitBtn) submitBtn.textContent = "Publicar Reseña";
+  const submitBtn =
+    document.getElementById("irc-submit-btn") ||
+    DOM.reviewForm?.querySelector('button[type="submit"]');
+  if (submitBtn) {
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Publicar reseña";
+  }
+  const _drawerTitle = document.querySelector(".irc-drawer-title");
+  if (_drawerTitle) _drawerTitle.textContent = "Escribir Reseña";
+  const _changeBtn = document.querySelector(".btn-change-selection");
+  if (_changeBtn) _changeBtn.style.display = "";
   if (DOM.reviewForm) DOM.reviewForm.reset();
 
   const ratingInput    = document.getElementById("review-rating-value");
@@ -538,8 +573,8 @@ function _renderResults(optionsList, term, onSelect) {
     const div = document.createElement("div");
     div.className = "custom-option custom-option-rich";
     div.innerHTML = `
-      <img src="${item.poster}" alt="" loading="lazy">
-      <span class="custom-option-title">${item.title}${
+      <img src="${safeUrl(item.poster)}" alt="" loading="lazy">
+      <span class="custom-option-title">${esc(item.title)}${
         item._isSpecial ? ' <em style="font-size:0.72rem;color:#888;">(Película)</em>' : ""
       }</span>
     `;
@@ -631,6 +666,29 @@ function loadAllContentOptions() {
   _searchIndex = null; // forzar reconstrucción en la próxima búsqueda
 }
 
+
+// ===========================================================
+// UTIL: NOTIFICACIONES Y VALIDACIÓN VISUAL
+// ===========================================================
+// Usa el toast estilizado (window.showNotification) y cae al ErrorHandler si no existe.
+function notify(message, type = "error", fallbackKind = "content") {
+  if (window.showNotification) {
+    window.showNotification(message, type);
+  } else {
+    ErrorHandler.show(type === "success" ? "success" : fallbackKind, message);
+  }
+}
+
+// Marca un campo con error (borde rojo + sacudida) y lo limpia solo.
+function flagFieldError(el, focusEl = null) {
+  if (!el) return;
+  el.classList.remove("irc-field-error");
+  void el.offsetWidth; // reinicia la animación
+  el.classList.add("irc-field-error");
+  setTimeout(() => el.classList.remove("irc-field-error"), 1600);
+  if (focusEl) focusEl.focus();
+}
+
 // ===========================================================
 // LÓGICA: ENVIAR RESEÑA
 // ===========================================================
@@ -641,7 +699,7 @@ async function handleReviewSubmit(e) {
 
   const user = auth.currentUser;
   if (!user) {
-    ErrorHandler.show("auth", "Debes iniciar sesión.");
+    notify("Debes iniciar sesión.", "error", "auth");
     return;
   }
 
@@ -651,12 +709,27 @@ async function handleReviewSubmit(e) {
   const rating = document.getElementById("review-rating-value")?.value;
   const text = document.getElementById("review-text-input")?.value.trim();
 
-  if (!contentId)
-    return ErrorHandler.show("content", "Selecciona una película.");
-  if (rating === "0" || !rating)
-    return ErrorHandler.show("content", "Debes dar una calificación.");
-  if (!text || text.length < 2)
-    return ErrorHandler.show("content", "Escribe una reseña válida.");
+  if (!contentId) {
+    notify("Selecciona una película o serie de la lista.");
+    flagFieldError(
+      document.getElementById("irc-search-container"),
+      document.getElementById("review-movie-search"),
+    );
+    return;
+  }
+  if (rating === "0" || !rating) {
+    notify("Debes dar una calificación.");
+    flagFieldError(document.querySelector(".irc-stars-box"));
+    return;
+  }
+  if (!text || text.length < 2) {
+    notify("Escribe una reseña válida (mínimo 2 caracteres).");
+    flagFieldError(
+      document.getElementById("review-text-input"),
+      document.getElementById("review-text-input"),
+    );
+    return;
+  }
 
   // Referencia al botón según si es inline o modal
   const submitBtn = isInline
@@ -665,7 +738,7 @@ async function handleReviewSubmit(e) {
 
   if (submitBtn) {
     submitBtn.disabled = true;
-    submitBtn.textContent = "Publicando...";
+    submitBtn.textContent = editingReviewId ? "Actualizando..." : "Publicando...";
   }
 
   try {
@@ -676,9 +749,8 @@ async function handleReviewSubmit(e) {
         text: text,
         editedAt: firebase.database.ServerValue.TIMESTAMP,
       });
-      if (window.showNotification)
-        window.showNotification("¡Reseña actualizada!", "success");
-      else ErrorHandler.show("success", "¡Reseña actualizada!");
+      notify("¡Reseña actualizada!", "success");
+      
       if (isInline) {
         collapseReviewComposer();
       } else {
@@ -687,7 +759,7 @@ async function handleReviewSubmit(e) {
       resetReviewForm();
       if (submitBtn) {
         submitBtn.disabled = false;
-        submitBtn.textContent = "Publicar Reseña";
+        submitBtn.textContent = "Publicar reseña";
       }
       return;
     }
@@ -730,7 +802,6 @@ async function handleReviewSubmit(e) {
     await db.ref("reviews").push({
       userId: user.uid,
       userName: user.displayName || "Usuario",
-      userEmail: user.email,
       userPhotoURL: user.photoURL || null,
       contentId: contentId,
       contentType: contentType,
@@ -757,11 +828,11 @@ async function handleReviewSubmit(e) {
     resetReviewForm();
   } catch (error) {
     console.error("Error:", error);
-    ErrorHandler.show("database", "Error al publicar.");
+    notify("Error al publicar. Intenta nuevamente.", "error", "database");
   } finally {
     if (submitBtn) {
       submitBtn.disabled = false;
-      submitBtn.textContent = "Publicar Reseña";
+      submitBtn.textContent = "Publicar reseña";
     }
   }
 }
@@ -1119,9 +1190,9 @@ function _renderUsersPanel(reviews) {
   list.innerHTML = "";
 
   users.forEach((u) => {
-    const initials = u.name.substring(0, 2).toUpperCase();
+    const initials = safeInitials(u.name);
     const avatarHTML = u.photo
-      ? `<img src="${u.photo}" alt="" onerror="this.parentElement.innerHTML='<span>${initials}</span>'">`
+      ? `<img src="${safeUrl(u.photo)}" alt="" onerror="this.parentElement.innerHTML='<span>${initials}</span>'">`
       : `<span>${initials}</span>`;
 
     const li = document.createElement("li");
@@ -1130,7 +1201,7 @@ function _renderUsersPanel(reviews) {
     li.innerHTML = `
       <div class="rsp-user-avatar">${avatarHTML}</div>
       <div class="rsp-user-info">
-        <span class="rsp-user-name">@${u.name}</span>
+        <span class="rsp-user-name">@${esc(u.name)}</span>
         <span class="rsp-user-count">${u.count} reseña${u.count !== 1 ? "s" : ""}</span>
       </div>`;
 
@@ -1351,7 +1422,7 @@ function createReviewCard(review, initialCommentCount = 0) {
       : "";
 
   const editBtnHTML = isOwner
-    ? `<button class="btn-edit-review" data-review-id="${review.id}" data-stars="${review.stars}" data-content-id="${review.contentId || ""}" data-content-type="${review.contentType || "movie"}" data-title="${(review.contentTitle || "").replace(/"/g, "&quot;")}" title="Editar reseña"><i class="fas fa-pen"></i></button>`
+    ? `<button class="btn-edit-review" data-review-id="${review.id}" data-stars="${esc(review.stars)}" data-content-id="${esc(review.contentId || "")}" data-content-type="${esc(review.contentType || "movie")}" data-title="${esc(review.contentTitle || "")}" title="Editar reseña"><i class="fas fa-pen"></i></button>`
     : "";
 
   const fullText = review.text || "";
@@ -1362,9 +1433,9 @@ function createReviewCard(review, initialCommentCount = 0) {
     (auth.currentUser?.uid === review.userId
       ? auth.currentUser?.photoURL
       : null);
-  const initials = (review.userName || "U").substring(0, 2).toUpperCase();
+  const initials = safeInitials(review.userName);
   const avatarHTML = photo
-    ? `<div class="rc-avatar"><img src="${photo}" alt="" onerror="onAvatarError(this)"></div>`
+    ? `<div class="rc-avatar"><img src="${safeUrl(photo)}" alt="" onerror="onAvatarError(this)"></div>`
     : `<div class="rc-avatar">${initials}</div>`;
 
   card.innerHTML = `
@@ -1384,22 +1455,22 @@ function createReviewCard(review, initialCommentCount = 0) {
             <!-- Floor: poster + título + autor + estrellas -->
             <div class="rc-media-floor">
                 <img class="rc-media-poster"
-                     src="${review.poster || ""}"
-                     alt="${review.contentTitle || ""}"
+                     src="${safeUrl(review.poster)}"
+                     alt="${esc(review.contentTitle || "")}"
                      onerror="this.src='https://res.cloudinary.com/djhgmmdjx/image/upload/v1759209689/u71QEFc_bet4rv.png'">
                 <div class="rc-media-info">
-                    <h3 class="rc-media-film-title">${review.contentTitle || ""}</h3>
+                    <h3 class="rc-media-film-title">${esc(review.contentTitle || "")}</h3>
                     <div class="rc-media-meta">
                         ${avatarHTML}
                         <span class="rc-author-name rc-author-link"
-                              data-userid="${review.userId}"
-                              data-username="${review.userName}"
-                              data-photo="${photo || ""}">@${review.userName}</span>
+                              data-userid="${esc(review.userId)}"
+                              data-username="${esc(review.userName)}"
+                              data-photo="${safeUrl(photo)}">@${esc(review.userName)}</span>
                         <span class="rc-yt-dot rc-meta-full">·</span>
                         <span class="rc-date rc-meta-full">${date}</span>
                         <span class="rc-date rc-meta-short">${dateShort}</span>
                     </div>
-                    <div class="rc-stars">${starsHTML}<span class="rc-stars-num">${review.stars}/5</span></div>
+                    <div class="rc-stars">${starsHTML}<span class="rc-stars-num">${esc(review.stars)}/5</span></div>
                 </div>
             </div>
         </div>
@@ -1408,7 +1479,7 @@ function createReviewCard(review, initialCommentCount = 0) {
         <div class="rc-body">
 
             <!-- Texto de la reseña -->
-            <p class="rc-text">${fullText}</p>
+            <p class="rc-text">${esc(fullText)}</p>
 
             <!-- Footer: like + comentarios -->
             <div class="social-footer">
@@ -1941,7 +2012,7 @@ export function openFullReview(reviewData) {
   document.getElementById("frm-text").textContent = reviewData.text || "";
   document.getElementById("frm-stars").innerHTML =
     renderStarsFromValue(reviewData.stars || 0) +
-    `<span style="margin-left:6px;font-size:0.82rem;color:var(--text-muted)">${reviewData.stars}/5</span>`;
+    `<span style="margin-left:6px;font-size:0.82rem;color:var(--text-muted)">${esc(reviewData.stars)}/5</span>`;
 
   // ── Fecha ───────────────────────────────────────────────────
   document.getElementById("frm-date").textContent = reviewData.timestamp
@@ -1954,10 +2025,10 @@ export function openFullReview(reviewData) {
   const photo =
     reviewData.userPhotoURL ||
     (auth.currentUser?.uid === reviewData.userId ? auth.currentUser?.photoURL : null);
-  const initials = (reviewData.userName || "U").substring(0, 2).toUpperCase();
+  const initials = safeInitials(reviewData.userName);
   const avatarEl = document.getElementById("frm-avatar");
   avatarEl.innerHTML = photo
-    ? `<img src="${photo}" alt="" onerror="this.parentElement.innerHTML='<span>${initials}</span>'">`
+    ? `<img src="${safeUrl(photo)}" alt="" onerror="onAvatarError(this)">`
     : `<span>${initials}</span>`;
   document.getElementById("frm-author").textContent = `@${reviewData.userName}`;
 
@@ -2274,15 +2345,15 @@ function _loadCommentsInModal(reviewId, listEl, onCountUpdate = null) {
           <i class="fas fa-user-circle crm-comment-avatar" style="flex-shrink:0;"></i>
           <div class="crm-comment-bubble" style="flex:1;min-width:0;overflow:hidden;box-sizing:border-box;">
             <div class="crm-comment-meta">
-              <span class="crm-comment-user">@${comment.userName || "Usuario"}</span>
+              <span class="crm-comment-user">@${esc(comment.userName || "Usuario")}</span>
               <span class="crm-comment-date">${dateStr}</span>
               ${deleteBtn}
             </div>
             ${(comment.text || comment.body || comment.content || comment.message)
-              ? `<p class="crm-comment-text" style="word-break:break-word;overflow-wrap:break-word;">${comment.text || comment.body || comment.content || comment.message}</p>`
+              ? `<p class="crm-comment-text" style="word-break:break-word;overflow-wrap:break-word;">${esc(comment.text || comment.body || comment.content || comment.message)}</p>`
               : ""}
-            ${comment.imageUrl ? `<img class="crm-comment-img" src="${comment.imageUrl}" alt="imagen" loading="lazy" style="max-width:100%;height:auto;display:block;border-radius:8px;margin-top:6px;">` : ""}
-            ${comment.gifUrl ? `<img class="crm-comment-img crm-comment-gif" src="${comment.gifUrl}" alt="gif" loading="lazy" style="max-width:100%;height:auto;display:block;border-radius:8px;margin-top:6px;">` : ""}
+            ${comment.imageUrl ? `<img class="crm-comment-img" src="${safeUrl(comment.imageUrl)}" alt="imagen" loading="lazy" style="max-width:100%;height:auto;display:block;border-radius:8px;margin-top:6px;">` : ""}
+            ${comment.gifUrl ? `<img class="crm-comment-img crm-comment-gif" src="${safeUrl(comment.gifUrl)}" alt="gif" loading="lazy" style="max-width:100%;height:auto;display:block;border-radius:8px;margin-top:6px;">` : ""}
           </div>`;
 
         // Lightbox en imágenes
@@ -2307,7 +2378,7 @@ function _loadCommentsInModal(reviewId, listEl, onCountUpdate = null) {
 window.openFullReview = openFullReview;
 
 // ===========================================================
-// ADMIN: ELIMINAR RESEÑA
+// EDITAR RESEÑA (usa el composer inline)
 // ===========================================================
 export function editReview(
   reviewId,
@@ -2319,52 +2390,77 @@ export function editReview(
 ) {
   const user = auth.currentUser;
   if (!user) return;
-  const reviewModal = document.getElementById("review-form-modal");
-  if (!reviewModal) return;
-  resetReviewForm();
-  editingReviewId = reviewId;
-  const inputContainer = document.querySelector(
-    ".custom-select-input-container",
-  );
-  const selectedDisplay = document.getElementById("review-selected-display");
-  const selectedTitle = document.getElementById("review-selected-title");
-  if (inputContainer) inputContainer.style.display = "none";
-  if (selectedDisplay) selectedDisplay.style.display = "block";
-  if (selectedTitle)
-    selectedTitle.textContent = contentTitle || "Editando reseña";
-  const hiddenId = document.getElementById("review-selected-id");
-  const hiddenType = document.getElementById("review-content-type");
-  if (hiddenId) hiddenId.value = contentId || reviewId;
-  if (hiddenType) hiddenType.value = contentType || "movie";
-  const textInput = document.getElementById("review-text-input");
-  if (textInput) textInput.value = text;
-  const ratingInput = document.getElementById("review-rating-value");
-  const ratingLabel = document.getElementById("review-rating-label");
-  if (ratingInput) {
-    ratingInput.value = stars;
+
+  const _openEditor = () => {
+    const expanded = document.getElementById("irc-expanded");
+    const collapsed = document.getElementById("irc-collapsed");
+    if (!expanded) {
+      console.error("[Reviews] No existe #irc-expanded; no se puede editar.");
+      return;
+    }
+
+    // Limpia el formulario y DESPUÉS marca que estamos editando
+    resetReviewForm();
+    editingReviewId = reviewId;
+
+    // Mostrar el composer inline
+    if (collapsed) collapsed.style.display = "none";
+    expanded.classList.add("irc-expanded--open");
+    if (window.innerWidth <= 860) {
+      document.getElementById("irc-backdrop")?.classList.add("show");
+      document.body.style.overflow = "hidden";
+    }
+
+    // Contenido (no editable): ocultar buscador y mostrar título fijo
+    const inputContainer = document.getElementById("irc-search-container");
+    const selectedDisplay = document.getElementById("review-selected-display");
+    const selectedTitle = document.getElementById("review-selected-title");
+    const changeBtn = selectedDisplay?.querySelector(".btn-change-selection");
+    selectedDisplay?.querySelector(".review-selected-poster")?.remove();
+    if (inputContainer) inputContainer.style.display = "none";
+    if (selectedDisplay) selectedDisplay.style.display = "block";
+    if (selectedTitle)
+      selectedTitle.textContent = contentTitle || "Editando reseña";
+    if (changeBtn) changeBtn.style.display = "none";
+
+    const hiddenId = document.getElementById("review-selected-id");
+    const hiddenType = document.getElementById("review-content-type");
+    if (hiddenId) hiddenId.value = contentId || reviewId;
+    if (hiddenType) hiddenType.value = contentType || "movie";
+
+    // Texto y calificación
+    const textInput = document.getElementById("review-text-input");
+    if (textInput) textInput.value = text || "";
+
+    const val = parseFloat(stars) || 0;
+    const ratingInput = document.getElementById("review-rating-value");
+    const ratingLabel = document.getElementById("review-rating-label");
+    if (ratingInput) ratingInput.value = val;
+    updateStarVisuals(val, false);
+    if (ratingLabel)
+      ratingLabel.textContent = val.toFixed(1).replace(".", ",");
+
+    // Título y texto del drawer + botón
+    const drawerTitle = expanded.querySelector(".irc-drawer-title");
+    if (drawerTitle) drawerTitle.textContent = "Editar Reseña";
+    const submitBtn = document.getElementById("irc-submit-btn");
+    if (submitBtn) submitBtn.textContent = "Actualizar reseña";
+
     setTimeout(() => {
-      const val = parseFloat(stars);
-      const container = document.getElementById("star-rating-input");
-      if (container) {
-        container.querySelectorAll(".star-wrapper").forEach((wrapper, i) => {
-          const icon = wrapper.querySelector(".star-icon");
-          if (!icon) return;
-          const diff = val - i;
-          if (diff >= 1) icon.className = "fas fa-star star-icon";
-          else if (diff >= 0.5)
-            icon.className = "fas fa-star-half-alt star-icon";
-          else icon.className = "far fa-star star-icon";
-          icon.style.fontSize = "2rem";
-          icon.style.pointerEvents = "none";
-        });
-      }
-    }, 50);
+      expanded.scrollIntoView({ behavior: "smooth", block: "start" });
+      textInput?.focus();
+    }, 120);
+  };
+
+  // Asegurar que la vista de reseñas esté visible
+  const reviewsContainer = document.getElementById("reviews-container");
+  const isVisible =
+    reviewsContainer && reviewsContainer.style.display !== "none";
+  if (!isVisible && window.switchView) {
+    window.switchView("reviews").then(() => setTimeout(_openEditor, 200));
+  } else {
+    _openEditor();
   }
-  if (ratingLabel) ratingLabel.textContent = `${stars}/5`;
-  const submitBtn = DOM.reviewForm?.querySelector('button[type="submit"]');
-  if (submitBtn) submitBtn.textContent = "Actualizar Reseña";
-  reviewModal.classList.add("show");
-  document.body.classList.add("modal-open");
 }
 window.editReview = editReview;
 
@@ -2676,15 +2772,15 @@ export async function openContentReviews(contentId, contentTitle) {
                               ? auth.currentUser?.photoURL
                               : null);
                           return photo
-                            ? `<img src="${photo}" class="crm-user-photo" alt="${review.userName}">`
+                            ? `<img src="${safeUrl(photo)}" class="crm-user-photo" alt="${esc(review.userName)}">`
                             : `<i class="fas fa-user-circle crm-user-icon"></i>`;
                         })()}
-                        <span class="crm-username">@${review.userName}</span>
+                        <span class="crm-username">@${esc(review.userName)}</span>
                         <span class="crm-date">${date}</span>
                     </div>
                     <div class="crm-card-stars">${starsHTML}</div>
                 </div>
-                <p class="crm-card-text">${shortText}</p>
+                <p class="crm-card-text">${esc(shortText)}</p>
                 ${isTruncated ? `<button class="crm-read-more">Leer reseña completa <i class="fas fa-chevron-down"></i></button>` : ""}
                 <div class="crm-comments-section">
                     <button class="crm-toggle-comments" data-review-id="${review.id}">
@@ -2865,13 +2961,13 @@ function loadComments(reviewId, card, onCountUpdate = null) {
                 <i class="fas fa-user-circle crm-comment-avatar" style="flex-shrink:0;"></i>
                 <div class="crm-comment-bubble" style="flex:1;min-width:0;overflow:hidden;box-sizing:border-box;">
                     <div class="crm-comment-meta">
-                        <span class="crm-comment-user">@${comment.userName}</span>
+                        <span class="crm-comment-user">@${esc(comment.userName)}</span>
                         <span class="crm-comment-date">${date}</span>
                         ${deleteBtn}
                     </div>
-                    ${comment.text ? `<p class="crm-comment-text" style="word-break:break-word;overflow-wrap:break-word;">${comment.text}</p>` : ""}
-                    ${comment.imageUrl ? `<img class="crm-comment-img" src="${comment.imageUrl}" alt="imagen" loading="lazy" style="max-width:100%;height:auto;display:block;">` : ""}
-                    ${comment.gifUrl ? `<img class="crm-comment-img crm-comment-gif" src="${comment.gifUrl}" alt="gif" loading="lazy" style="max-width:100%;height:auto;display:block;">` : ""}
+                    ${comment.text ? `<p class="crm-comment-text" style="word-break:break-word;overflow-wrap:break-word;">${esc(comment.text)}</p>` : ""}
+                    ${comment.imageUrl ? `<img class="crm-comment-img" src="${safeUrl(comment.imageUrl)}" alt="imagen" loading="lazy" style="max-width:100%;height:auto;display:block;">` : ""}
+                    ${comment.gifUrl ? `<img class="crm-comment-img crm-comment-gif" src="${safeUrl(comment.gifUrl)}" alt="gif" loading="lazy" style="max-width:100%;height:auto;display:block;">` : ""}
                 </div>
             `;
         // Lightbox al click en imagen
@@ -2945,14 +3041,14 @@ export async function openUserProfile(userId, userName, photoURL) {
       <div class="upm-header-info">
         <div class="upm-avatar-wrap">
           ${photoURL
-            ? `<img src="${photoURL}" alt="avatar" class="upm-avatar" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+            ? `<img src="${safeUrl(photoURL)}" alt="avatar" class="upm-avatar" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
             : ""}
           <div class="upm-avatar-placeholder" style="${photoURL ? "display:none" : ""}">
             <i class="fas fa-user-circle"></i>
           </div>
         </div>
         <div>
-          <h2 class="upm-username">@${userName}</h2>
+          <h2 class="upm-username">@${esc(userName)}</h2>
           <div class="upm-stats-row" id="upm-stats-row">
             <span><i class="fas fa-film"></i> <b>—</b> Películas</span>
             <span><i class="fas fa-tv"></i> <b>—</b> Series</span>
@@ -3013,9 +3109,9 @@ export async function openUserProfile(userId, userName, photoURL) {
 
     const renderPosters = (items) => items.map(item => `
       <div class="upm-card">
-        <img src="${item.poster || FALLBACK}" alt="${item.title}" class="upm-card-poster"
+        <img src="${safeUrl(item.poster) || FALLBACK}" alt="${esc(item.title)}" class="upm-card-poster"
              onerror="this.src='${FALLBACK}'">
-        <p class="upm-card-title">${item.title || ""}</p>
+        <p class="upm-card-title">${esc(item.title || "")}</p>
       </div>
     `).join("");
 
