@@ -25933,3 +25933,18 @@ body:has(#full-review-modal.show) {
   margin-top: 2px;
 }
 .sp-movie-card-dur i { font-size: 0.6rem; opacity: 0.75; }
+/* ===== Validación visual del composer de reseñas ===== */
+.irc-field-error {
+  outline: 1px solid #e74c3c;
+  outline-offset: 2px;
+  border-radius: 8px;
+  animation: ircShake 0.4s ease;
+}
+
+@keyframes ircShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
