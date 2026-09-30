@@ -1,0 +1,419 @@
+/* =============================================================
+   THEMES.CSS — Temas estacionales de Cine Corneta
+   -------------------------------------------------------------
+   Secciones:
+     1. COMÚN        capa de efectos y reglas compartidas
+     2. HALLOWEEN    html.tema-halloween
+     3. MODO LIVIANO html.modo-liviano (equipos débiles)
+     4. NAVIDAD      html.tema-navidad (vacío, pendiente)
+
+   Reglas de uso
+   - La clase del tema va en <html> (la pone el script del <head>
+     antes del primer render, así no hay parpadeo azul).
+   - applyColor() escribe --accent-color en un style inline de
+     <html>. Un style inline gana a cualquier regla de este archivo,
+     por lo que si el usuario eligió un acento, se respeta. El tema
+     solo actúa cuando no hay acento elegido.
+   - Un solo tema activo a la vez. Nada aquí toca el reproductor.
+   - Subir ?v= de este archivo en index.html cuando cambie.
+   ============================================================= */
+
+
+/* =============================================================
+   1. COMÚN
+   ============================================================= */
+
+/* Contenedor de efectos (niebla, brasas, nieve). Lo crea el JS
+   del tema, solo si el tema está activo. No captura clics. */
+.theme-fx-layer {
+  position: fixed;
+  inset: 0;
+  z-index: -1;              /* detrás de todo el contenido, sobre el fondo de la página */
+  pointer-events: none;
+  overflow: hidden;
+  contain: strict;
+}
+
+/* Decoración fija (telarañas, arañas). Va POR ENCIMA del contenido, por eso
+   se oculta con un modal o el reproductor abiertos (lo hace fx-themes.js con
+   .fx-hidden). Si tapa o queda bajo el menú, ajustar --theme-deco-z. */
+.theme-deco-layer {
+  position: fixed;
+  inset: 0;
+  z-index: var(--theme-deco-z, 900);
+  pointer-events: none;
+  overflow: hidden;
+  contain: strict;
+  transition: opacity 0.3s ease;
+}
+.theme-deco-layer.fx-hidden {
+  opacity: 0;
+  visibility: hidden;
+}
+.theme-deco-layer.fx-paused * {
+  animation-play-state: paused !important;
+}
+html.tema-fx-off .theme-deco-layer {
+  display: none;
+}
+
+/* El JS pone esta clase en <html> cuando hay que dejar la pantalla
+   limpia: reproductor abierto, equipo lento o el usuario apagó el tema. */
+html.tema-fx-off .theme-fx-layer {
+  display: none;
+}
+
+/* Pausa (pestaña oculta, modal abierto): congela sin reiniciar. */
+.theme-fx-layer.fx-paused * {
+  animation-play-state: paused !important;
+}
+
+/* Movimiento reducido: lo decide theme-manager.js (pone tema-fx-off y
+   ni siquiera crea la capa), así una sola bandera controla todo. */
+
+
+/* =============================================================
+   2. HALLOWEEN
+   ============================================================= */
+
+:root.tema-halloween {
+  /* Acento: calabaza. rgb y dark siguen el mismo cálculo que
+     applyColor (dark = 55 % del color) para que todo combine. */
+  --accent-color: #ff7a1a;
+  --accent-rgb: 255, 122, 26;
+  --accent-dark: #8c430e;
+
+  /* Fondos con un tinte morado muy leve (originales: #05070a / #18191a) */
+  --bg-dark: #07050d;
+  --panel-dark: #1a1422;
+
+  /* Tokens propios del tema, para usar en los efectos y detalles */
+  --theme-secondary: #6d28d9;
+  --theme-secondary-rgb: 109, 40, 217;
+  --theme-deep: #1e0b36;
+  --theme-fog: 196, 181, 224;      /* rgb de la niebla */
+  --theme-ember: 255, 150, 60;     /* rgb de las brasas */
+}
+
+/* El fondo pasa de <body> a <html> para que la capa de efectos (z-index
+   negativo) quede visible por detrás del contenido y no tapada por el
+   fondo del body. Solo cambia el color; imágenes o degradados del body
+   se conservan. */
+:root.tema-halloween {
+  background-color: var(--bg-dark);
+}
+:root.tema-halloween body {
+  background-color: transparent;
+}
+
+/* Logo de texto (nav .logo): brillo de calabaza sutil.
+   Es el único adorno fijo; el resto queda en manos del acento. */
+:root.tema-halloween nav .logo {
+  text-shadow:
+    0 0 10px rgba(var(--accent-rgb), 0.55),
+    0 0 26px rgba(var(--theme-secondary-rgb), 0.45);
+}
+
+/* La O de "CORNETA" es una calabaza (la pone theme-manager.js).
+   Toma el color del texto, así sigue al acento que elija el usuario. */
+:root.tema-halloween .logo-calabaza {
+  display: inline-block;
+  width: 0.95em;
+  height: 0.95em;
+  margin: 0 0.03em;
+  vertical-align: -0.14em;
+  filter: drop-shadow(0 0 6px rgba(var(--accent-rgb), 0.55));
+}
+:root.tema-halloween .logo-calabaza svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Selección de texto con la paleta del tema */
+:root.tema-halloween ::selection {
+  background: rgba(var(--accent-rgb), 0.85);
+  color: #140a04;
+}
+
+/* Capas de ambiente (las rellena fx-halloween.js) */
+:root.tema-halloween .theme-fx-layer .fx-fog {
+  position: absolute;
+  inset: -10% -20%;
+  background:
+    radial-gradient(60% 40% at 20% 85%, rgba(var(--theme-fog), 0.16), transparent 70%),
+    radial-gradient(55% 35% at 75% 92%, rgba(var(--theme-secondary-rgb), 0.22), transparent 70%);
+  animation: halloween-fog-drift 38s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+:root.tema-halloween .theme-fx-layer .fx-ember {
+  position: absolute;
+  bottom: -12px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgb(var(--theme-ember));
+  box-shadow: 0 0 6px 1px rgba(var(--theme-ember), 0.8);
+  opacity: 0;
+  animation: halloween-ember-rise linear infinite;
+  will-change: transform, opacity;
+}
+
+/* Telarañas en las esquinas superiores (las dibuja fx-themes.js) */
+:root.tema-halloween .theme-deco-layer .fx-web {
+  position: absolute;
+  top: 0;
+  width: clamp(104px, 16vw, 230px);
+  aspect-ratio: 1;
+  color: rgba(var(--theme-fog), 0.55);
+  -webkit-mask-image: radial-gradient(circle at 0 0, #000 45%, transparent 98%);
+  mask-image: radial-gradient(circle at 0 0, #000 45%, transparent 98%);
+}
+:root.tema-halloween .theme-deco-layer .fx-web--tl { left: 0; }
+:root.tema-halloween .theme-deco-layer .fx-web--tr { right: 0; transform: scaleX(-1); }
+:root.tema-halloween .theme-deco-layer .fx-web svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 0 2px rgba(var(--theme-fog), 0.35));
+}
+
+/* Arañas colgando de un hilo. El hilo es un ::before muy largo que sube hasta
+   fuera de pantalla; el balanceo gira alrededor de un punto lejano arriba,
+   así el movimiento es de péndulo. */
+:root.tema-halloween :is(.theme-deco-layer, .fx-player-deco) .fx-spider {
+  position: absolute;
+  width: calc(38px * var(--spider-scale, 1));
+  height: calc(38px * var(--spider-scale, 1));
+  margin-left: calc(-19px * var(--spider-scale, 1));
+  animation: halloween-spider-bob ease-in-out infinite alternate;
+  will-change: transform;
+}
+:root.tema-halloween :is(.theme-deco-layer, .fx-player-deco) .fx-spider-sway {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% -80vh;
+  animation: halloween-spider-sway 5.5s ease-in-out infinite alternate;
+}
+:root.tema-halloween :is(.theme-deco-layer, .fx-player-deco) .fx-spider-sway::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 72%;
+  width: 1px;
+  height: 100vh;
+  background: linear-gradient(to bottom, transparent, rgba(var(--theme-fog), 0.6) 45%);
+}
+:root.tema-halloween :is(.theme-deco-layer, .fx-player-deco) .fx-spider svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
+}
+:root.tema-halloween .fx-spider .sp-body {
+  fill: #140b1f;
+  stroke: rgb(var(--theme-secondary-rgb));
+  stroke-width: 0.8;
+}
+:root.tema-halloween .fx-spider .sp-legs { stroke: #241338; }
+:root.tema-halloween .fx-spider .sp-mark { fill: rgb(var(--accent-rgb)); opacity: 0.9; }
+:root.tema-halloween .fx-spider .sp-eye  { fill: #ff4a3d; }
+
+@keyframes halloween-spider-bob {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(0, var(--bob, 60px), 0); }
+}
+@keyframes halloween-spider-sway {
+  from { transform: rotate(calc(var(--sway, 1.6deg) * -1)); }
+  to   { transform: rotate(var(--sway, 1.6deg)); }
+}
+
+/* ── Dentro del reproductor ──────────────────────────────────
+   fx-themes.js agrega un .fx-player-deco dentro de las franjas de info que
+   hay debajo del video (.dv-player-info, .sp-ep-info-strip,
+   .sp-details-mobile). Va recortado a la franja, sin capturar clics, y
+   nunca toca el video. */
+.fx-player-deco {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  border-radius: inherit;
+  z-index: 1;
+}
+html.tema-fx-off .fx-player-deco { display: none; }
+body.tab-inactive .fx-player-deco *,
+body.modal-open .fx-player-deco * {
+  animation-play-state: paused !important;
+}
+
+:root.tema-halloween .fx-player-deco .fx-pweb {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: clamp(72px, 9vw, 124px);
+  aspect-ratio: 1;
+  color: rgba(var(--theme-fog), 0.5);
+  transform: scaleX(-1);
+  -webkit-mask-image: radial-gradient(circle at 0 0, #000 45%, transparent 98%);
+  mask-image: radial-gradient(circle at 0 0, #000 45%, transparent 98%);
+}
+:root.tema-halloween .fx-player-deco .fx-pweb svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+/* La araña cuelga del borde superior de la franja (o sea, del borde inferior
+   del video) y baja un poco; el hilo queda recortado por la propia franja. */
+:root.tema-halloween .fx-player-deco .fx-spider {
+  top: 5px;
+  left: auto;
+  right: 22%;
+  margin-left: 0;
+}
+
+/* Marco sutil alrededor del video: solo un contorno fino con el acento */
+:root.tema-halloween :is(.dv-video-wrap, .sp-video-wrap) {
+  outline: 1px solid rgba(var(--accent-rgb), 0.28);
+  outline-offset: 0;
+}
+
+@keyframes halloween-fog-drift {
+  from { transform: translate3d(-4%, 0, 0); }
+  to   { transform: translate3d(4%, -2%, 0); }
+}
+
+@keyframes halloween-ember-rise {
+  0%   { transform: translate3d(0, 0, 0) scale(1);        opacity: 0; }
+  12%  { opacity: 0.9; }
+  100% { transform: translate3d(var(--ember-drift, 30px), -105vh, 0) scale(0.4); opacity: 0; }
+}
+
+
+/* Reseñas con calabazas: todas las estrellas de Font Awesome (.fa-star) se
+   dibujan como una calabaza tallada. Es una máscara pintada con el color del
+   texto (currentColor), así que las estrellas llenas, vacías y al pasar el
+   mouse siguen usando los mismos colores de siempre. */
+:root.tema-halloween {
+  --pumpkin-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill-rule='evenodd' d='M16 8.6C18 7.6 22 7.4 25.2 10.4C28.6 13.4 29.6 18.6 27.6 23C26 26.6 22.6 28.6 19 28.6C17.8 28.6 16.8 28.2 16 27.6C15.2 28.2 14.2 28.6 13 28.6C9.4 28.6 6 26.6 4.4 23C2.4 18.6 3.4 13.4 6.8 10.4C10 7.4 14 7.6 16 8.6ZM9.6 18L13.4 18L11.5 13.8ZM18.6 18L22.4 18L20.5 13.8ZM10.6 21.8L12.8 23.6L14.6 22.2L16 24L17.4 22.2L19.2 23.6L21.4 21.8L20.6 24.6Q16 27 11.4 24.6Z'/%3E%3Cpath d='M14.6 9.2C14.6 5.4 16.2 2.8 19.5 2.3L19.8 4.4C18.3 4.7 17.6 5.8 17.6 9.2Z'/%3E%3C/svg%3E");
+}
+:root.tema-halloween .fa-star::before,
+:root.tema-halloween .fa-star-half-alt::before,
+:root.tema-halloween .fa-star-half::before {
+  content: "";
+  display: inline-block;
+  width: 1.05em;
+  height: 1.05em;
+  vertical-align: -0.16em;
+  background-color: currentColor;
+  -webkit-mask: var(--pumpkin-mask) center / contain no-repeat;
+  mask: var(--pumpkin-mask) center / contain no-repeat;
+}
+/* Media calabaza: mitad con color, mitad apagada */
+:root.tema-halloween .fa-star-half-alt::before,
+:root.tema-halloween .fa-star-half::before {
+  background-color: transparent;
+  background-image: linear-gradient(90deg, currentColor 50%, rgba(255, 255, 255, 0.22) 50%);
+}
+/* Si una estrella vacía se dibuja con el estilo "regular", se atenúa */
+:root.tema-halloween .far.fa-star::before,
+:root.tema-halloween .fa-regular.fa-star::before {
+  opacity: 0.4;
+}
+
+
+/* Barra de tiempo del reproductor: el punto es una calabaza.
+   ArtPlayer pone el punto con left:P% en JS y lo centra con CSS propio
+   (margin-left: -tamaño/2). Aquí el punto queda siempre "maquetado" (con ancho
+   real) y solo se oculta con opacity. Como se pisa el margin con !important,
+   hay que repetir el margen izquierdo de -tamaño/2; si no, la calabaza queda
+   corrida media calabaza hacia adelante de la barra y del mouse. */
+:root.tema-halloween .art-video-player {
+  --pumpkin-dot: 20px;
+}
+:root.tema-halloween .art-video-player .art-control-progress .art-progress-indicator {
+  display: block !important;
+  width: var(--pumpkin-dot) !important;
+  height: var(--pumpkin-dot) !important;
+  top: 50% !important;
+  margin: calc(var(--pumpkin-dot) / -2) 0 0 calc(var(--pumpkin-dot) / -2) !important;
+  border-radius: 0 !important;
+  background: none !important;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, scale 0.15s ease;
+  z-index: 40;
+}
+:root.tema-halloween .art-video-player .art-control-progress:hover .art-progress-indicator,
+:root.tema-halloween .art-video-player .art-control-progress:active .art-progress-indicator,
+:root.tema-halloween .art-video-player.art-is-dragging .art-progress-indicator {
+  opacity: 1;
+}
+:root.tema-halloween .art-video-player .art-control-progress .art-progress-indicator .art-icon {
+  display: none !important;   /* se oculta el círculo de fábrica */
+}
+:root.tema-halloween .art-video-player .art-control-progress .art-progress-indicator::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-color: var(--accent-color);
+  -webkit-mask: var(--pumpkin-mask) center / contain no-repeat;
+  mask: var(--pumpkin-mask) center / contain no-repeat;
+  filter: drop-shadow(0 0 4px rgba(var(--accent-rgb), 0.7));
+}
+:root.tema-halloween .art-video-player .art-control-progress:hover .art-progress-indicator {
+  scale: 1.15;
+}
+
+
+/* Apariciones (cameos): videos con fondo verde que fx-themes.js dibuja en un
+   canvas. La capa cubre la pantalla, va sobre el contenido y no captura clics;
+   el canvas entra y sale con un fundido (la clase .is-on la pone el JS).
+   Si ya tienes estas reglas en otro CSS, puedes borrar este bloque. */
+.theme-cameo-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+  pointer-events: none;
+  overflow: hidden;
+}
+.theme-cameo {
+  position: absolute;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+.theme-cameo.is-on { opacity: 1; }
+html.tema-fx-off .theme-cameo-layer { display: none; }
+
+
+/* =============================================================
+   3. MODO LIVIANO
+   -------------------------------------------------------------
+   La clase .modo-liviano la pone theme-manager.js (y el script del
+   <head>, antes del primer render) en equipos con poca CPU/RAM o
+   cuando el ajuste `themeLite` vale "on". En ese modo fx-themes.js
+   no crea la niebla ni las brasas y las apariciones con video salen en
+   calidad reducida (menos resolución y cuadros, ver fx-themes.js);
+   aquí se congela la decoración que queda (sin quitar brillos ni
+   desenfoques del sitio).
+   ============================================================= */
+
+/* Lo único que se quita de la decoración es el movimiento: las arañas
+   quedan quietas. Brillos, sombras y desenfoques se conservan (estáticos
+   cuestan poco). */
+:root.modo-liviano .fx-spider,
+:root.modo-liviano .fx-spider-sway {
+  animation: none !important;
+  will-change: auto !important;
+}
+
+
+/* =============================================================
+   4. NAVIDAD  (pendiente)
+   -------------------------------------------------------------
+   Aún sin paleta ni efectos. Cuando se retome:
+   :root.tema-navidad { --accent-color: ...; --accent-rgb: ...; --accent-dark: ...; }
+   ============================================================= */
