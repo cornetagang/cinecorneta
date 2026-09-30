@@ -197,11 +197,29 @@ export const ErrorHandler = {
 
     /**
      * Wrapper para operaciones Fetch (API).
+     * @param {Function|null} onProgress - Opcional: recibe los bytes descargados hasta el momento.
      */
-    async fetchOperation(url, options = {}) {
+    async fetchOperation(url, options = {}, onProgress = null) {
         try {
             const response = await fetch(url, options);
             if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+
+            // Con onProgress se lee el cuerpo por trozos para informar los bytes recibidos.
+            // Si el navegador no soporta streams, se cae al método normal.
+            if (typeof onProgress === 'function' && response.body && response.body.getReader) {
+                const reader = response.body.getReader();
+                const chunks = [];
+                let loaded = 0;
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    chunks.push(value);
+                    loaded += value.length;
+                    onProgress(loaded);
+                }
+                return JSON.parse(await new Blob(chunks).text());
+            }
+
             return await response.json();
         } catch (error) {
             logError(error, `Fetch: ${url}`, 'error');
