@@ -26029,3 +26029,110 @@ body:has(#full-review-modal.show) {
 @media (max-width: 600px) {
   .error-notification { top: 70px; right: 12px; left: 12px; max-width: none; }
 }
+
+
+/* ===== Barra de progreso de la descarga inicial (utils/load-progress.js) ===== */
+#preloader {
+  flex-direction: column;
+  gap: 22px;
+}
+
+.load-progress {
+  width: min(340px, 80vw);
+  text-align: center;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.load-progress.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+.load-progress-title {
+  margin: 0 0 10px;
+  color: var(--text-light);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.load-progress-track {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.load-progress-fill {
+  position: relative;
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent-dark), var(--accent-color));
+  transition: width 0.35s ease;
+  overflow: hidden;
+}
+
+/* Brillo que se desliza: indica actividad aunque la barra no avance en ese momento */
+.load-progress-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  transform: translateX(-100%);
+  animation: loadProgressShimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes loadProgressShimmer {
+  to { transform: translateX(100%); }
+}
+
+.load-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.load-progress-hint {
+  margin: 12px 0 0;
+  min-height: 1.2em;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.35;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.load-progress-hint.is-visible { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .load-progress-fill::after { animation: none; }
+  .load-progress, .load-progress-fill { transition: none; }
+}
+
+/* Sin base para calcular % (primera visita, aún no termina ninguna descarga): barra "en curso" */
+.load-progress.is-indeterminate .load-progress-fill {
+  width: 40% !important;
+  transition: none;
+  animation: loadProgressSlide 1.3s ease-in-out infinite;
+}
+
+.load-progress.is-indeterminate .load-progress-fill::after { display: none; }
+
+@keyframes loadProgressSlide {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(250%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .load-progress.is-indeterminate .load-progress-fill {
+    animation: none;
+    width: 100% !important;
+    opacity: 0.35;
+  }
+}
