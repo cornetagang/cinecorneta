@@ -25,7 +25,44 @@
     />
     <!-- ArtPlayer CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/artplayer/dist/artplayer.css">
+    <script>
+      // Tema estacional: se decide antes del primer render (sin parpadeo).
+      // Orden: opt-out de usuario > prueba local > ajuste de Firebase (caché) > fechas.
+      window.__THEME_SCHEDULE = [
+        { theme: "halloween", from: "10-01", to: "10-31" },
+        { theme: "navidad", from: "12-01", to: "12-31", ready: false },
+      ];
+      (function () {
+        try {
+          var S = window.__THEME_SCHEDULE;
+          var ready = function (n) { return S.some(function (t) { return t.theme === n && t.ready !== false; }); };
+          var byDate = function () {
+            var p = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Santiago", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+            var g = function (t) { return p.find(function (x) { return x.type === t; }).value; };
+            var md = g("month") + "-" + g("day");
+            var hit = S.find(function (t) { return t.ready !== false && md >= t.from && md <= t.to; });
+            return hit ? hit.theme : null;
+          };
+          var theme = null;
+          if (localStorage.getItem("themeOptOut") !== "1") {
+            var s = JSON.parse(localStorage.getItem("themeLocalTest") || "null") ||
+                    JSON.parse(localStorage.getItem("siteTheme") || "null");
+            if (s && s.mode === "off") theme = null;
+            else if (s && s.mode === "manual") theme = ready(s.theme) ? s.theme : null;
+            else theme = byDate();
+          }
+          if (theme) document.documentElement.classList.add("tema-" + theme);
+          // Modo liviano (mismo criterio que theme-manager.js).
+          var lite = localStorage.getItem("themeLite");
+          var low = (navigator.hardwareConcurrency || 8) <= 2 ||
+                    (navigator.deviceMemory || 8) <= 2 ||
+                    !!(navigator.connection && navigator.connection.saveData);
+          if (lite === "on" || (lite !== "off" && low)) document.documentElement.classList.add("modo-liviano");
+        } catch (e) {}
+      })();
+    </script>
     <link rel="stylesheet" href="css/main.css?v=31" />
+    <link rel="stylesheet" href="css/themes.css?v=3" />
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
   <style>
@@ -525,6 +562,9 @@
                     </button>
                     <button class="btn-bento-info" id="bentoInfoBtn">
                       Más info
+                    </button>
+                    <button class="btn-bento-info btn-bento-dismiss" id="bentoDismissBtn" type="button" title="No volver a recomendarme esto">
+                      No me interesa
                     </button>
                   </div>
                 </div>
