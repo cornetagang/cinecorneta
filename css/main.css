@@ -25948,3 +25948,84 @@ body:has(#full-review-modal.show) {
   60% { transform: translateX(-4px); }
   80% { transform: translateX(4px); }
 }
+
+
+/* ===== Aviso de ErrorHandler (logger.js) ===== */
+.error-notification {
+  position: fixed;
+  top: 90px;
+  right: 20px;
+  z-index: 100002;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 250px;
+  max-width: min(420px, calc(100vw - 40px));
+  padding: 14px 16px;
+  background: #181818;
+  color: #fff;
+  border-radius: 8px;
+  border-left: 5px solid var(--accent-color);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+  font-size: 0.95rem;
+  font-weight: 500;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(30px);
+  transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s;
+  pointer-events: none;
+}
+
+.error-notification.show {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.error-notification > i {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.error-notification .error-notification-text {
+  flex: 1;
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+.error-notification .close-notification {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+  flex-shrink: 0;
+  transition: color 0.2s;
+}
+
+.error-notification .close-notification:hover { color: #fff; }
+
+.error-notification.type-network,
+.error-notification.type-database,
+.error-notification.type-unknown { border-left-color: #e74c3c; }
+.error-notification.type-network > i,
+.error-notification.type-database > i,
+.error-notification.type-unknown > i { color: #e74c3c; }
+
+.error-notification.type-auth,
+.error-notification.type-content { border-left-color: #f5a623; }
+.error-notification.type-auth > i,
+.error-notification.type-content > i { color: #f5a623; }
+
+.error-notification.type-success { border-left-color: #2ecc71; }
+.error-notification.type-success > i { color: #2ecc71; }
+
+.error-notification.type-info { border-left-color: var(--accent-color); }
+.error-notification.type-info > i { color: var(--accent-color); }
+
+@media (max-width: 600px) {
+  .error-notification { top: 70px; right: 12px; left: 12px; max-width: none; }
+}
