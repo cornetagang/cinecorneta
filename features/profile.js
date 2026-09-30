@@ -4,6 +4,23 @@
 
 import { logError } from '../utils/logger.js'; // Importamos el logger
 
+// ===========================================================
+// SEGURIDAD: ESCAPE DE HTML PARA DATOS QUE VIENEN DE FIREBASE
+// ===========================================================
+function esc(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function safeUrl(url) {
+    const u = String(url ?? '').trim();
+    return /^https?:\/\//i.test(u) ? esc(u) : '';
+}
+
 let shared; // Dependencias compartidas
 let isInitialized = false;
 let isDropdownInitialized = false;
@@ -324,13 +341,13 @@ export function renderSettings() {
                     if (toUpdate.length > 0) {
                         logLine('🔄 Cambios detectados:', '#a78bfa');
                         toUpdate.forEach(({ title, oldId, newId }) => {
-                            logLine(`&nbsp;&nbsp;"${title}" &nbsp;<span style="color:#555">${oldId}</span> ➜ <span style="color:#46d369">${newId}</span>`);
+                            logLine(`&nbsp;&nbsp;"${esc(title)}" &nbsp;<span style="color:#555">${esc(oldId)}</span> ➜ <span style="color:#46d369">${esc(newId)}</span>`);
                         });
                     }
                     if (notFound.length > 0) {
                         logLine('❓ Sin coincidencia (se dejan igual):', '#ffd700');
                         notFound.forEach(({ title, oldId }) => {
-                            logLine(`&nbsp;&nbsp;"${title}" <span style="color:#555">(${oldId})</span>`);
+                            logLine(`&nbsp;&nbsp;"${esc(title)}" <span style="color:#555">(${esc(oldId)})</span>`);
                         });
                     }
 
@@ -381,10 +398,10 @@ export function renderSettings() {
                         for (const { key, newId, title } of toUpdate) {
                             try {
                                 await shared.db.ref(`reviews/${key}`).update({ contentId: newId });
-                                logLine(`✅ "${title}" ➜ ${newId}`, '#46d369');
+                                logLine(`✅ "${esc(title)}" ➜ ${esc(newId)}`, '#46d369');
                                 okCount++;
                             } catch (err) {
-                                logLine(`❌ Error en "${title}": ${err.message}`, '#ff4444');
+                                logLine(`❌ Error en "${esc(title)}": ${esc(err.message)}`, '#ff4444');
                                 errCount++;
                             }
                         }
@@ -395,7 +412,7 @@ export function renderSettings() {
                     });
 
                 } catch (err) {
-                    logLine(`❌ Error: ${err.message}`, '#ff4444');
+                    logLine(`❌ Error: ${esc(err.message)}`, '#ff4444');
                     console.error('[MigrateIds]', err);
                     btn.disabled = false;
                     btn.innerHTML = '<i class="fas fa-search"></i> ANALIZAR Y MIGRAR';
@@ -791,7 +808,7 @@ function _updateAvatarUI(photoURL) {
     if (!placeholder) return;
 
     if (photoURL) {
-        placeholder.innerHTML = `<img src="${photoURL}" alt="avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+        placeholder.innerHTML = `<img src="${safeUrl(photoURL)}" alt="avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
         placeholder.style.padding = '0';
         placeholder.style.overflow = 'hidden';
     } else {
@@ -1017,12 +1034,12 @@ async function loadAnnouncementLog() {
             el.style.cssText = 'background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px;';
             el.innerHTML = `
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
-                    <span style="color: #fff; font-size: 0.88rem; font-weight: 600;">${item.text}</span>
-                    <button data-id="${item.id}" class="ann-log-delete-btn" style="background: none; border: none; color: #555; cursor: pointer; font-size: 0.8rem; flex-shrink: 0; padding: 0;" title="Eliminar del log">
+                    <span style="color: #fff; font-size: 0.88rem; font-weight: 600;">${esc(item.text)}</span>
+                    <button data-id="${esc(item.id)}" class="ann-log-delete-btn" style="background: none; border: none; color: #555; cursor: pointer; font-size: 0.8rem; flex-shrink: 0; padding: 0;" title="Eliminar del log">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
-                ${item.subtitle ? `<span style="color: #888; font-size: 0.8rem;">${item.subtitle}</span>` : ''}
+                ${item.subtitle ? `<span style="color: #888; font-size: 0.8rem;">${esc(item.subtitle)}</span>` : ''}
                 <span style="color: #444; font-size: 0.75rem;">${date}</span>
             `;
 
@@ -1101,7 +1118,7 @@ async function _loadRecentReviews(user) {
                     : '';
 
                 const poster = r.poster
-                    ? `<img src="${r.poster}" alt="${r.contentTitle}" class="prf-rc-poster" loading="lazy">`
+                    ? `<img src="${safeUrl(r.poster)}" alt="${esc(r.contentTitle)}" class="prf-rc-poster" loading="lazy">`
                     : `<div class="prf-rc-poster prf-rc-poster--empty"><i class="fas fa-film"></i></div>`;
 
                 const text = (r.text || '').length > 120
@@ -1112,9 +1129,9 @@ async function _loadRecentReviews(user) {
                 <div class="prf-rc-card">
                     ${poster}
                     <div class="prf-rc-body">
-                        <p class="prf-rc-title">${r.contentTitle || 'Sin título'}</p>
+                        <p class="prf-rc-title">${esc(r.contentTitle || 'Sin título')}</p>
                         <div class="prf-rc-stars">${starsHtml} <span class="prf-rc-score">${stars.toFixed(1)}</span></div>
-                        ${text ? `<p class="prf-rc-text">${text}</p>` : ''}
+                        ${text ? `<p class="prf-rc-text">${esc(text)}</p>` : ''}
                         <span class="prf-rc-date">${date}</span>
                     </div>
                 </div>`;
@@ -1184,20 +1201,20 @@ async function _loadRecentHistory(user) {
                 items.map(h => {
                     const poster    = h.poster || '';
                     const title     = h.title  || h.contentTitle || h.key || '';
-                    const safeTitle = title.replace(/"/g, '&quot;');
+                    const safeTitle = esc(title);
 
                     if (poster) {
-                        return `<div class="prf-poster-item" data-id="${h.key || h.contentId}" title="${safeTitle}">
-                            <img src="${poster}" alt="${safeTitle}" loading="lazy">
+                        return `<div class="prf-poster-item" data-id="${esc(h.key || h.contentId)}" title="${safeTitle}">
+                            <img src="${safeUrl(poster)}" alt="${safeTitle}" loading="lazy">
                             <div class="prf-poster-overlay">
-                                <p class="prf-poster-overlay-title">${title}</p>
+                                <p class="prf-poster-overlay-title">${safeTitle}</p>
                             </div>
                         </div>`;
                     } else {
-                        return `<div class="prf-poster-item prf-poster-item--empty" data-id="${h.key || h.contentId}" title="${safeTitle}">
+                        return `<div class="prf-poster-item prf-poster-item--empty" data-id="${esc(h.key || h.contentId)}" title="${safeTitle}">
                             <div class="prf-poster-empty-inner">
                                 <i class="fas fa-film"></i>
-                                <p class="prf-poster-empty-title">${title}</p>
+                                <p class="prf-poster-empty-title">${safeTitle}</p>
                             </div>
                         </div>`;
                     }
