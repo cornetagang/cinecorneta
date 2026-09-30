@@ -8,6 +8,7 @@
 // ===========================================================
 import { API_URL, firebaseConfig, UI, THEMES, WORKER_URL } from "./core/config.js";
 import { logError, ErrorHandler, initLogger } from "./utils/logger.js";
+import { LoadProgress } from "./utils/load-progress.js";
 import CacheManager from "./utils/cache-manager.js";
 import ModalManager from "./utils/modal-manager.js";
 import ContentManager from "./utils/content-manager.js";
@@ -82,7 +83,7 @@ let statsModule = null;
 
 async function getPlayerModule() {
   if (playerModule) return playerModule;
-  const module = await import("./features/player.js?v=30");
+  const module = await import("./features/player.js?v=31");
   module.initPlayer({
     appState,
     DOM,
@@ -109,7 +110,7 @@ async function getPlayerModule() {
 
 async function getProfileModule() {
   if (profileModule) return profileModule;
-  const module = await import("./features/profile.js?v=30");
+  const module = await import("./features/profile.js?v=31");
   module.initProfile({
     appState,
     DOM,
@@ -125,7 +126,7 @@ async function getProfileModule() {
 
 async function getRouletteModule() {
   if (rouletteModule) return rouletteModule;
-  const module = await import("./features/roulette.js?v=30");
+  const module = await import("./features/roulette.js?v=31");
   module.initRoulette({
     appState,
     DOM,
@@ -145,7 +146,7 @@ async function getRouletteModule() {
 // nada nuevo al servidor. Igual de perezoso que Ruleta.
 async function getStatsModule() {
   if (statsModule) return statsModule;
-  const module = await import("./features/stats.js?v=30");
+  const module = await import("./features/stats.js?v=31");
   module.initStats({ appState });
   statsModule = module;
   return module;
@@ -153,7 +154,7 @@ async function getStatsModule() {
 
 async function getReviewsModule() {
   if (reviewsModule) return reviewsModule;
-  const module = await import("./features/reviews.js?v=30");
+  const module = await import("./features/reviews.js?v=31");
   module.initReviews({
     appState,
     DOM,
@@ -169,7 +170,7 @@ async function getReviewsModule() {
 
 async function getUniversesModule() {
   if (universesModule) return universesModule;
-  const module = await import("./features/universes.js?v=30");
+  const module = await import("./features/universes.js?v=31");
   module.initUniverses({
     appState,
     switchView,
@@ -1006,8 +1007,18 @@ async function fetchInitialDataWithCache() {
         });
     }
   } else {
+    // Barra de progreso real dentro del preloader (60% catálogo, 40% sagas)
+    const progress = new LoadProgress(DOM.preloader, { catalog: 0.6, sagas: 0.4 });
     try {
       console.log("⟳ Descargando base de datos completa...");
+
+      // Descarga JSON informando los bytes recibidos a la barra
+      const fetchJson = (phase, key, url) =>
+        progress.track(phase, key, (onBytes) =>
+          ErrorHandler.fetchOperation(url, {}, onBytes),
+        );
+
+      progress.phase("catalog", 7, "Descargando el catálogo");
       const [
         series,
         episodes,
@@ -1017,33 +1028,45 @@ async function fetchInitialDataWithCache() {
         movieMeta,
         seriesMeta,
       ] = await Promise.all([
-        ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=series`),
-        ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=episodes`),
-        ErrorHandler.fetchOperation(
+        fetchJson("catalog", "series", `${API_URL.BASE_URL}?data=series`),
+        fetchJson("catalog", "episodes", `${API_URL.BASE_URL}?data=episodes`),
+        fetchJson(
+          "catalog",
+          "allMovies",
           `${API_URL.BASE_URL}?data=allMovies&order=desc`,
         ),
-        ErrorHandler.fetchOperation(
+        fetchJson(
+          "catalog",
+          "posters",
           `${API_URL.BASE_URL}?data=PostersTemporadas`,
         ),
-        ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=sagas_list`),
-        db
-          .ref("movie_metadata")
-          .once("value")
-          .then((s) => s.val() || {}),
-        db
-          .ref("series_metadata")
-          .once("value")
-          .then((s) => s.val() || {}),
+        fetchJson("catalog", "sagas_list", `${API_URL.BASE_URL}?data=sagas_list`),
+        progress.track("catalog", "movie_metadata", () =>
+          db
+            .ref("movie_metadata")
+            .once("value")
+            .then((s) => s.val() || {}),
+        ),
+        progress.track("catalog", "series_metadata", () =>
+          db
+            .ref("series_metadata")
+            .once("value")
+            .then((s) => s.val() || {}),
+        ),
       ]);
 
       const sagasArray = Object.values(sagasListData || {});
+      progress.phase("sagas", sagasArray.length, "Descargando sagas");
       const sagasRequests = sagasArray.map((saga) =>
-        ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=${saga.id}`).then(
-          (data) => ({ id: saga.id, data: data }),
-        ),
+        fetchJson(
+          "sagas",
+          `saga:${saga.id}`,
+          `${API_URL.BASE_URL}?data=${saga.id}`,
+        ).then((data) => ({ id: saga.id, data: data })),
       );
 
       const sagasResults = await Promise.all(sagasRequests);
+      progress.finish();
 
       const freshContent = {
         allMovies,
@@ -1082,6 +1105,7 @@ async function fetchInitialDataWithCache() {
       }
     } catch (error) {
       console.error("✗ Error crítico en carga inicial:", error);
+      progress.destroy();
       if (DOM.preloader)
         DOM.preloader.innerHTML = `
                 <div style="text-align: center; color: white;">
@@ -8526,7 +8550,7 @@ window.openSmartReviewModal = async (contentId, type, title) => {
     return;
   }
 
-  const module = await import("./features/reviews.js?v=30");
+  const module = await import("./features/reviews.js?v=31");
 
   module.initReviews({
     appState,
