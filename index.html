@@ -137,6 +137,51 @@
       animation: roulette-rainbow 3s linear infinite !important;
       transition: none !important;
     }
+
+    /* ── Botones del bento (recomendación del día) en móvil ──────────
+       Una sola fila: Ver · Info · No me interesa. Mismos 44px de alto,
+       texto en una línea. En <360px "No me interesa" pasa a ser una ✕. */
+    .bento-actions .t-short,
+    .bento-actions .t-x { display: none; }
+
+    @media (max-width: 767px) {
+      .bento-actions {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 8px;
+      }
+      .bento-actions .btn-bento-play,
+      .bento-actions .btn-bento-info {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        box-sizing: border-box;
+        width: auto;
+        height: 44px;
+        min-height: 0;
+        min-width: 0;
+        margin: 0;
+        padding: 0 10px;
+        line-height: 1;
+        white-space: nowrap;
+        font-size: clamp(10px, 3vw, 12px);
+        letter-spacing: 0.04em;
+      }
+      .bento-actions .btn-bento-play { flex: 1.4 1 0; }
+      .bento-actions .btn-bento-info { flex: 1 1 0; }
+      .bento-actions .btn-bento-dismiss { flex: 1.7 1 0; }
+      .bento-actions .btn-bento-play svg { width: 11px; height: 11px; flex: none; }
+      .bento-actions .t-long { display: none; }
+      .bento-actions .t-short { display: inline; }
+    }
+
+    @media (max-width: 359px) {
+      .bento-actions .btn-bento-dismiss { flex: 0 0 44px; padding: 0; }
+      .bento-actions .btn-bento-dismiss .t-short { display: none; }
+      .bento-actions .btn-bento-dismiss .t-x { display: inline; font-size: 14px; }
+    }
   </style>
   </head>
   <body class="">
@@ -558,13 +603,13 @@
                       >
                         <path d="M5 3l14 9-14 9V3z" />
                       </svg>
-                      Reproducir
+                      <span class="t-long">Reproducir</span><span class="t-short">Ver</span>
                     </button>
                     <button class="btn-bento-info" id="bentoInfoBtn">
-                      Más info
+                      <span class="t-long">Más info</span><span class="t-short">Info</span>
                     </button>
-                    <button class="btn-bento-info btn-bento-dismiss" id="bentoDismissBtn" type="button" title="No volver a recomendarme esto">
-                      No me interesa
+                    <button class="btn-bento-info btn-bento-dismiss" id="bentoDismissBtn" type="button" title="No volver a recomendarme esto" aria-label="No me interesa">
+                      <span class="t-long">No me interesa</span><span class="t-short">No me interesa</span><span class="t-x" aria-hidden="true">✕</span>
                     </button>
                   </div>
                 </div>
