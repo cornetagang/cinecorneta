@@ -343,6 +343,7 @@ document.addEventListener("DOMContentLoaded", () => {
     _originalCloseAll();
   };
 
+  ThemeManager.initTheme(db);
   updateThemeAssets();
   setupPresence();
   trackVisit();
@@ -3814,7 +3815,7 @@ function _bentoLatest(obj, type) {
   return { id: entries[0][0], data: entries[0][1] };
 }
 
-function _bentoDailyPick(movies, series, watchedIds = new Set(), topGenres = []) {
+function _bentoDailyPick(movies, series, watchedIds = new Set(), topGenres = [], dismissed = new Set()) {
   const _badStates = ["vetada", "mantenimiento"];
   const _isPlayable = (d) =>
     !d.estado || !_badStates.includes(d.estado.toLowerCase().trim());
@@ -3827,7 +3828,7 @@ function _bentoDailyPick(movies, series, watchedIds = new Set(), topGenres = [])
     ...Object.entries(series || {})
       .filter(([, d]) => _isPlayable(d) && (_adminOk || !isAdminContent(d)))
       .map(([id, d]) => ({ id, data: d, type: "series" })),
-  ];
+  ].filter(({ id }) => !dismissed.has(id)); // "No me interesa": nunca se vuelve a recomendar
   if (!pool.length) return null;
 
   const hoy = new Date();
@@ -4095,6 +4096,14 @@ function _bentoPopulateMain(id, data, type) {
   const infoBtn = document.getElementById("bentoInfoBtn");
   if (infoBtn) infoBtn.onclick = () => openDetailsModal(id, type);
 
+  // "No me interesa": descarta esta recomendación y muestra otra
+  _bentoCurrent = { id, type };
+  _bentoSchedulePrefetch();
+  ["bentoDismissBtn", "mobileHeroDismissBtn"].forEach((btnId) => {
+    const b = document.getElementById(btnId);
+    if (b) b.onclick = _bentoDismissCurrent;
+  });
+
   // ── Espejo en hero móvil ──────────────────────────────────────
   _populateMobileHero(id, data, type);
 }
@@ -4297,6 +4306,167 @@ function _setBentoCachedPick(uid, pick) {
   } catch (_) {}
 }
 
+// ── "No me interesa": descartar recomendaciones del bento ─────
+// Los ids descartados no vuelven a salir como recomendación del día. Se guardan
+// en localStorage (por usuario o invitado) y, si hay sesión, también en Firebase
+// (users/{uid}/bentoDismissed/{id}: true) para que valgan en todos los dispositivos.
+let _bentoCurrent = null;   // { id, type } de la recomendación que está en pantalla
+let _bentoCtx = { watchedIds: new Set(), topGenres: [], loaded: false };
+let _bentoDismissBusy = false;
+
+function _bentoDismissKey() {
+  const uid = auth.currentUser ? auth.currentUser.uid : "guest";
+  return `bento_dismissed_${uid}`;
+}
+function _bentoDismissedSet() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(_bentoDismissKey()) || "[]");
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch (_) {
+    return new Set();
+  }
+}
+function _bentoSaveDismissed(set) {
+  try {
+    localStorage.setItem(_bentoDismissKey(), JSON.stringify([...set].slice(-300)));
+  } catch (_) {}
+}
+// Mezcla los descartados guardados en Firebase con los locales.
+function _bentoLoadDismissed(user) {
+  return db
+    .ref(`users/${user.uid}/bentoDismissed`)
+    .once("value")
+    .then((snap) => {
+      const dismissed = _bentoDismissedSet();
+      Object.keys(snap.val() || {}).forEach((k) => dismissed.add(k));
+      _bentoSaveDismissed(dismissed);
+      return dismissed;
+    })
+    .catch(() => _bentoDismissedSet());
+}
+// Historial del usuario (vistos + géneros) para que la nueva recomendación siga
+// siendo personal. Se pide una sola vez (y se adelanta al cargar el inicio, para
+// que el primer "No me interesa" no tenga que esperar a Firebase).
+let _bentoCtxPromise = null;
+function _bentoEnsureCtx() {
+  if (_bentoCtx.loaded) return Promise.resolve();
+  if (!_bentoCtxPromise) _bentoCtxPromise = _bentoLoadCtx();
+  return _bentoCtxPromise;
+}
+async function _bentoLoadCtx() {
+  if (_bentoCtx.loaded) return;
+  const user = auth.currentUser;
+  if (user) {
+    try {
+      const snap = await db.ref(`users/${user.uid}/history`).once("value");
+      if (snap.exists()) {
+        const watchedIds = new Set();
+        snap.forEach((child) => {
+          const { contentId } = child.val();
+          if (contentId) watchedIds.add(contentId);
+        });
+        _bentoCtx = {
+          watchedIds,
+          topGenres: _extractTopGenresFromHistory(
+            snap, appState.content.movies, appState.content.series),
+          loaded: true,
+        };
+        return;
+      }
+    } catch (_) {}
+  }
+  _bentoCtx.loaded = true;
+}
+
+// Precarga de las imágenes de una recomendación (banner + logo) para que el
+// cambio sea instantáneo. Nunca espera más de `timeoutMs`.
+function _bentoPreloadImg(url) {
+  return new Promise((resolve) => {
+    if (!url) return resolve();
+    const img = new Image();
+    img.onload = img.onerror = () => resolve();
+    img.src = url;
+  });
+}
+function _bentoPreloadPick(data, timeoutMs = 2500) {
+  const urls = [data.banner || data.poster, data.logoUrl].filter(Boolean);
+  return Promise.race([
+    Promise.all(urls.map(_bentoPreloadImg)),
+    new Promise((r) => setTimeout(r, timeoutMs)),
+  ]);
+}
+// Con la recomendación ya en pantalla, se calcula cuál sería la siguiente si se
+// descarta esta y se bajan sus imágenes en segundo plano.
+let _bentoPrefetchTimer = 0;
+function _bentoSchedulePrefetch() {
+  clearTimeout(_bentoPrefetchTimer);
+  _bentoPrefetchTimer = setTimeout(() => {
+    if (!_bentoCurrent) return;
+    const dismissed = _bentoDismissedSet();
+    dismissed.add(_bentoCurrent.id);
+    const next = _bentoDailyPick(
+      appState.content.movies || {}, appState.content.series || {},
+      _bentoCtx.watchedIds, _bentoCtx.topGenres, dismissed);
+    if (next) _bentoPreloadPick(next.data, 8000);
+  }, 800);
+}
+
+async function _bentoDismissCurrent() {
+  if (!_bentoCurrent || _bentoDismissBusy) return;
+  _bentoDismissBusy = true;
+  try {
+    const movies = appState.content.movies || {};
+    const series = appState.content.series || {};
+    await _bentoEnsureCtx();
+
+    const dismissed = _bentoDismissedSet();
+    dismissed.add(_bentoCurrent.id);
+    const pick = _bentoDailyPick(
+      movies, series, _bentoCtx.watchedIds, _bentoCtx.topGenres, dismissed);
+    if (!pick) {
+      // No quedaría nada que recomendar: no se descarta.
+      window.showNotification?.("No quedan más recomendaciones por ahora", "error");
+      return;
+    }
+
+    _bentoSaveDismissed(dismissed);
+    const user = auth.currentUser;
+    if (user) {
+      db.ref(`users/${user.uid}/bentoDismissed/${_bentoCurrent.id}`).set(true).catch(() => {});
+      db.ref(`users/${user.uid}/bentoPick`)
+        .set({ id: pick.id, type: pick.type, date: _bentoDayStr() })
+        .catch(() => {});
+    }
+    _setBentoCachedPick(null, pick); // el pick del día pasa a ser el nuevo
+
+    // Fundido de salida MIENTRAS se precargan las imágenes nuevas (si ya estaban
+    // precargadas, no se espera nada extra). Así no se ve el banner negro ni el
+    // logo viejo con el texto nuevo.
+    const el = document.getElementById("bentoMain");
+    if (el) {
+      el.style.transition = "opacity 0.2s ease";
+      el.style.opacity = "0";
+    }
+    await Promise.all([
+      new Promise((r) => setTimeout(r, 200)),
+      _bentoPreloadPick(pick.data),
+    ]);
+
+    // Se pinta con el panel aún invisible y se espera a que cargue el logo nuevo.
+    const logo = document.getElementById("bentoLogo");
+    const logoReady = new Promise((resolve) => {
+      if (!logo || !pick.data.logoUrl) return resolve();
+      logo.addEventListener("load", resolve, { once: true });
+      setTimeout(resolve, 900);
+    });
+    _bentoPopulateMain(pick.id, pick.data, pick.type);
+    await logoReady;
+    if (el) el.style.opacity = "1";
+  } finally {
+    _bentoDismissBusy = false;
+  }
+}
+
 // ── setupHero → initBento ─────────────────────────────────────
 function setupHero() {
   clearInterval(appState.ui.heroInterval);
@@ -4308,12 +4478,13 @@ function setupHero() {
   // ── Panel principal ──────────────────────────────────────────
   // 1. Intentar mostrar el pick ya cacheado del día (invitado).
   //    Si existe, no se recalcula aunque el catálogo haya cambiado.
+  const localDismissed = _bentoDismissedSet();
   const guestCached = _getBentoCachedPick(null, movies, series);
-  if (guestCached) {
+  if (guestCached && !localDismissed.has(guestCached.id)) {
     _bentoPopulateMain(guestCached.id, guestCached.data, guestCached.type);
   } else {
-    // Primera carga del día: calcular y cachear
-    const pick = _bentoDailyPick(movies, series);
+    // Primera carga del día (o el pick cacheado fue descartado): calcular y cachear
+    const pick = _bentoDailyPick(movies, series, new Set(), [], localDismissed);
     if (pick) {
       _bentoPopulateMain(pick.id, pick.data, pick.type);
       _setBentoCachedPick(null, pick);
@@ -4327,11 +4498,12 @@ function setupHero() {
   const user = auth.currentUser;
   if (user) {
     const today = _bentoDayStr();
-    db.ref(`users/${user.uid}/bentoPick`)
+    _bentoLoadDismissed(user)
+      .then((dismissed) => db.ref(`users/${user.uid}/bentoPick`)
       .once("value")
       .then((pickSnap) => {
         const saved = pickSnap.val();
-        if (saved && saved.date === today) {
+        if (saved && saved.date === today && !dismissed.has(saved.id)) {
           const data = saved.type === "movie" ? movies[saved.id] : series[saved.id];
           if (data) {
             // Ya tiene su pick personal del día guardado → mostrarlo directo
@@ -4356,7 +4528,8 @@ function setupHero() {
             // Pasar siempre watchedIds — _bentoDailyPick excluye vistos
             // aunque no haya géneros identificables
             const topGenres = _extractTopGenresFromHistory(snap, movies, series);
-            const personalPick = _bentoDailyPick(movies, series, watchedIds, topGenres);
+            _bentoCtx = { watchedIds, topGenres, loaded: true };
+            const personalPick = _bentoDailyPick(movies, series, watchedIds, topGenres, dismissed);
             if (personalPick) {
               _bentoPopulateMain(personalPick.id, personalPick.data, personalPick.type);
               db.ref(`users/${user.uid}/bentoPick`)
@@ -4365,8 +4538,9 @@ function setupHero() {
             }
           })
           .catch(() => {}); // si falla Firebase, queda el pick de invitado
-      })
+      }))
       .catch(() => {}); // si falla Firebase, queda el pick de invitado
+    _bentoEnsureCtx(); // adelanta el historial para que "No me interesa" responda al instante
   }
 
   // Panel lado 1: última película
@@ -9374,6 +9548,12 @@ function injectOnlineCounter() {
   leftCol.id = "admin-tools-col";
   leftCol.appendChild(adminZone);
 
+  // Tarjeta "Tema del sitio" (prueba local por ahora)
+  const themeHost = document.createElement("div");
+  themeHost.id = "adash-theme-host";
+  leftCol.appendChild(themeHost);
+  ThemeManager.renderThemeAdminCard(themeHost, db);
+
   // ── Wrapper de dos columnas ──────────────────────────────────
   const wrapper = document.createElement("div");
   wrapper.id = "admin-layout-wrapper";
@@ -9989,7 +10169,10 @@ document.addEventListener("DOMContentLoaded", () => {
   try {
     savedColor = localStorage.getItem("cinemaColor") || savedColor;
   } catch {}
-  applyColor(savedColor);
+  // El azul por defecto se guardaba en cada carga: se trata como
+  // "nunca eligió color" para que el tema activo pueda mostrarse.
+  const neverChose = !savedColor || savedColor.toLowerCase() === "#3b82f6";
+  if (!(ThemeManager.getActiveTheme() && neverChose)) applyColor(savedColor);
 });
 
 // Cierre al click fuera
