@@ -584,19 +584,48 @@ function preloadImage(url) {
 // Registra la sesión del usuario en Firebase al conectarse.
 // Firebase borra el nodo automáticamente con onDisconnect()
 // cuando el usuario cierra el tab, pierde internet, etc.
-// El nodo /presence/{randomId} solo guarda connectedAt —
-// sin nombre, sin email, sin datos personales.
+// El nodo /presence/{randomId} guarda connectedAt y, si la persona
+// tiene sesión iniciada, su uid y nombre de usuario (sin email), para
+// que el panel de admin pueda mostrar quién está conectado. Sin sesión
+// queda solo connectedAt (visitante anónimo).
 // ===========================================================
+function presenceIdentity(user) {
+  if (!user) return { uid: null, name: null };
+  return {
+    uid: user.uid,
+    name: user.displayName || (user.email ? user.email.split("@")[0] : "Usuario"),
+  };
+}
+
 function setupPresence() {
   if (typeof db === "undefined") return;
 
-  const connectedRef = db.ref(".info/connected");
-  const presenceRef  = db.ref("presence").push();
+  const presenceRef = db.ref("presence").push();
+  const who = () => presenceIdentity(typeof auth !== "undefined" ? auth.currentUser : null);
+  const warn = (msg) => (err) => console.warn(msg, err && err.message);
+  let started = false;
+  let connected = false;
 
-  connectedRef.on("value", (snap) => {
-    if (!snap.val()) return;
-    presenceRef.onDisconnect().remove();
-    presenceRef.set({ connectedAt: Date.now() });
+  // La presencia se crea recién cuando Firebase Auth ya sabe si hay sesión
+  // (si se creaba antes, quedaba como anónima aunque la persona estuviera logueada).
+  const start = () => {
+    if (started) return;
+    started = true;
+    db.ref(".info/connected").on("value", (snap) => {
+      if (!snap.val()) return;
+      connected = true;
+      presenceRef.onDisconnect().remove();
+      presenceRef.set({ connectedAt: Date.now(), ...who() })
+        .catch(warn("presence: no se pudo registrar la conexión:"));
+    });
+  };
+
+  if (typeof auth === "undefined") { start(); return; }
+  let first = true;
+  auth.onAuthStateChanged(() => {
+    if (first) { first = false; start(); return; }
+    // Iniciar o cerrar sesión con la página abierta: se actualiza quién es.
+    if (connected) presenceRef.update(who()).catch(warn("presence: no se pudo actualizar la identidad:"));
   });
 }
 
@@ -9396,6 +9425,30 @@ function injectOnlineCounter() {
       0%, 100% { box-shadow: 0 0 0 3px rgba(34,197,94,.25); }
       50%       { box-shadow: 0 0 0 6px rgba(34,197,94,.08); }
     }
+    .adash-stat--online { cursor: pointer; user-select: none; }
+    .adash-stat--online:focus-visible { outline: 2px solid #22c55e; outline-offset: 2px; }
+    .adash-online-list {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(34,197,94,0.25);
+      border-radius: 16px;
+      padding: 14px 16px;
+      display: flex; flex-direction: column;
+      max-height: 320px; overflow-y: auto;
+    }
+    .adash-ol-title {
+      font-size: .65rem; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--text-muted, #888);
+      margin-bottom: 6px;
+    }
+    .adash-ol-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 0; border-top: 1px solid rgba(255,255,255,0.05);
+      font-size: .85rem; color: var(--text-light, #fff);
+    }
+    .adash-ol-name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .adash-ol-meta { font-size: .72rem; color: var(--text-muted, #888); white-space: nowrap; }
+    .adash-ol-tabs { font-size: .68rem; padding: 1px 7px; border-radius: 999px; background: rgba(255,255,255,0.08); color: var(--text-muted, #aaa); }
+    .adash-ol-empty { font-size: .8rem; color: var(--text-muted, #888); padding: 6px 0; }
     .adash-chart-card {
       background: rgba(255,255,255,0.03);
       border: 1px solid rgba(255,255,255,0.07);
@@ -9440,10 +9493,10 @@ function injectOnlineCounter() {
   rightCol.innerHTML = `
     <div id="admin-dashboard">
       <div class="adash-stats">
-        <div class="adash-stat adash-stat--online">
+        <div class="adash-stat adash-stat--online" id="adash-online-card" role="button" tabindex="0" aria-expanded="false" title="Ver quién está conectado">
           <div class="adash-stat__label"><span class="adash-dot"></span> Conectados ahora</div>
           <div class="adash-stat__value" id="adash-online">—</div>
-          <div class="adash-stat__sub">usuarios con la página abierta</div>
+          <div class="adash-stat__sub">usuarios con la página abierta · toca para ver quién</div>
         </div>
         <div class="adash-stat">
           <div class="adash-stat__label">
@@ -9460,6 +9513,8 @@ function injectOnlineCounter() {
           <div class="adash-stat__sub">visitas únicas</div>
         </div>
       </div>
+      <div class="adash-online-list" id="adash-online-list" style="display:none"></div>
+
       <div class="adash-chart-card">
         <div class="adash-chart-header">
           <div>
@@ -9562,10 +9617,87 @@ function injectOnlineCounter() {
   container.appendChild(wrapper);
 
   // ── Presencia en tiempo real ─────────────────────────────────
+  let _presenceData = [];
+  let _onlineOpen = false;
+
+  const agoText = (ts) => {
+    const m = Math.max(0, Math.round((Date.now() - ts) / 60000));
+    if (m < 1) return "recién conectado";
+    if (m < 60) return `hace ${m} min`;
+    return `hace ${Math.floor(m / 60)} h ${m % 60} min`;
+  };
+
+  // Los nombres son texto de los usuarios: siempre con textContent, nunca innerHTML.
+  function renderOnlineList() {
+    const box = document.getElementById("adash-online-list");
+    const card = document.getElementById("adash-online-card");
+    if (!box) return;
+    if (card) card.setAttribute("aria-expanded", String(_onlineOpen));
+    box.style.display = _onlineOpen ? "" : "none";
+    if (!_onlineOpen) return;
+
+    const users = new Map();
+    let anon = 0;
+    for (const p of _presenceData) {
+      if (p && p.uid) {
+        const since = p.connectedAt || Date.now();
+        const u = users.get(p.uid) || { name: p.name || "Usuario", since, tabs: 0 };
+        u.tabs += 1;
+        u.since = Math.min(u.since, since);
+        users.set(p.uid, u);
+      } else {
+        anon += 1;
+      }
+    }
+
+    const mk = (tag, cls, text) => {
+      const el = document.createElement(tag);
+      if (cls) el.className = cls;
+      if (text != null) el.textContent = text;
+      return el;
+    };
+    const row = (name, meta, tabs) => {
+      const r = mk("div", "adash-ol-row");
+      r.appendChild(mk("span", "adash-dot"));
+      r.appendChild(mk("span", "adash-ol-name", name));
+      if (tabs > 1) r.appendChild(mk("span", "adash-ol-tabs", `${tabs} pestañas`));
+      if (meta) r.appendChild(mk("span", "adash-ol-meta", meta));
+      return r;
+    };
+
+    box.textContent = "";
+    box.appendChild(mk("div", "adash-ol-title", `Conectados ahora (${_presenceData.length})`));
+    [...users.values()]
+      .sort((a, b) => a.since - b.since)
+      .forEach((u) => box.appendChild(row(u.name, agoText(u.since), u.tabs)));
+    if (anon) {
+      box.appendChild(row(
+        anon === 1 ? "1 visitante sin sesión iniciada" : `${anon} visitantes sin sesión iniciada`,
+        "", 1));
+    }
+    if (!users.size && !anon) box.appendChild(mk("div", "adash-ol-empty", "Nadie conectado."));
+  }
+
+  const onlineCard = document.getElementById("adash-online-card");
+  if (onlineCard) {
+    const toggle = () => { _onlineOpen = !_onlineOpen; renderOnlineList(); };
+    onlineCard.addEventListener("click", toggle);
+    onlineCard.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); }
+    });
+  }
+  // Refresca los "hace X min" mientras la lista está abierta.
+  const _onlineTick = setInterval(() => {
+    if (!document.getElementById("adash-online-list")) { clearInterval(_onlineTick); return; }
+    if (_onlineOpen) renderOnlineList();
+  }, 30000);
+
   if (_presenceListener) db.ref("presence").off("value", _presenceListener);
   _presenceListener = db.ref("presence").on("value", (snap) => {
     const el = document.getElementById("adash-online");
     if (el) el.textContent = snap.numChildren();
+    _presenceData = Object.values(snap.val() || {});
+    renderOnlineList();
   });
 
   // ── Stats: hoy y este mes ────────────────────────────────────
