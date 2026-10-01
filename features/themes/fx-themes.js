@@ -371,6 +371,7 @@ export function createKeyRenderer(canvas, video, o) {
 
 let cameoLayer = null;
 const cameoTimers = new Map();  // id del clip → temporizador de su próxima aparición
+const POOL_ID = "__pool__";     // modo "uno al azar": un solo reloj para todos los videos
 let cameoTheme = null;
 let cameoActive = null;         // { abort() } mientras hay una aparición en pantalla
 let cameoCooldownUntil = 0;     // respiro entre una aparición y la siguiente
@@ -378,8 +379,12 @@ const CAMEO_COOLDOWN_MS = 8000;
 
 // Ajustes que llegan desde el panel de admin (theme-manager.js) y pisan los
 // valores de CAMEOS. Todo en segundos:
-//   { enabled, firstDelay, minDelay, maxDelay,
+//   { enabled, firstDelay, minDelay, maxDelay, pickOne,
 //     byTheme: { halloween: { clips: [...] } } }   ← lista de videos propia
+//   pickOne: true → un solo reloj (intervalo general); cada vez sale UN video elegido
+//   al azar entre los activos que tengan `pool` (por defecto sí), y el `chance` de cada
+//   uno es su parte del reparto. Los videos con pool:false quedan fuera del sorteo y
+//   salen aparte, cada uno con su propio intervalo y probabilidad.
 let cameoOverride = null;
 
 // Deja un clip en un solo formato, venga de CAMEOS (escrito a mano) o del panel.
@@ -400,6 +405,7 @@ function normalizeClip(c, i = 0) {
     minDelay: null,   // null = usa el intervalo general
     maxDelay: null,
     chance: num(c.chance, 100, 0, 100), // % de probabilidad cada vez que le toca salir
+    pool: c.pool !== false,             // modo "uno al azar": ¿entra al sorteo? (false = sale aparte, con su propio intervalo)
   };
   if (c.width) out.width = c.width;
   if (Number.isFinite(c.minDelay) && c.minDelay > 0) out.minDelay = Math.max(5, c.minDelay);
@@ -433,6 +439,7 @@ function cameoCfg(name) {
     ...base,
     clips: rawClips.map((c, i) => normalizeClip(c, i)).filter((c) => c.src),
     enabled: o.enabled !== false,
+    pickOne: o.pickOne === true,
     firstDelay: num(o.firstDelay, base.firstDelay),
     minDelay,
     maxDelay: Math.max(minDelay, num(o.maxDelay, base.maxDelay)),
@@ -474,10 +481,12 @@ function scheduleClip(id, seconds) {
 
 function tryClip(id) {
   cameoTimers.delete(id);
+  if (id === POOL_ID) return tryPool();
   const cfg = cameoTheme && cameoCfg(cameoTheme);
   if (!cfg || !cfg.enabled) return;
   const clip = cfg.clips.find((c) => c.id === id);
   if (!clip || !clip.enabled) return;
+  if (cfg.pickOne && clip.pool) return; // ahora lo maneja el sorteo
   // Nunca dos a la vez: si toca pero hay otra en pantalla, en descanso o algo
   // bloquea (reproductor, modal), se reintenta en unos segundos.
   if (cameoActive || Date.now() < cameoCooldownUntil || cameoBlocked()) {
@@ -488,6 +497,23 @@ function tryClip(id) {
   if (clip.chance < 100 && Math.random() * 100 >= clip.chance) {
     return scheduleClip(id, clipDelay(cfg, clip));
   }
+  playCameo(cameoTheme, clip, { timed: true });
+}
+
+// Modo "uno al azar": cada vez que toca (intervalo general) sale UN video elegido
+// entre los activos. El `chance` de cada uno es su parte del reparto: tres videos
+// iguales salen 33% cada uno; uno en 1 frente a otro en 50 casi nunca sale.
+function tryPool() {
+  const cfg = cameoTheme && cameoCfg(cameoTheme);
+  if (!cfg || !cfg.enabled || !cfg.pickOne) return;
+  const list = cfg.clips.filter((c) => c.enabled && c.pool && c.chance > 0);
+  if (!list.length) return;
+  if (cameoActive || Date.now() < cameoCooldownUntil || cameoBlocked()) {
+    return scheduleClip(POOL_ID, rand(3, 6));
+  }
+  const total = list.reduce((sum, c) => sum + c.chance, 0);
+  let r = Math.random() * total;
+  const clip = list.find((c) => (r -= c.chance) < 0) || list[list.length - 1];
   playCameo(cameoTheme, clip, { timed: true });
 }
 
@@ -514,8 +540,54 @@ function placeCameo(canvas, clip) {
   if (tx.length) st.transform = tx.join(" ");
 }
 
-function playCameo(name, source, { timed = false } = {}) {
-  if (!source || !source.src || cameoActive) return false;
+// ── Video forzado desde el panel de admin ───────────────────
+// Sale sin importar si hay un reproductor abierto, un modal o otra aparición
+// (a esa se la corta), y sin depender de que haya un tema activo. Va en su propia
+// capa, que se muda dentro del elemento en pantalla completa: con el reproductor
+// en fullscreen real, el navegador solo dibuja ese elemento y sus hijos.
+let forcedLayer = null;
+let forcedWatch = 0;
+const NO_CHILDREN_TAGS = new Set(["VIDEO", "IFRAME", "CANVAS", "IMG"]);
+const fsElement = () => document.fullscreenElement || document.webkitFullscreenElement || null;
+
+function forcedHost() {
+  const fs = fsElement();
+  return fs && !NO_CHILDREN_TAGS.has(fs.tagName) ? fs : document.body;
+}
+
+function mountForcedLayer() {
+  if (!forcedLayer) {
+    forcedLayer = document.createElement("div");
+    forcedLayer.className = "theme-forced-layer";
+    forcedLayer.setAttribute("aria-hidden", "true");
+  }
+  const host = forcedHost();
+  if (forcedLayer.parentNode !== host) host.appendChild(forcedLayer);
+  if (!forcedWatch) {
+    document.addEventListener("fullscreenchange", mountForcedLayer);
+    document.addEventListener("webkitfullscreenchange", mountForcedLayer);
+    // Por si el reproductor se destruye o entra en pantalla completa "web" (CSS).
+    forcedWatch = setInterval(mountForcedLayer, 500);
+  }
+  return forcedLayer;
+}
+
+function unmountForcedLayer() {
+  if (!forcedLayer || forcedLayer.childElementCount > 0) return; // otro forzado ya tomó la capa
+  document.removeEventListener("fullscreenchange", mountForcedLayer);
+  document.removeEventListener("webkitfullscreenchange", mountForcedLayer);
+  clearInterval(forcedWatch);
+  forcedWatch = 0;
+  forcedLayer.remove();
+  forcedLayer = null;
+}
+
+function playCameo(name, source, { timed = false, forced = false } = {}) {
+  if (!source || !source.src) return false;
+  if (cameoActive) {
+    if (!forced) return false;
+    cameoActive.abort(); // un forzado le gana a cualquier aparición en pantalla
+  }
   const clip = { ...CAMEO_DEFAULTS, ...source };
 
   const video = document.createElement("video");
@@ -549,6 +621,7 @@ function playCameo(name, source, { timed = false } = {}) {
       video.removeAttribute("src");
       video.load();
       canvas.remove();
+      if (forced) unmountForcedLayer();
     }, 700);
     cameoCooldownUntil = Date.now() + CAMEO_COOLDOWN_MS;
     // Solo las apariciones programadas reprograman la siguiente (las de prueba no).
@@ -556,12 +629,16 @@ function playCameo(name, source, { timed = false } = {}) {
     if (scheduleNext && timed) {
       const live = cameoCfg(name);
       const liveClip = live && live.clips.find((c) => c.id === clip.id);
-      if (live && live.enabled && liveClip && liveClip.enabled) {
+      if (live && live.enabled && live.pickOne && liveClip && liveClip.pool) {
+        // Salió del sorteo: el siguiente sorteo usa el intervalo general.
+        if (live.clips.some((c) => c.enabled && c.pool)) scheduleClip(POOL_ID, rand(live.minDelay, live.maxDelay));
+      } else if (live && live.enabled && liveClip && liveClip.enabled) {
+        // Video suelto (modo normal, o fuera del sorteo): su propio intervalo.
         scheduleClip(clip.id, clipDelay(live, liveClip));
       }
     }
   };
-  cameoActive = { abort: () => finish(false) };
+  cameoActive = { abort: () => finish(false), forced };
 
   try {
     // El tamaño del canvas se fija al conocer el del video.
@@ -591,13 +668,23 @@ function playCameo(name, source, { timed = false } = {}) {
   });
   safety = setTimeout(() => finish(), CAMEO_MAX_SECONDS * 1000);
 
-  if (!cameoLayer) {
-    cameoLayer = document.createElement("div");
-    cameoLayer.className = "theme-cameo-layer";
-    cameoLayer.setAttribute("aria-hidden", "true");
-    document.body.appendChild(cameoLayer);
+  if (forced) {
+    // Un <video> o <iframe> a pantalla completa no admite nada encima: se sale
+    // de pantalla completa para que la aparición se vea igual.
+    const fs = fsElement();
+    if (fs && NO_CHILDREN_TAGS.has(fs.tagName)) {
+      try { Promise.resolve((document.exitFullscreen || document.webkitExitFullscreen)?.call(document)).catch(() => {}); } catch {}
+    }
+    mountForcedLayer().appendChild(canvas);
+  } else {
+    if (!cameoLayer) {
+      cameoLayer = document.createElement("div");
+      cameoLayer.className = "theme-cameo-layer";
+      cameoLayer.setAttribute("aria-hidden", "true");
+      document.body.appendChild(cameoLayer);
+    }
+    cameoLayer.appendChild(canvas);
   }
-  cameoLayer.appendChild(canvas);
   video.play().catch((err) => {
     // Los navegadores bloquean el audio automático hasta que la persona haya
     // tocado la página. Si pasa, se reintenta sin sonido en vez de cancelar.
@@ -628,17 +715,24 @@ function startCameos(name) {
   const list = cfg.clips.filter((c) => c.enabled);
   if (!list.length) return;
   cameoTheme = name;
+  // Modo "uno al azar": un solo reloj; al cumplirse sale un video elegido entre todos.
+  // Los videos fuera del sorteo (pool:false) corren aparte, como en el modo normal.
+  let solo = list;
+  if (cfg.pickOne) {
+    if (list.some((c) => c.pool)) scheduleClip(POOL_ID, cfg.firstDelay);
+    solo = list.filter((c) => !c.pool);
+  }
   // El primero (al azar) sale a los `firstDelay` segundos; los demás, después
   // de esa espera más su propio intervalo, para que no choquen.
-  const order = [...list].sort(() => Math.random() - 0.5);
+  const order = [...solo].sort(() => Math.random() - 0.5);
   order.forEach((c, i) =>
-    scheduleClip(c.id, cfg.firstDelay + (i === 0 ? 0 : clipDelay(cfg, c))));
+    scheduleClip(c.id, cfg.firstDelay + (i === 0 && !(cfg.pickOne && list.some((x) => x.pool)) ? 0 : clipDelay(cfg, c))));
 }
 
 function stopCameos() {
   clearCameoTimers();
   cameoTheme = null;
-  cameoActive?.abort();
+  if (cameoActive && !cameoActive.forced) cameoActive.abort();
   if (cameoLayer) { cameoLayer.remove(); cameoLayer = null; }
 }
 
@@ -659,6 +753,19 @@ export function playCameoNow(arg) {
   }
   if (!clip || !clip.src) return false;
   return playCameo(current, clip);
+}
+
+/**
+ * Muestra YA un video en pantalla completa (lo usa el botón "Forzar" del panel de
+ * admin). Ignora reproductor abierto, modales y descansos; no necesita tema activo.
+ * Si el video venía como "pequeño", se muestra entero igual.
+ */
+export function playForcedNow(arg) {
+  if (!arg || typeof arg !== "object") return false;
+  const clip = normalizeClip(arg);
+  if (!clip.src) return false;
+  if (clip.layout === "pop") clip.layout = "contain";
+  return playCameo(current || "forced", clip, { forced: true });
 }
 
 // ── Estado ──────────────────────────────────────────────────
@@ -779,7 +886,7 @@ export function startThemeFx(name, opts = {}) {
   pollTimer = setInterval(syncPause, lite ? 4000 : 1500);
   syncPause();
   startCameos(name); // en modo liviano salen igual, pero más baratas (ver CAMEO_LITE_*)
-  window.__themeFx = { playCameoNow }; // solo para pruebas
+  window.__themeFx = { playCameoNow, playForcedNow }; // solo para pruebas
 }
 
-export default { startThemeFx, stopThemeFx, hasThemeFx, playCameoNow, setCameoSettings };
+export default { startThemeFx, stopThemeFx, hasThemeFx, playCameoNow, playForcedNow, setCameoSettings };
