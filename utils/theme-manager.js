@@ -932,11 +932,31 @@ export function renderThemeAdminCard(container, db) {
   cApplyEl.addEventListener("click", async () => {
     const bad = clips.find((c) => !HTTPS.test((c.src || "").trim()));
     if (bad) return flash("Falta la URL https de «" + (bad.name || "sin nombre") + "»", "err", cStatusEl);
-    writeLocalCameo(readCameoFields());
+    const cameo = sanitizeCameo(readCameoFields());
+    writeLocalCameo(cameo);          // primero local: se ve al instante aunque falle la red
+    let saved = false;
+    if (db) {
+      cApplyEl.disabled = true;
+      try {
+        // Solo se toca site_theme/cameo: el modo y el tema elegidos no se pisan.
+        await db.ref("site_theme/cameo").set(cameo);
+        // Ya está en Realtime Database: se quita la copia local para que no tape
+        // futuros cambios y se actualiza la caché con lo recién guardado.
+        writeCache({ ...(readCache() || {}), cameo });
+        writeLocalCameo(null);
+        saved = true;
+      } catch (err) {
+        console.error("Error guardando site_theme/cameo:", err);
+      } finally {
+        cApplyEl.disabled = false;
+      }
+    }
     fillCameoFields(resolveCameo()); // refleja valores ya corregidos (mín. 15 s, máx ≥ mín)
     applyTheme(resolveTheme());
     await loadClips();               // y la lista tal como quedó guardada
-    flash("Apariciones aplicadas ✓", "ok", cStatusEl);
+    if (!db) flash("Apariciones aplicadas (solo en este navegador) ✓", "ok", cStatusEl);
+    else if (saved) flash("Apariciones guardadas para todos ✓", "ok", cStatusEl);
+    else flash("Aplicado solo aquí: no se pudo guardar en Firebase", "err", cStatusEl);
   });
 
   if (saveEl && db) {
