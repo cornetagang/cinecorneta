@@ -388,6 +388,17 @@ body.modal-open .fx-player-deco * {
 .theme-cameo.is-on { opacity: 1; }
 html.tema-fx-off .theme-cameo-layer { display: none; }
 
+/* Video forzado desde el panel de admin: por encima de TODO (incluido el
+   reproductor en pantalla completa; el JS mete esta capa dentro del elemento
+   en fullscreen). No depende de tema ni de .tema-fx-off. */
+.theme-forced-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  pointer-events: none;
+  overflow: hidden;
+}
+
 
 /* =============================================================
    3. MODO LIVIANO
