@@ -9607,7 +9607,11 @@ function injectOnlineCounter() {
   const themeHost = document.createElement("div");
   themeHost.id = "adash-theme-host";
   leftCol.appendChild(themeHost);
-  ThemeManager.renderThemeAdminCard(themeHost, db);
+  // Tarjeta "Apariciones": cuadro independiente, a todo el ancho, bajo las dos columnas
+  const cameoHost = document.createElement("div");
+  cameoHost.id = "adash-cameo-host";
+  cameoHost.style.marginTop = "12px";
+  ThemeManager.renderThemeAdminCard(themeHost, db, cameoHost);
 
   // ── Wrapper de dos columnas ──────────────────────────────────
   const wrapper = document.createElement("div");
@@ -9615,6 +9619,7 @@ function injectOnlineCounter() {
   wrapper.appendChild(leftCol);
   wrapper.appendChild(rightCol);
   container.appendChild(wrapper);
+  container.appendChild(cameoHost);
 
   // ── Presencia en tiempo real ─────────────────────────────────
   let _presenceData = [];
