@@ -144,6 +144,7 @@ function sanitizeClip(c) {
     if (n !== undefined) out[k] = Math.round(n);
   });
   if (out.minDelay && out.maxDelay && out.maxDelay < out.minDelay) out.maxDelay = out.minDelay;
+  if (c.pool === false) out.pool = false; // fuera del sorteo "uno al azar" (por defecto entran todos)
   const chance = range(c.chance, 0, 100);
   if (chance !== undefined && chance < 100) out.chance = Math.round(chance * 100) / 100;
   if (HEX_COLOR.test(c.key)) out.key = c.key.toLowerCase();
@@ -158,6 +159,7 @@ function sanitizeClip(c) {
 function sanitizeCameo(c) {
   if (!c || typeof c !== "object") return null;
   const out = { enabled: c.enabled !== false };
+  if (c.pickOne === true) out.pickOne = true;   // modo "sale uno al azar cada vez"
   ["firstDelay", "minDelay", "maxDelay"].forEach((k) => {
     const v = Number(c[k]);
     if (c[k] != null && Number.isFinite(v) && v >= 0) out[k] = v;
@@ -233,6 +235,40 @@ export function setLiteMode(value) {
     else localStorage.removeItem(LITE_KEY);
   } catch {}
   applyTheme(resolveTheme());
+}
+
+// ── Video forzado por el admin ──────────────────────────────
+// El admin escribe `site_theme/forced = { id, ts, clip }`. Todos los que están
+// conectados lo reciben por el mismo listener de `site_theme` y lo ven en
+// pantalla completa al instante, aunque estén viendo un video. Para que nadie
+// reciba uno viejo: la primera lectura (al abrir la página) solo se anota, y
+// solo se reproduce cuando cambia el `id` y el mensaje no es antiguo.
+const FORCED_MAX_AGE_MS = 2 * 60 * 1000;
+let forcedLastId;        // undefined = aún no se leyó el primer valor
+let serverOffset = 0;    // diferencia entre el reloj del servidor y el de este equipo
+
+function handleForced(forced) {
+  const id = forced && forced.id != null ? String(forced.id) : null;
+  if (forcedLastId === undefined) { forcedLastId = id; return; }
+  if (!id || id === forcedLastId) return;
+  forcedLastId = id;
+  const ts = Number(forced.ts);
+  if (Number.isFinite(ts) && Date.now() + serverOffset - ts > FORCED_MAX_AGE_MS) return;
+  if (document.hidden) return; // pestaña en segundo plano: no se puede dibujar nada
+  const clip = sanitizeClip(forced.clip);
+  if (!clip) return;
+  loadFx()
+    .then((m) => m.playForcedNow(clip))
+    .catch((e) => console.warn("Video forzado:", e));
+}
+
+/** Panel de admin: manda un video para que salga ahora, en pantalla completa, a todos los conectados. */
+export async function sendForcedClip(db, clip) {
+  const clean = sanitizeClip(clip);
+  if (!db || !clean) throw new Error("Video o conexión inválidos");
+  const ts = (window.firebase && window.firebase.database && window.firebase.database.ServerValue)
+    ? window.firebase.database.ServerValue.TIMESTAMP : Date.now();
+  await db.ref("site_theme/forced").set({ id: newClipId(), ts, clip: clean });
 }
 
 /** Decide qué tema toca ahora (o null). */
@@ -372,12 +408,16 @@ export function initTheme(db) {
   watchThemeByDate();
   if (!db) return;
   try {
+    db.ref(".info/serverTimeOffset").on("value", (s) => { serverOffset = Number(s.val()) || 0; });
     db.ref("site_theme").on(
       "value",
       (snap) => {
-        const setting = snap.val();
+        // `forced` es un aviso de un solo uso: no es parte del ajuste del tema ni se cachea.
+        const { forced, ...rest } = snap.val() || {};
+        const setting = Object.keys(rest).length ? rest : null;
         writeCache(setting);
         applyTheme(resolveTheme(setting), setting);
+        handleForced(forced);
       },
       (err) => console.warn("No se pudo leer site_theme:", err),
     );
@@ -547,11 +587,37 @@ function openKeyPicker(fx, clip, onApply) {
 // Por ahora trabaja en LOCAL: aplica el tema solo en este navegador
 // para poder probarlo. `db` es opcional y solo se usa si
 // GLOBAL_SAVE_ENABLED está en true.
-export function renderThemeAdminCard(container, db) {
+export function renderThemeAdminCard(container, db, cameoHost) {
   if (!container) return;
   const themeOptions = Object.keys(THEME_LABELS)
     .map((k) => `<option value="${k}"${isReady(k) ? "" : " disabled"}>${THEME_LABELS[k]}${isReady(k) ? "" : " (sin diseño aún)"}</option>`)
     .join("");
+
+  // Apariciones: va en su propio cuadro (cameoHost) si se entrega uno; si no,
+  // queda dentro de esta tarjeta como antes.
+  const cameoBlock = `
+      <div class="adash-cameo">
+        <div class="adash-cameo-top">
+          <h4>Apariciones <small>videos con fondo verde</small></h4>
+          <label class="adash-check"><input type="checkbox" id="adash-cameo-on"> Activadas</label>
+        </div>
+        <div class="adash-theme-row adash-cameo-general">
+          <label>Primera aparición (seg)<input type="number" id="adash-cameo-first" min="0" step="1"></label>
+          <label>Cada mínimo (min)<input type="number" id="adash-cameo-min" min="0.25" step="0.25"></label>
+          <label>Cada máximo (min)<input type="number" id="adash-cameo-max" min="0.25" step="0.25"></label>
+        </div>
+        <label class="adash-check adash-pool"><input type="checkbox" id="adash-cameo-pool"> Sale uno al azar cada vez (entre los videos que elijas; el % de cada uno es su parte del reparto)</label>
+        <p class="adash-theme-info adash-pool-info">Un solo reloj, el intervalo general de arriba: cada vez que toca sale <b>un</b> video elegido entre los que tengan marcado «Participa en el sorteo». El % de cada uno es su parte del reparto: tres videos iguales salen parejo (33% cada uno); uno en 1 frente a otro en 50 casi nunca sale. Los videos que desmarques (etiqueta «aparte») quedan fuera del sorteo y salen solos con su propio intervalo y probabilidad. Los tiempos propios solo cuentan para esos.</p>
+        <p class="adash-theme-info adash-general-info">Intervalo general. Cada video puede tener el suyo; si lo dejas vacío, usa este. Cada aparición sale en un momento al azar entre el mínimo y el máximo (para una frecuencia fija, pon el mismo valor en los dos). Nunca salen dos a la vez.</p>
+        <h5 id="adash-clips-title" style="margin-top:12px">Videos</h5>
+        <div id="adash-clips"></div>
+        <div class="adash-theme-row adash-cameo-actions">
+          <button id="adash-clip-add" type="button">+ Agregar video</button>
+          <button id="adash-clip-reset" type="button">Restaurar de fábrica</button>
+          <button id="adash-cameo-apply" type="button">Aplicar apariciones</button>
+          <span id="adash-cameo-status" class="adash-theme-status"></span>
+        </div>
+      </div>`;
 
   container.innerHTML = `
     <style>
@@ -570,18 +636,51 @@ export function renderThemeAdminCard(container, db) {
       .adash-cameo label{display:flex;flex-direction:column;gap:4px;font-size:12px;opacity:.85}
       .adash-cameo label.adash-check{flex-direction:row;align-items:center;gap:8px;font-size:13px;opacity:1;margin-bottom:8px}
       .adash-cameo input[type=number]{width:96px;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-size:13px}
-      .adash-clip{margin:0 0 10px;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03)}
-      .adash-clip.off{opacity:.55}
+      .adash-chips{display:flex;gap:6px;overflow-x:auto;padding:2px 2px 8px;margin-bottom:6px;scrollbar-width:thin}
+      .adash-chip{display:flex;align-items:center;gap:6px;flex:none;max-width:190px;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);cursor:pointer;font-size:12px;font-weight:600;user-select:none}
+      .adash-chip:hover{background:rgba(255,255,255,.12)}
+      .adash-chip.active{background:rgba(33,208,122,.18);border-color:#21d07a}
+      .adash-chip.off span{opacity:.45}
+      .adash-chip input[type=checkbox]{width:14px;height:14px;margin:0;flex:none;cursor:pointer}
+      .adash-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .adash-chip em{flex:none;font-style:normal;font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px;background:rgba(255,184,77,.18);color:#ffb84d}
+      .adash-chip em:empty{display:none}
+      .adash-clip{display:none;margin:0 0 10px;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03)}
+      .adash-clip.active{display:block}
       .adash-clip-head{display:flex;gap:8px;align-items:center;margin-bottom:8px}
-      .adash-clip-head input[type=checkbox]{width:18px;height:18px;flex:none}
       .adash-clip input[type=text],.adash-clip input[type=url]{width:100%;box-sizing:border-box;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-size:13px}
       .adash-clip-head input[type=text]{flex:1;min-width:0}
       .adash-clip-grid{margin:8px 0 0}
-      .adash-cameo .adash-clip label.adash-vol{flex-direction:row;align-items:center;gap:8px}
+      .adash-clip-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-top:8px}
+      .adash-cameo .adash-clip-form input[type=number],.adash-cameo .adash-clip-form select{width:100%;box-sizing:border-box}
+      .adash-clip-sound{grid-column:1/-1;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+      .adash-cameo .adash-clip-sound label.adash-check{margin:0}
+      .adash-clip-sound input[type=range]{flex:1;min-width:80px;max-width:280px}
+      .adash-cameo .adash-clip label.adash-vol{flex-direction:row;align-items:center;gap:8px;flex:0 1 420px;min-width:140px}
       .adash-clip input[type=number]{width:84px}
       .adash-clip input[type=color]{width:48px;height:34px;padding:2px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08)}
       .adash-clip details{margin-top:8px;font-size:12px}
       .adash-clip summary{cursor:pointer;opacity:.8}
+      .adash-cameo-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+      .adash-cameo-top h4{margin:0;font-size:15px}
+      .adash-cameo-top h4 small{font-weight:500;font-size:12px;opacity:.6;margin-left:6px}
+      .adash-cameo .adash-cameo-top label.adash-check{margin:0}
+      .adash-cameo-general{gap:12px}
+      .adash-pool-info{display:none}
+      .adash-cameo.pool .adash-pool-info{display:block}
+      .adash-cameo.pool .adash-general-info{display:none}
+      .adash-cameo.pool .adash-clip.in-pool .adash-own-time{opacity:.35;pointer-events:none}
+      .adash-pool-opt{display:none!important}
+      .adash-cameo.pool .adash-pool-opt{display:flex!important;grid-column:1/-1;margin:0}
+      .adash-chip em.solo{background:rgba(120,170,255,.2);color:#8ab4ff}
+      .adash-cameo-actions{margin:4px 0 0;padding-top:12px;border-top:1px solid rgba(255,255,255,.08)}
+      /* Cuadro independiente (a todo el ancho) */
+      .adash-cameo-card{margin-top:0}
+      .adash-cameo-card .adash-cameo{margin-top:0;padding-top:0;border-top:0}
+      .adash-cameo-card .adash-chips{flex-wrap:wrap;overflow-x:visible}
+      .adash-cameo-card .adash-clip-head input[type=text]{flex:0 1 360px}
+      .adash-cameo-card .adash-clip-form{grid-template-columns:repeat(4,minmax(0,1fr))}
+      @media (max-width:760px){.adash-cameo-card .adash-clip-form{grid-template-columns:repeat(2,minmax(0,1fr))}}
     </style>
     <div class="adash-theme-card">
       <h4>Tema del sitio</h4>
@@ -609,27 +708,11 @@ export function renderThemeAdminCard(container, db) {
       </div>
       <p class="adash-theme-info" id="adash-lite-info"></p>
 
-      <div class="adash-cameo">
-        <h5>Apariciones (videos con fondo verde)</h5>
-        <label class="adash-check"><input type="checkbox" id="adash-cameo-on"> Activadas</label>
-        <div class="adash-theme-row">
-          <label>Primera aparición (seg)<input type="number" id="adash-cameo-first" min="0" step="1"></label>
-          <label>Cada mínimo (min)<input type="number" id="adash-cameo-min" min="0.25" step="0.25"></label>
-          <label>Cada máximo (min)<input type="number" id="adash-cameo-max" min="0.25" step="0.25"></label>
-        </div>
-        <p class="adash-theme-info">Intervalo general. Cada video puede tener el suyo; si lo dejas vacío, usa este. Cada aparición sale en un momento al azar entre el mínimo y el máximo (para una frecuencia fija, pon el mismo valor en los dos). Nunca salen dos a la vez.</p>
-        <h5 id="adash-clips-title" style="margin-top:12px">Videos</h5>
-        <div id="adash-clips"></div>
-        <div class="adash-theme-row">
-          <button id="adash-clip-add" type="button">+ Agregar video</button>
-          <button id="adash-clip-reset" type="button">Restaurar de fábrica</button>
-        </div>
-        <div class="adash-theme-row">
-          <button id="adash-cameo-apply" type="button">Aplicar apariciones</button>
-          <span id="adash-cameo-status" class="adash-theme-status"></span>
-        </div>
-      </div>
+      ${cameoHost ? "" : cameoBlock}
     </div>`;
+
+  if (cameoHost) cameoHost.innerHTML = `<div class="adash-theme-card adash-cameo-card">${cameoBlock}</div>`;
+  const cameoRoot = cameoHost || container;
 
   const modeEl = container.querySelector("#adash-theme-mode");
   const pickEl = container.querySelector("#adash-theme-pick");
@@ -642,16 +725,17 @@ export function renderThemeAdminCard(container, db) {
   const liteEl = container.querySelector("#adash-lite");
   const liteInfoEl = container.querySelector("#adash-lite-info");
 
-  const cOnEl = container.querySelector("#adash-cameo-on");
-  const cFirstEl = container.querySelector("#adash-cameo-first");
-  const cMinEl = container.querySelector("#adash-cameo-min");
-  const cMaxEl = container.querySelector("#adash-cameo-max");
-  const cApplyEl = container.querySelector("#adash-cameo-apply");
-  const cClipsEl = container.querySelector("#adash-clips");
-  const cTitleEl = container.querySelector("#adash-clips-title");
-  const cAddEl = container.querySelector("#adash-clip-add");
-  const cResetEl = container.querySelector("#adash-clip-reset");
-  const cStatusEl = container.querySelector("#adash-cameo-status");
+  const cOnEl = cameoRoot.querySelector("#adash-cameo-on");
+  const cPoolEl = cameoRoot.querySelector("#adash-cameo-pool");
+  const cFirstEl = cameoRoot.querySelector("#adash-cameo-first");
+  const cMinEl = cameoRoot.querySelector("#adash-cameo-min");
+  const cMaxEl = cameoRoot.querySelector("#adash-cameo-max");
+  const cApplyEl = cameoRoot.querySelector("#adash-cameo-apply");
+  const cClipsEl = cameoRoot.querySelector("#adash-clips");
+  const cTitleEl = cameoRoot.querySelector("#adash-clips-title");
+  const cAddEl = cameoRoot.querySelector("#adash-clip-add");
+  const cResetEl = cameoRoot.querySelector("#adash-clip-reset");
+  const cStatusEl = cameoRoot.querySelector("#adash-cameo-status");
 
   let statusTimer;
   const flash = (msg, cls = "ok", el = statusEl) => {
@@ -665,6 +749,8 @@ export function renderThemeAdminCard(container, db) {
   const fillCameoFields = (c) => {
     const v = { ...CAMEO_FALLBACK, ...(c || {}) };
     cOnEl.checked = v.enabled !== false;
+    cPoolEl.checked = v.pickOne === true;
+    cameoRoot.querySelector(".adash-cameo")?.classList.toggle("pool", cPoolEl.checked);
     cFirstEl.value = v.firstDelay;
     cMinEl.value = +(v.minDelay / 60).toFixed(2);
     cMaxEl.value = +(v.maxDelay / 60).toFixed(2);
@@ -675,6 +761,7 @@ export function renderThemeAdminCard(container, db) {
     const max = Math.max(min, Number(cMaxEl.value) || min);
     const out = {
       enabled: cOnEl.checked,
+      ...(cPoolEl.checked ? { pickOne: true } : {}),
       firstDelay: Math.round(first),
       minDelay: Math.round(min * 60),
       maxDelay: Math.round(max * 60),
@@ -711,27 +798,66 @@ export function renderThemeAdminCard(container, db) {
   let clipsTheme = null;
   let clipsDirty = false;   // el admin cambió la lista → se guarda al aplicar
   let clipsReset = false;   // pidió volver a los videos de fábrica
+  let activeClip = 0;       // video cuyos ajustes están abiertos
 
+  // En modo "uno al azar" la etiqueta es la parte del reparto (33/33/33 → 33% cada uno);
+  // en modo normal es la probabilidad propia, y solo se muestra si es menor a 100.
+  const weight = (c) => c.chance ?? 100;
+  const badgeText = (c) => {
+    if (cPoolEl.checked) {
+      if (c.enabled === false) return "";
+      if (c.pool === false) return "aparte";
+      const total = clips.reduce((sum, x) => sum + (x.enabled === false || x.pool === false ? 0 : weight(x)), 0);
+      if (!(total > 0) || !(weight(c) > 0)) return "";
+      const pct = (weight(c) / total) * 100;
+      return pct < 1 ? "<1%" : Math.round(pct) + "%";
+    }
+    return c.chance != null && c.chance < 100 ? c.chance + "%" : "";
+  };
+  const clipSummary = (c) => {
+    if (cPoolEl.checked && c.pool !== false) return "Parte del reparto: " + (badgeText(c) || "no sale");
+    if (cPoolEl.checked) return "Fuera del sorteo · sale aparte, " + (minutes(c.minDelay) && minutes(c.maxDelay) ? `cada ${minutes(c.minDelay)}–${minutes(c.maxDelay)} min` : "con el intervalo general") + " · " + (c.chance ?? 100) + "%";
+    const a = minutes(c.minDelay), b = minutes(c.maxDelay);
+    return (a && b ? `Cada ${a}–${b} min` : "Intervalo general") + " · " + (c.chance ?? 100) + "%";
+  };
+  const refreshBadges = () => cClipsEl.querySelectorAll(".adash-chip").forEach((chip) => {
+    const c = clips[Number(chip.dataset.i)];
+    if (!c) return;
+    const em = chip.querySelector("[data-pct]");
+    if (em) { em.textContent = badgeText(c); em.classList.toggle("solo", cPoolEl.checked && c.pool === false); }
+    chip.title = clipSummary(c);
+  });
+
+  // Pestaña del video (fila horizontal): activo/inactivo + nombre + % si no es 100
+  const chipHtml = (c, i) => `
+    <div class="adash-chip${i === activeClip ? " active" : ""}${c.enabled === false ? " off" : ""}" data-i="${i}" role="tab" title="${esc(clipSummary(c))}">
+      <input type="checkbox" data-f="enabled" title="Activo"${c.enabled !== false ? " checked" : ""}>
+      <span>${esc(c.name || "Sin nombre")}</span>
+      <em data-pct class="${cPoolEl.checked && c.pool === false ? "solo" : ""}">${esc(badgeText(c))}</em>
+    </div>`;
+
+  // Ajustes del video: solo se ve el del video elegido
   const clipHtml = (c, i) => `
-    <div class="adash-clip${c.enabled === false ? " off" : ""}" data-i="${i}">
+    <div class="adash-clip${i === activeClip ? " active" : ""}${c.pool === false ? "" : " in-pool"}" data-i="${i}">
       <div class="adash-clip-head">
-        <input type="checkbox" data-f="enabled" title="Activo"${c.enabled !== false ? " checked" : ""}>
         <input type="text" data-f="name" maxlength="60" placeholder="Nombre" value="${esc(c.name)}">
+        <button type="button" data-act="force" title="Sale ahora, en pantalla completa, a todos los que estén conectados (aunque estén viendo algo)">⚡ Forzar a todos</button>
         <button type="button" data-act="test">Probar</button>
         <button type="button" data-act="del" title="Eliminar video">✕</button>
       </div>
       <input type="url" data-f="src" placeholder="https://res.cloudinary.com/…/video.mp4" value="${esc(c.src)}">
-      <div class="adash-theme-row adash-clip-grid">
-        <label>Sale cada (min) · mínimo<input type="number" data-f="minMin" min="0.25" step="0.25" placeholder="general" value="${minutes(c.minDelay)}"></label>
-        <label>máximo<input type="number" data-f="maxMin" min="0.25" step="0.25" placeholder="general" value="${minutes(c.maxDelay)}"></label>
-        <label>Probabilidad (%) cada vez<input type="number" data-f="chance" min="0" max="100" step="0.1" placeholder="100" value="${c.chance ?? ""}" title="Cada vez que le toca salir se tira el dado: 1 = sale 1 de cada 100 veces. Vacío = siempre."></label>
+      <div class="adash-clip-form">
+        <label class="adash-check adash-pool-opt" title="Marcado: este video entra al sorteo y comparte el reparto con los demás marcados. Desmarcado: queda fuera y sale aparte, con su propio intervalo y probabilidad."><input type="checkbox" data-f="pool"${c.pool === false ? "" : " checked"}> Participa en el sorteo (si lo desmarcas, sale aparte con su propio intervalo)</label>
+        <label class="adash-own-time">Sale cada · mín (min)<input type="number" data-f="minMin" min="0.25" step="0.25" placeholder="general" value="${minutes(c.minDelay)}"></label>
+        <label class="adash-own-time">Sale cada · máx (min)<input type="number" data-f="maxMin" min="0.25" step="0.25" placeholder="general" value="${minutes(c.maxDelay)}"></label>
+        <label>Probabilidad (%)<input type="number" data-f="chance" min="0" max="100" step="0.1" placeholder="100" value="${c.chance ?? ""}" title="Cada vez que le toca salir se tira el dado: 1 = sale 1 de cada 100 veces. Vacío = siempre."></label>
         <label>Tamaño<select data-f="layout">${Object.keys(LAYOUT_LABELS).map((k) =>
           `<option value="${k}"${(c.layout || "cover") === k ? " selected" : ""}>${LAYOUT_LABELS[k]}</option>`).join("")}</select></label>
-      </div>
-      <div class="adash-theme-row adash-clip-grid">
-        <label class="adash-check"><input type="checkbox" data-f="sound"${c.sound ? " checked" : ""}> Con sonido</label>
-        <label class="adash-vol">Volumen <span data-vol>${Math.round((c.volume ?? 0.6) * 100)}%</span>
-          <input type="range" data-f="volume" min="0" max="100" value="${Math.round((c.volume ?? 0.6) * 100)}"${c.sound ? "" : " disabled"}></label>
+        <div class="adash-clip-sound">
+          <label class="adash-check"><input type="checkbox" data-f="sound"${c.sound ? " checked" : ""}> Con sonido</label>
+          <label class="adash-vol">Volumen <span data-vol>${Math.round((c.volume ?? 0.6) * 100)}%</span>
+            <input type="range" data-f="volume" min="0" max="100" value="${Math.round((c.volume ?? 0.6) * 100)}"${c.sound ? "" : " disabled"}></label>
+        </div>
       </div>
       <details>
         <summary>Ajuste del verde</summary>
@@ -749,9 +875,23 @@ export function renderThemeAdminCard(container, db) {
 
   const renderClips = () => {
     cTitleEl.textContent = clipsTheme ? "Videos de " + THEME_LABELS[clipsTheme] : "Videos";
-    cClipsEl.innerHTML = clips.length
-      ? clips.map(clipHtml).join("")
-      : '<p class="adash-theme-info">No hay videos. Agrega uno con el botón de abajo.</p>';
+    if (!clips.length) {
+      cClipsEl.innerHTML = '<p class="adash-theme-info">No hay videos. Agrega uno con el botón de abajo.</p>';
+      return;
+    }
+    activeClip = Math.min(Math.max(activeClip, 0), clips.length - 1);
+    cClipsEl.innerHTML =
+      `<div class="adash-chips" role="tablist">${clips.map(chipHtml).join("")}</div>` +
+      clips.map(clipHtml).join("");
+  };
+
+  // Cambiar de video no vuelve a dibujar nada: solo se muestra/oculta
+  const setActiveClip = (i) => {
+    activeClip = i;
+    cClipsEl.querySelectorAll(".adash-chip, .adash-clip").forEach((el) =>
+      el.classList.toggle("active", Number(el.dataset.i) === i));
+    cClipsEl.querySelector(`.adash-chip[data-i="${i}"]`)
+      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
   };
 
   const defaultClips = async (theme) => {
@@ -773,6 +913,7 @@ export function renderThemeAdminCard(container, db) {
     }
     clipsDirty = false;
     clipsReset = false;
+    activeClip = 0;
     renderClips();
   };
 
@@ -780,28 +921,42 @@ export function renderThemeAdminCard(container, db) {
     const el = e.target;
     const f = el.dataset && el.dataset.f;
     if (!f) return;
-    const card = el.closest(".adash-clip");
-    const c = card && clips[Number(card.dataset.i)];
+    const card = el.closest("[data-i]");   // pestaña o ajustes del video
+    const idx = card ? Number(card.dataset.i) : -1;
+    const c = clips[idx];
     if (!c) return;
+    const chipEl = () => cClipsEl.querySelector(`.adash-chip[data-i="${idx}"]`);
+    const editEl = () => cClipsEl.querySelector(`.adash-clip[data-i="${idx}"]`);
     const n = el.value === "" ? null : Number(el.value);
     switch (f) {
       case "enabled":
         c.enabled = el.checked;
-        card.classList.toggle("off", !c.enabled);
+        chipEl()?.classList.toggle("off", !c.enabled);
+        refreshBadges();
         break;
       case "sound":
         c.sound = el.checked;
-        card.querySelector('[data-f="volume"]').disabled = !c.sound;
+        editEl().querySelector('[data-f="volume"]').disabled = !c.sound;
         break;
       case "despill": c.despill = el.checked; break;
-      case "name": case "src": case "layout": case "key": c[f] = el.value; break;
+      case "pool":
+        if (el.checked) delete c.pool; else c.pool = false;
+        editEl()?.classList.toggle("in-pool", el.checked);
+        refreshBadges();
+        break;
+      case "name":
+        c.name = el.value;
+        { const sp = chipEl()?.querySelector("span"); if (sp) sp.textContent = el.value || "Sin nombre"; }
+        break;
+      case "src": case "layout": case "key": c[f] = el.value; break;
       case "volume":
         c.volume = Number(el.value) / 100;
-        card.querySelector("[data-vol]").textContent = el.value + "%";
+        editEl().querySelector("[data-vol]").textContent = el.value + "%";
         break;
       case "minMin": case "maxMin": {
         const k = f === "minMin" ? "minDelay" : "maxDelay";
         if (n > 0) c[k] = Math.round(n * 60); else delete c[k];
+        if (chipEl()) chipEl().title = clipSummary(c);
         break;
       }
       case "similarity": case "smoothness": case "floor": case "dark":
@@ -810,14 +965,22 @@ export function renderThemeAdminCard(container, db) {
       case "chance":
         // Vacío o 100 = siempre sale (no se guarda el campo).
         if (n != null && Number.isFinite(n) && n < 100) c.chance = Math.max(0, n); else delete c.chance;
+        refreshBadges();
         break;
     }
     clipsDirty = true;
   };
+  cPoolEl.addEventListener("change", () => {
+    cameoRoot.querySelector(".adash-cameo")?.classList.toggle("pool", cPoolEl.checked);
+    refreshBadges();
+  });
   cClipsEl.addEventListener("input", onClipEdit);
   cClipsEl.addEventListener("change", onClipEdit);
 
   cClipsEl.addEventListener("click", async (e) => {
+    // Pestaña del video (el checkbox de activar no cambia de pestaña)
+    const chip = e.target.closest(".adash-chip");
+    if (chip && !e.target.closest("input")) return setActiveClip(Number(chip.dataset.i));
     const btn = e.target.closest("[data-act]");
     if (!btn) return;
     const i = Number(btn.closest(".adash-clip").dataset.i);
@@ -825,6 +988,7 @@ export function renderThemeAdminCard(container, db) {
     if (!c) return;
     if (btn.dataset.act === "del") {
       clips.splice(i, 1);
+      if (i < activeClip) activeClip--;
       clipsDirty = true;
       renderClips();
     } else if (btn.dataset.act === "pick") {
@@ -835,6 +999,20 @@ export function renderThemeAdminCard(container, db) {
       } catch (err) {
         console.warn("Cuentagotas:", err);
         flash("No se pudo abrir el cuentagotas", "err", cStatusEl);
+      }
+    } else if (btn.dataset.act === "force") {
+      if (!HTTPS.test((c.src || "").trim())) return flash("Falta la URL https del video", "err", cStatusEl);
+      if (!db) return flash("Sin conexión a Firebase: no se puede enviar a todos", "err", cStatusEl);
+      if (!window.confirm("¿Mostrar «" + (c.name || "video") + "» ahora, en pantalla completa, a todos los que estén conectados?")) return;
+      btn.disabled = true;
+      try {
+        await sendForcedClip(db, c);
+        flash("Enviado ✓", "ok", cStatusEl);
+      } catch (err) {
+        console.error("Error enviando video forzado:", err);
+        flash("No se pudo enviar (¿reglas de Firebase para site_theme/forced?)", "err", cStatusEl);
+      } finally {
+        btn.disabled = false;
       }
     } else if (btn.dataset.act === "test") {
       // Prueba el video tal como está en pantalla, sin guardarlo: sirve para afinar el verde.
@@ -855,8 +1033,10 @@ export function renderThemeAdminCard(container, db) {
     if (clips.length >= MAX_CLIPS) return flash("Máximo " + MAX_CLIPS + " videos", "err", cStatusEl);
     clips.push({ id: newClipId(), name: "Video nuevo", src: "", enabled: true, layout: "cover", sound: false, volume: 0.6 });
     clipsDirty = true;
+    activeClip = clips.length - 1;
     renderClips();
-    cClipsEl.lastElementChild?.querySelector('[data-f="src"]')?.focus();
+    cClipsEl.querySelector('.adash-clip.active [data-f="src"]')?.focus();
+    cClipsEl.querySelector(".adash-chip.active")?.scrollIntoView({ block: "nearest", inline: "nearest" });
   });
 
   cResetEl.addEventListener("click", async () => {
@@ -988,7 +1168,7 @@ export default {
   initTheme, applyTheme, resolveTheme, themeFromDate, getActiveTheme,
   updateThemeAssets, setThemeOptOut, isThemeOptedOut, renderThemeAdminCard,
   readLocalTest, writeLocalTest,
-  resolveCameo, readLocalCameo, writeLocalCameo,
+  resolveCameo, readLocalCameo, writeLocalCameo, sendForcedClip,
   getLiteSetting, isLowSpecDevice, isLiteMode, setLiteMode,
   THEME_ASSETS, THEME_LABELS,
 };
