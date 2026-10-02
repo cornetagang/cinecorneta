@@ -742,8 +742,82 @@ export function renderThemeAdminCard(container, db, cameoHost) {
     el.className = "adash-theme-status " + cls;
     el.textContent = msg;
     clearTimeout(statusTimer);
-    statusTimer = setTimeout(() => { el.textContent = ""; }, 3000);
+    statusTimer = setTimeout(() => { el.textContent = ""; }, cls === "err" ? 7000 : 3000);
   };
+
+  // Confirmación propia para "Forzar a todos" (en vez del cuadro del navegador).
+  // Devuelve una promesa: true si el admin confirma, false si cancela/Esc/clic afuera.
+  const confirmForce = (c) => new Promise((resolve) => {
+    if (!document.getElementById("adash-force-style")) {
+      const st = document.createElement("style");
+      st.id = "adash-force-style";
+      st.textContent = `
+        .adash-force-ov{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.62);backdrop-filter:blur(3px);animation:adashFIn .15s ease-out}
+        .adash-force-box{width:min(420px,100%);padding:22px 22px 18px;border-radius:16px;border:1px solid rgba(255,255,255,.12);background:#15151c;color:#fff;box-shadow:0 20px 60px rgba(0,0,0,.6);font-family:inherit}
+        .adash-force-ico{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;background:rgba(255,184,77,.16);margin-bottom:12px}
+        .adash-force-box h3{margin:0 0 4px;font-size:17px;font-weight:700}
+        .adash-force-name{margin:0 0 12px;font-size:13px;opacity:.75;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .adash-force-name b{opacity:1;color:#ffb84d}
+        .adash-force-txt{margin:0 0 12px;font-size:13.5px;line-height:1.5;opacity:.92}
+        .adash-force-tags{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+        .adash-force-tags span{padding:3px 9px;border-radius:999px;font-size:11.5px;font-weight:600;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1)}
+        .adash-force-warn{margin:0 0 16px;padding:9px 11px;border-radius:10px;font-size:12px;line-height:1.45;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:#fca5a5}
+        .adash-force-btns{display:flex;gap:8px;justify-content:flex-end}
+        .adash-force-btns button{padding:10px 16px;border-radius:10px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-size:13.5px;font-weight:600;cursor:pointer}
+        .adash-force-btns button:hover{background:rgba(255,255,255,.15)}
+        .adash-force-btns button.go{background:#ffb84d;border-color:#ffb84d;color:#1a1200}
+        .adash-force-btns button.go:hover{background:#ffc766}
+        .adash-force-btns button:focus-visible{outline:2px solid #8ab4ff;outline-offset:2px}
+        @keyframes adashFIn{from{opacity:0}to{opacity:1}}`;
+      document.head.appendChild(st);
+    }
+    const sound = c.sound
+      ? "🔊 Con sonido (" + Math.round((Number.isFinite(+c.volume) ? +c.volume : 0.6) * 100) + "%)"
+      : "🔇 Sin sonido";
+    const layout = c.layout === "pop" ? "Pantalla completa (entero)" : (LAYOUT_LABELS[c.layout] || LAYOUT_LABELS.cover);
+    const ov = document.createElement("div");
+    ov.className = "adash-force-ov";
+    ov.setAttribute("role", "dialog");
+    ov.setAttribute("aria-modal", "true");
+    ov.setAttribute("aria-labelledby", "adash-force-title");
+    ov.innerHTML = `
+      <div class="adash-force-box">
+        <div class="adash-force-ico">⚡</div>
+        <h3 id="adash-force-title">Forzar video a todos</h3>
+        <p class="adash-force-name">Video: <b>${esc(c.name || "Sin nombre")}</b></p>
+        <p class="adash-force-txt">Saldrá <b>ahora mismo</b> en pantalla completa a todas las personas que tengan el sitio abierto, aunque estén viendo una película o serie.</p>
+        <div class="adash-force-tags"><span>${esc(layout)}</span><span>${esc(sound)}</span></div>
+        <p class="adash-force-warn">No se puede deshacer: una vez enviado, el video se reproduce hasta el final en cada pantalla.</p>
+        <div class="adash-force-btns">
+          <button type="button" data-r="0">Cancelar</button>
+          <button type="button" class="go" data-r="1">⚡ Enviar ahora</button>
+        </div>
+      </div>`;
+    const prevFocus = document.activeElement;
+    const done = (v) => {
+      document.removeEventListener("keydown", onKey, true);
+      ov.remove();
+      try { prevFocus?.focus?.(); } catch {}
+      resolve(v);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); done(false); }
+      else if (e.key === "Tab") { // el foco se queda dentro del cuadro
+        const b = [...ov.querySelectorAll("button")];
+        const i = b.indexOf(document.activeElement);
+        e.preventDefault();
+        b[(i + (e.shiftKey ? b.length - 1 : 1)) % b.length].focus();
+      }
+    };
+    ov.addEventListener("click", (e) => {
+      if (e.target === ov) return done(false);
+      const b = e.target.closest("button[data-r]");
+      if (b) done(b.dataset.r === "1");
+    });
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(ov);
+    ov.querySelector('button[data-r="0"]').focus(); // por defecto en Cancelar: un Enter por error no envía
+  });
 
   // Apariciones: los campos muestran minutos, internamente todo va en segundos.
   const fillCameoFields = (c) => {
@@ -1003,14 +1077,17 @@ export function renderThemeAdminCard(container, db, cameoHost) {
     } else if (btn.dataset.act === "force") {
       if (!HTTPS.test((c.src || "").trim())) return flash("Falta la URL https del video", "err", cStatusEl);
       if (!db) return flash("Sin conexión a Firebase: no se puede enviar a todos", "err", cStatusEl);
-      if (!window.confirm("¿Mostrar «" + (c.name || "video") + "» ahora, en pantalla completa, a todos los que estén conectados?")) return;
+      if (!(await confirmForce(c))) return;
       btn.disabled = true;
       try {
         await sendForcedClip(db, c);
-        flash("Enviado ✓", "ok", cStatusEl);
+        flash("⚡ «" + (c.name || "Video") + "» enviado a todos ✓", "ok", cStatusEl);
       } catch (err) {
         console.error("Error enviando video forzado:", err);
-        flash("No se pudo enviar (¿reglas de Firebase para site_theme/forced?)", "err", cStatusEl);
+        const denied = err && (err.code === "PERMISSION_DENIED" || /permission/i.test(String(err.message)));
+        flash(denied
+          ? "Firebase rechazó el envío: revisa que sigas con sesión de admin y las reglas de site_theme/forced"
+          : "No se pudo enviar. Revisa tu conexión e inténtalo de nuevo", "err", cStatusEl);
       } finally {
         btn.disabled = false;
       }
