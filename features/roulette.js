@@ -12,6 +12,10 @@ let watchedMovieIds = new Set();
 let customMode = false;
 let customPool = []; // Array de { id, data }
 
+// Estado del modo por género
+let genreMode     = false;
+let selectedGenre = null; // clave normalizada del género elegido (ej. "terror")
+
 // ── Cover-flow state ─────────────────────────────────────────────────────────
 const cf = {
     currentX:      0,     // posición X actualmente renderizada
@@ -197,16 +201,26 @@ function setupRouletteLogic() {
     // ── Modo toggle ─────────────────────────────────────────────────────────
     const btnModeNormal = shared.DOM.rouletteModal.querySelector('#roulette-mode-normal');
     const btnModeCustom = shared.DOM.rouletteModal.querySelector('#roulette-mode-custom');
+    const btnModeGenre  = shared.DOM.rouletteModal.querySelector('#roulette-mode-genre');
     const customPanel   = shared.DOM.rouletteModal.querySelector('#custom-roulette-panel');
+    const genrePanel    = shared.DOM.rouletteModal.querySelector('#genre-roulette-panel');
     const rouletteTitle = shared.DOM.rouletteModal.querySelector('#roulette-title');
 
-    const switchMode = (toCustom) => {
-        customMode = toCustom;
-        btnModeNormal?.classList.toggle('active', !toCustom);
-        btnModeCustom?.classList.toggle('active', toCustom);
-        if (customPanel)   customPanel.style.display = toCustom ? 'block' : 'none';
-        if (btnVista)      btnVista.style.display    = toCustom ? 'none'  : '';
-        if (rouletteTitle) rouletteTitle.textContent  = toCustom ? 'Ruleta Personalizada' : 'Película Aleatoria';
+    const setMode = (mode) => {
+        customMode    = mode === 'custom';
+        genreMode     = mode === 'genre';
+        selectedGenre = null;
+        btnModeNormal?.classList.toggle('active', mode === 'normal');
+        btnModeCustom?.classList.toggle('active', customMode);
+        btnModeGenre?.classList.toggle('active', genreMode);
+        if (customPanel)   customPanel.style.display = customMode ? 'block' : 'none';
+        if (genrePanel)    genrePanel.style.display  = genreMode  ? 'block' : 'none';
+        if (btnVista)      btnVista.style.display    = customMode ? 'none'  : '';
+        if (rouletteTitle) {
+            rouletteTitle.textContent = customMode ? 'Ruleta Personalizada'
+                                      : genreMode  ? 'Ruleta por Género'
+                                      :              'Película Aleatoria';
+        }
 
         spinDone      = false;
         selectedMovie = null;
@@ -221,28 +235,35 @@ function setupRouletteLogic() {
         }
         spinButton.disabled = false;
 
-        if (toCustom) {
+        const _sel = shared.DOM.rouletteModal.querySelector('.roulette-selector');
+
+        if (customMode) {
             customPool = [];
             const _chips  = shared.DOM.rouletteModal.querySelector('#crp-chips');
             const _hint   = shared.DOM.rouletteModal.querySelector('#crp-hint');
             const _search = shared.DOM.rouletteModal.querySelector('#crp-search-input');
             const _sugg   = shared.DOM.rouletteModal.querySelector('#crp-suggestions');
-            const _sel    = shared.DOM.rouletteModal.querySelector('.roulette-selector');
             if (_chips)  _chips.innerHTML  = '';
             if (_hint)   _hint.textContent = 'Agrega al menos 2 películas para girar';
             if (_search) _search.value     = '';
             if (_sugg)   _sugg.style.display = 'none';
             if (_sel)    _sel.style.visibility = 'hidden';
             spinButton.disabled = true;
+        } else if (genreMode) {
+            if (_sel) _sel.style.visibility = 'hidden';
+            spinButton.disabled = true;
+            if (genreInputEl) genreInputEl.value = '';
+            hideGenreSuggestions();
+            updateGenreHint();
         } else {
-            const _sel = shared.DOM.rouletteModal.querySelector('.roulette-selector');
             if (_sel) _sel.style.visibility = 'visible';
             loadRouletteMovies();
         }
     };
 
-    btnModeNormal?.addEventListener('click', () => { if (customMode)  switchMode(false); });
-    btnModeCustom?.addEventListener('click', () => { if (!customMode) switchMode(true);  });
+    btnModeNormal?.addEventListener('click', () => { if (customMode || genreMode) setMode('normal'); });
+    btnModeCustom?.addEventListener('click', () => { if (!customMode) setMode('custom'); });
+    btnModeGenre?.addEventListener('click',  () => { if (!genreMode)  setMode('genre');  });
 
     // ── Buscador (modo personalizado) ────────────────────────────────────────
     const searchInput   = shared.DOM.rouletteModal.querySelector('#crp-search-input');
@@ -274,6 +295,107 @@ function setupRouletteLogic() {
         }
         spinButton.disabled = customPool.length < 2;
     };
+
+    // ── Modo por género ──────────────────────────────────────────────────────
+    const genreInputEl = shared.DOM.rouletteModal.querySelector('#grp-search-input');
+    const genreSuggEl  = shared.DOM.rouletteModal.querySelector('#grp-suggestions');
+    const genreHintEl  = shared.DOM.rouletteModal.querySelector('#grp-hint');
+
+    const normGenre = (g) => String(g).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+    const parseGenres = (item) =>
+        String(item?.genres || item?.generos || '').split(/[;,]/).map(g => g.trim()).filter(Boolean);
+    const isAvailable = (id, item) =>
+        !watchedMovieIds.has(id) && String(item?.estado || '').toLowerCase() !== 'vetada';
+
+    // Géneros con películas disponibles (sin vistas ni vetadas), de mayor a menor
+    const getGenreList = () => {
+        const map = new Map();
+        for (const [id, item] of Object.entries(getFullPool())) {
+            if (!isAvailable(id, item)) continue;
+            const seen = new Set();
+            for (const g of parseGenres(item)) {
+                const key = normGenre(g);
+                if (!key || seen.has(key)) continue;
+                seen.add(key);
+                const entry = map.get(key);
+                if (entry) entry.count++;
+                else map.set(key, { key, name: g, count: 1 });
+            }
+        }
+        return [...map.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+    };
+
+    const getGenrePool = () =>
+        Object.entries(getFullPool())
+            .filter(([id, item]) => isAvailable(id, item) &&
+                parseGenres(item).some(g => normGenre(g) === selectedGenre))
+            .map(([id, data]) => ({ id, data }));
+
+    // Texto de ayuda según el género elegido
+    const updateGenreHint = () => {
+        if (!genreHintEl) return;
+        const genres  = getGenreList();
+        const current = genres.find(g => g.key === selectedGenre);
+        genreHintEl.textContent = !genres.length
+            ? 'No hay géneros disponibles'
+            : current
+                ? `${current.count} película${current.count !== 1 ? 's' : ''} de ${current.name} disponible${current.count !== 1 ? 's' : ''}`
+                : 'Escribe un género para armar la ruleta';
+    };
+
+    const hideGenreSuggestions = () => {
+        if (genreSuggEl) genreSuggEl.style.display = 'none';
+    };
+
+    const pickGenre = ({ key, name }) => {
+        selectedGenre = key;
+        if (genreInputEl) genreInputEl.value = name;
+        if (rouletteTitle) rouletteTitle.textContent = `Ruleta de ${name}`;
+        hideGenreSuggestions();
+        loadRouletteMovies();
+    };
+
+    // Sugerencias que coinciden con lo escrito (o todas si el campo está vacío)
+    const getGenreMatches = () => {
+        const q = normGenre(genreInputEl?.value || '');
+        return getGenreList().filter(g => !q || g.key.includes(q)).slice(0, 12);
+    };
+
+    const showGenreSuggestions = () => {
+        if (!genreSuggEl) return;
+        const matches = getGenreMatches();
+        if (!matches.length) { hideGenreSuggestions(); return; }
+        genreSuggEl.innerHTML = matches.map(g => `
+            <div class="crp-suggestion-item" data-key="${g.key}">
+                <span>${g.name}</span>
+                <span class="grp-sugg-count">${g.count}</span>
+            </div>`).join('');
+        genreSuggEl.style.display = 'block';
+        genreSuggEl.querySelectorAll('.crp-suggestion-item').forEach(el => {
+            el.addEventListener('click', () => {
+                const g = matches.find(m => m.key === el.dataset.key);
+                if (g) pickGenre(g);
+            });
+        });
+    };
+
+    if (genreInputEl) {
+        genreInputEl.addEventListener('input', showGenreSuggestions);
+        genreInputEl.addEventListener('focus', showGenreSuggestions);
+        genreInputEl.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            const q = normGenre(genreInputEl.value);
+            const matches = getGenreMatches();
+            const pick = matches.find(g => g.key === q) || matches[0];
+            if (pick) pickGenre(pick);
+        });
+        document.addEventListener('click', (e) => {
+            if (genreSuggEl && !genreInputEl.contains(e.target) && !genreSuggEl.contains(e.target)) {
+                hideGenreSuggestions();
+            }
+        });
+    }
 
     const renderChips = () => {
         if (!chipsEl) return;
@@ -357,7 +479,41 @@ function setupRouletteLogic() {
         });
     }
 
-    // ── Cargar carrusel (normal o personalizado) ─────────────────────────────
+    // Arma el carrusel a partir de un array de { id, data } (repite si hay pocas)
+    const buildFromPool = (poolArr, rouletteTrack) => {
+        const _sel = shared.DOM.rouletteModal.querySelector('.roulette-selector');
+        if (_sel) _sel.style.visibility = 'visible';
+
+        const shuffled = [...poolArr].sort(() => Math.random() - 0.5);
+        const repeated = [];
+        while (repeated.length < 35) {
+            for (const item of shuffled) {
+                repeated.push(item);
+                if (repeated.length >= 35) break;
+            }
+        }
+        const finalPickIndex = Math.floor(repeated.length * 0.6);
+        selectedMovie = repeated[finalPickIndex];
+
+        repeated.forEach((item, index) => {
+            const card = shared.createMovieCardElement(item.id, item.data, 'movie', 'roulette', false);
+            if (index === finalPickIndex) card.dataset.winner = 'true';
+            rouletteTrack.appendChild(card);
+        });
+
+        setTimeout(() => {
+            const wrapperWidth = rouletteTrack.parentElement.offsetWidth;
+            const card = rouletteTrack.querySelector('.movie-card');
+            if (!card) return;
+            const cardWidth   = card.offsetWidth + 20;
+            const startOffset = wrapperWidth / 2 - cardWidth * 2.5;
+
+            resetCoverFlowState(startOffset);
+            startCoverFlowLoop(rouletteTrack, wrapperWidth);
+        }, 50);
+    };
+
+    // ── Cargar carrusel (normal, personalizado o por género) ─────────────────
     const loadRouletteMovies = async () => {
         const rouletteTrack = shared.DOM.rouletteModal.querySelector('#roulette-carousel-track');
         if (!rouletteTrack) return;
@@ -382,36 +538,30 @@ function setupRouletteLogic() {
                 spinButton.disabled = true;
                 return;
             }
-            const _sel = shared.DOM.rouletteModal.querySelector('.roulette-selector');
-            if (_sel) _sel.style.visibility = 'visible';
+            buildFromPool(customPool, rouletteTrack);
+            return;
+        }
 
-            const shuffled = [...customPool].sort(() => Math.random() - 0.5);
-            const repeated = [];
-            while (repeated.length < 35) {
-                for (const item of shuffled) {
-                    repeated.push(item);
-                    if (repeated.length >= 35) break;
-                }
+        // ── MODO POR GÉNERO ───────────────────────────────────────────────────
+        if (genreMode) {
+            updateGenreHint();
+            if (!selectedGenre) {
+                spinButton.disabled = true;
+                return;
             }
-            const finalPickIndex = Math.floor(repeated.length * 0.6);
-            selectedMovie = repeated[finalPickIndex];
-
-            repeated.forEach((item, index) => {
-                const card = shared.createMovieCardElement(item.id, item.data, 'movie', 'roulette', false);
-                if (index === finalPickIndex) card.dataset.winner = 'true';
-                rouletteTrack.appendChild(card);
-            });
-
-            setTimeout(() => {
-                const wrapperWidth = rouletteTrack.parentElement.offsetWidth;
-                const card = rouletteTrack.querySelector('.movie-card');
-                if (!card) return;
-                const cardWidth   = card.offsetWidth + 20;
-                const startOffset = wrapperWidth / 2 - cardWidth * 2.5;
-
-                resetCoverFlowState(startOffset);
-                startCoverFlowLoop(rouletteTrack, wrapperWidth);
-            }, 50);
+            const genrePool = getGenrePool();
+            if (genrePool.length < 2) {
+                const _sel = shared.DOM.rouletteModal.querySelector('.roulette-selector');
+                if (_sel) _sel.style.visibility = 'hidden';
+                rouletteTrack.innerHTML = `<p style="color:var(--text-muted);padding:20px;text-align:center;">${
+                    genrePool.length === 0
+                        ? 'Ya viste todas las películas de este género 🎉'
+                        : 'Solo queda 1 película de este género sin ver.'
+                }</p>`;
+                spinButton.disabled = true;
+                return;
+            }
+            buildFromPool(genrePool, rouletteTrack);
             return;
         }
 
@@ -571,8 +721,10 @@ export async function openRouletteModal() {
         document.body.classList.add('modal-open');
         shared.DOM.rouletteModal.classList.add('show');
 
-        customMode = false;
-        customPool = [];
+        customMode    = false;
+        customPool    = [];
+        genreMode     = false;
+        selectedGenre = null;
         const btnModeNormal = shared.DOM.rouletteModal.querySelector('#roulette-mode-normal');
         const btnModeCustom = shared.DOM.rouletteModal.querySelector('#roulette-mode-custom');
         const customPanel   = shared.DOM.rouletteModal.querySelector('#custom-roulette-panel');
@@ -580,6 +732,12 @@ export async function openRouletteModal() {
         const rouletteTitle = shared.DOM.rouletteModal.querySelector('#roulette-title');
         if (btnModeNormal) btnModeNormal.classList.add('active');
         if (btnModeCustom) btnModeCustom.classList.remove('active');
+        const btnModeGenre = shared.DOM.rouletteModal.querySelector('#roulette-mode-genre');
+        const genrePanel   = shared.DOM.rouletteModal.querySelector('#genre-roulette-panel');
+        if (btnModeGenre)  btnModeGenre.classList.remove('active');
+        if (genrePanel)    genrePanel.style.display    = 'none';
+        const genreInput   = shared.DOM.rouletteModal.querySelector('#grp-search-input');
+        if (genreInput)    genreInput.value            = '';
         if (customPanel)   customPanel.style.display  = 'none';
         if (btnVista)      btnVista.style.display      = '';
         if (rouletteTitle) rouletteTitle.textContent   = 'Película Aleatoria';
