@@ -2009,6 +2009,24 @@
           <button id="roulette-mode-custom" class="roulette-mode-btn">
             <i class="fas fa-list-ul"></i> Personalizada
           </button>
+          <button id="roulette-mode-genre" class="roulette-mode-btn">
+            <i class="fas fa-masks-theater"></i> Por género
+          </button>
+        </div>
+        <div id="genre-roulette-panel" style="display: none">
+          <div class="crp-search-wrapper">
+            <input
+              type="text"
+              id="grp-search-input"
+              class="crp-search-input"
+              placeholder="Escribe un género (ej. Terror)..."
+              autocomplete="off"
+            />
+            <div id="grp-suggestions" class="crp-suggestions"></div>
+          </div>
+          <p id="grp-hint" class="crp-hint">
+            Escribe un género para armar la ruleta
+          </p>
         </div>
         <div id="custom-roulette-panel" style="display: none">
           <div class="crp-search-wrapper">
