@@ -3921,6 +3921,30 @@ function _extractTopGenresFromHistory(snapshot, movies, series, limit = 5) {
     .map(([g]) => g);
 }
 
+// ── Nombre de temporada/parte (respeta "etiqueta" y "nombreTemporadas") ──
+// Prioridad: etiqueta de seasonPosters (ej. "Parte 7") → prefijo de
+// nombreTemporadas (ej. "Parte" → P) → "T" por defecto.
+// Devuelve { abbr: "P7" | "T6", label: "Parte 7" | "Temp. 6" }
+function getSeasonDisplayInfo(seriesId, seriesData, seasonKey, seasonNum) {
+  const entry = appState?.content?.seasonPosters?.[seriesId]?.[seasonKey];
+  const etiqueta = (
+    entry && typeof entry === "object" ? entry.etiqueta || "" : ""
+  ).trim();
+  if (etiqueta) {
+    const numMatch = etiqueta.match(/\d+/);
+    return {
+      abbr: numMatch ? `${etiqueta[0].toUpperCase()}${numMatch[0]}` : etiqueta,
+      label: etiqueta,
+    };
+  }
+  const word = String(seriesData?.nombreTemporadas || "").trim();
+  if (word) {
+    const cap = word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    return { abbr: `${word[0].toUpperCase()}${seasonNum}`, label: `${cap} ${seasonNum}` };
+  }
+  return { abbr: `T${seasonNum}`, label: `Temp. ${seasonNum}` };
+}
+
 // ── Etiquetas de serie ────────────────────────────────────────
 const _SERIE_STATUS_LABELS = {
   estreno: { text: "Estreno", dot: "#22c55e" },
@@ -3934,13 +3958,25 @@ function _bentoSideTypeHTML(data, type, id) {
     let info;
     if (id) {
       const isNew = isDateRecent(data.date_added);
-      const hasNewSeason = hasRecentSeasonFromPosters(id);
       const hasNewEp = hasRecentEpisodes(id);
 
-      if (isNew) {
-        info = { text: "Estreno · Serie", dot: "#22c55e" };
-      } else if (hasNewSeason) {
+      // Nueva temporada = temporada reciente que NO es la primera
+      // (misma lógica que la sección Novedades)
+      const _posters = (appState.content.seasonPosters || {})[id] || {};
+      const _seasonOrder =
+        (appState.content.seasonOrder || {})[id] ||
+        Object.keys((appState.content.seriesEpisodes || {})[id] || {});
+      const hasNewSeason = Object.entries(_posters).some(
+        ([key, s]) =>
+          typeof s === "object" &&
+          isDateRecent(s.date_added) &&
+          _seasonOrder.indexOf(key) > 0,
+      );
+
+      if (hasNewSeason) {
         info = { text: "Nueva temporada", dot: "#3b82f6" };
+      } else if (isNew) {
+        info = { text: "Estreno · Serie", dot: "#22c55e" };
       } else if (hasNewEp) {
         info = { text: "Nuevo cap.", dot: "#f59e0b" };
       }
@@ -3979,8 +4015,8 @@ function _bentoSideTypeHTML(data, type, id) {
           }
           if (epCount > 0) {
             const epPart = `Episodio ${epCount}`;
-            detail =
-              totalSeasons > 1 ? `Temp. ${totalSeasons} — ${epPart}` : epPart;
+            const _sLabel = getSeasonDisplayInfo(id, data, lastKey, totalSeasons).label;
+            detail = totalSeasons > 1 ? `${_sLabel} — ${epPart}` : epPart;
           }
         }
       } catch (_) {}
@@ -4781,21 +4817,39 @@ function _initNovedadesSection() {
       const epList = Array.isArray(seasonEps)
         ? seasonEps
         : Object.values(seasonEps || {});
-      const firstEp = epList.find((ep) => ep?.title);
-      const epThumb =
-        d.banner ||
-        d.poster ||
-        seasonData.poster ||
-        seasonData.posterUrl ||
-        firstEp?.thumbnail ||
-        firstEp?.poster ||
-        "";
+      // Episodio destino al tocar la tarjeta: el último con título de la
+      // temporada (el más reciente). La miniatura sale de ese mismo episodio.
+      let targetIdx = -1;
+      epList.forEach((ep, i) => {
+        if (ep?.title) targetIdx = i;
+      });
+      if (targetIdx < 0) targetIdx = epList.length > 0 ? epList.length - 1 : 0;
+      const targetEp = epList[targetIdx];
 
       const typeLabel = seasonNum > 1 ? "Nueva temp." : "Estreno";
       const typeColor = seasonNum > 1 ? "#3b82f6" : "#22c55e";
 
-      // Calcular el índice del último episodio válido de esta temporada
-      const lastEpIdxInSeason = epList.length > 0 ? epList.length - 1 : 0;
+      const bannerFirst =
+        d.banner ||
+        d.poster ||
+        seasonData.poster ||
+        seasonData.posterUrl ||
+        targetEp?.thumbnail ||
+        targetEp?.poster ||
+        "";
+      // Nueva temporada → miniatura del episodio; estreno de serie → banner
+      const epThumb =
+        seasonNum > 1
+          ? targetEp?.thumbnail ||
+            targetEp?.poster ||
+            seasonData.poster ||
+            seasonData.posterUrl ||
+            d.banner ||
+            d.poster ||
+            ""
+          : bannerFirst;
+
+      const lastEpIdxInSeason = targetIdx;
 
       return {
         id,
@@ -4936,7 +4990,7 @@ function _initNovedadesSection() {
         epThumb,
         epDetail:
           seasonOrder.length > 1
-            ? `T${seasonNum} · E${epNum}`
+            ? `${getSeasonDisplayInfo(id, d, latestSeasonKey, seasonNum).abbr} · E${epNum}`
             : `Episodio ${epNum}`,
         lastSeason: latestSeasonKey,
         latestEpIdx,
@@ -5002,9 +5056,13 @@ function _initNovedadesSection() {
       lastEpIdx,
     }) => {
       const isSeries = type === "series";
-      const bgImage = isSeries
-        ? (data.banner || data.poster || epThumb || "")
-        : (epThumb || data.banner || data.poster || "");
+      // Nuevo capítulo / nueva temporada → miniatura del episodio; estreno de
+      // serie → banner de la serie; películas → su imagen.
+      const useEpThumb =
+        !isSeries || typeLabel === "Nuevo cap." || typeLabel === "Nueva temp.";
+      const bgImage = useEpThumb
+        ? (epThumb || data.banner || data.poster || "")
+        : (data.banner || data.poster || epThumb || "");
       const labelHTML = `<span style="display:inline-flex;align-items:center;gap:5px">
         <span style="width:6px;height:6px;border-radius:50%;background:${typeColor};display:inline-block"></span>
         ${typeLabel}
