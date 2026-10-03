@@ -1957,6 +1957,17 @@ body.modal-open {
   color: #ff4444;
 }
 
+/* ── Ruleta por género ── */
+#genre-roulette-panel {
+  margin-bottom: 8px;
+}
+
+.crp-suggestion-item .grp-sugg-count {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
 .crp-hint {
   font-size: 0.82rem;
   color: var(--text-muted);
