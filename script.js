@@ -3945,6 +3945,27 @@ function getSeasonDisplayInfo(seriesId, seriesData, seasonKey, seasonNum) {
   return { abbr: `T${seasonNum}`, label: `Temp. ${seasonNum}` };
 }
 
+// Conteo de temporadas para tarjetas/bento: "6 temp." o, si la serie define
+// nombreTemporadas (ej. "Parte"), "7 partes".
+// El total prioriza el campo explícito totalSeasons (igual que el detalle) y,
+// si no existe, el mayor número de las etiquetas (ej. "Parte 7" → 7), porque
+// a veces no todas las partes tienen su propia temporada cargada.
+function formatSeasonCount(count, seriesData, seriesId) {
+  let total = count;
+  if (seriesData?.totalSeasons) {
+    total = Number(seriesData.totalSeasons) || count;
+  } else {
+    const posters = appState?.content?.seasonPosters?.[seriesId] || {};
+    Object.values(posters).forEach((e) => {
+      const n = parseInt(String(e?.etiqueta || "").match(/\d+/)?.[0], 10);
+      if (n > total) total = n;
+    });
+  }
+  const word = String(seriesData?.nombreTemporadas || "").trim().toLowerCase();
+  if (!word) return `${total} temp.`;
+  return `${total} ${word}${total !== 1 ? "s" : ""}`;
+}
+
 // ── Etiquetas de serie ────────────────────────────────────────
 const _SERIE_STATUS_LABELS = {
   estreno: { text: "Estreno", dot: "#22c55e" },
@@ -4089,7 +4110,7 @@ function _bentoPopulateMain(id, data, type) {
       }
     });
 
-    const seasons = totalSeasons > 0 ? `${totalSeasons} temp.` : "";
+    const seasons = totalSeasons > 0 ? formatSeasonCount(totalSeasons, data, id) : "";
     const eps = totalEpisodes > 0 ? `${totalEpisodes} caps.` : "";
     if (dur) dur.textContent = [seasons, eps].filter(Boolean).join(" · ");
     const bentoYearSeries = document.getElementById("bentoYear");
@@ -5282,7 +5303,7 @@ function _bentoCreateCarousel(title, dataSource, type) {
       });
       const parts = [];
       if (!item.miniserie && totalSeasons > 1)
-        parts.push(`${totalSeasons} temp.`);
+        parts.push(formatSeasonCount(totalSeasons, item, id));
       if (totalEps > 0) parts.push(`${totalEps} caps.`);
       if (item.miniserie) parts.unshift("Miniserie");
       if (parts.length)
