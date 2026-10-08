@@ -83,7 +83,7 @@ let statsModule = null;
 
 async function getPlayerModule() {
   if (playerModule) return playerModule;
-  const module = await import("./features/player.js?v=33");
+  const module = await import("./features/player.js?v=35");
   module.initPlayer({
     appState,
     DOM,
@@ -5967,7 +5967,13 @@ async function openDetailsModal(id, type, triggerElement = null) {
         window._dvTracks = tempTracks;
         window._dvCurrentMovieId = id;
         window._dvCurrentMovieData = data;
-        window._dvActiveLang = "en";
+        // Idioma inicial: el último que usó esta persona en ESTA película (p. ej.
+        // si la empezó en latino y vuelve desde "Continuar viendo"). Si nunca la
+        // vio, el original ("en"), como antes.
+        const initialLang = resolveMovieLang(id, tempTracks);
+        window._dvActiveLang = initialLang;
+        if (latBtn) latBtn.classList.toggle("active", initialLang === "en");
+        if (engBtn) engBtn.classList.toggle("active", initialLang === "es");
       }
     }
 
@@ -7041,6 +7047,29 @@ window.spSetLang = async function (lang, btn) {
   );
 };
 
+// Devuelve el idioma ("en" | "es") con el que abrir una película.
+// Prioridad: el más reciente entre (a) la preferencia guardada en este
+// navegador y (b) el idioma del historial de Firebase (otro dispositivo).
+// Solo se aceptan idiomas que la película realmente tiene.
+function resolveMovieLang(movieId, tracks) {
+  const available = new Set((tracks || []).map((t) => t.lang));
+  let best = null;
+  try {
+    const prefs = JSON.parse(localStorage.getItem("movieLangPrefs")) || {};
+    const p = prefs[movieId];
+    if (p && available.has(p.lang)) {
+      best = { lang: p.lang, ts: Number(p.ts) || 0 };
+    }
+  } catch (e) {
+    // preferencia ilegible: se ignora
+  }
+  const h = window._cinecorneta_movieHistory?.[movieId];
+  if (h && available.has(h.lang) && (!best || h.ts > best.ts)) {
+    best = h;
+  }
+  return best ? best.lang : "en";
+}
+
 window.dvSetLang = async function (lang, btn) {
   if (!window._dvTracks || !window._dvCurrentMovieData) return;
   const track = window._dvTracks.find((t) => t.lang === lang);
@@ -7620,6 +7649,18 @@ function addToHistoryIfLoggedIn(contentId, type, episodeInfo = {}) {
       typeof episodeInfo.progress === "number"
         ? Math.min(1, Math.max(0, episodeInfo.progress))
         : 0,
+    // Idioma con el que se vio la película, para retomarla igual desde
+    // "Continuar viendo" (incluso desde otro dispositivo).
+    ...(!isSeries && typeof episodeInfo.lang === "string"
+      ? { lang: episodeInfo.lang }
+      : {}),
+    // Segundo exacto donde se quedó (películas), para retomar aunque el
+    // navegador haya borrado su almacenamiento o se cambie de dispositivo.
+    ...(!isSeries &&
+    typeof episodeInfo.time === "number" &&
+    episodeInfo.time > 5
+      ? { time: Math.round(episodeInfo.time) }
+      : {}),
   };
 
   // Devolvemos la promesa del write para que los callers puedan
@@ -8252,6 +8293,21 @@ function setupRealtimeHistoryListener(user) {
       .orderByChild("viewedAt");
 
     appState.user.historyListenerRef.on("value", (snapshot) => {
+      // Mapa película → { lang, ts, time } desde Firebase. Lo leen
+      // resolveMovieLang (idioma) y player.js (posición) al abrir la película.
+      const movieHist = {};
+      snapshot.forEach((child) => {
+        const v = child.val();
+        if (v && v.type === "movie" && typeof v.lang === "string") {
+          movieHist[child.key] = {
+            lang: v.lang,
+            ts: typeof v.viewedAt === "number" ? v.viewedAt : 0,
+            time: typeof v.time === "number" ? v.time : 0,
+          };
+        }
+      });
+      window._cinecorneta_movieHistory = movieHist;
+
       console.log("🔔 Historial actualizado - Regenerando carrusel...");
       clearTimeout(appState.player.historyUpdateDebounceTimer);
 
@@ -8266,6 +8322,8 @@ function setupRealtimeHistoryListener(user) {
         }
       }, 250);
     });
+  } else {
+    window._cinecorneta_movieHistory = {}; // sin sesión: no arrastrar datos de otra cuenta
   }
 }
 
