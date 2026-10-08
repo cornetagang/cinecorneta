@@ -83,7 +83,7 @@ let statsModule = null;
 
 async function getPlayerModule() {
   if (playerModule) return playerModule;
-  const module = await import("./features/player.js?v=31");
+  const module = await import("./features/player.js?v=33");
   module.initPlayer({
     appState,
     DOM,
@@ -95,7 +95,7 @@ async function getPlayerModule() {
     THEMES,
     closeAllModals: () => modalManager.closeAll(),
     openDetailsModal,
-    // Puente hacia roulette.js: al llegar a PLAYER.WATCHED_THRESHOLD (75%
+    // Puente hacia roulette.js: al llegar a PLAYER.WATCHED_THRESHOLD (85%
     // de la duración real), la película se marca automáticamente como
     // vista y se excluye del pool de la ruleta. Se carga el módulo de
     // forma perezosa, igual que getRouletteModule().
@@ -110,7 +110,7 @@ async function getPlayerModule() {
 
 async function getProfileModule() {
   if (profileModule) return profileModule;
-  const module = await import("./features/profile.js?v=31");
+  const module = await import("./features/profile.js?v=32");
   module.initProfile({
     appState,
     DOM,
@@ -126,7 +126,7 @@ async function getProfileModule() {
 
 async function getRouletteModule() {
   if (rouletteModule) return rouletteModule;
-  const module = await import("./features/roulette.js?v=31");
+  const module = await import("./features/roulette.js?v=32");
   module.initRoulette({
     appState,
     DOM,
@@ -5576,6 +5576,16 @@ function generateContinueWatchingCarousel(snapshot) {
     .filter((item) => {
       if (item.type === "movie") {
         if (item.progress != null && item.progress >= 0.9) return false;
+        // Caducidad: si la película lleva más de 14 días sin tocarse deja de
+        // mostrarse aquí. NO se borra del historial; si la retoma, viewedAt
+        // se actualiza y vuelve a aparecer.
+        const STALE_MOVIE_MS = 14 * 24 * 60 * 60 * 1000;
+        if (
+          typeof item.viewedAt === "number" &&
+          Date.now() - item.viewedAt > STALE_MOVIE_MS
+        ) {
+          return false;
+        }
         return typeof item.progress === "number" && item.progress > 0;
       }
       if (item.type === "series") {
@@ -6201,6 +6211,7 @@ async function openDetailsModal(id, type, triggerElement = null) {
         // — Ítem Ojo (solo películas logueadas) —
         if (!isSeries && auth.currentUser) {
           const roulette = await getRouletteModule();
+          await roulette.whenWatchedReady?.();
           const isWatched = roulette.isMovieWatched
             ? roulette.isMovieWatched(id)
             : false;
