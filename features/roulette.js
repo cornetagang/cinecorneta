@@ -129,6 +129,21 @@ export function initRoulette(dependencies) {
     shared = dependencies;
     setupRouletteLogic();
     isInitialized = true;
+    ensureWatchedLoaded();
+}
+
+// Carga única por usuario. Antes solo se cargaba al abrir el modal de la
+// ruleta, así que el ojo del detalle de película mostraba "Marcar como vista"
+// aunque ya lo estuviera.
+let watchedLoadedFor = null;
+let watchedReadyPromise = null;
+
+function ensureWatchedLoaded() {
+    const uid = shared?.auth?.currentUser?.uid;
+    if (!uid) return Promise.resolve();
+    if (watchedLoadedFor === uid && watchedReadyPromise) return watchedReadyPromise;
+    watchedReadyPromise = loadWatchedFromFirebase().then(() => { watchedLoadedFor = uid; });
+    return watchedReadyPromise;
 }
 
 async function loadWatchedFromFirebase() {
@@ -163,7 +178,8 @@ async function markAsWatched(movieId) {
             poster:      movieData?.poster || '',
             viewedAt:    firebase.database.ServerValue.TIMESTAMP,
             season:      null,
-            lastEpisode: null
+            lastEpisode: null,
+            progress:    1
         })
     ]);
 }
@@ -676,15 +692,12 @@ function setupRouletteLogic() {
             const movieId    = selectedMovie.id;
             const movieTitle = selectedMovie.data.title;
 
+            // Ya no hay temporizador de 30 min: el player guarda en historial
+            // al 50% y marca como vista (ruleta incluida) al 75% del video real.
             if (shared.appState.player.movieHistoryTimer) {
                 clearTimeout(shared.appState.player.movieHistoryTimer);
-            }
-            const THIRTY_MINUTES = 30 * 60 * 1000;
-            shared.appState.player.movieHistoryTimer = setTimeout(async () => {
-                shared.addToHistoryIfLoggedIn(movieId, 'movie');
-                await markAsWatched(movieId);
                 shared.appState.player.movieHistoryTimer = null;
-            }, THIRTY_MINUTES);
+            }
 
             const player = await shared.getPlayerModule();
             player.openPlayerModal(movieId, movieTitle);
@@ -756,6 +769,10 @@ export async function openRouletteModal() {
 
 export async function unmarkMovieFromRoulette(movieId) {
     await unmarkAsWatched(movieId);
+}
+
+export function whenWatchedReady() {
+    return ensureWatchedLoaded();
 }
 
 export function isMovieWatched(movieId) {
