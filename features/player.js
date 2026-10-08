@@ -336,6 +336,7 @@ export function initPlayer(dependencies) {
   //     móviles, donde pagehide no siempre es confiable.
   const flushOnExit = () => {
     flushActivePlayerProgress();
+    commitMovieWatch();
     commitAndClearPendingSave();
   };
   window.addEventListener("pagehide", flushOnExit);
@@ -473,6 +474,8 @@ class CinePlayer {
     poster = "",
     grayscale = false,
     onHalfway = null,
+    onWatched = null,
+    onProgress = null,
   }) {
     // Limpiar timers y doc-listeners de la carga anterior (evita acumulación de handlers)
     if (this._epSetupTimer) {
@@ -732,13 +735,26 @@ class CinePlayer {
       this.showError(msg);
     });
 
-    // ─── Listener de 50% para historial de películas ─────────
-    if (onHalfway) {
+    // ─── Seguimiento de películas: progreso real, 25% y 85% ──────────
+    //   onProgress(ratio) → cada timeupdate (ratio 0..1; 1 si faltan <60s)
+    //   onHalfway()       → una vez al llegar al 25% (entra al historial)
+    //   onWatched()       → una vez al llegar al 85% (marcar como vista)
+    if (onHalfway || onWatched || onProgress) {
       let halfwayFired = false;
+      let watchedFired = false;
       art.on("timeupdate", () => {
-        if (!halfwayFired && art.duration > 0 && art.currentTime >= art.duration * 0.5) {
+        const d = art.duration;
+        const t = art.currentTime;
+        if (!(d > 0) || !(t > 5)) return;
+        const ratio = d - t < 60 ? 1 : Math.min(1, t / d);
+        if (onProgress) onProgress(ratio);
+        if (!halfwayFired && ratio >= MOVIE_HISTORY_RATIO) {
           halfwayFired = true;
-          onHalfway();
+          if (onHalfway) onHalfway();
+        }
+        if (!watchedFired && ratio >= MOVIE_WATCHED_RATIO) {
+          watchedFired = true;
+          if (onWatched) onWatched();
         }
       });
     }
@@ -4036,6 +4052,105 @@ function _applyPresenceAvatars(seriesId) {
   });
 }
 
+// ===========================================================
+// SEGUIMIENTO DE PELÍCULAS (historial + marca de "vista")
+//   · 25%  → entra al historial (con el progreso real).
+//   · 85%  → se marca como vista (roulette_watched + historial) y la
+//            ruleta la omite. Es el umbral que ya describía script.js.
+//   · Al salir (Volver, cerrar pestaña, minimizar) se actualiza el progreso.
+// ===========================================================
+// Punto en que la película entra al historial / "Continuar viendo".
+const MOVIE_HISTORY_RATIO = 0.25;
+// Debe coincidir con WATCHED_MOVIE_RATIO de profile.js (estadísticas).
+// 85%: tolera saltarse los créditos sin marcar de más (Plex usa 90%, Trakt 80%).
+const MOVIE_WATCHED_RATIO = 0.85;
+
+// { movieId, ratio, historyDone, watchedDone, lastSavedRatio }
+let _movieWatch = null;
+
+function startMovieWatch(movieId) {
+  if (_movieWatch && _movieWatch.movieId === movieId) return; // cambio de idioma: conservar
+  commitMovieWatch(); // película anterior sin cerrar → guardarla antes
+  _movieWatch = {
+    movieId,
+    ratio: 0,
+    historyDone: false,
+    watchedDone: false,
+    lastSavedRatio: -1,
+  };
+}
+
+function onMovieProgress(ratio) {
+  if (_movieWatch) _movieWatch.ratio = ratio;
+}
+
+function onMovieHalfway() {
+  commitMovieWatch(true);
+}
+
+function onMovieWatched() {
+  const mw = _movieWatch;
+  if (!mw || mw.watchedDone) return;
+  mw.watchedDone = true;
+  mw.historyDone = true;
+  // markMovieAsWatched (roulette.js) escribe roulette_watched Y la entrada
+  // de historial (progress: 1), así que no hace falta otro write aquí.
+  try {
+    Promise.resolve(shared.markMovieAsRouletteWatched?.(mw.movieId)).catch((e) =>
+      logError(e, "Player: Mark Movie Watched"),
+    );
+  } catch (e) {
+    logError(e, "Player: Mark Movie Watched");
+  }
+}
+
+// Escribe/actualiza la entrada de historial de la película en curso.
+//   force = true → crea la entrada aunque aún no exista (llamado al 25%).
+// Sin force solo actualiza si ya hay entrada o se superó el 25%.
+function commitMovieWatch(force = false) {
+  const mw = _movieWatch;
+  if (!mw) return;
+  if (mw.watchedDone) return; // ya quedó con progress 1 vía markMovieAsWatched
+
+  // Refrescar el ratio con el estado real del player (cubre el último tramo
+  // entre timeupdate y el cierre).
+  try {
+    const art = shared?.appState?.player?.activeCineInstance?.container?._artInstance;
+    if (art && art.duration > 0 && art.currentTime > 5) {
+      mw.ratio =
+        art.duration - art.currentTime < 60
+          ? 1
+          : Math.min(1, art.currentTime / art.duration);
+    }
+  } catch (_) {}
+
+  if (!force && !mw.historyDone && mw.ratio < MOVIE_HISTORY_RATIO) return;
+  if (Math.abs(mw.ratio - mw.lastSavedRatio) < 0.01) return; // nada nuevo
+
+  try {
+    const write = shared.addToHistoryIfLoggedIn(mw.movieId, "movie", {
+      progress: mw.ratio,
+    });
+    mw.historyDone = true;
+    mw.lastSavedRatio = mw.ratio;
+    if (!write && shared.auth?.currentUser) {
+      console.warn(
+        "[Player] No se pudo guardar en historial (contenido no encontrado):",
+        mw.movieId,
+      );
+    }
+  } catch (e) {
+    logError(e, "Player: Movie History Commit");
+  }
+}
+
+// Lo llama closeDetailView (script.js) antes de destruir el player al
+// pulsar "Volver". Antes no existía y la llamada con ?.() no hacía nada.
+export function flushAndCommitPendingSave() {
+  flushActivePlayerProgress();
+  commitMovieWatch();
+}
+
 export function commitAndClearPendingSave() {
   if (shared.appState.player.pendingHistorySave) {
     try {
@@ -6003,15 +6118,17 @@ export function openPlayerModal(movieId, movieTitle) {
     const preferredTrack =
       tracks.find((t) => t.lang === activeLang) || tracks[0];
 
+    // Sesión de visionado nueva: cierra la anterior (si la hubo) y reinicia
+    // los contadores. Un cambio de idioma NO pasa por aquí (usa
+    // loadMovieTrack), así que conserva el progreso ya acumulado.
+    commitMovieWatch();
+    _movieWatch = null;
+
     loadMovieInPlayer(
       preferredTrack.id,
       movieId,
       movieData,
       preferredTrack.lang,
-      () => {
-        // Se llama una sola vez al llegar al 50% → guardar en historial
-        shared.addToHistoryIfLoggedIn(movieId, "movie");
-      },
     );
 
     // Barra de info: usar el track real cargado
@@ -6119,6 +6236,12 @@ function loadMovieInPlayer(videoId, movieId, movieData, lang = "es", onHalfway =
   const container = document.getElementById("dv-video-container");
   if (!container) return;
 
+  // Seguimiento de "vista": se engancha SIEMPRE, venga la carga de
+  // openPlayerModal o de un cambio de idioma/track (loadMovieTrack).
+  // Antes el cambio de idioma creaba un player sin listener y la película
+  // nunca llegaba al historial.
+  startMovieWatch(movieId);
+
   if (shared.appState.player.activeCineInstance) {
     shared.appState.player.activeCineInstance.destroy();
     shared.appState.player.activeCineInstance = null;
@@ -6156,7 +6279,12 @@ function loadMovieInPlayer(videoId, movieId, movieData, lang = "es", onHalfway =
     title: movieData.title || "",
     poster: movieData.banner || movieData.poster || movieData.image || "",
     grayscale: movieData.blancoynegro === "si",
-    onHalfway,
+    onHalfway: () => {
+      onMovieHalfway();
+      if (typeof onHalfway === "function") onHalfway();
+    },
+    onWatched: onMovieWatched,
+    onProgress: onMovieProgress,
   });
 }
 
