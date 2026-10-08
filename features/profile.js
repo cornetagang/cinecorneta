@@ -29,6 +29,21 @@ let isDropdownInitialized = false;
 // Los estilos viven en main.css — esta función fue eliminada.
 
 // 1. INICIALIZACIÓN
+// ── Definición única de "película vista" para el perfil ──────────────────
+// Una entrada de historial de película cuenta como vista si:
+//   · no tiene progreso (marcada con el ojo / entradas antiguas), o
+//   · progreso 0 (entradas antiguas, guardadas al 50% antes de registrar
+//     el progreso real), o
+//   · progreso >= 85% (mismo umbral que player.js).
+// Una película a medias (0 < progreso < 85%) está "en progreso": sigue en el
+// historial y en "Continuar viendo", pero no suma a las estadísticas.
+const WATCHED_MOVIE_RATIO = 0.85; // mantener igual a MOVIE_WATCHED_RATIO de player.js
+function isWatchedMovieEntry(item) {
+    const p = item?.progress;
+    if (typeof p !== 'number' || p === 0) return true;
+    return p >= WATCHED_MOVIE_RATIO;
+}
+
 export function initProfile(dependencies) {
     if (isInitialized) return;
     shared = dependencies;
@@ -1186,7 +1201,7 @@ async function _loadRecentHistory(user) {
         }
 
         // Separar por tipo — el campo guardado es "movie" o "series"
-        const lastMovies = history.filter(h => h.type === 'movie').slice(0, 6);
+        const lastMovies = history.filter(h => h.type === 'movie' && isWatchedMovieEntry(h)).slice(0, 6);
         const lastSeries = history.filter(h => h.type === 'series').slice(0, 6);
 
         console.log('[Profile] Películas recientes:', lastMovies.length, '| Series recientes:', lastSeries.length);
@@ -1271,13 +1286,16 @@ async function calculateAndDisplayUserStats() {
         const history = historySnapshot.val();
         let moviesWatched = 0;
         const seriesWatched = new Set();
-        let totalItemsInHistory = 0;
 
         for (const item of Object.values(history)) {
-            totalItemsInHistory++;
-            if (item.type === 'movie') moviesWatched++;
-            else if (item.type === 'series') seriesWatched.add(item.contentId);
+            if (item.type === 'movie') {
+                if (isWatchedMovieEntry(item)) moviesWatched++;
+            } else if (item.type === 'series') {
+                seriesWatched.add(item.contentId);
+            }
         }
+        // Total coherente con lo que se muestra: películas vistas + series.
+        const totalItemsInHistory = moviesWatched + seriesWatched.size;
 
         if(statMoviesEl) statMoviesEl.textContent = moviesWatched;
         if(statSeriesEl) statSeriesEl.textContent = seriesWatched.size;
@@ -1308,6 +1326,7 @@ async function calculateAndDisplayUserStats() {
         const seriesC = shared.appState?.content?.series  || {};
 
         for (const item of Object.values(history)) {
+            if (item.type === 'movie' && !isWatchedMovieEntry(item)) continue;
             const contentData = movies[item.contentId] || seriesC[item.contentId];
             if (!contentData) continue;
             const genresRaw = contentData.genres || contentData.Generos || contentData.Géneros || contentData.generos || '';
@@ -1326,7 +1345,7 @@ async function calculateAndDisplayUserStats() {
             const maxCount = topGenres[0][1];
             genresList.innerHTML = topGenres.map(([name, count]) => `
                 <div class="prf-genre-row">
-                    <span class="prf-genre-name">${name}</span>
+                    <span class="prf-genre-name">${esc(name)}</span>
                     <div class="prf-genre-track">
                         <div class="prf-genre-fill" style="width:${Math.round((count / maxCount) * 100)}%"></div>
                     </div>
