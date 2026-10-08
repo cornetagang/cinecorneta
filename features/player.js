@@ -476,6 +476,7 @@ class CinePlayer {
     onHalfway = null,
     onWatched = null,
     onProgress = null,
+    resumeTime = null,
   }) {
     // Limpiar timers y doc-listeners de la carga anterior (evita acumulación de handlers)
     if (this._epSetupTimer) {
@@ -747,7 +748,7 @@ class CinePlayer {
         const t = art.currentTime;
         if (!(d > 0) || !(t > 5)) return;
         const ratio = d - t < 60 ? 1 : Math.min(1, t / d);
-        if (onProgress) onProgress(ratio);
+        if (onProgress) onProgress(ratio, t);
         if (!halfwayFired && ratio >= MOVIE_HISTORY_RATIO) {
           halfwayFired = true;
           if (onHalfway) onHalfway();
@@ -1398,7 +1399,13 @@ if (grayscale) {
     // Guardamos la clave en el container para que destroyPrevious pueda
     // hacer un flush del currentTime justo antes de destruir el player.
     this.container._artStorageId = videoStorageId;
-    const savedTime = localStorage.getItem(videoStorageId);
+    // Posición local (se escribe cada 3 s) y posición en Firebase (historial,
+    // solo películas). Se toma la mayor: si el navegador borró su
+    // almacenamiento o se cambió de dispositivo, se retoma igual.
+    const localSaved = parseFloat(localStorage.getItem(videoStorageId)) || 0;
+    const cloudSaved = Number(resumeTime) > 0 ? Number(resumeTime) : 0;
+    const startAt = Math.max(localSaved, cloudSaved);
+    const savedTime = startAt > 0 ? String(startAt) : null;
 
     // Si hay tiempo guardado y es mayor a 5 segundos, retomamos desde ahí
     if (savedTime && parseFloat(savedTime) > 5) {
@@ -4068,6 +4075,33 @@ const MOVIE_WATCHED_RATIO = 0.85;
 // { movieId, ratio, historyDone, watchedDone, lastSavedRatio }
 let _movieWatch = null;
 
+// Preferencia de idioma por película, guardada en este navegador (mismo
+// enfoque que seriesLangPrefs). Se guarda con marca de tiempo para poder
+// compararla con el idioma que quedó en el historial de Firebase (otro
+// dispositivo) y quedarnos con el más reciente. Ver resolveMovieLang()
+// en script.js, que es quien la lee al abrir la película.
+const MOVIE_LANG_PREFS_KEY = "movieLangPrefs";
+const MOVIE_LANG_PREFS_MAX = 300;
+
+function saveMovieLangPref(movieId, lang) {
+  if (!movieId || !lang) return;
+  try {
+    const prefs = JSON.parse(localStorage.getItem(MOVIE_LANG_PREFS_KEY)) || {};
+    prefs[movieId] = { lang, ts: Date.now() };
+    // Evitar que crezca sin límite: conservar las más recientes
+    const keys = Object.keys(prefs);
+    if (keys.length > MOVIE_LANG_PREFS_MAX) {
+      keys
+        .sort((a, b) => (prefs[a].ts || 0) - (prefs[b].ts || 0))
+        .slice(0, keys.length - MOVIE_LANG_PREFS_MAX)
+        .forEach((k) => delete prefs[k]);
+    }
+    localStorage.setItem(MOVIE_LANG_PREFS_KEY, JSON.stringify(prefs));
+  } catch (e) {
+    // Almacenamiento lleno o bloqueado: no es crítico
+  }
+}
+
 function startMovieWatch(movieId) {
   if (_movieWatch && _movieWatch.movieId === movieId) return; // cambio de idioma: conservar
   commitMovieWatch(); // película anterior sin cerrar → guardarla antes
@@ -4077,11 +4111,16 @@ function startMovieWatch(movieId) {
     historyDone: false,
     watchedDone: false,
     lastSavedRatio: -1,
+    time: 0, // segundo actual del video
+    lastSavedTime: -1,
+    lang: null, // idioma del track que se está reproduciendo ("en" | "es")
   };
 }
 
-function onMovieProgress(ratio) {
-  if (_movieWatch) _movieWatch.ratio = ratio;
+function onMovieProgress(ratio, time) {
+  if (!_movieWatch) return;
+  _movieWatch.ratio = ratio;
+  if (typeof time === "number") _movieWatch.time = time;
 }
 
 function onMovieHalfway() {
@@ -4121,18 +4160,28 @@ function commitMovieWatch(force = false) {
         art.duration - art.currentTime < 60
           ? 1
           : Math.min(1, art.currentTime / art.duration);
+      mw.time = art.currentTime;
     }
   } catch (_) {}
 
   if (!force && !mw.historyDone && mw.ratio < MOVIE_HISTORY_RATIO) return;
-  if (Math.abs(mw.ratio - mw.lastSavedRatio) < 0.01) return; // nada nuevo
+  // Nada nuevo: mismo avance (<1%) y misma posición (<15 s)
+  if (
+    Math.abs(mw.ratio - mw.lastSavedRatio) < 0.01 &&
+    Math.abs(mw.time - mw.lastSavedTime) < 15
+  ) {
+    return;
+  }
 
   try {
     const write = shared.addToHistoryIfLoggedIn(mw.movieId, "movie", {
       progress: mw.ratio,
+      lang: mw.lang,
+      time: mw.time,
     });
     mw.historyDone = true;
     mw.lastSavedRatio = mw.ratio;
+    mw.lastSavedTime = mw.time;
     if (!write && shared.auth?.currentUser) {
       console.warn(
         "[Player] No se pudo guardar en historial (contenido no encontrado):",
@@ -6241,6 +6290,14 @@ function loadMovieInPlayer(videoId, movieId, movieData, lang = "es", onHalfway =
   // Antes el cambio de idioma creaba un player sin listener y la película
   // nunca llegaba al historial.
   startMovieWatch(movieId);
+  if (_movieWatch) _movieWatch.lang = lang;
+  saveMovieLangPref(movieId, lang);
+
+  // Posición guardada en Firebase (historial). Solo vale si corresponde al
+  // MISMO idioma: cada idioma es un video distinto con su propia duración.
+  const cloud = window._cinecorneta_movieHistory?.[movieId];
+  const cloudResumeTime =
+    cloud && cloud.lang === lang && cloud.time > 5 ? cloud.time : null;
 
   if (shared.appState.player.activeCineInstance) {
     shared.appState.player.activeCineInstance.destroy();
@@ -6285,6 +6342,7 @@ function loadMovieInPlayer(videoId, movieId, movieData, lang = "es", onHalfway =
     },
     onWatched: onMovieWatched,
     onProgress: onMovieProgress,
+    resumeTime: cloudResumeTime,
   });
 }
 
