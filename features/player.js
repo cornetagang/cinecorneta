@@ -6443,6 +6443,16 @@ export async function playSeriesInDetailView(seriesId) {
 
     // Obtener tracks de idioma del episodio
     const tracks = getLangTracks(firstEpisode);
+    if (tracks.length === 0 && _isEpisodeUnreleased(firstEpisode)) {
+      loadSeriesInDetailPlayer(
+        null,
+        seriesId,
+        { ...firstEpisode, _season: firstSeasonKey, _index: firstEpisodeIndex },
+        "es",
+      );
+      _updateSpPsInfo(firstEpisode, firstSeasonKey, seriesId, "", firstEpisodeIndex);
+      return;
+    }
     if (tracks.length === 0) {
       shared.ErrorHandler.show(
         "content",
@@ -6679,16 +6689,16 @@ export function playEpisodeInDetailView(seriesId, season, episodeIndex) {
         : window._spActiveLang || tracks[0]?.lang || "es";
     const preferredTrack =
       tracks.find((t) => t.lang === activeLang) || tracks[0];
-    if (!preferredTrack) {
+    if (!preferredTrack && !_isEpisodeUnreleased(episode)) {
       shared.ErrorHandler.show("content", "No hay video disponible.");
       return;
     }
 
     loadSeriesInDetailPlayer(
-      preferredTrack.id,
+      preferredTrack?.id,
       seriesId,
       { ...episode, _season: season, _index: episodeIndex },
-      preferredTrack.lang,
+      preferredTrack?.lang || activeLang,
     );
 
     // Guardar progreso en localStorage para que "Reproducir" retome desde aquí
@@ -6918,12 +6928,12 @@ function _fillSpPsPanel(seriesId, activeSeasonKey, activeEpIndex, lang) {
         if (eps[0]) {
           const t = getLangTracks(eps[0]);
           const track = t.find((x) => x.lang === lang) || t[0];
-          if (track)
+          if (track || _isEpisodeUnreleased(eps[0]))
             loadSeriesInDetailPlayer(
-              track.id,
+              track?.id,
               seriesId,
               { ...eps[0], _season: key, _index: 0 },
-              track.lang,
+              track?.lang || lang,
             );
           _updateSpPsInfo(eps[0], key, seriesId, track?.label || "");
         }
@@ -7004,12 +7014,12 @@ function _fillSpPsPanel(seriesId, activeSeasonKey, activeEpIndex, lang) {
             if (eps[0]) {
               const t = getLangTracks(eps[0]);
               const track = t.find((x) => x.lang === lang) || t[0];
-              if (track)
+              if (track || _isEpisodeUnreleased(eps[0]))
                 loadSeriesInDetailPlayer(
-                  track.id,
+              track?.id,
                   seriesId,
                   { ...eps[0], _season: selectedKey, _index: 0 },
-                  track.lang,
+                  track?.lang || lang,
                 );
               _updateSpPsInfo(
                 eps[0],
@@ -7303,12 +7313,12 @@ function _fillSpPsPanel(seriesId, activeSeasonKey, activeEpIndex, lang) {
       // Reproducir
       const t = getLangTracks(ep);
       const track = t.find((x) => x.lang === lang) || t[0];
-      if (track)
+      if (track || _isEpisodeUnreleased(ep))
         loadSeriesInDetailPlayer(
-          track.id,
+              track?.id,
           seriesId,
           { ...ep, _season: activeSeasonKey, _index: idx },
-          track.lang,
+          track?.lang || lang,
         );
       _updateSpPsInfo(ep, activeSeasonKey, seriesId, track?.label || "", idx);
       item.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -7493,6 +7503,92 @@ function _updateSpPsInfo(ep, seasonKey, seriesId, langLabel, epIndex = 0) {
   }
 }
 
+// ── Pantalla "Próximo capítulo" (reemplaza la miniatura en episodios sin estrenar) ──
+const _MESES_ES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+
+function _parseEstreno(raw) {
+  raw = String(raw || "").trim();
+  if (!raw) return null;
+  let dia, mes, anio;
+  if (raw.includes("T") || raw.includes("-")) {
+    const d = new Date(raw);
+    if (isNaN(d)) return null;
+    dia = d.getUTCDate(); mes = d.getUTCMonth(); anio = d.getUTCFullYear();
+  } else if (raw.includes("/")) {
+    const p = raw.split("/");
+    dia = parseInt(p[0], 10); mes = parseInt(p[1], 10) - 1; anio = parseInt(p[2], 10);
+  }
+  if (!dia || mes === undefined || isNaN(mes) || !anio) return null;
+  return { dia, mes, anio, date: new Date(Date.UTC(anio, mes, dia)) };
+}
+
+function _isFutureEstreno(raw) {
+  const f = _parseEstreno(raw);
+  if (!f) return false;
+  const n = new Date();
+  const hoy = Date.UTC(n.getFullYear(), n.getMonth(), n.getDate());
+  return f.date.getTime() > hoy;
+}
+
+// Un episodio se considera "sin estrenar" si su fecha es futura o no tiene video
+function _isEpisodeUnreleased(ep) {
+  if (!ep) return false;
+  if (_isFutureEstreno(ep.fechaEstreno)) return true;
+  return getLangTracks(ep).length === 0;
+}
+
+function _renderNextEpisodeScreen(container, seriesId, ep) {
+  // Próximo capítulo = el seleccionado si aún no sale; si no, el primero futuro de la temporada
+  let target = ep;
+  if (!_isFutureEstreno(ep.fechaEstreno)) {
+    const raw = shared.appState.content.seriesEpisodes?.[seriesId]?.[ep._season];
+    const list = (Array.isArray(raw) ? raw : Object.values(raw || {})).filter(
+      (e) => String(e?.proximamente || "").trim().toLowerCase() !== "si",
+    );
+    const futuros = list
+      .map((e, i) => ({ e, i, f: _parseEstreno(e.fechaEstreno) }))
+      .filter((x) => x.f && _isFutureEstreno(x.e.fechaEstreno))
+      .sort((a, b) => a.f.date - b.f.date);
+    if (futuros.length) target = { ...futuros[0].e, _index: futuros[0].i };
+  }
+
+  const f = _parseEstreno(target.fechaEstreno);
+  const fechaStr = f ? `${f.dia} de ${_MESES_ES[f.mes]} de ${f.anio}` : "";
+  let faltan = "";
+  if (f) {
+    const n = new Date();
+    const hoy = Date.UTC(n.getFullYear(), n.getMonth(), n.getDate());
+    const dias = Math.round((f.date.getTime() - hoy) / 86400000);
+    faltan = dias === 1 ? "Mañana" : dias > 1 ? `Faltan ${dias} días` : "";
+  }
+  const epNum = target.episodeNumber || (target._index ?? 0) + 1;
+  const titulo = target.title || `Episodio ${epNum}`;
+
+  if (!document.getElementById("sp-next-ep-style")) {
+    const st = document.createElement("style");
+    st.id = "sp-next-ep-style";
+    st.textContent = `
+      .sp-next-ep{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:20px;
+        background:radial-gradient(ellipse at center,rgba(255,255,255,.06),transparent 60%),#05050a;color:#fff;font-family:Montserrat,sans-serif}
+      .sp-next-ep-tag{font-size:12px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--accent-color,#10b981)}
+      .sp-next-ep-date{font-size:clamp(22px,4vw,44px);font-weight:800;line-height:1.15}
+      .sp-next-ep-title{font-size:clamp(13px,1.6vw,17px);opacity:.75}
+      .sp-next-ep-left{margin-top:6px;padding:6px 14px;border-radius:999px;font-size:12px;font-weight:700;
+        border:1px solid var(--accent-color,#10b981);color:var(--accent-color,#10b981)}`;
+    document.head.appendChild(st);
+  }
+
+  const box = document.createElement("div");
+  box.className = "sp-next-ep";
+  box.innerHTML = `
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--accent-color,#10b981)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+    <span class="sp-next-ep-tag">Próximo capítulo</span>
+    <span class="sp-next-ep-date">${fechaStr || "Próximamente"}</span>
+    <span class="sp-next-ep-title">Ep ${epNum} · ${titulo}</span>
+    ${faltan ? `<span class="sp-next-ep-left">${faltan}</span>` : ""}`;
+  container.appendChild(box);
+}
+
 function loadSeriesInDetailPlayer(videoId, seriesId, episodeData, lang = "es") {
   const container = document.getElementById("sp-video-container");
   if (!container) return;
@@ -7545,6 +7641,12 @@ function loadSeriesInDetailPlayer(videoId, seriesId, episodeData, lang = "es") {
     "16/9",
     "important",
   ); /* Mantiene proporción de cine */
+
+  // Episodio sin estrenar: en vez de la miniatura mostramos la fecha del próximo capítulo
+  if (_isEpisodeUnreleased(episodeData)) {
+    _renderNextEpisodeScreen(container, seriesId, episodeData);
+    return;
+  }
 
   const artContainer = document.createElement("div");
   artContainer.className = "artplayer-container";
