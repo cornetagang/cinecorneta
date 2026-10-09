@@ -6511,6 +6511,7 @@ export async function playSeriesInDetailView(seriesId) {
 
       const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
       if (isMobile) {
+        _ensureMobileStickyFix();
         const spHero = document.getElementById("sp-hero");
         if (spHero) {
           spHero.classList.add("sp-hero--playing");
@@ -6530,7 +6531,7 @@ export async function playSeriesInDetailView(seriesId) {
         if (detailEl) detailEl.scrollTop = 0;
 
         // ── Botón cerrar flotante (móvil) — visible aunque sp-hero esté oculto ──
-        if (!playerSection.querySelector(".sp-inline-player-close")) {
+        if (!document.querySelector(".sp-inline-player-close")) {
           const closeBtn = document.createElement("button");
           closeBtn.className = "sp-inline-player-close";
           closeBtn.setAttribute("aria-label", "Volver");
@@ -6555,8 +6556,18 @@ export async function playSeriesInDetailView(seriesId) {
           closeBtn.innerHTML = '<i class="fas fa-arrow-left"></i>';
           closeBtn.onclick = () =>
             window.closeSeriesDetailView && window.closeSeriesDetailView();
-          playerSection.style.position = "relative";
-          playerSection.prepend(closeBtn);
+          // Va dentro del bloque fijo (video) para no desplazarse con la lista
+          const _stickyLeft = document
+            .getElementById("sp-detail-view")
+            ?.querySelector(".sp-ps-left, .sp-left-col");
+          if (_stickyLeft) {
+            if (getComputedStyle(_stickyLeft).position === "static")
+              _stickyLeft.style.position = "relative";
+            _stickyLeft.appendChild(closeBtn);
+          } else {
+            playerSection.style.position = "relative";
+            playerSection.prepend(closeBtn);
+          }
         }
       } else {
         setTimeout(() => {
@@ -6719,6 +6730,7 @@ export function playEpisodeInDetailView(seriesId, season, episodeIndex) {
       playerSection.style.display = "flex";
       const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
       if (isMobile) {
+        _ensureMobileStickyFix();
         const spHero = document.getElementById("sp-hero");
         if (spHero) {
           spHero.classList.add("sp-hero--playing");
@@ -6759,7 +6771,7 @@ export function playEpisodeInDetailView(seriesId, season, episodeIndex) {
         if (tabBar) tabBar.style.display = "none";
 
         // ── Botón cerrar flotante (móvil) — visible aunque sp-hero esté oculto ──
-        if (!playerSection.querySelector(".sp-inline-player-close")) {
+        if (!document.querySelector(".sp-inline-player-close")) {
           const closeBtn = document.createElement("button");
           closeBtn.className = "sp-inline-player-close";
           closeBtn.setAttribute("aria-label", "Volver");
@@ -6784,8 +6796,18 @@ export function playEpisodeInDetailView(seriesId, season, episodeIndex) {
           closeBtn.innerHTML = '<i class="fas fa-arrow-left"></i>';
           closeBtn.onclick = () =>
             window.closeSeriesDetailView && window.closeSeriesDetailView();
-          playerSection.style.position = "relative";
-          playerSection.prepend(closeBtn);
+          // Va dentro del bloque fijo (video) para no desplazarse con la lista
+          const _stickyLeft = document
+            .getElementById("sp-detail-view")
+            ?.querySelector(".sp-ps-left, .sp-left-col");
+          if (_stickyLeft) {
+            if (getComputedStyle(_stickyLeft).position === "static")
+              _stickyLeft.style.position = "relative";
+            _stickyLeft.appendChild(closeBtn);
+          } else {
+            playerSection.style.position = "relative";
+            playerSection.prepend(closeBtn);
+          }
         }
       } else {
         setTimeout(
@@ -7501,6 +7523,26 @@ function _updateSpPsInfo(ep, seasonKey, seriesId, langLabel, epIndex = 0) {
       }
     });
   }
+}
+
+// ── Móvil: el bloque fijo (video + info) debe ser opaco para que la lista no se vea por detrás ──
+function _ensureMobileStickyFix() {
+  if (document.getElementById("sp-mobile-sticky-fix")) return;
+  const st = document.createElement("style");
+  st.id = "sp-mobile-sticky-fix";
+  st.textContent = `
+    @media (max-width: 768px) {
+      #sp-detail-view .sp-ps-left,
+      #sp-detail-view .sp-left-col {
+        background-color: var(--bg-dark, #05070a) !important;
+        z-index: 30 !important;
+      }
+      #sp-detail-view .sp-controls-mobile {
+        background-color: var(--bg-dark, #05070a) !important;
+        z-index: 29 !important;
+      }
+    }`;
+  document.head.appendChild(st);
 }
 
 // ── Pantalla "Próximo capítulo" (reemplaza la miniatura en episodios sin estrenar) ──
