@@ -44,10 +44,65 @@ function isWatchedMovieEntry(item) {
     return p >= WATCHED_MOVIE_RATIO;
 }
 
+// ── Series TERMINADAS ────────────────────────────────────────────────────
+// Una serie cuenta como terminada si:
+//   · existe users/{uid}/series_completed/{id} (lo escribe script.js al ver el
+//     último episodio real de una serie fuera de emisión al ≥90%), o
+//   · (series anteriores a este cambio) su entrada de historial está en el
+//     último episodio con progreso ≥90%.
+// Una serie a medias NO suma a "Series vistas": aparece en "Viendo".
+const SERIES_DONE_RATIO = 0.9;
+
+function isLastEpisodeOfSeriesProfile(contentId, season, episodeIndex) {
+    if (season == null || episodeIndex == null) return false;
+    const content = shared.appState?.content || {};
+    const seriesData = content.series?.[contentId];
+    const enEmision = String(seriesData?.enEmision ?? seriesData?.en_emision ?? '')
+        .trim().toLowerCase() === 'si';
+    if (enEmision) return false;
+
+    const allSeasons = content.seriesEpisodes?.[contentId] || {};
+    const order = content.seasonOrder?.[contentId] || Object.keys(allSeasons);
+    const keys = order.filter(k => Object.keys(allSeasons[k] || {}).length > 0);
+    if (!keys.length) return false;
+    const lastKey = keys[keys.length - 1];
+    const lastIdx = Object.keys(allSeasons[lastKey] || {}).length - 1;
+    return String(season) === String(lastKey) && Number(episodeIndex) === lastIdx;
+}
+
+// historyItems: array de entradas de historial. Devuelve Map(contentId → {completedAt})
+async function loadCompletedSeries(uid, historyItems) {
+    const done = new Map();
+    try {
+        const snap = await shared.db.ref(`users/${uid}/series_completed`).once('value');
+        snap.forEach(child => {
+            const v = child.val();
+            done.set(child.key, { completedAt: (v && v.completedAt) || 0 });
+        });
+    } catch (e) {
+        console.warn('[Profile] No se pudo leer series_completed:', e);
+    }
+    for (const h of historyItems) {
+        if (h.type !== 'series' || done.has(h.contentId)) continue;
+        if (typeof h.progress === 'number' && h.progress >= SERIES_DONE_RATIO &&
+            isLastEpisodeOfSeriesProfile(h.contentId, h.season, h.lastEpisode)) {
+            done.set(h.contentId, { completedAt: h.viewedAt || 0 });
+        }
+    }
+    return done;
+}
+
 export function initProfile(dependencies) {
     if (isInitialized) return;
     shared = dependencies;
     isInitialized = true;
+
+    // "Viendo" se basa en "Continuar viendo": script.js publica esa lista y avisa
+    // con este evento cada vez que el carrusel se regenera.
+    window.addEventListener('cinecorneta:continue-watching', () => {
+        _renderWatching();
+        _updateWatchingStat();
+    });
 
     // ── Clases de layout desktop (reemplazan media queries) ────────
     function _applyLayoutClass() {
@@ -1159,7 +1214,90 @@ async function _loadRecentReviews(user) {
     } catch(e) { /* silent */ }
 }
 
-// ── Últimas 5 películas y series vistas (posters desde historial) ────────────
+// ── Películas vistas · Series vistas (terminadas) · Viendo ────────────────────
+const _prfBadgeStyle = 'position:absolute;top:6px;left:6px;z-index:2;padding:2px 7px;border-radius:999px;' +
+    'font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;' +
+    'background:rgba(0,0,0,.72);border:1px solid rgba(255,255,255,.18)';
+const _prfBadgeDoneStyle = _prfBadgeStyle.replace('rgba(255,255,255,.18)', 'var(--accent-color,#ff6a00)');
+
+function _renderPosterGrid(container, items, { emptyIcon, emptyText, badge, progressBar } = {}) {
+    if (!container) return;
+    if (!items.length) {
+        container.innerHTML = `<p class="prf-poster-empty"><i class="fas ${emptyIcon || 'fa-inbox'}"></i><br>${emptyText || 'Sin historial aún'}</p>`;
+        return;
+    }
+    container.innerHTML = `<div class="prf-poster-grid-inner">${
+        items.map(h => {
+            const poster    = h.poster || '';
+            const title     = h.displayTitle || h.title || h.contentTitle || h.key || '';
+            const safeTitle = esc(title);
+            const id        = esc(h.key || h.contentId);
+            const badgeHtml = badge
+                ? `<span style="${badge === 'Terminada' ? _prfBadgeDoneStyle : _prfBadgeStyle}">${badge}</span>`
+                : '';
+            const pct = typeof h.progress === 'number' ? Math.min(100, Math.max(0, h.progress * 100)) : 0;
+            const barHtml = progressBar && pct > 0
+                ? `<div style="position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(255,255,255,.18);z-index:2">` +
+                  `<div style="width:${pct.toFixed(1)}%;height:100%;background:var(--accent-color,#ff6a00)"></div></div>`
+                : '';
+            if (poster) {
+                return `<div class="prf-poster-item" data-id="${id}" title="${safeTitle}">
+                    ${badgeHtml}
+                    <img src="${safeUrl(poster)}" alt="${safeTitle}" loading="lazy">
+                    <div class="prf-poster-overlay">
+                        <p class="prf-poster-overlay-title">${safeTitle}</p>
+                    </div>
+                    ${barHtml}
+                </div>`;
+            }
+            return `<div class="prf-poster-item prf-poster-item--empty" data-id="${id}" title="${safeTitle}">
+                ${badgeHtml}
+                <div class="prf-poster-empty-inner">
+                    <i class="fas fa-film"></i>
+                    <p class="prf-poster-empty-title">${safeTitle}</p>
+                </div>
+                ${barHtml}
+            </div>`;
+        }).join('')
+    }</div>`;
+}
+
+// "Viendo": exactamente lo que muestra "Continuar viendo" (películas a medias +
+// series en curso; una serie con el capítulo terminado apunta al siguiente).
+function _watchingItems() {
+    const list = window._cinecorneta_continueWatching;
+    if (!Array.isArray(list)) return null; // todavía no se generó el carrusel
+    return list.map(h => {
+        const epLabel = h.type === 'series' && h.lastEpisode != null
+            ? ` · E${Number(h.lastEpisode) + 1}` : '';
+        return { ...h, displayTitle: `${h.title || h.contentId}${epLabel}` };
+    });
+}
+
+function _renderWatching() {
+    const el = document.getElementById('prf-history-watching');
+    if (!el) return;
+    const items = _watchingItems();
+    if (items === null) {
+        el.innerHTML = `<div class="prf-poster-grid-inner">${'<div class="prf-poster-skeleton"></div>'.repeat(5)}</div>`;
+        return;
+    }
+    _renderPosterGrid(el, items.slice(0, 12), {
+        emptyIcon: 'fa-play-circle',
+        emptyText: 'No estás viendo nada ahora',
+        progressBar: true,
+    });
+}
+
+function _updateWatchingStat() {
+    const items = _watchingItems();
+    const n = items ? items.length : 0;
+    ['stat-watching-card', 'stat-watching-mobile'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = n;
+    });
+}
+
 async function _loadRecentHistory(user) {
     const moviesEl = document.getElementById('prf-history-movies');
     const seriesEl = document.getElementById('prf-history-series');
@@ -1169,6 +1307,8 @@ async function _loadRecentHistory(user) {
     const skeleton = `<div class="prf-poster-skeleton"></div>`.repeat(5);
     moviesEl.innerHTML = `<div class="prf-poster-grid-inner">${skeleton}</div>`;
     seriesEl.innerHTML = `<div class="prf-poster-grid-inner">${skeleton}</div>`;
+    _renderWatching();
+    _updateWatchingStat();
 
     try {
         // 1. Intentar usar el cache global del listener de script.js
@@ -1194,51 +1334,30 @@ async function _loadRecentHistory(user) {
             console.log('[Profile] Usando cache de historial:', history.length, 'items');
         }
 
-        if (!history.length) {
-            moviesEl.innerHTML = '<p class="prf-poster-empty"><i class="fas fa-inbox"></i><br>Sin historial aún</p>';
-            seriesEl.innerHTML = '<p class="prf-poster-empty"><i class="fas fa-inbox"></i><br>Sin historial aún</p>';
-            return;
-        }
-
-        // Separar por tipo — el campo guardado es "movie" o "series"
+        // Películas vistas (≥85% o marcadas con el ojo)
         const lastMovies = history.filter(h => h.type === 'movie' && isWatchedMovieEntry(h)).slice(0, 6);
-        const lastSeries = history.filter(h => h.type === 'series').slice(0, 6);
 
-        console.log('[Profile] Películas recientes:', lastMovies.length, '| Series recientes:', lastSeries.length);
+        // Series vistas = TERMINADAS (más recientes primero). Se muestra la serie
+        // (no la temporada) con su póster general.
+        const done = await loadCompletedSeries(user.uid, history);
+        const seriesData = shared.appState?.content?.series || {};
+        const lastSeries = [...done.entries()]
+            .sort((a, b) => (b[1].completedAt || 0) - (a[1].completedAt || 0))
+            .map(([id]) => {
+                const data  = seriesData[id];
+                const entry = history.find(h => h.contentId === id);
+                return {
+                    key: id,
+                    title: data?.title || entry?.title || id,
+                    poster: (typeof data?.poster === 'object' ? data.poster?.posterUrl : data?.poster) || entry?.poster || '',
+                };
+            })
+            .slice(0, 6);
 
-        // Render — poster y title ya vienen en la entrada del historial
-        const renderPosters = (container, items, emptyIcon) => {
-            if (items.length === 0) {
-                container.innerHTML = `<p class="prf-poster-empty"><i class="fas ${emptyIcon}"></i><br>Sin historial aún</p>`;
-                return;
-            }
-            container.innerHTML = `<div class="prf-poster-grid-inner">${
-                items.map(h => {
-                    const poster    = h.poster || '';
-                    const title     = h.title  || h.contentTitle || h.key || '';
-                    const safeTitle = esc(title);
+        console.log('[Profile] Películas vistas:', lastMovies.length, '| Series terminadas:', lastSeries.length);
 
-                    if (poster) {
-                        return `<div class="prf-poster-item" data-id="${esc(h.key || h.contentId)}" title="${safeTitle}">
-                            <img src="${safeUrl(poster)}" alt="${safeTitle}" loading="lazy">
-                            <div class="prf-poster-overlay">
-                                <p class="prf-poster-overlay-title">${safeTitle}</p>
-                            </div>
-                        </div>`;
-                    } else {
-                        return `<div class="prf-poster-item prf-poster-item--empty" data-id="${esc(h.key || h.contentId)}" title="${safeTitle}">
-                            <div class="prf-poster-empty-inner">
-                                <i class="fas fa-film"></i>
-                                <p class="prf-poster-empty-title">${safeTitle}</p>
-                            </div>
-                        </div>`;
-                    }
-                }).join('')
-            }</div>`;
-        };
-
-        renderPosters(moviesEl, lastMovies, 'fa-film');
-        renderPosters(seriesEl, lastSeries, 'fa-tv');
+        _renderPosterGrid(moviesEl, lastMovies, { emptyIcon: 'fa-film', emptyText: 'Aún no has visto películas', badge: 'Vista' });
+        _renderPosterGrid(seriesEl, lastSeries, { emptyIcon: 'fa-tv', emptyText: 'Aún no terminas ninguna serie', badge: 'Terminada' });
 
     } catch(e) {
         console.error('[Profile] Error en _loadRecentHistory:', e);
@@ -1285,15 +1404,13 @@ async function calculateAndDisplayUserStats() {
 
         const history = historySnapshot.val();
         let moviesWatched = 0;
-        const seriesWatched = new Set();
 
         for (const item of Object.values(history)) {
-            if (item.type === 'movie') {
-                if (isWatchedMovieEntry(item)) moviesWatched++;
-            } else if (item.type === 'series') {
-                seriesWatched.add(item.contentId);
-            }
+            if (item.type === 'movie' && isWatchedMovieEntry(item)) moviesWatched++;
         }
+        // "Series vistas" = series TERMINADAS (las que vas viendo van en "Viendo")
+        const seriesWatched = await loadCompletedSeries(user.uid, Object.values(history));
+        _updateWatchingStat();
         // Total coherente con lo que se muestra: películas vistas + series.
         const totalItemsInHistory = moviesWatched + seriesWatched.size;
 
