@@ -2675,6 +2675,15 @@ function syncSettingsUI() {
 function resetUI() {
   document.getElementById("univ-back-btn")?.classList.remove("visible");
 
+  // Si había un universo abierto (overlay) lo cerramos también. Antes quedaba
+  // activo encima del hub y, como currentUniverseId ya era null, exitUniverse()
+  // salía sin hacer nada: no había forma de salir del universo.
+  document.getElementById("univ-universe-overlay")?.classList.remove("active");
+  document.getElementById("univ-ov-sort-wrap")?.remove();
+  document.getElementById("univ-filters-container")?.remove();
+  document.getElementById("univ-phase-dropdown-wrap")?.remove();
+  sortMode = "saga";
+
   const lbl = document.getElementById("univ-universe-label");
   if (lbl) {
     lbl.classList.remove("visible");
