@@ -626,9 +626,40 @@ function injectStyles() {
 .stx-pager-label { font-size: .74rem; color: #94a3b8; }
 
 @media (max-width: 760px) {
-    .stx-overview, .stx-rankings, .stx-ep-grid { grid-template-columns: 1fr; }
-    .stx-overlay { padding: 0; align-items: stretch; }
-    .stx-modal { max-width: 100%; border-radius: 0; min-height: 100%; }
+    /* Por encima de la barra superior del sitio (antes la tapaba y cortaba el título) */
+    .stx-overlay { padding: 0; align-items: stretch; z-index: 1000000; }
+    .stx-modal { max-width: 100%; border-radius: 0; min-height: 100%; border: none; }
+
+    /* Cabecera fija: el botón de cerrar siempre a mano al hacer scroll */
+    .stx-modal-header {
+        position: sticky; top: 0; z-index: 3;
+        background: #0a0d12;
+        padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 12px;
+    }
+    .stx-modal-title { font-size: 1.1rem; }
+    .stx-modal-sub { font-size: .74rem; }
+    .stx-modal-body { padding: 14px 14px calc(24px + env(safe-area-inset-bottom, 0px)); }
+
+    .stx-overview, .stx-rankings, .stx-ep-grid { grid-template-columns: 1fr; gap: 10px; }
+    .stx-overview { margin-bottom: 10px; }
+    .stx-rankings { margin-bottom: 10px; }
+
+    /* Tarjetas compactas: icono a la izquierda, datos a la derecha */
+    .stx-card {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        column-gap: 14px;
+        align-items: center;
+        padding: 14px;
+    }
+    .stx-card-icon { grid-row: 1 / span 3; width: 40px; height: 40px; margin: 0; }
+    .stx-card-value { font-size: 1.5rem; margin-top: 0; line-height: 1.1; }
+    .stx-bar-track { grid-column: 1 / -1; margin-top: 12px; }
+
+    .stx-panel { padding: 14px; }
+    .stx-rank-label { width: 96px; }
+    .stx-rank-scroll { max-height: 220px; }
+    .stx-ep-title--big { font-size: 1.4rem; }
 }
     `;
   document.head.appendChild(s);
