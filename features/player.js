@@ -337,7 +337,7 @@ export function initPlayer(dependencies) {
   const flushOnExit = () => {
     flushActivePlayerProgress();
     commitMovieWatch();
-    commitAndClearPendingSave();
+    commitAndClearPendingSave(false);
   };
   window.addEventListener("pagehide", flushOnExit);
   document.addEventListener("visibilitychange", () => {
@@ -368,6 +368,7 @@ function flushActivePlayerProgress() {
     const pending = shared.appState.player.pendingHistorySave;
     if (pending) {
       pending.episodeInfo.progress = d - t < 60 ? 1 : Math.min(1, Math.max(0, t / d));
+      pending.episodeInfo.time = t;
     }
   } catch (_) {}
 }
@@ -1169,6 +1170,7 @@ if (grayscale) {
             // BUG FIX: actualizar pendingHistorySave con el episodio actual
             // para que al presionar Volver se guarde el ultimo episodio visto,
             // no el primero con el que se abrio el player.
+            commitAndClearPendingSave();
             window.appState.player.pendingHistorySave = {
               contentId: seriesId,
               type: "series",
@@ -1357,6 +1359,7 @@ if (grayscale) {
             // BUG FIX: actualizar pendingHistorySave con el episodio actual
             // para que al presionar Volver se guarde el ultimo episodio visto,
             // no el primero con el que se abrio el player.
+            commitAndClearPendingSave();
             window.appState.player.pendingHistorySave = {
               contentId: seriesId,
               type: "series",
@@ -1426,6 +1429,7 @@ if (grayscale) {
     // Guardar el progreso de forma inteligente
     let lastSaveTime = 0;
     art.on("video:timeupdate", () => {
+      _trackSeriesPlayback(art);
       const now = Date.now();
       if (now - lastSaveTime > 3000) {
         // Guardamos cada 3 segundos reales
@@ -1435,16 +1439,6 @@ if (grayscale) {
           localStorage.removeItem(videoStorageId);
         } else {
           localStorage.setItem(videoStorageId, art.currentTime);
-        }
-
-        // Actualizamos el % de avance del capítulo actual para que la
-        // barra roja de "Continuar viendo" refleje el progreso exacto.
-        const pending = shared.appState.player.pendingHistorySave;
-        if (pending && art.duration > 0) {
-          pending.episodeInfo.progress =
-            art.duration - art.currentTime < 60
-              ? 1
-              : Math.min(1, Math.max(0, art.currentTime / art.duration));
         }
 
         lastSaveTime = now;
@@ -1853,6 +1847,7 @@ if (grayscale) {
             // BUG FIX 1: actualizar pendingHistorySave para que al presionar
             // Volver se guarde el último episodio seleccionado desde el panel
             // de episodios en fullscreen (desktop), no el original.
+            commitAndClearPendingSave();
             window.appState.player.pendingHistorySave = {
               contentId: seriesId,
               type: "series",
@@ -3312,6 +3307,7 @@ if (grayscale) {
               // BUG FIX 1: actualizar pendingHistorySave para que al presionar
               // Volver se guarde el último episodio seleccionado desde el drawer
               // de episodios en fullscreen (móvil), no el original.
+              commitAndClearPendingSave();
               window.appState.player.pendingHistorySave = {
                 contentId: seriesId,
                 type: "series",
@@ -4200,19 +4196,87 @@ export function flushAndCommitPendingSave() {
   commitMovieWatch();
 }
 
-export function commitAndClearPendingSave() {
-  if (shared.appState.player.pendingHistorySave) {
-    try {
-      shared.addToHistoryIfLoggedIn(
-        shared.appState.player.pendingHistorySave.contentId,
-        shared.appState.player.pendingHistorySave.type,
-        shared.appState.player.pendingHistorySave.episodeInfo,
-      );
-    } catch (e) {
-      logError(e, "Player: History Commit");
-    }
-    shared.appState.player.pendingHistorySave = null;
+// ── Guardado de series en "Continuar viendo" ──────────────────────────
+// Igual que las películas, un episodio solo entra al historial cuando se vio
+// de verdad: hay que acumular SERIES_HISTORY_MIN_PLAYED segundos de
+// reproducción real (los saltos/seek no cuentan). Así abrir o "ojear" un
+// episodio ya no pisa el avance guardado con progreso 0.
+const SERIES_HISTORY_MIN_PLAYED = 60;
+
+// Se llama en cada timeupdate del player: mantiene al día el progreso y el
+// segundo exacto del episodio en curso y dispara el primer guardado.
+function _trackSeriesPlayback(art) {
+  const pending = shared.appState.player.pendingHistorySave;
+  if (!pending || pending.type !== "series" || !pending.episodeInfo) return;
+  const d = art.duration;
+  const t = art.currentTime;
+  if (!(d > 0)) return;
+
+  if (typeof pending._lastT === "number") {
+    const dt = t - pending._lastT;
+    if (dt > 0 && dt < 2.5) pending.playedSeconds = (pending.playedSeconds || 0) + dt;
   }
+  pending._lastT = t;
+
+  const info = pending.episodeInfo;
+  if (t > 5) {
+    info.progress = d - t < 60 ? 1 : Math.min(1, Math.max(0, t / d));
+    info.time = t;
+  }
+  const lang = shared.appState.player.state?.[pending.contentId]?.lang;
+  if (lang) info.lang = lang;
+
+  if (!pending.minWatchMet && (pending.playedSeconds || 0) >= SERIES_HISTORY_MIN_PLAYED) {
+    pending.minWatchMet = true;
+    commitAndClearPendingSave(false); // crea la entrada ya, sin cerrar el seguimiento
+  }
+}
+
+// clear = true  → escribe y deja de seguir el episodio (cambio de episodio, Volver).
+// clear = false → escribe pero sigue siguiéndolo (minimizar/ocultar pestaña):
+//                 si el usuario vuelve y sigue viendo, el avance sigue guardándose.
+export function commitAndClearPendingSave(clear = true) {
+  const pend = shared.appState.player.pendingHistorySave;
+  if (!pend) return;
+  const finish = () => {
+    if (clear) shared.appState.player.pendingHistorySave = null;
+  };
+
+  if (pend.type === "series" && pend.episodeInfo) {
+    // Un episodio sin video / sin estrenar no se guarda en "Continuar viendo"
+    const raw = shared.appState.content.seriesEpisodes?.[pend.contentId]?.[
+      pend.episodeInfo.season
+    ];
+    const ep = Array.isArray(raw)
+      ? raw[pend.episodeInfo.index]
+      : Object.values(raw || {})[pend.episodeInfo.index];
+    if (ep && _isEpisodeUnreleased(ep)) {
+      shared.appState.player.pendingHistorySave = null;
+      return;
+    }
+    // Sin reproducción real suficiente no se escribe nada
+    if (!pend.minWatchMet) return finish();
+  }
+
+  // Nada nuevo desde el último guardado (mismo avance <1% y misma posición <15 s)
+  const info = pend.episodeInfo || {};
+  const prog = typeof info.progress === "number" ? info.progress : 0;
+  const time = typeof info.time === "number" ? info.time : 0;
+  if (
+    pend._saved &&
+    Math.abs(prog - pend._saved.progress) < 0.01 &&
+    Math.abs(time - pend._saved.time) < 15
+  ) {
+    return finish();
+  }
+
+  try {
+    shared.addToHistoryIfLoggedIn(pend.contentId, pend.type, info);
+    pend._saved = { progress: prog, time };
+  } catch (e) {
+    logError(e, "Player: History Commit");
+  }
+  finish();
 }
 
 function _openSeriesPlayerPage() {
@@ -6409,6 +6473,14 @@ export async function playSeriesInDetailView(seriesId) {
           if (fbEpisode) {
             resumeSeasonKey = fbSeason;
             resumeEpisodeIndex = fbIndex;
+            // Episodio ya terminado → continuar con el siguiente disponible
+            if (Number(histEntry.progress) >= 0.9) {
+              const nxt = _nextPlayableIn(episodesData, orderedKeys, fbSeason, fbIndex);
+              if (nxt) {
+                resumeSeasonKey = String(nxt.season);
+                resumeEpisodeIndex = nxt.index;
+              }
+            }
           }
         }
       } else {
@@ -6428,6 +6500,19 @@ export async function playSeriesInDetailView(seriesId) {
     }
 
     const resumeEpisodes = episodesData[resumeSeasonKey] || [];
+    {
+      // Si el progreso guardado cae en un episodio sin estrenar, usar el último
+      // disponible anterior (o el primero disponible de la temporada).
+      const _list = Array.isArray(resumeEpisodes)
+        ? resumeEpisodes
+        : Object.values(resumeEpisodes);
+      if (_list[resumeEpisodeIndex] && _isEpisodeUnreleased(_list[resumeEpisodeIndex])) {
+        let _i = resumeEpisodeIndex - 1;
+        while (_i >= 0 && _isEpisodeUnreleased(_list[_i])) _i--;
+        if (_i < 0) _i = _list.findIndex((e) => !_isEpisodeUnreleased(e));
+        if (_i >= 0) resumeEpisodeIndex = _i;
+      }
+    }
     const resumeEpisode = Array.isArray(resumeEpisodes)
       ? resumeEpisodes[resumeEpisodeIndex]
       : Object.values(resumeEpisodes)[resumeEpisodeIndex];
@@ -6713,7 +6798,8 @@ export function playEpisodeInDetailView(seriesId, season, episodeIndex) {
     );
 
     // Guardar progreso en localStorage para que "Reproducir" retome desde aquí
-    try {
+    // (solo si el episodio tiene video: no hay nada que retomar en uno sin estrenar)
+    if (!_isEpisodeUnreleased(episode)) try {
       const allProgress =
         JSON.parse(localStorage.getItem("seriesProgress")) || {};
       if (!allProgress[seriesId]) allProgress[seriesId] = {};
@@ -6722,7 +6808,12 @@ export function playEpisodeInDetailView(seriesId, season, episodeIndex) {
     } catch (_) {}
 
     // Panel de temporadas y episodios
-    _fillSpPsPanel(seriesId, season, episodeIndex, preferredTrack.lang);
+    _fillSpPsPanel(
+      seriesId,
+      season,
+      episodeIndex,
+      preferredTrack?.lang || activeLang,
+    );
 
     // Mostrar sección reproductor
     const playerSection = document.getElementById("sp-player-section");
@@ -7572,6 +7663,28 @@ function _isFutureEstreno(raw) {
   return f.date.getTime() > hoy;
 }
 
+// Siguiente episodio con video después de (season, index): el siguiente de la
+// misma temporada o el primero de la temporada siguiente. null si no hay.
+function _nextPlayableIn(episodesData, orderedKeys, season, index) {
+  const toList = (v) => (Array.isArray(v) ? v : Object.values(v || {}));
+  const keys = orderedKeys.filter((k) => toList(episodesData[k]).length > 0);
+  const si = keys.findIndex((k) => String(k) === String(season));
+  if (si < 0) return null;
+  const cur = toList(episodesData[keys[si]]);
+  if (index + 1 < cur.length) {
+    return _isEpisodeUnreleased(cur[index + 1])
+      ? null
+      : { season: keys[si], index: index + 1 };
+  }
+  if (si + 1 < keys.length) {
+    const nx = toList(episodesData[keys[si + 1]]);
+    return nx.length && !_isEpisodeUnreleased(nx[0])
+      ? { season: keys[si + 1], index: 0 }
+      : null;
+  }
+  return null;
+}
+
 // Un episodio se considera "sin estrenar" si su fecha es futura o no tiene video
 function _isEpisodeUnreleased(ep) {
   if (!ep) return false;
@@ -7604,7 +7717,8 @@ function _renderNextEpisodeScreen(container, seriesId, ep) {
     faltan = dias === 1 ? "Mañana" : dias > 1 ? `Faltan ${dias} días` : "";
   }
   const epNum = target.episodeNumber || (target._index ?? 0) + 1;
-  const titulo = target.title || `Episodio ${epNum}`;
+  const tituloReal = String(target.title || "").trim();
+  const epLinea = tituloReal ? `Ep ${epNum} · ${tituloReal}` : `Episodio ${epNum}`;
 
   if (!document.getElementById("sp-next-ep-style")) {
     const st = document.createElement("style");
@@ -7626,9 +7740,22 @@ function _renderNextEpisodeScreen(container, seriesId, ep) {
     <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--accent-color,#10b981)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
     <span class="sp-next-ep-tag">Próximo capítulo</span>
     <span class="sp-next-ep-date">${fechaStr || "Próximamente"}</span>
-    <span class="sp-next-ep-title">Ep ${epNum} · ${titulo}</span>
+    <span class="sp-next-ep-title">${epLinea}</span>
     ${faltan ? `<span class="sp-next-ep-left">${faltan}</span>` : ""}`;
   container.appendChild(box);
+}
+
+function _seriesCloudResumeTime(seriesId, episodeData, lang) {
+  const h = window._cinecorneta_seriesHistory?.[seriesId];
+  if (!h || !episodeData) return null;
+  if (
+    String(h.season) !== String(episodeData._season) ||
+    Number(h.index) !== Number(episodeData._index)
+  )
+    return null;
+  if (h.progress >= 0.9) return null; // episodio terminado: empieza de cero
+  if (h.lang && lang && h.lang !== lang) return null; // otro idioma = otro video
+  return h.time > 5 ? h.time : null;
 }
 
 function loadSeriesInDetailPlayer(videoId, seriesId, episodeData, lang = "es") {
@@ -7654,7 +7781,9 @@ function loadSeriesInDetailPlayer(videoId, seriesId, episodeData, lang = "es") {
     episodeData._index !== undefined
   ) {
     commitAndClearPendingSave();
-    shared.appState.player.pendingHistorySave = {
+    shared.appState.player.pendingHistorySave = _isEpisodeUnreleased(episodeData)
+      ? null
+      : {
       contentId: seriesId,
       type: "series",
       episodeInfo: {
@@ -7728,6 +7857,7 @@ function loadSeriesInDetailPlayer(videoId, seriesId, episodeData, lang = "es") {
       seriesData.image ||
       "",
     grayscale: seriesData.blancoynegro === "si",
+    resumeTime: _seriesCloudResumeTime(seriesId, episodeData, lang),
   });
 }
 
