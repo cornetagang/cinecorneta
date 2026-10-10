@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL
-// Versión: 10 The Comeback
+// Versión: 11 Ajustes
 // ===========================================================
 
 // ===========================================================
@@ -146,7 +146,7 @@ async function getRouletteModule() {
 // nada nuevo al servidor. Igual de perezoso que Ruleta.
 async function getStatsModule() {
   if (statsModule) return statsModule;
-  const module = await import("./features/stats.js?v=31");
+  const module = await import("./features/stats.js?v=32");
   module.initStats({ appState });
   statsModule = module;
   return module;
@@ -154,7 +154,7 @@ async function getStatsModule() {
 
 async function getReviewsModule() {
   if (reviewsModule) return reviewsModule;
-  const module = await import("./features/reviews.js?v=31");
+  const module = await import("./features/reviews.js?v=35");
   module.initReviews({
     appState,
     DOM,
@@ -170,7 +170,7 @@ async function getReviewsModule() {
 
 async function getUniversesModule() {
   if (universesModule) return universesModule;
-  const module = await import("./features/universes.js?v=31");
+  const module = await import("./features/universes.js?v=32");
   module.initUniverses({
     appState,
     switchView,
@@ -382,14 +382,25 @@ function buildDeepLinkHash(id, tipo) {
 function setDeepLinkHash(id, tipo) {
   const hash = buildDeepLinkHash(id, tipo);
   if (window.location.hash !== hash) {
+    // Marca la entrada actual como "base": al volver atrás hasta ella sabemos
+    // que no hay nada más que cerrar dentro de la app.
+    if (!window.history.state?.deepLink) {
+      window.history.replaceState(
+        { ...(window.history.state || {}), home: true },
+        "",
+      );
+    }
     window.history.pushState({ deepLink: true }, "", hash);
   }
 }
 
+// Antes esto hacía pushState: al cerrar una serie con el botón "Volver" se
+// añadía una entrada nueva, y el botón atrás del teléfono volvía a abrirla.
+// Con replaceState el historial no crece.
 function clearDeepLinkHash() {
   if (window.location.hash) {
-    window.history.pushState(
-      {},
+    window.history.replaceState(
+      { home: true },
       "",
       window.location.pathname + window.location.search,
     );
@@ -461,7 +472,258 @@ function handleDeepLinkFromHash() {
     switchView("sagas");
   }
 }
-window.addEventListener("popstate", handleDeepLinkFromHash);
+
+// ===========================================================
+// 📱 BOTÓN / GESTO "ATRÁS" DEL TELÉFONO
+// Orden de cierre: overlays (menús, drawers, modales) → vista de
+// detalle / reproductor → salir del sitio.
+// ===========================================================
+// Cada overlay: selector que indica que está abierto + cómo cerrarlo.
+// "soft" = menús/paneles pequeños: solo cuentan en pantallas táctiles/angostas.
+const _OVERLAYS = [
+  {
+    sel: "#confirmation-modal.show",
+    close: (el) => cerrarModal(el),
+  },
+  {
+    sel: ".modal.show:not(#confirmation-modal)",
+    close: () => window.closeAllModals?.(),
+  },
+  {
+    // Estadísticas: si hay un detalle abierto (Quién pide más) primero vuelve al
+    // resumen; si no, cierra la ventana.
+    sel: "#stx-overlay.active",
+    close: (el) => {
+      const back = el.querySelector("[data-stx-back]");
+      if (back) back.click();
+      else el.querySelector(".stx-close")?.click();
+    },
+  },
+  {
+    // Buscador móvil a pantalla completa: "atrás" lo cierra (y limpia la búsqueda)
+    sel: "#mobileSearchOverlay.open",
+    close: () => window.toggleMobileSearch?.(),
+  },
+  { sel: "#seasonDrawer.open", close: () => window.closeSeasonDrawer?.() },
+  { sel: "#genreDrawer.open", close: () => window.closeGenreDrawer?.() },
+  { sel: "#filtersDrawer.open", close: () => window.closeFiltersDrawer?.() },
+  { sel: "#mobileUserDrawer.open", close: () => window.closeMobileDrawer?.() },
+  {
+    sel: "#mobile-nav-panel.is-open",
+    close: () => {
+      // El menú móvil se cierra con el clic en su overlay (closeMenu)
+      document.getElementById("menu-overlay")?.click();
+      document.getElementById("mob-auth-panel")?.classList.remove("open");
+    },
+  },
+  {
+    sel: ".cp-drawer-mobile--open",
+    close: () => document.querySelector(".cp-drawer-backdrop--open")?.click(),
+  },
+  {
+    soft: true,
+    sel: "#mob-auth-panel.open",
+    close: (el) => el.classList.remove("open"),
+  },
+  {
+    soft: true,
+    sel: "#auth-dropdown.open",
+    close: (el) => el.classList.remove("open"),
+  },
+  {
+    soft: true,
+    sel: "#navDropdown.open",
+    close: (el) => el.classList.remove("open"),
+  },
+  {
+    soft: true,
+    sel: "#colorPanel.open",
+    close: (el) => el.classList.remove("open"),
+  },
+];
+let _overlayPushed = false; // hay una entrada de historial por un overlay abierto
+let _selfBackPending = false; // un history.back() que lanzamos nosotros
+let _overlaySyncQueued = false;
+
+function _isTouchLayout() {
+  return window.matchMedia("(pointer: coarse), (max-width: 768px)").matches;
+}
+
+function _openOverlays() {
+  const touch = _isTouchLayout();
+  const found = [];
+  for (const o of _OVERLAYS) {
+    if (o.soft && !touch) continue;
+    const el = document.querySelector(o.sel);
+    if (el) found.push({ o, el });
+  }
+  return found;
+}
+
+function _hasOpenOverlay() {
+  return _openOverlays().length > 0;
+}
+
+function _closeOverlays() {
+  for (const { o, el } of _openOverlays()) {
+    try {
+      o.close(el);
+    } catch (e) {
+      console.warn("[Back] No se pudo cerrar overlay:", o.sel, e);
+    }
+  }
+}
+
+function _closeOpenViews() {
+  let closed = false;
+  // Universo abierto dentro del hub de sagas → salir al hub (no al Inicio)
+  const univ = document.getElementById("univ-universe-overlay");
+  if (univ?.classList.contains("active")) {
+    document.getElementById("univ-back-btn")?.click();
+    return true;
+  }
+  const sp = document.getElementById("sp-detail-view");
+  if (sp?.classList.contains("visible")) {
+    window.closeSeriesDetailView?.();
+    closed = true;
+  }
+  const dv = document.getElementById("detail-view");
+  if (dv?.classList.contains("visible")) {
+    window.closeDetailView?.();
+    closed = true;
+  }
+  const page = document.getElementById("series-player-page");
+  if (page?.classList.contains("active")) {
+    window.closeAllModals?.();
+    closed = true;
+  }
+  return closed;
+}
+
+// Cuando se abre un overlay añadimos una entrada de historial (misma URL)
+// para que "atrás" lo cierre a él y no a la vista que tiene debajo.
+let _overlayHref = "";
+
+function _syncOverlayHistory() {
+  _overlaySyncQueued = false;
+  const open = _hasOpenOverlay();
+  if (open && !_overlayPushed) {
+    _overlayPushed = true;
+    // Si ya quedó una entrada de overlay sin retirar (cierre reciente), se reutiliza
+    if (!window.history.state?.overlay) {
+      _overlayHref = window.location.href;
+      window.history.pushState(
+        { ...(window.history.state || {}), overlay: true },
+        "",
+        window.location.href,
+      );
+    }
+  } else if (!open && _overlayPushed) {
+    _overlayPushed = false;
+    // Cerrado por la propia UI (X, backdrop, o un ítem que navega a otra vista).
+    // NO retiramos la entrada al instante: el ítem pulsado puede estar navegando
+    // y un history.back() inmediato lo deshacía ("el menú hacía de botón atrás").
+    // Esperamos a que termine y solo retiramos si el historial sigue intacto.
+    const href = _overlayHref;
+    setTimeout(() => {
+      if (_overlayPushed || _hasOpenOverlay()) return; // se abrió otro overlay
+      if (!window.history.state?.overlay) return; // ya se navegó a otra cosa
+      if (window.location.href !== href) return;
+      _selfBackPending = true;
+      setTimeout(() => (_selfBackPending = false), 600);
+      window.history.back();
+    }, 500);
+  }
+}
+
+new MutationObserver(() => {
+  if (_overlaySyncQueued) return;
+  _overlaySyncQueued = true;
+  requestAnimationFrame(_syncOverlayHistory);
+}).observe(document.body, {
+  subtree: true,
+  attributes: true,
+  attributeFilter: ["class"],
+});
+
+// Secciones (Historial, Perfil, Series…): se registra UNA entrada de historial
+// mientras se está en una sección, así "atrás" las cierra y lleva al Inicio.
+function _syncSectionHistory(filter) {
+  const st = window.history.state || {};
+  if (filter === "all") {
+    if (st.section) window.history.replaceState({ home: true }, "");
+    return;
+  }
+  const next = { section: true, view: filter };
+  // Entrada ya de sección (o entrada "muerta" de una navegación anterior): se reutiliza
+  const reusable = st.section || (st.home && !st.initial);
+  if (reusable) window.history.replaceState(next, "");
+  else window.history.pushState(next, "", window.location.href);
+}
+
+// La entrada con la que carga la página no tiene state (null). La marcamos para
+// poder distinguir "volver a nuestra entrada" de una navegación ajena.
+if (window.history.state === null) {
+  window.history.replaceState({ home: true, initial: true }, "");
+}
+
+// Los enlaces <a href="#"> (ítems de menú, botones…) hacen una navegación de
+// fragmento: añaden una entrada al historial y disparan "popstate". Eso se
+// confundía con un "atrás" real. Cancelamos esa navegación (los onclick de cada
+// ítem se siguen ejecutando con normalidad).
+document.addEventListener(
+  "click",
+  (e) => {
+    const a = e.target?.closest?.('a[href="#"]');
+    if (a) e.preventDefault();
+  },
+  true,
+);
+
+window.addEventListener("popstate", () => {
+  if (_selfBackPending) {
+    _selfBackPending = false;
+    return;
+  }
+
+  // Toda entrada creada por nosotros tiene state (objeto). Un state null es una
+  // navegación ajena (enlace con #fragmento): no es un "atrás", se ignora.
+  if (window.history.state === null) return;
+
+  // 1) Overlay abierto → "atrás" solo lo cierra
+  if (_hasOpenOverlay()) {
+    _overlayPushed = false;
+    _closeOverlays();
+    // Si el overlay sigue abierto (p. ej. el detalle de Estadísticas volvió al
+    // resumen) hay que volver a registrar su entrada de historial.
+    requestAnimationFrame(_syncOverlayHistory);
+    return;
+  }
+  _overlayPushed = false;
+
+  // 2) La entrada de destino es un enlace profundo → abrirlo (comportamiento previo)
+  if (/^#(pelicula|serie|universo)\//.test(window.location.hash)) {
+    handleDeepLinkFromHash();
+    return;
+  }
+
+  // 3) Sin hash → cerrar la vista de detalle / reproductor si está abierta
+  if (_closeOpenViews()) return;
+
+  // 3b) Estamos en una sección (Historial, Perfil, Series…) → volver al Inicio
+  if (appState?.currentFilter && appState.currentFilter !== "all") {
+    const backSaga = document.getElementById("back-to-sagas-btn");
+    if (backSaga && getComputedStyle(backSaga).display !== "none") {
+      backSaga.click(); // dentro de un universo → primero al hub de sagas
+      return;
+    }
+    switchView("all");
+    return;
+  }
+
+  // 4) Nada que cerrar: seguir retrocediendo para no dejar un "atrás" sin efecto
+  window.history.back();
+});
 
 // Expuestas para que universes.js (modulo aparte) pueda usarlas.
 window.slugify = slugify;
@@ -1288,6 +1550,36 @@ function updateActiveNav(filter) {
   });
 }
 
+// ── Posición del catálogo (página + scroll) al abrir/cerrar un detalle ──
+// Se guarda al abrir una peli/serie desde el catálogo (grid de películas,
+// series o saga) para volver exactamente al mismo punto al cerrarla.
+function _saveCatalogSnapshot() {
+  const dv = document.getElementById("detail-view");
+  const sp = document.getElementById("sp-detail-view");
+  // Abierto desde otro detalle (relacionados…): no pisar la posición guardada
+  if (dv?.classList.contains("visible") || sp?.classList.contains("visible"))
+    return;
+
+  const f = appState.currentFilter;
+  const isCatalog =
+    f === "movie" || f === "series" || !!appState.content.sagas?.[f];
+  const grid = DOM.gridContainer;
+  if (
+    isCatalog &&
+    grid &&
+    grid.offsetParent !== null &&
+    appState.ui.contentToDisplay?.length
+  ) {
+    appState.ui._catalogSnap = {
+      filter: f,
+      scrollY: window.scrollY,
+      page: appState.ui.currentIndex,
+    };
+  } else {
+    appState.ui._catalogSnap = null;
+  }
+}
+
 async function switchView(filter) {
   if (filter === "roulette") {
     const roulette = await getRouletteModule();
@@ -1303,6 +1595,10 @@ async function switchView(filter) {
 
   appState.currentFilter = filter;
 
+  // Bandera de "volver de un detalle": se lee una vez y se consume siempre
+  const _wantRestore = appState.ui._restoreCatalog;
+  appState.ui._restoreCatalog = false;
+
   // Al navegar (Inicio, tabs, categorías, etc.) la URL no debe seguir
   // apuntando a la última peli/serie/universo que se tenía abierto —
   // si no, un F5 después de "salir" te regresa ahí en vez de al home.
@@ -1310,6 +1606,7 @@ async function switchView(filter) {
   // (una peli/serie suelta, o un universo restaurado desde _fromUniverse),
   // el propio flujo de apertura más abajo vuelve a setear el hash correcto.
   clearDeepLinkHash();
+  _syncSectionHistory(filter);
 
   updateActiveNav(filter);
 
@@ -1494,6 +1791,35 @@ async function switchView(filter) {
       else if (filter === "series")
         DOM.gridContainer.classList.add("catalog-mode-series");
     }
+
+    // ── Volver de un detalle: reutilizar el catálogo tal como estaba ──
+    // (misma página, mismos filtros, mismo scroll) en vez de reconstruirlo.
+    const _snap = appState.ui._catalogSnap;
+    const _gridEl = DOM.gridContainer?.querySelector(".grid");
+    if (
+      _wantRestore &&
+      _snap &&
+      _snap.filter === filter &&
+      _gridEl &&
+      _gridEl.children.length > 0 &&
+      !_gridEl.querySelector(".skeleton-card") &&
+      appState.ui.contentToDisplay?.length
+    ) {
+      appState.ui._catalogSnap = null;
+      const requestVisualEl2 = document.getElementById("request-dropdown-visual");
+      if (requestVisualEl2)
+        requestVisualEl2.style.display = isDynamicSaga ? "none" : "";
+      const y = _snap.scrollY || 0;
+      window.scrollTo({ top: y, behavior: "instant" });
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: y, behavior: "instant" });
+        requestAnimationFrame(() =>
+          window.scrollTo({ top: y, behavior: "instant" }),
+        );
+      });
+      return;
+    }
+    appState.ui._catalogSnap = null;
 
     if (DOM.sortBy) DOM.sortBy.value = "recent";
     const sortText = document.getElementById("sort-text");
@@ -3844,6 +4170,56 @@ function _bentoLatest(obj, type) {
   return { id: entries[0][0], data: entries[0][1] };
 }
 
+// ── Pool del día congelada a las 00:00 ───────────────────────
+// La recomendación del día solo considera lo que ya estaba agregado ANTES de las
+// 00:00 de hoy (hora local). Lo que se agregue durante el día entra mañana.
+// Sin date_added (o fecha inválida) se asume contenido antiguo y sí entra.
+function _bentoParseAdded(value) {
+  if (!value) return null;
+  const str = String(value).trim();
+  // "YYYY-MM-DD" a secas: new Date() lo toma como UTC y en zonas con UTC negativo
+  // caería en el día anterior. Se interpreta como día LOCAL.
+  const m = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const d = m
+    ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+    : new Date(str);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function _bentoInTodayPool(data) {
+  const added = _bentoParseAdded(data && data.date_added);
+  if (!added) return true;
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  return added.getTime() < startOfToday.getTime();
+}
+
+// Hash simple y estable (FNV-1a de 32 bits) para elegir por id, no por posición.
+function _bentoHash(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+// Elige el ítem con mayor hash(día + id). A diferencia de `seed % lista.length`,
+// agregar o quitar contenido casi nunca cambia el resultado: solo cambia si el
+// ítem nuevo "gana" el sorteo del día (probabilidad ~1/N).
+function _bentoPickStable(list, seed) {
+  let best = null;
+  let bestHash = -1;
+  for (const item of list) {
+    const h = _bentoHash(`${seed}:${item.id}`);
+    if (h > bestHash) {
+      bestHash = h;
+      best = item;
+    }
+  }
+  return best;
+}
+
 function _bentoDailyPick(movies, series, watchedIds = new Set(), topGenres = [], dismissed = new Set()) {
   const _badStates = ["vetada", "mantenimiento"];
   const _isPlayable = (d) =>
@@ -3860,6 +4236,11 @@ function _bentoDailyPick(movies, series, watchedIds = new Set(), topGenres = [],
   ].filter(({ id }) => !dismissed.has(id)); // "No me interesa": nunca se vuelve a recomendar
   if (!pool.length) return null;
 
+  // Pool congelada a las 00:00: lo agregado hoy no cuenta hasta mañana.
+  // (Si por algún motivo no quedara nada, se usa el pool completo.)
+  const frozenPool = pool.filter(({ data }) => _bentoInTodayPool(data));
+  const basePool = frozenPool.length ? frozenPool : pool;
+
   const hoy = new Date();
   const seed =
     hoy.getFullYear() * 10000 + (hoy.getMonth() + 1) * 100 + hoy.getDate();
@@ -3867,12 +4248,12 @@ function _bentoDailyPick(movies, series, watchedIds = new Set(), topGenres = [],
   // Excluir siempre lo que el usuario ya tiene en su historial.
   // Fallback al pool completo solo si vio casi todo (< 3 no vistos).
   const unwatched = watchedIds.size > 0
-    ? pool.filter(({ id }) => !watchedIds.has(id))
-    : pool;
-  const candidates = unwatched.length >= 3 ? unwatched : pool;
+    ? basePool.filter(({ id }) => !watchedIds.has(id))
+    : basePool;
+  const candidates = unwatched.length >= 3 ? unwatched : basePool;
 
   // Sin géneros: pick por semilla sobre los no vistos
-  if (!topGenres.length) return candidates[seed % candidates.length];
+  if (!topGenres.length) return _bentoPickStable(candidates, seed);
 
   // Con géneros: scoring de afinidad sobre los candidatos
   // El género más visto vale más que el 5to
@@ -3897,7 +4278,7 @@ function _bentoDailyPick(movies, series, watchedIds = new Set(), topGenres = [],
 
   // Elegir con semilla diaria del pool de alta afinidad (o del resto si no hay)
   const pickPool = highAffinity.length ? highAffinity : rest;
-  return pickPool[seed % pickPool.length];
+  return _bentoPickStable(pickPool, seed);
 }
 
 // Extrae los top géneros del historial de Firebase del usuario
@@ -4464,6 +4845,91 @@ async function _bentoLoadCtx() {
   _bentoCtx.loaded = true;
 }
 
+// ── Recomendación vista → pasa a la siguiente ─────────────────
+// Si el usuario ve (o empieza a ver) lo que está recomendado, esa recomendación
+// se retira y entra la siguiente DE LA MISMA pool congelada del día (la elección
+// es determinista, así que el reemplazo es siempre el mismo).
+// Los invitados no tienen historial: se recuerda lo visto en este navegador.
+function _bentoGuestWatchedSet() {
+  try {
+    const arr = JSON.parse(localStorage.getItem("bento_watched_guest") || "[]");
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch (_) {
+    return new Set();
+  }
+}
+function _bentoSaveGuestWatched(set) {
+  try {
+    localStorage.setItem("bento_watched_guest", JSON.stringify([...set].slice(-300)));
+  } catch (_) {}
+}
+
+let _bentoReplaceBusy = false;
+async function _bentoReplaceWatched(contentId, requireUnwatched = false) {
+  if (_bentoReplaceBusy) return;
+  _bentoReplaceBusy = true;
+  try {
+    const movies = appState.content.movies || {};
+    const series = appState.content.series || {};
+    const user = auth.currentUser;
+    await _bentoEnsureCtx();
+
+    let watched;
+    if (user) {
+      watched = new Set(_bentoCtx.watchedIds || []);
+      watched.add(contentId);
+      _bentoCtx = { ..._bentoCtx, watchedIds: watched };
+    } else {
+      watched = _bentoGuestWatchedSet();
+      watched.add(contentId);
+      _bentoSaveGuestWatched(watched);
+    }
+
+    const pick = _bentoDailyPick(
+      movies, series, watched, user ? _bentoCtx.topGenres || [] : [],
+      _bentoDismissedSet());
+    if (!pick || pick.id === contentId) return;
+    // Al cargar la página no se cambia una recomendación por otra ya vista
+    if (requireUnwatched && watched.has(pick.id)) return;
+
+    _setBentoCachedPick(null, pick);
+    if (user) {
+      _setBentoCachedPick(user.uid, pick);
+      db.ref(`users/${user.uid}/bentoPick`)
+        .set({ id: pick.id, type: pick.type, date: _bentoDayStr() })
+        .catch(() => {});
+    }
+
+    await _bentoPreloadPick(pick.data, 3000);
+    // Solo se repinta si en pantalla sigue la recomendación ya vista
+    if (_bentoCurrent && _bentoCurrent.id === contentId) {
+      _bentoPopulateMain(pick.id, pick.data, pick.type);
+    }
+  } catch (_) {
+    /* nunca debe romper el historial ni el inicio */
+  } finally {
+    _bentoReplaceBusy = false;
+  }
+}
+
+// Se llama cada vez que se registra contenido visto
+function _bentoOnContentWatched(contentId) {
+  try {
+    if (!contentId || !_bentoCurrent || _bentoCurrent.id !== contentId) return;
+    _bentoReplaceWatched(contentId, false);
+  } catch (_) {}
+}
+
+// Al cargar: si la recomendación guardada ya fue vista (p. ej. en otro dispositivo)
+function _bentoCheckCurrentWatched() {
+  _bentoEnsureCtx().then(() => {
+    const cur = _bentoCurrent;
+    if (cur && _bentoCtx.watchedIds && _bentoCtx.watchedIds.has(cur.id)) {
+      _bentoReplaceWatched(cur.id, true);
+    }
+  });
+}
+
 // Precarga de las imágenes de una recomendación (banner + logo) para que el
 // cambio sea instantáneo. Nunca espera más de `timeoutMs`.
 function _bentoPreloadImg(url) {
@@ -4524,6 +4990,7 @@ async function _bentoDismissCurrent() {
         .catch(() => {});
     }
     _setBentoCachedPick(null, pick); // el pick del día pasa a ser el nuevo
+    if (user) _setBentoCachedPick(user.uid, pick);
 
     // Fundido de salida MIENTRAS se precargan las imágenes nuevas (si ya estaban
     // precargadas, no se espera nada extra). Así no se ve el banner negro ni el
@@ -4565,12 +5032,24 @@ function setupHero() {
   // 1. Intentar mostrar el pick ya cacheado del día (invitado).
   //    Si existe, no se recalcula aunque el catálogo haya cambiado.
   const localDismissed = _bentoDismissedSet();
+  const uidNow = auth.currentUser ? auth.currentUser.uid : null;
+  const myCached = uidNow ? _getBentoCachedPick(uidNow, movies, series) : null;
   const guestCached = _getBentoCachedPick(null, movies, series);
-  if (guestCached && !localDismissed.has(guestCached.id)) {
-    _bentoPopulateMain(guestCached.id, guestCached.data, guestCached.type);
+  // Con sesión, primero el pick personal guardado de hoy; si no, el de invitado.
+  const cachedToShow =
+    myCached && !localDismissed.has(myCached.id)
+      ? myCached
+      : guestCached && !localDismissed.has(guestCached.id)
+        ? guestCached
+        : null;
+  if (cachedToShow) {
+    // Si ya está en pantalla (p. ej. al actualizarse el catálogo) no se vuelve a pintar
+    if (!_bentoCurrent || _bentoCurrent.id !== cachedToShow.id) {
+      _bentoPopulateMain(cachedToShow.id, cachedToShow.data, cachedToShow.type);
+    }
   } else {
     // Primera carga del día (o el pick cacheado fue descartado): calcular y cachear
-    const pick = _bentoDailyPick(movies, series, new Set(), [], localDismissed);
+    const pick = _bentoDailyPick(movies, series, _bentoGuestWatchedSet(), [], localDismissed);
     if (pick) {
       _bentoPopulateMain(pick.id, pick.data, pick.type);
       _setBentoCachedPick(null, pick);
@@ -4593,10 +5072,27 @@ function setupHero() {
           const data = saved.type === "movie" ? movies[saved.id] : series[saved.id];
           if (data) {
             // Ya tiene su pick personal del día guardado → mostrarlo directo
-            _bentoPopulateMain(saved.id, data, saved.type);
+            _setBentoCachedPick(user.uid, { id: saved.id, type: saved.type });
+            if (!_bentoCurrent || _bentoCurrent.id !== saved.id) {
+              _bentoPopulateMain(saved.id, data, saved.type);
+            }
+            _bentoCheckCurrentWatched();
             return;
           }
           // El contenido del pick guardado ya no existe → recalcular abajo
+        }
+
+        // Si Firebase no tiene el pick de hoy (reglas, red…) pero este navegador
+        // sí lo recuerda, se conserva en vez de recalcularlo con el catálogo actual.
+        const localPick = _getBentoCachedPick(user.uid, movies, series);
+        if (localPick && !dismissed.has(localPick.id)) {
+          db.ref(`users/${user.uid}/bentoPick`)
+            .set({ id: localPick.id, type: localPick.type, date: today })
+            .catch(() => {});
+          if (!_bentoCurrent || _bentoCurrent.id !== localPick.id) {
+            _bentoPopulateMain(localPick.id, localPick.data, localPick.type);
+          }
+          return;
         }
 
         // Sin pick guardado para hoy → calcular uno nuevo a partir del
@@ -4617,7 +5113,10 @@ function setupHero() {
             _bentoCtx = { watchedIds, topGenres, loaded: true };
             const personalPick = _bentoDailyPick(movies, series, watchedIds, topGenres, dismissed);
             if (personalPick) {
-              _bentoPopulateMain(personalPick.id, personalPick.data, personalPick.type);
+              if (!_bentoCurrent || _bentoCurrent.id !== personalPick.id) {
+                _bentoPopulateMain(personalPick.id, personalPick.data, personalPick.type);
+              }
+              _setBentoCachedPick(user.uid, personalPick);
               db.ref(`users/${user.uid}/bentoPick`)
                 .set({ id: personalPick.id, type: personalPick.type, date: today })
                 .catch(() => {});
@@ -4627,6 +5126,7 @@ function setupHero() {
       }))
       .catch(() => {}); // si falla Firebase, queda el pick de invitado
     _bentoEnsureCtx(); // adelanta el historial para que "No me interesa" responda al instante
+    _bentoCheckCurrentWatched();
   }
 
   // Panel lado 1: última película
@@ -4758,11 +5258,19 @@ document.addEventListener("DOMContentLoaded", () => {
       })
       .slice(0, 10);
 
+    const universeResults = findUniverseMatches(searchTerm, norm);
+
     mResults.style.display = "block";
-    renderSearchDropdown(mResults, results, norm, () => {
-      closeMobileResults();
-      toggleMobileSearch();
-    });
+    renderSearchDropdown(
+      mResults,
+      results,
+      norm,
+      () => {
+        closeMobileResults();
+        toggleMobileSearch();
+      },
+      universeResults,
+    );
   });
 });
 
@@ -5342,6 +5850,22 @@ function createCarouselSection(title, dataSource) {
 }
 
 /* ── SEARCH DROPDOWN ─────────────────────────────────────── */
+// Universos (sagas) cuyo título/id coincide con la búsqueda. Excluye el
+// universo secreto (oculto = si). Lo usan el buscador de escritorio y el móvil.
+function findUniverseMatches(searchTerm, norm) {
+  const sagasArr = Array.isArray(appState.content.sagasList)
+    ? appState.content.sagasList
+    : Object.values(appState.content.sagasList || {});
+  return sagasArr
+    .filter((s) => s && s.id && !isHiddenSagaEntry(s))
+    .filter((s) =>
+      [s.titulo, s.title, s.nombre, s.id].some(
+        (n) => n && norm(n).includes(searchTerm),
+      ),
+    )
+    .slice(0, 4);
+}
+
 function setupSearch() {
   if (!DOM.searchInput) return;
 
@@ -5361,6 +5885,12 @@ function setupSearch() {
     const container = document.getElementById("search-container");
     if (container) container.appendChild(dropdown);
   }
+
+  // Altura máxima: la lista no pasa del alto de la pantalla y hace scroll por dentro
+  dropdown.style.maxHeight = "min(560px, calc(100vh - 110px))";
+  dropdown.style.overflowY = "auto";
+  dropdown.style.overscrollBehavior = "contain";
+  dropdown.style.scrollbarWidth = "thin";
 
   let debounceTimer = null;
 
@@ -5412,7 +5942,15 @@ function setupSearch() {
         })
         .slice(0, 10);
 
-      renderSearchDropdown(dropdown, results, norm, closeDropdown);
+      const universeResults = findUniverseMatches(searchTerm, norm);
+
+      renderSearchDropdown(
+        dropdown,
+        results,
+        norm,
+        closeDropdown,
+        universeResults,
+      );
     }, 120);
   });
 
@@ -5433,10 +5971,16 @@ function setupSearch() {
   });
 }
 
-function renderSearchDropdown(dropdown, results, norm, closeDropdown) {
+function renderSearchDropdown(
+  dropdown,
+  results,
+  norm,
+  closeDropdown,
+  universeResults = [],
+) {
   dropdown.innerHTML = "";
 
-  if (results.length === 0) {
+  if (results.length === 0 && universeResults.length === 0) {
     dropdown.innerHTML = `<div class="sd-empty">Sin resultados</div>`;
     dropdown.classList.add("open");
     return;
@@ -5449,7 +5993,6 @@ function renderSearchDropdown(dropdown, results, norm, closeDropdown) {
     item.type === "serie";
   const movies = results.filter(([id, item]) => !isSerie(id, item));
   const series = results.filter(([id, item]) => isSerie(id, item));
-  const rest = [];
 
   const renderGroup = (label, items) => {
     if (!items.length) return;
@@ -5493,10 +6036,90 @@ function renderSearchDropdown(dropdown, results, norm, closeDropdown) {
     });
   };
 
+  const renderUniverseGroup = (sagas) => {
+    if (!sagas.length) return;
+    const header = document.createElement("div");
+    header.className = "sd-group-label";
+    header.textContent = "Universos";
+    dropdown.appendChild(header);
+
+    sagas.forEach((saga) => {
+      const title = saga.titulo || saga.title || saga.nombre || saga.id;
+      const hasLogo = !!saga.logo;
+      const row = document.createElement("div");
+      row.className = "sd-item";
+      row.title = title;
+
+      // Banner del universo como fondo de la fila (con degradado para leer el texto)
+      if (saga.banner) {
+        const safeBanner = String(saga.banner).replace(/"/g, "%22");
+        row.style.backgroundImage = `linear-gradient(90deg, rgba(8,8,14,0.92) 0%, rgba(8,8,14,0.6) 55%, rgba(8,8,14,0.85) 100%), url("${safeBanner}")`;
+        row.style.backgroundSize = "cover";
+        row.style.backgroundPosition = "center";
+        row.style.minHeight = "64px";
+        row.style.borderRadius = "10px";
+        // Separación entre filas y borde sutil para que cada banner se vea completo
+        row.style.marginBottom = "8px";
+        row.style.border = "1px solid rgba(255,255,255,0.08)";
+        row.style.boxSizing = "border-box";
+      }
+
+      const info = document.createElement("div");
+      info.className = "sd-info";
+
+      if (hasLogo) {
+        // Solo el logo (ya dice el nombre): sin recuadro de póster y sin texto
+        const logoWrap = document.createElement("div");
+        logoWrap.className = "sd-poster";
+        logoWrap.style.background = "transparent";
+        logoWrap.style.border = "none";
+        logoWrap.style.boxShadow = "none";
+        logoWrap.style.width = "150px";
+        logoWrap.style.height = "48px";
+        const img = document.createElement("img");
+        img.src = saga.logo;
+        img.alt = title;
+        img.loading = "lazy";
+        img.style.width = "100%";
+        img.style.height = "100%";
+        img.style.objectFit = "contain";
+        img.style.objectPosition = "left center";
+        img.style.background = "transparent";
+        img.style.filter = "drop-shadow(0 2px 6px rgba(0,0,0,0.75))";
+        logoWrap.appendChild(img);
+        row.appendChild(logoWrap);
+      } else {
+        // Sin logo: se muestra el nombre
+        const titleEl = document.createElement("span");
+        titleEl.className = "sd-title";
+        titleEl.textContent = title;
+        info.appendChild(titleEl);
+      }
+
+      const badge = document.createElement("span");
+      badge.className = "sd-type-badge";
+      badge.textContent = "Universo";
+
+      row.appendChild(info);
+      row.appendChild(badge);
+
+      row.addEventListener("click", () => {
+        closeDropdown();
+        DOM.searchInput.value = "";
+        // Mismo flujo que la tarjeta del carrusel de Universos
+        appState.ui._fromUniverse = saga.id;
+        switchView("sagas");
+      });
+
+      dropdown.appendChild(row);
+    });
+  };
+
+  renderUniverseGroup(universeResults);
   renderGroup("Películas", movies);
   renderGroup("Series", series);
-  renderGroup("Universos", rest);
 
+  dropdown.scrollTop = 0;
   dropdown.classList.add("open");
 }
 
@@ -5791,6 +6414,7 @@ async function openDetailsModal(id, type, triggerElement = null) {
     const view = document.getElementById("detail-view");
     if (!view) return;
 
+    _saveCatalogSnapshot();
     // ── Ocultar catálogo ──────────────────────────────────────
     const main = document.querySelector("main");
     const heroSection = document.getElementById("hero-section");
@@ -6420,6 +7044,7 @@ async function closeDetailView() {
 
   // Restaurar filtro activo y página
   const lastFilter = view.dataset.fromFilter || "all";
+  appState.ui._restoreCatalog = true;
   switchView(lastFilter);
 
   clearDeepLinkHash();
@@ -6447,6 +7072,7 @@ async function openSeriesDetailView(id) {
     if (!view) return;
 
 
+    _saveCatalogSnapshot();
     // ── Ocultar catálogo ──────────────────────────────────────
     const main = document.querySelector("main");
     const heroSection = document.getElementById("hero-section");
@@ -7015,6 +7641,7 @@ function closeSeriesDetailView() {
 
   // Restaurar filtro y URL
   const lastFilter = view.dataset.fromFilter || "all";
+  appState.ui._restoreCatalog = true;
   switchView(lastFilter);
 
   clearDeepLinkHash();
@@ -7573,6 +8200,9 @@ function updateUIAfterAuthStateChange(user) {
 }
 
 function addToHistoryIfLoggedIn(contentId, type, episodeInfo = {}) {
+  // Si era la recomendación del día, pasa a la siguiente (también para invitados)
+  _bentoOnContentWatched(contentId);
+
   const user = auth.currentUser;
   if (!user) return;
 
@@ -8901,7 +9531,7 @@ window.openSmartReviewModal = async (contentId, type, title) => {
     return;
   }
 
-  const module = await import("./features/reviews.js?v=31");
+  const module = await import("./features/reviews.js?v=35");
 
   module.initReviews({
     appState,
@@ -10652,7 +11282,7 @@ window.closeSeasonDrawer = function () {
   document.getElementById("seasonDrawerBackdrop")?.classList.remove("open");
 };
 
-console.log("✅ Cine Corneta v10 cargado correctamente");
+console.log("✅ Cine Corneta v11 cargado correctamente");
 
 // ── Catalog scroll-to-top ─────────────────────────────────────
 (function () {
