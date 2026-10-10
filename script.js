@@ -1,6 +1,6 @@
 // ===========================================================
 // CINE CORNETA - SCRIPT PRINCIPAL
-// Versión: 11 Ajustes
+// Versión: 10 The Comeback
 // ===========================================================
 
 // ===========================================================
@@ -498,6 +498,11 @@ const _OVERLAYS = [
       if (back) back.click();
       else el.querySelector(".stx-close")?.click();
     },
+  },
+  {
+    // Calendario de episodios: "atrás" lo cierra
+    sel: "#cal-overlay.open",
+    close: () => window.closeEpisodeCalendar?.(),
   },
   {
     // Buscador móvil a pantalla completa: "atrás" lo cierra (y limpia la búsqueda)
@@ -1250,6 +1255,7 @@ async function fetchInitialDataWithCache() {
     setupNavigation();
     setupAuthListeners();
     setupSearch();
+    setupEpisodeCalendar();
     setupPageVisibilityHandler();
 
     const activeFilter =
@@ -4900,7 +4906,7 @@ async function _bentoReplaceWatched(contentId, requireUnwatched = false) {
         .catch(() => {});
     }
 
-    await _bentoPreloadPick(pick.data, 3000);
+    await _bentoPreloadPick(pick.data, 1500);
     // Solo se repinta si en pantalla sigue la recomendación ya vista
     if (_bentoCurrent && _bentoCurrent.id === contentId) {
       _bentoPopulateMain(pick.id, pick.data, pick.type);
@@ -4918,6 +4924,26 @@ function _bentoOnContentWatched(contentId) {
     if (!contentId || !_bentoCurrent || _bentoCurrent.id !== contentId) return;
     _bentoReplaceWatched(contentId, false);
   } catch (_) {}
+}
+
+// Sincroniza la recomendación con el historial EN TIEMPO REAL: se llama desde el
+// listener de historial de Firebase, que se dispara con cualquier escritura (el
+// reproductor, otro dispositivo, etc.). Si lo visto incluye la recomendación en
+// pantalla, pasa a la siguiente sin recargar y queda lista al volver al inicio.
+function _bentoSyncWithHistory(snapshot, isFirstSnapshot) {
+  const watched = new Set();
+  snapshot.forEach((child) => {
+    const v = child.val();
+    const id = (v && v.contentId) || child.key;
+    if (id) watched.add(id);
+  });
+  if (_bentoCtx.loaded) _bentoCtx = { ..._bentoCtx, watchedIds: watched };
+
+  const cur = _bentoCurrent;
+  if (cur && watched.has(cur.id)) {
+    // En la primera carga no se cambia una recomendación por otra ya vista
+    _bentoReplaceWatched(cur.id, isFirstSnapshot);
+  }
 }
 
 // Al cargar: si la recomendación guardada ya fue vista (p. ej. en otro dispositivo)
@@ -5022,6 +5048,7 @@ async function _bentoDismissCurrent() {
 
 // ── setupHero → initBento ─────────────────────────────────────
 function setupHero() {
+  _calRefreshBadge(); // el catálogo pudo cambiar: actualizar el globo del calendario
   clearInterval(appState.ui.heroInterval);
   if (!DOM.heroSection) return;
 
@@ -5233,8 +5260,9 @@ document.addEventListener("DOMContentLoaded", () => {
       ...appState.content.series,
     };
     if (appState.content.sagas)
-      Object.values(appState.content.sagas).forEach(
-        (s) => s && Object.assign(allContent, s),
+      Object.entries(appState.content.sagas).forEach(
+        ([sagaId, s]) =>
+          s && !isSearchBlockedSaga(sagaId) && Object.assign(allContent, s),
       );
     if (appState.content.ucm) Object.assign(allContent, appState.content.ucm);
 
@@ -5849,15 +5877,584 @@ function createCarouselSection(title, dataSource) {
   _bentoCreateCarousel(title, dataSource, type);
 }
 
+/* ── CALENDARIO DE EPISODIOS ─────────────────────────────── */
+// Muestra, de la serie a la que menos le falta a la que más, cuándo sale su
+// próximo episodio. Sale de la hoja "episodios": un episodio todavía NO salió si
+// no tiene videoId, y su fecha es la columna fechaEstreno. De cada serie se muestra
+// el primer episodio sin video que tenga fecha. Cuando se sube el video (se llena
+// videoId) y su fecha de estreno es HOY, queda como "Disponible" (con acceso
+// directo para verlo) hasta las 00:00; además pasa a mostrarse el siguiente.
+const _CAL_DAY_MS = 24 * 60 * 60 * 1000;
+let _calFilter = "all";
+let _calTimer = null;
+let _calEscHandler = null;
+let _calPrevOverflow = "";
+let _calRenderedDay = "";
+
+function _calNormKey(k) {
+  return String(k)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .toLowerCase();
+}
+
+// Devuelve el primer valor no vacío de un episodio cuyo nombre de columna cumpla
+// la condición (el nombre se compara sin tildes, mayúsculas ni guiones).
+function _calEpField(ep, test) {
+  for (const key of Object.keys(ep || {})) {
+    if (!test(_calNormKey(key))) continue;
+    const v = ep[key];
+    if (v !== null && v !== undefined && String(v).trim() !== "") return v;
+  }
+  return "";
+}
+// videoId, videoId_es, videoId_en… (subId es de subtítulos y no cuenta)
+const _calHasVideo = (ep) => !!_calEpField(ep, (k) => k.startsWith("videoid"));
+// fechaEstreno / fecha_estreno / airDate…
+const _calEpDate = (ep) =>
+  _calEpField(ep, (k) => k.includes("estreno")) ||
+  _calEpField(ep, (k) => k === "fecha" || k.includes("airdate") || k.includes("releasedate"));
+
+// Acepta YYYY-MM-DD[ HH:mm], DD/MM/YYYY[ HH:mm] e ISO con zona. Sin zona = hora local.
+// Si la hora es exactamente 00:00 se trata como "solo fecha" (no se sabe la hora).
+function _calParseDate(value) {
+  if (value === null || value === undefined) return null;
+  let d = null;
+  if (value instanceof Date) d = value;
+  else if (typeof value === "number") {
+    // Número de serie de Google Sheets (p. ej. 46310) vs. timestamp en ms
+    d =
+      value > 20000 && value < 100000
+        ? new Date(1899, 11, 30 + Math.floor(value), 0, 0, Math.round((value % 1) * 86400))
+        : new Date(value);
+  } else {
+    const str = String(value).trim();
+    if (!str) return null;
+    let m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+    if (m) {
+      d = new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0));
+    } else if (
+      (m = str.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})(?:[ T,]+(\d{1,2}):(\d{2}))?$/))
+    ) {
+      d = new Date(+m[3], +m[2] - 1, +m[1], +(m[4] || 0), +(m[5] || 0));
+    } else {
+      d = new Date(str);
+    }
+  }
+  if (!d || isNaN(d.getTime())) return null;
+  const dateOnly = d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0;
+  return { ts: d.getTime(), dateOnly };
+}
+
+// Número de episodio (misma prioridad que usa el resto de la app)
+const _calEpNumber = (ep, idx) =>
+  ep.episodeNumber ?? ep.episode_number ?? ep.episode ?? ep.numero ?? ep.ep ?? idx + 1;
+
+// Texto del episodio: "Temp. 2 · Ep 3 — Título" (o "Episodio 3 — Título" si tiene 1 temporada)
+function _calEpLabel(id, d, seasonKeys, found, extra = 0) {
+  const epNum = _calEpNumber(found.ep, found.idx);
+  let label = `Episodio ${epNum}`;
+  if (seasonKeys.length > 1) {
+    let sLabel = `Temp. ${found.sk}`;
+    try {
+      sLabel = getSeasonDisplayInfo(id, d, found.sk, found.sk).label || sLabel;
+    } catch (_) {}
+    label = `${sLabel} · Ep ${epNum}`;
+  }
+  const epTitle = String(found.ep.title || found.ep.titulo || "").trim();
+  if (epTitle) label += ` — ${epTitle}`;
+  if (extra > 0) label += ` (+${extra} más)`;
+  return label;
+}
+
+// Entradas del calendario. Por serie puede haber hasta dos:
+//  · "Disponible": episodio con videoId cuya fecha de estreno es HOY. A las 00:00 del
+//    día siguiente deja de mostrarse. Si salieron varios hoy se muestra el primero y
+//    "(+N más)".
+//  · Próximo: primer episodio sin videoId y con fechaEstreno. Una fecha pasada sin
+//    video se muestra como "Por subir" hasta 7 días; después se oculta.
+// Orden: primero los disponibles (el más reciente arriba) y luego los próximos, del
+// que menos falta al que más.
+function _calBuildList(now = Date.now()) {
+  const series = appState.content.series || {};
+  const allEps = appState.content.seriesEpisodes || {};
+  const orders = appState.content.seasonOrder || {};
+  const adminOk = isAdminUser();
+  const startToday = new Date(now);
+  startToday.setHours(0, 0, 0, 0);
+  const out = [];
+  for (const [id, d] of Object.entries(series)) {
+    if (!d || (!adminOk && isAdminContent(d))) continue;
+    const st = String(d.estado || "").toLowerCase().trim();
+    if (st === "vetada" || st === "mantenimiento") continue;
+    const seasons = allEps[id];
+    if (!seasons) continue;
+    const seasonKeys = orders[id] || Object.keys(seasons);
+
+    let next = null; // próximo sin video
+    let fresh = null; // recién salido (con video)
+    let freshCount = 0;
+    seasonKeys.forEach((sk) => {
+      const season = seasons[sk];
+      if (!season) return;
+      const list = Array.isArray(season) ? season : Object.values(season);
+      list.forEach((ep, idx) => {
+        if (!ep || typeof ep !== "object") return;
+        const parsed = _calParseDate(_calEpDate(ep));
+        if (!parsed) return;
+        if (_calHasVideo(ep)) {
+          // Ya salió: se destaca solo el día de su fecha de estreno (hoy)
+          const relDay = new Date(parsed.ts);
+          relDay.setHours(0, 0, 0, 0);
+          if (relDay.getTime() === startToday.getTime()) {
+            freshCount++;
+            if (!fresh) fresh = { sk, idx, ep, ts: parsed.ts, dateOnly: parsed.dateOnly };
+          }
+          return;
+        }
+        const end = parsed.dateOnly ? parsed.ts + _CAL_DAY_MS : parsed.ts;
+        if (end < now - 7 * _CAL_DAY_MS) return;
+        if (!next || parsed.ts < next.ts) {
+          next = { sk, idx, ep, ts: parsed.ts, dateOnly: parsed.dateOnly };
+        }
+      });
+    });
+
+    if (fresh) {
+      out.push({
+        id, data: d, available: true, season: fresh.sk, epIdx: fresh.idx,
+        label: _calEpLabel(id, d, seasonKeys, fresh, freshCount - 1),
+        ts: fresh.ts, dateOnly: fresh.dateOnly, sortKey: fresh.ts,
+      });
+    }
+    if (next) {
+      const sortKey = next.dateOnly && next.ts <= now ? now : next.ts; // "hoy" va como ahora
+      out.push({
+        id, data: d, available: false, season: next.sk, epIdx: next.idx,
+        label: _calEpLabel(id, d, seasonKeys, next),
+        ts: next.ts, dateOnly: next.dateOnly, sortKey,
+      });
+    }
+  }
+  out.sort((a, b) => {
+    if (a.available !== b.available) return a.available ? -1 : 1;
+    if (a.available) return b.sortKey - a.sortKey; // el más reciente primero
+    return (
+      a.sortKey - b.sortKey ||
+      String(a.data.title || "").localeCompare(String(b.data.title || ""), "es")
+    );
+  });
+  return out;
+}
+
+// Texto y tipo de la cuenta regresiva de una entrada
+function _calStatus(entry, now = Date.now()) {
+  if (entry.available) return { kind: "available", text: "Disponible" };
+  if (entry.dateOnly) {
+    const startToday = new Date(now);
+    startToday.setHours(0, 0, 0, 0);
+    const days = Math.round((entry.ts - startToday.getTime()) / _CAL_DAY_MS);
+    if (days < 0) return { kind: "pending", text: "Por subir" };
+    if (days === 0) return { kind: "today", text: "Hoy" };
+    if (days === 1) return { kind: "soon", text: "Mañana" };
+    return { kind: "later", text: `En ${days} días` };
+  }
+  const diff = entry.ts - now;
+  if (diff <= 0) return { kind: "pending", text: "Por subir" };
+  const s = Math.floor(diff / 1000);
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (d >= 1) return { kind: d < 2 ? "soon" : "later", text: `${d} d ${h} h ${m} min` };
+  if (h >= 1) return { kind: "soon", text: `${h} h ${m} min ${String(sec).padStart(2, "0")} s` };
+  if (m < 1) return { kind: "soon", text: `${sec} s` };
+  return { kind: "soon", text: `${m} min ${String(sec).padStart(2, "0")} s` };
+}
+
+function _calFmtDate(entry) {
+  const d = new Date(entry.ts);
+  const opts = entry.dateOnly
+    ? { weekday: "short", day: "numeric", month: "short" }
+    : { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false };
+  const txt = new Intl.DateTimeFormat("es-CL", opts).format(d).replace(/[.,]/g, "");
+  return txt.charAt(0).toUpperCase() + txt.slice(1);
+}
+
+function _calInjectStyles() {
+  if (document.getElementById("cal-styles")) return;
+  const st = document.createElement("style");
+  st.id = "cal-styles";
+  st.textContent = `
+.cal-btn{position:relative;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;
+  width:38px;height:38px;padding:0;border-radius:50%;border:1px solid rgba(255,122,24,.45);
+  background:rgba(255,122,24,.10);color:#fff;transition:background .2s,border-color .2s,transform .15s}
+.cal-btn i{color:#ff7a18;font-size:15px}
+.cal-btn:hover{background:rgba(255,122,24,.2);border-color:#ff7a18}
+.cal-btn:active{transform:scale(.96)}
+.cal-badge{display:none;position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 5px;border-radius:9px;
+  background:#ff7a18;color:#111;font-size:10px;font-weight:800;line-height:17px;text-align:center;letter-spacing:0;
+  box-shadow:0 0 0 2px #0b0b11}
+.cal-btn-m{position:relative}
+.cal-btn-m i{font-size:15px;color:#ff7a18}
+.cal-overlay{position:fixed;inset:0;z-index:10000;display:none;align-items:center;justify-content:center;
+  background:rgba(4,4,8,.74);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);padding:16px}
+.cal-overlay.open{display:flex}
+.cal-panel{width:min(680px,100%);max-height:min(82vh,760px);display:flex;flex-direction:column;overflow:hidden;
+  background:#101018;border:1px solid rgba(255,255,255,.08);border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.6);
+  animation:calIn .22s ease}
+@keyframes calIn{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
+.cal-head{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 12px}
+.cal-title{display:flex;align-items:center;gap:10px;font-weight:800;font-size:15px;letter-spacing:.08em;text-transform:uppercase;color:#fff}
+.cal-title i{color:#ff7a18}
+.cal-close{width:34px;height:34px;border-radius:50%;border:none;cursor:pointer;background:rgba(255,255,255,.08);color:#fff;font-size:15px}
+.cal-close:hover{background:rgba(255,255,255,.16)}
+.cal-filters{display:flex;gap:8px;padding:0 20px 12px}
+.cal-chip{cursor:pointer;border:1px solid rgba(255,255,255,.12);background:transparent;color:#b8b8c6;border-radius:999px;
+  padding:6px 14px;font:600 12px/1 inherit;font-family:inherit}
+.cal-chip.active{background:#ff7a18;border-color:#ff7a18;color:#111}
+.cal-list{overflow-y:auto;overscroll-behavior:contain;padding:4px 14px 18px;scrollbar-width:thin}
+.cal-row{display:flex;align-items:center;gap:14px;padding:10px;margin-bottom:8px;border-radius:14px;cursor:pointer;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);transition:background .15s,border-color .15s}
+.cal-row:hover{background:rgba(255,255,255,.08);border-color:rgba(255,122,24,.4)}
+.cal-poster{width:46px;height:66px;flex-shrink:0;border-radius:8px;object-fit:cover;background:#1b1b26}
+.cal-info{flex:1;min-width:0}
+.cal-name{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px;color:#fff}
+.cal-name span.t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cal-viewing{flex-shrink:0;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#111;
+  background:#ff7a18;border-radius:5px;padding:3px 6px}
+.cal-ep{margin-top:3px;font-size:12px;color:#ff9d52;font-weight:600}
+.cal-date{margin-top:3px;font-size:12px;color:#8e8ea0}
+.cal-count{flex-shrink:0;text-align:right;min-width:104px;font-weight:800;font-size:13px;font-variant-numeric:tabular-nums;color:#cfcfdc}
+.cal-count--soon{color:#ff9d52}
+.cal-count--today,.cal-count--available{color:#4ade80}
+.cal-count--available i{font-size:10px;margin-right:6px}
+.cal-row--available{background:rgba(74,222,128,.07);border-color:rgba(74,222,128,.35)}
+.cal-row--available:hover{background:rgba(74,222,128,.12);border-color:rgba(74,222,128,.6)}
+.cal-count--pending{color:#8e8ea0;font-weight:700}
+.cal-empty{padding:42px 20px;text-align:center;color:#8e8ea0;font-size:13px;line-height:1.6}
+.cal-empty i{display:block;font-size:30px;margin-bottom:12px;color:#ff7a18;opacity:.8}
+@media (max-width:767px){
+  .cal-overlay{align-items:flex-end;padding:0}
+  .cal-panel{width:100%;max-height:86vh;border-radius:20px 20px 0 0}
+  .cal-count{min-width:84px;font-size:12px}
+}`;
+  document.head.appendChild(st);
+}
+
+function _calEnsureOverlay() {
+  let ov = document.getElementById("cal-overlay");
+  if (ov) return ov;
+  ov = document.createElement("div");
+  ov.id = "cal-overlay";
+  ov.className = "cal-overlay";
+  ov.setAttribute("role", "dialog");
+  ov.setAttribute("aria-modal", "true");
+  ov.setAttribute("aria-label", "Calendario de episodios");
+  ov.innerHTML = `
+    <div class="cal-panel">
+      <div class="cal-head">
+        <div class="cal-title"><i class="fas fa-calendar-alt"></i><span>Próximos episodios</span></div>
+        <button class="cal-close" type="button" aria-label="Cerrar"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="cal-filters" id="cal-filters"></div>
+      <div class="cal-list" id="cal-list"></div>
+    </div>`;
+  document.body.appendChild(ov);
+  ov.addEventListener("click", (e) => {
+    if (e.target === ov) closeEpisodeCalendar();
+  });
+  ov.querySelector(".cal-close").addEventListener("click", closeEpisodeCalendar);
+  return ov;
+}
+
+function _calWatchedSet() {
+  return auth.currentUser && _bentoCtx.loaded && _bentoCtx.watchedIds
+    ? _bentoCtx.watchedIds
+    : new Set();
+}
+
+function _calRender() {
+  const ov = document.getElementById("cal-overlay");
+  if (!ov) return;
+  _calRenderedDay = new Date().toDateString();
+  const listEl = ov.querySelector("#cal-list");
+  const filtersEl = ov.querySelector("#cal-filters");
+  const now = Date.now();
+  const watched = _calWatchedSet();
+  const all = _calBuildList(now);
+  const mineCount = all.filter((e) => watched.has(e.id)).length;
+  const loggedIn = !!auth.currentUser;
+
+  // Filtros: solo con sesión iniciada
+  filtersEl.innerHTML = "";
+  filtersEl.style.display = loggedIn ? "flex" : "none";
+  if (loggedIn) {
+    [["all", `Todas (${all.length})`], ["mine", `Mis series (${mineCount})`]].forEach(([key, text]) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "cal-chip" + (_calFilter === key ? " active" : "");
+      b.textContent = text;
+      b.addEventListener("click", () => {
+        _calFilter = key;
+        _calRender();
+      });
+      filtersEl.appendChild(b);
+    });
+  } else {
+    _calFilter = "all";
+  }
+
+  const entries = _calFilter === "mine" ? all.filter((e) => watched.has(e.id)) : all;
+  listEl.innerHTML = "";
+
+  if (!entries.length) {
+    const empty = document.createElement("div");
+    empty.className = "cal-empty";
+    empty.innerHTML = `<i class="fas fa-calendar-alt"></i>`;
+    const msg = document.createElement("div");
+    msg.textContent =
+      _calFilter === "mine"
+        ? "Ninguna de las series que estás viendo tiene fecha de próximo episodio por ahora."
+        : "Aún no hay episodios programados. Cuando una serie tenga fecha de estreno aparecerá aquí.";
+    empty.appendChild(msg);
+    listEl.appendChild(empty);
+    return;
+  }
+
+  entries.forEach((entry) => {
+    const d = entry.data;
+    const row = document.createElement("div");
+    row.className = "cal-row";
+    row._entry = entry;
+
+    const img = document.createElement("img");
+    img.className = "cal-poster";
+    img.alt = "";
+    img.loading = "lazy";
+    if (d.poster) img.src = d.poster;
+
+    const info = document.createElement("div");
+    info.className = "cal-info";
+    const name = document.createElement("div");
+    name.className = "cal-name";
+    const t = document.createElement("span");
+    t.className = "t";
+    t.textContent = d.title || entry.id;
+    name.appendChild(t);
+    if (watched.has(entry.id)) {
+      const v = document.createElement("span");
+      v.className = "cal-viewing";
+      v.textContent = "Viendo";
+      name.appendChild(v);
+    }
+    info.appendChild(name);
+    if (entry.label) {
+      const ep = document.createElement("div");
+      ep.className = "cal-ep";
+      ep.textContent = entry.label;
+      info.appendChild(ep);
+    }
+    const dt = document.createElement("div");
+    dt.className = "cal-date";
+    dt.textContent = _calFmtDate(entry);
+    info.appendChild(dt);
+
+    const count = document.createElement("div");
+    count.className = "cal-count";
+    if (entry.available) {
+      row.classList.add("cal-row--available");
+      count.classList.add("cal-count--available");
+      count.innerHTML = `<i class="fas fa-play"></i>`;
+      count.appendChild(document.createTextNode("Disponible"));
+    }
+
+    row.appendChild(img);
+    row.appendChild(info);
+    row.appendChild(count);
+    row.addEventListener("click", async () => {
+      closeEpisodeCalendar();
+      if (!entry.available) {
+        openDetailsModal(entry.id, "series");
+        return;
+      }
+      // Disponible: abre la serie y reproduce directamente ese episodio
+      try {
+        await openSeriesDetailView(entry.id);
+        const player = await getPlayerModule();
+        player.playEpisodeInDetailView(entry.id, entry.season, entry.epIdx);
+      } catch (_) {
+        openDetailsModal(entry.id, "series");
+      }
+    });
+    listEl.appendChild(row);
+  });
+  _calTick();
+}
+
+// Actualiza las cuentas regresivas (1 vez por segundo mientras el panel está abierto)
+function _calTick() {
+  const ov = document.getElementById("cal-overlay");
+  if (!ov || !ov.classList.contains("open")) return;
+  // Cambió el día con el panel abierto (00:00): "Disponible" de ayer ya no corresponde
+  if (_calRenderedDay !== new Date().toDateString()) {
+    _calRender();
+    return;
+  }
+  const now = Date.now();
+  ov.querySelectorAll(".cal-row").forEach((row) => {
+    if (row._entry.available) return; // "Disponible" es fijo
+    const st = _calStatus(row._entry, now);
+    const el = row.querySelector(".cal-count");
+    if (el.textContent !== st.text) el.textContent = st.text;
+    el.className = "cal-count cal-count--" + st.kind;
+  });
+}
+
+async function openEpisodeCalendar() {
+  _calInjectStyles();
+  const ov = _calEnsureOverlay();
+  if (ov.classList.contains("open")) return;
+  _calRender();
+  _calPrevOverflow = document.body.style.overflow;
+  document.body.style.overflow = "hidden";
+  ov.classList.add("open");
+  ov.querySelector("#cal-list").scrollTop = 0;
+  _calTick();
+  clearInterval(_calTimer);
+  _calTimer = setInterval(_calTick, 1000);
+  _calEscHandler = (e) => {
+    if (e.key === "Escape") closeEpisodeCalendar();
+  };
+  document.addEventListener("keydown", _calEscHandler);
+  // Con sesión: cargar el historial para marcar "Viendo" y habilitar "Mis series"
+  if (auth.currentUser) {
+    try {
+      await _bentoEnsureCtx();
+      if (ov.classList.contains("open")) _calRender();
+    } catch (_) {}
+  }
+}
+
+function closeEpisodeCalendar() {
+  const ov = document.getElementById("cal-overlay");
+  if (!ov || !ov.classList.contains("open")) return;
+  ov.classList.remove("open");
+  document.body.style.overflow = _calPrevOverflow;
+  clearInterval(_calTimer);
+  _calTimer = null;
+  if (_calEscHandler) {
+    document.removeEventListener("keydown", _calEscHandler);
+    _calEscHandler = null;
+  }
+}
+// Diagnóstico: escribe calDebug() en la consola para ver qué detecta el calendario
+window.calDebug = function () {
+  const eps = appState.content.seriesEpisodes || {};
+  let conFecha = 0, sinVideoConFecha = 0, sample = null;
+  Object.entries(eps).forEach(([id, seasons]) => {
+    Object.values(seasons || {}).forEach((season) => {
+      (Array.isArray(season) ? season : Object.values(season || {})).forEach((ep) => {
+        if (!ep || typeof ep !== "object") return;
+        const date = _calEpDate(ep);
+        if (date) conFecha++;
+        if (date && !_calHasVideo(ep)) {
+          sinVideoConFecha++;
+          if (!sample) sample = { serie: id, campos: Object.keys(ep), fechaEstreno: date };
+        }
+      });
+    });
+  });
+  const list = _calBuildList();
+  console.log("[Calendario] episodios con fecha:", conFecha, "| sin video y con fecha:", sinVideoConFecha,
+    "| series en el calendario:", list.length);
+  if (sample) console.log("[Calendario] ejemplo de episodio próximo:", sample);
+  else console.log("[Calendario] No se encontró ningún episodio sin video con fecha. ¿La hoja de episodios envía fechaEstreno y filas sin videoId?");
+  console.table(list.map((e) => ({ serie: e.data.title, episodio: e.label, fecha: _calFmtDate(e), cuenta: _calStatus(e).text })));
+  return list;
+};
+window.openEpisodeCalendar = openEpisodeCalendar;
+window.closeEpisodeCalendar = closeEpisodeCalendar;
+
+// Globo con la cantidad de episodios que salen en las próximas 24 h (o ya salieron hoy)
+function _calRefreshBadge() {
+  try {
+    const now = Date.now();
+    const n = _calBuildList(now).filter((e) => {
+      const st = _calStatus(e, now);
+      if (st.kind === "available") return true;
+      if (st.kind === "pending") return false;
+      return e.dateOnly ? st.kind === "today" : e.ts - now <= _CAL_DAY_MS;
+    }).length;
+    document.querySelectorAll(".cal-badge").forEach((b) => {
+      b.textContent = String(n);
+      b.style.display = n > 0 ? "inline-block" : "none";
+    });
+  } catch (_) {}
+}
+
+// Crea el botón en el header (junto a la navegación en escritorio, junto al
+// perfil en móvil). Es idempotente: se puede llamar varias veces.
+function setupEpisodeCalendar() {
+  _calInjectStyles();
+  if (document.getElementById("cal-btn-desktop")) {
+    _calRefreshBadge();
+    return;
+  }
+  // Escritorio: dentro de .nav-right, justo antes de la píldora INICIO/PELÍCULAS…
+  const pill = document.querySelector(".nav-right .nav-pill");
+  if (pill && pill.parentNode) {
+    const b = document.createElement("button");
+    b.id = "cal-btn-desktop";
+    b.type = "button";
+    b.className = "cal-btn";
+    b.title = "Calendario de episodios";
+    b.setAttribute("aria-label", "Calendario de episodios");
+    b.innerHTML = `<i class="fas fa-calendar-alt"></i><span class="cal-badge"></span>`;
+    b.addEventListener("click", openEpisodeCalendar);
+    pill.parentNode.insertBefore(b, pill);
+  }
+  // Móvil: en la barra superior, antes del botón de búsqueda
+  const mRight = document.querySelector(".mobile-top-right");
+  if (mRight) {
+    const m = document.createElement("button");
+    m.id = "cal-btn-mobile";
+    m.type = "button";
+    m.className = "mobile-top-icon-btn cal-btn-m";
+    m.title = "Calendario de episodios";
+    m.setAttribute("aria-label", "Calendario de episodios");
+    m.innerHTML = `<i class="fas fa-calendar-alt"></i><span class="cal-badge"></span>`;
+    m.addEventListener("click", openEpisodeCalendar);
+    mRight.insertBefore(m, mRight.firstChild);
+  }
+  if (!pill && !mRight) console.warn("[Calendario] No se encontró el header para colocar el botón");
+  setInterval(_calRefreshBadge, 60000);
+  _calRefreshBadge();
+}
+
 /* ── SEARCH DROPDOWN ─────────────────────────────────────── */
 // Universos (sagas) cuyo título/id coincide con la búsqueda. Excluye el
 // universo secreto (oculto = si). Lo usan el buscador de escritorio y el móvil.
+// Universos que NUNCA deben aparecer en el buscador (ni el universo ni su
+// contenido). Solo se accede por el código secreto o el truco del logo.
+const SEARCH_BLOCKED_UNIVERSE_IDS = ["cornetagang"];
+function isSearchBlockedSaga(sagaId) {
+  const id = String(sagaId || "").toLowerCase().trim();
+  if (SEARCH_BLOCKED_UNIVERSE_IDS.includes(id)) return true;
+  const list = appState?.content?.sagasList || [];
+  const arr = Array.isArray(list) ? list : Object.values(list);
+  return arr.some(
+    (s) => s && String(s.id || "").toLowerCase().trim() === id && isHiddenSagaEntry(s),
+  );
+}
+
 function findUniverseMatches(searchTerm, norm) {
   const sagasArr = Array.isArray(appState.content.sagasList)
     ? appState.content.sagasList
     : Object.values(appState.content.sagasList || {});
   return sagasArr
-    .filter((s) => s && s.id && !isHiddenSagaEntry(s))
+    .filter((s) => s && s.id && !isHiddenSagaEntry(s) && !isSearchBlockedSaga(s.id))
     .filter((s) =>
       [s.titulo, s.title, s.nombre, s.id].some(
         (n) => n && norm(n).includes(searchTerm),
@@ -5917,8 +6514,9 @@ function setupSearch() {
         ...appState.content.series,
       };
       if (appState.content.sagas)
-        Object.values(appState.content.sagas).forEach(
-          (s) => s && Object.assign(allContent, s),
+        Object.entries(appState.content.sagas).forEach(
+          ([sagaId, s]) =>
+            s && !isSearchBlockedSaga(sagaId) && Object.assign(allContent, s),
         );
       if (appState.content.ucm) Object.assign(allContent, appState.content.ucm);
 
@@ -6126,6 +6724,52 @@ function renderSearchDropdown(
 // Stub vacío para compatibilidad
 function displaySearchResults(_results) {}
 
+// ¿(season, index) es el último episodio de toda la serie? Nunca para series en emisión.
+function _isLastEpisodeOfSeries(contentId, season, episodeIndex) {
+  if (season == null || episodeIndex == null) return false;
+
+  const seriesData =
+    typeof findContentData === "function" ? findContentData(contentId) : null;
+  const enEmision =
+    String(seriesData?.enEmision ?? seriesData?.en_emision ?? "")
+      .trim()
+      .toLowerCase() === "si";
+  if (enEmision) return false;
+
+  const allSeasons = appState.content.seriesEpisodes[contentId] || {};
+  const seasonOrderRaw =
+    appState.content.seasonOrder?.[contentId] || Object.keys(allSeasons);
+  const seasonKeys = seasonOrderRaw.filter(
+    (key) => (allSeasons[key] || []).length > 0,
+  );
+  if (seasonKeys.length === 0) return false;
+  const lastSeasonKey = seasonKeys[seasonKeys.length - 1];
+  const lastIdx = (allSeasons[lastSeasonKey] || []).length - 1;
+  return (
+    String(season) === String(lastSeasonKey) &&
+    Number(episodeIndex) === lastIdx
+  );
+}
+
+// Último episodio real de la serie { season, index } (mismo orden que _isLastEpisodeOfSeries).
+function _getLastEpisodeRef(contentId) {
+  const allSeasons = appState.content.seriesEpisodes[contentId] || {};
+  const order = appState.content.seasonOrder?.[contentId] || Object.keys(allSeasons);
+  const keys = order.filter((k) => (allSeasons[k] || []).length > 0);
+  if (!keys.length) return null;
+  const k = keys[keys.length - 1];
+  return { season: k, index: (allSeasons[k] || []).length - 1 };
+}
+
+// Publica lo que muestra "Continuar viendo" para que el perfil ("Viendo") lo reutilice.
+function _publishContinueWatching(items) {
+  window._cinecorneta_continueWatching = items.map((h) => ({
+    key: h.key, contentId: h.contentId, type: h.type, title: h.title, poster: h.poster,
+    season: h.season, lastEpisode: h.lastEpisode, progress: h.progress,
+  }));
+  try { window.dispatchEvent(new CustomEvent("cinecorneta:continue-watching")); } catch (_) {}
+}
+
 function generateContinueWatchingCarousel(snapshot) {
   const user = auth.currentUser;
 
@@ -6135,7 +6779,10 @@ function generateContinueWatchingCarousel(snapshot) {
   if (existingCarousel) existingCarousel.remove();
 
   const carouselContainer = document.getElementById("carousel-container");
-  if (!user || !carouselContainer || !snapshot.exists()) return;
+  if (!user || !carouselContainer || !snapshot.exists()) {
+    if (user && !snapshot.exists()) _publishContinueWatching([]);
+    return;
+  }
 
   let historyItems = [];
   snapshot.forEach((child) => {
@@ -6165,30 +6812,43 @@ function generateContinueWatchingCarousel(snapshot) {
   // (ej. series semanales). Se necesita marcar manualmente enEmision = "no"
   // (o dejarlo vacío) cuando la serie finalice para que vuelva a aplicar
   // la exclusión automática de "Continuar Viendo".
-  const isLastEpisodeOfSeries = (contentId, season, episodeIndex) => {
-    if (season == null || episodeIndex == null) return false;
+  const isLastEpisodeOfSeries = _isLastEpisodeOfSeries;
 
-    const seriesData =
-      typeof findContentData === "function" ? findContentData(contentId) : null;
-    const enEmision =
-      String(seriesData?.enEmision ?? seriesData?.en_emision ?? "")
-        .trim()
-        .toLowerCase() === "si";
-    if (enEmision) return false;
-
-    const allSeasons = appState.content.seriesEpisodes[contentId] || {};
-    const seasonOrderRaw =
-      appState.content.seasonOrder?.[contentId] || Object.keys(allSeasons);
-    const seasonKeys = seasonOrderRaw.filter(
-      (key) => (allSeasons[key] || []).length > 0,
-    );
-    if (seasonKeys.length === 0) return false;
-    const lastSeasonKey = seasonKeys[seasonKeys.length - 1];
-    const lastIdx = (allSeasons[lastSeasonKey] || []).length - 1;
-    return (
-      String(season) === String(lastSeasonKey) &&
-      Number(episodeIndex) === lastIdx
-    );
+  // Series: cuando el episodio guardado ya se terminó (≥90%), la tarjeta pasa
+  // al SIGUIENTE episodio disponible (como Netflix). Si todavía no hay siguiente
+  // (último episodio, o aún sin estrenar) se oculta, y vuelve a aparecer sola
+  // cuando el próximo capítulo tenga video.
+  const toEpList = (v) => (Array.isArray(v) ? v : Object.values(v || {}));
+  const isEpPlayable = (ep) => {
+    if (!ep || !_calHasVideo(ep)) return false;
+    if (String(ep.proximamente || "").trim().toLowerCase() === "si") return false;
+    const d = _calParseDate(_calEpDate(ep));
+    return !(d && d.ts > Date.now());
+  };
+  // undefined = temporada desconocida · null = no hay siguiente disponible
+  const nextPlayableEpisode = (contentId, season, index) => {
+    const all = appState.content.seriesEpisodes[contentId] || {};
+    const orderRaw = appState.content.seasonOrder?.[contentId] || Object.keys(all);
+    const keys = orderRaw.filter((k) => toEpList(all[k]).length > 0);
+    const si = keys.findIndex((k) => String(k) === String(season));
+    if (si < 0) return undefined;
+    const cur = toEpList(all[keys[si]]);
+    if (index + 1 < cur.length) {
+      return isEpPlayable(cur[index + 1]) ? { season: keys[si], index: index + 1 } : null;
+    }
+    if (si + 1 < keys.length) {
+      const nx = toEpList(all[keys[si + 1]]);
+      return nx.length && isEpPlayable(nx[0]) ? { season: keys[si + 1], index: 0 } : null;
+    }
+    return null;
+  };
+  const advanceFinished = (item) => {
+    if (item.type !== "series" || item.season == null || item.lastEpisode == null) return item;
+    if (!(typeof item.progress === "number" && item.progress >= 0.9)) return item;
+    const next = nextPlayableEpisode(item.contentId, item.season, Number(item.lastEpisode));
+    if (next === undefined) return item;
+    if (next === null) return { ...item, _finished: true };
+    return { ...item, season: next.season, lastEpisode: next.index, progress: 0, time: 0 };
   };
 
   // Películas: se excluyen apenas quedan marcadas como vistas (progress>=0.9),
@@ -6196,6 +6856,7 @@ function generateContinueWatchingCarousel(snapshot) {
   // el último episodio real de la serie — terminar un episodio intermedio no
   // debe sacarla de "Continuar Viendo", porque todavía queda más por ver.
   const itemsToShow = historyItems
+    .map(advanceFinished)
     .filter((item) => {
       if (item.type === "movie") {
         if (item.progress != null && item.progress >= 0.9) return false;
@@ -6213,6 +6874,7 @@ function generateContinueWatchingCarousel(snapshot) {
       }
       if (item.type === "series") {
         if (isMovieSeason(item.season)) return false;
+        if (item._finished) return false; // terminó y aún no hay siguiente capítulo
         if (
           item.progress != null &&
           item.progress >= 0.9 &&
@@ -6226,6 +6888,7 @@ function generateContinueWatchingCarousel(snapshot) {
     })
     .slice(0, 15);
 
+  _publishContinueWatching(itemsToShow);
   if (itemsToShow.length === 0) return;
 
   // Wrapper con nuevo sistema visual
@@ -7471,6 +8134,79 @@ async function openSeriesDetailView(id) {
       };
       spPopover.appendChild(spPopStar);
 
+      // — Ítem "Marcar como terminada" (manual, igual que el ojo de las películas) —
+      const spDivDone = document.createElement("div");
+      spDivDone.className = "dv-more-popover-divider";
+      spPopover.appendChild(spDivDone);
+
+      const spPopDone = document.createElement("button");
+      spPopDone.className = "dv-more-popover-item pop-eye";
+      const setDoneUI = (done) => {
+        spPopDone.classList.toggle("is-watched", done);
+        spPopDone.innerHTML = `<span class="dv-pop-icon"><i class="${done ? "fas" : "far"} fa-circle-check"></i></span><span>${done ? "Quitar de terminadas" : "Marcar como terminada"}</span>`;
+      };
+      setDoneUI(false);
+      // Estado actual: marcada a mano, o terminada viéndola (último episodio al ≥90%).
+      (async () => {
+        const user = auth.currentUser;
+        if (!user) return;
+        try {
+          const [doneSnap, histSnap] = await Promise.all([
+            db.ref(`users/${user.uid}/series_completed/${id}`).once("value"),
+            db.ref(`users/${user.uid}/history/${id}`).once("value"),
+          ]);
+          const h = histSnap.val();
+          const derived =
+            !!h &&
+            typeof h.progress === "number" &&
+            h.progress >= 0.9 &&
+            _isLastEpisodeOfSeries(id, h.season, h.lastEpisode);
+          setDoneUI(doneSnap.exists() || derived);
+        } catch (_) {}
+      })();
+      spPopDone.onclick = async () => {
+        spPopover.classList.remove("open");
+        spMoreBtn.classList.remove("active");
+        const user = auth.currentUser;
+        if (!user) {
+          openConfirmationModal(
+            "Inicia Sesión",
+            "Necesitas cuenta para marcar series como terminadas.",
+            () => openAuthModal(true),
+          );
+          return;
+        }
+        try {
+          if (spPopDone.classList.contains("is-watched")) {
+            // Quitar: borra el estado y la entrada de historial (como las películas)
+            await Promise.all([
+              db.ref(`users/${user.uid}/series_completed/${id}`).remove(),
+              db.ref(`users/${user.uid}/history/${id}`).remove(),
+            ]);
+            setDoneUI(false);
+          } else {
+            // Marcar: deja el historial en el último episodio al 100% (así la
+            // recomendación del día la omite) y guarda el estado "terminada".
+            const last = _getLastEpisodeRef(id);
+            if (last) {
+              await addToHistoryIfLoggedIn(id, "series", {
+                season: last.season,
+                index: last.index,
+                progress: 1,
+              });
+            }
+            await db.ref(`users/${user.uid}/series_completed/${id}`).set({
+              completedAt: firebase.database.ServerValue.TIMESTAMP,
+              manual: true,
+            });
+            setDoneUI(true);
+          }
+        } catch (e) {
+          if (window.logError) window.logError(e, "Series: marcar terminada");
+        }
+      };
+      spPopover.appendChild(spPopDone);
+
       // — Ítem Discord (solo admin) —
       if (isAdminUser()) {
         const spDivider = document.createElement("div");
@@ -8281,17 +9017,32 @@ function addToHistoryIfLoggedIn(contentId, type, episodeInfo = {}) {
         : 0,
     // Idioma con el que se vio la película, para retomarla igual desde
     // "Continuar viendo" (incluso desde otro dispositivo).
-    ...(!isSeries && typeof episodeInfo.lang === "string"
+    ...(typeof episodeInfo.lang === "string"
       ? { lang: episodeInfo.lang }
       : {}),
     // Segundo exacto donde se quedó (películas), para retomar aunque el
     // navegador haya borrado su almacenamiento o se cambie de dispositivo.
-    ...(!isSeries &&
-    typeof episodeInfo.time === "number" &&
-    episodeInfo.time > 5
+    ...(typeof episodeInfo.time === "number" && episodeInfo.time > 5
       ? { time: Math.round(episodeInfo.time) }
       : {}),
   };
+
+  // Serie TERMINADA: último episodio real (serie fuera de emisión) visto al ≥90%.
+  // Se guarda aparte del historial: volver a ver capítulos no le quita el estado.
+  if (
+    isSeries &&
+    historyEntry.progress >= 0.9 &&
+    _isLastEpisodeOfSeries(contentId, episodeInfo.season, episodeInfo.index)
+  ) {
+    const doneRef = db.ref(`users/${user.uid}/series_completed/${contentId}`);
+    doneRef
+      .once("value")
+      .then((snap) => {
+        if (!snap.exists())
+          return doneRef.set({ completedAt: firebase.database.ServerValue.TIMESTAMP });
+      })
+      .catch(() => {});
+  }
 
   // Devolvemos la promesa del write para que los callers puedan
   // encadenar .then() / await y evitar race conditions al leer el historial
@@ -8311,6 +9062,7 @@ async function removeFromHistory(entryKey) {
   await Promise.all([
     db.ref(`users/${user.uid}/history/${entryKey}`).remove(),
     db.ref(`users/${user.uid}/roulette_watched/${entryKey}`).remove(),
+    db.ref(`users/${user.uid}/series_completed/${entryKey}`).remove(),
     playerMod.clearPresenceForSeries?.(entryKey),
   ]);
   try {
@@ -8922,7 +9674,14 @@ function setupRealtimeHistoryListener(user) {
       .ref(`users/${user.uid}/history`)
       .orderByChild("viewedAt");
 
+    let _firstHistorySnapshot = true;
     appState.user.historyListenerRef.on("value", (snapshot) => {
+      // Recomendación del día: si ya se vio, pasa a la siguiente en tiempo real
+      try {
+        _bentoSyncWithHistory(snapshot, _firstHistorySnapshot);
+      } catch (_) {}
+      _firstHistorySnapshot = false;
+
       // Mapa película → { lang, ts, time } desde Firebase. Lo leen
       // resolveMovieLang (idioma) y player.js (posición) al abrir la película.
       const movieHist = {};
@@ -8937,6 +9696,23 @@ function setupRealtimeHistoryListener(user) {
         }
       });
       window._cinecorneta_movieHistory = movieHist;
+
+      // Mapa serie → { season, index, progress, time, lang } desde Firebase.
+      // Lo lee player.js para retomar el segundo exacto del episodio.
+      const seriesHist = {};
+      snapshot.forEach((child) => {
+        const v = child.val();
+        if (v && v.type === "series" && v.season != null && v.lastEpisode != null) {
+          seriesHist[child.key] = {
+            season: v.season,
+            index: Number(v.lastEpisode),
+            progress: typeof v.progress === "number" ? v.progress : 0,
+            time: typeof v.time === "number" ? v.time : 0,
+            lang: typeof v.lang === "string" ? v.lang : null,
+          };
+        }
+      });
+      window._cinecorneta_seriesHistory = seriesHist;
 
       console.log("🔔 Historial actualizado - Regenerando carrusel...");
       clearTimeout(appState.player.historyUpdateDebounceTimer);
@@ -11282,7 +12058,7 @@ window.closeSeasonDrawer = function () {
   document.getElementById("seasonDrawerBackdrop")?.classList.remove("open");
 };
 
-console.log("✅ Cine Corneta v11 cargado correctamente");
+console.log("✅ Cine Corneta v10 cargado correctamente");
 
 // ── Catalog scroll-to-top ─────────────────────────────────────
 (function () {
