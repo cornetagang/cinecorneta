@@ -3118,6 +3118,239 @@ window.deleteReviewComment = deleteReviewComment;
 
 window.openContentReviews = openContentReviews;
 
+// ── Reglas de "visto" (mismas que el perfil completo, features/profile.js) ──
+const UPM_WATCHED_MOVIE_RATIO = 0.85;
+const UPM_SERIES_DONE_RATIO = 0.9;
+
+function _upmIsWatchedMovie(item) {
+  const p = item?.progress;
+  if (typeof p !== "number" || p === 0) return true;
+  return p >= UPM_WATCHED_MOVIE_RATIO;
+}
+
+function _upmIsLastEpisode(contentId, season, episodeIndex) {
+  if (season == null || episodeIndex == null) return false;
+  const content = appState?.content || {};
+  const seriesData = content.series?.[contentId];
+  const enEmision =
+    String(seriesData?.enEmision ?? seriesData?.en_emision ?? "")
+      .trim()
+      .toLowerCase() === "si";
+  if (enEmision) return false;
+
+  const allSeasons = content.seriesEpisodes?.[contentId] || {};
+  const order = content.seasonOrder?.[contentId] || Object.keys(allSeasons);
+  const keys = order.filter((k) => Object.keys(allSeasons[k] || {}).length > 0);
+  if (!keys.length) return false;
+  const lastKey = keys[keys.length - 1];
+  const lastIdx = Object.keys(allSeasons[lastKey] || {}).length - 1;
+  return String(season) === String(lastKey) && Number(episodeIndex) === lastIdx;
+}
+
+// Siguiente episodio de una serie: {season,index} · null = no hay más · undefined = temporada desconocida
+function _upmNextEpisode(contentId, season, index) {
+  const content = appState?.content || {};
+  const toList = (v) => (Array.isArray(v) ? v : Object.values(v || {}));
+  const all = content.seriesEpisodes?.[contentId] || {};
+  const order = content.seasonOrder?.[contentId] || Object.keys(all);
+  const keys = order.filter((k) => toList(all[k]).length > 0);
+  const si = keys.findIndex((k) => String(k) === String(season));
+  if (si < 0) return undefined;
+  if (index + 1 < toList(all[keys[si]]).length)
+    return { season: keys[si], index: index + 1 };
+  if (si + 1 < keys.length) return { season: keys[si + 1], index: 0 };
+  return null;
+}
+
+// Etiqueta de episodio igual que en "Continuar viendo": respeta nombreEspecial del
+// episodio ("Parte 2" → P2 E3), la etiqueta de la temporada en seasonPosters
+// ("Especial", "Parte 5") y nombreTemporadas de la serie (prefijo P, S…).
+function _upmEpisodeLabel(contentId, season, epIndex) {
+  if (season == null || epIndex == null) return "";
+  const content = appState?.content || {};
+  const toList = (v) => (Array.isArray(v) ? v : Object.values(v || {}));
+  const allSeasons = content.seriesEpisodes?.[contentId] || {};
+  const seasonEps = toList(allSeasons[season]);
+  const ep = seasonEps[epIndex];
+  const epNum = Number(epIndex) + 1;
+
+  const especial = String(ep?.nombreEspecial || "").trim();
+  if (especial) {
+    const num = especial.match(/\d+/);
+    const abbr = num ? `${especial[0].toUpperCase()}${num[0]}` : especial[0].toUpperCase();
+    return `${abbr} E${epNum}`;
+  }
+
+  const entry = content.seasonPosters?.[contentId]?.[season];
+  const etiqueta = String(
+    entry && typeof entry === "object" ? entry.etiqueta || "" : "",
+  ).trim();
+  if (etiqueta) {
+    const num = etiqueta.match(/\d+/);
+    const abbr = num ? `${etiqueta[0].toUpperCase()}${num[0]}` : etiqueta;
+    // Temporada de un solo episodio (especial, película): sin "E1"
+    return seasonEps.length <= 1 ? abbr : `${abbr} E${epNum}`;
+  }
+
+  const totalSeasons = Object.keys(allSeasons).length;
+  if (totalSeasons > 1) {
+    const word = String(content.series?.[contentId]?.nombreTemporadas || "").trim();
+    const prefix = word ? word[0].toUpperCase() : "T";
+    return `${prefix}${season} E${epNum}`;
+  }
+  return `Episodio ${epNum}`;
+}
+
+// Réplica de "Continuar viendo" (script.js) para el historial de otro usuario:
+// películas a medias (≤14 días) + series en curso (un capítulo terminado pasa al siguiente).
+function _upmWatchingItems(history, doneSeries) {
+  const STALE_MOVIE_MS = 14 * 24 * 60 * 60 * 1000;
+  const isMovieSeason = (season) =>
+    season != null &&
+    ["pelicula", "película", "movie"].some((kw) =>
+      String(season).toLowerCase().includes(kw),
+    );
+  const seriesData = appState?.content?.series || {};
+  const out = [];
+
+  [...history].sort((a, b) => (b.viewedAt || 0) - (a.viewedAt || 0)).forEach((h) => {
+    if (h.type === "series") {
+      if (doneSeries.has(h.contentId)) return;
+      if (isMovieSeason(h.season)) return;
+      let { season, lastEpisode: ep, progress } = h;
+      if (season != null && ep != null && typeof progress === "number" && progress >= 0.9) {
+        const next = _upmNextEpisode(h.contentId, season, Number(ep));
+        if (next === null) return; // terminó y no hay siguiente capítulo
+        if (next) { season = next.season; ep = next.index; progress = 0; }
+      }
+      const data = seriesData[h.contentId];
+      const seasonEntry = appState?.content?.seasonPosters?.[h.contentId]?.[season];
+      const seasonPoster =
+        typeof seasonEntry === "object" ? seasonEntry?.posterUrl : seasonEntry;
+      out.push({
+        title: data?.title || h.title || h.contentId,
+        sub: _upmEpisodeLabel(h.contentId, season, ep),
+        poster:
+          h.poster ||
+          seasonPoster ||
+          (typeof data?.poster === "object" ? data.poster?.posterUrl : data?.poster) ||
+          "",
+        progress: typeof progress === "number" ? progress : 0,
+      });
+    } else {
+      const p = h.progress;
+      if (typeof p !== "number" || p <= 0 || p >= 0.9) return;
+      if (typeof h.viewedAt === "number" && Date.now() - h.viewedAt > STALE_MOVIE_MS) return;
+      out.push({ title: h.title || h.contentId, poster: h.poster || "", progress: p });
+    }
+  });
+  return out.slice(0, 12);
+}
+
+// Devuelve Map(contentId → { completedAt }) con las series TERMINADAS del usuario
+async function _upmLoadCompletedSeries(userId, historyItems) {
+  const done = new Map();
+  try {
+    const snap = await db.ref(`users/${userId}/series_completed`).once("value");
+    snap.forEach((child) => {
+      const v = child.val();
+      done.set(child.key, { completedAt: (v && v.completedAt) || 0 });
+    });
+  } catch (e) {
+    console.warn("[UserProfile] No se pudo leer series_completed:", e);
+  }
+  for (const h of historyItems) {
+    if (h.type !== "series" || done.has(h.contentId)) continue;
+    if (
+      typeof h.progress === "number" &&
+      h.progress >= UPM_SERIES_DONE_RATIO &&
+      _upmIsLastEpisode(h.contentId, h.season, h.lastEpisode)
+    ) {
+      done.set(h.contentId, { completedAt: h.viewedAt || 0 });
+    }
+  }
+  return done;
+}
+
+// ── Drawer móvil: cerrar con clic en el fondo o arrastrando hacia abajo ──
+function _upmSetupDrawer(modal) {
+  if (modal.dataset.upmDrawer) return;
+  modal.dataset.upmDrawer = "1";
+
+  const isMobile = () => window.matchMedia("(max-width: 768px)").matches;
+  const sheet = () => modal.querySelector(".upm-content");
+
+  // Clic en el fondo oscuro
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) ModalManager.close(modal);
+  });
+
+  let startY = 0, startT = 0, dy = 0, tracking = false, dragging = false, scroller = null;
+
+  modal.addEventListener(
+    "touchstart",
+    (e) => {
+      if (!isMobile() || e.touches.length !== 1) return;
+      const onHeader = !!e.target.closest(".upm-header");
+      const body = e.target.closest(".upm-body");
+      // Desde el header siempre; desde el cuerpo solo si está arriba del todo
+      if (!onHeader && !(body && body.scrollTop <= 0)) return;
+      scroller = body || null;
+      tracking = true;
+      dragging = false;
+      startY = e.touches[0].clientY;
+      startT = Date.now();
+      dy = 0;
+    },
+    { passive: true },
+  );
+
+  modal.addEventListener(
+    "touchmove",
+    (e) => {
+      if (!tracking) return;
+      dy = e.touches[0].clientY - startY;
+      if (!dragging) {
+        // Si el usuario sube o el cuerpo ya se desplazó, es scroll normal
+        if (dy < 0 || (scroller && scroller.scrollTop > 0)) {
+          tracking = false;
+          return;
+        }
+        if (dy < 6) return;
+        dragging = true;
+      }
+      e.preventDefault();
+      const el = sheet();
+      el.style.transition = "none";
+      el.style.transform = `translateY(${Math.max(0, dy)}px)`;
+    },
+    { passive: false },
+  );
+
+  const end = () => {
+    if (!tracking) return;
+    tracking = false;
+    if (!dragging) return;
+    dragging = false;
+    const el = sheet();
+    const speed = dy / Math.max(1, Date.now() - startT);
+    if (dy > 110 || (speed > 0.6 && dy > 40)) {
+      el.style.transition = "transform 0.2s ease-out";
+      el.style.transform = "translateY(100%)";
+      setTimeout(() => {
+        ModalManager.close(modal);
+        el.style.transition = "";
+        el.style.transform = "";
+      }, 190);
+    } else {
+      el.style.transition = "transform 0.2s ease-out";
+      el.style.transform = "";
+    }
+  };
+  modal.addEventListener("touchend", end);
+  modal.addEventListener("touchcancel", end);
+}
+
 // ===========================================================
 // MODAL: PERFIL PÚBLICO DE USUARIO
 // ===========================================================
@@ -3130,6 +3363,7 @@ export async function openUserProfile(userId, userName, photoURL) {
   content.innerHTML = `
     <button class="close-btn" onclick="closeAllModals()">&times;</button>
     <div class="upm-header" id="upm-header">
+      <span class="upm-grab"></span>
       <div class="upm-header-overlay"></div>
       <div class="upm-header-info">
         <div class="upm-avatar-wrap">
@@ -3157,73 +3391,153 @@ export async function openUserProfile(userId, userName, photoURL) {
   `;
 
   ModalManager.open(modal, { closeOnEsc: true, nested: true });
+  content.style.transform = "";
+  content.style.transition = "";
+  _upmSetupDrawer(modal);
 
   try {
-    const snap = await db.ref(`users/${userId}/history`).once("value");
+    const histSnap = await db.ref(`users/${userId}/history`).once("value");
     const body = document.getElementById("upm-body");
 
-    if (!snap.exists()) {
+    if (!histSnap.exists()) {
       body.innerHTML = `<div class="upm-empty"><i class="far fa-film"></i><p>Este usuario no tiene actividad aún.</p></div>`;
       return;
     }
 
-    const movies = [], series = [];
-    const genreCount = {};
-    const FALLBACK = "https://res.cloudinary.com/djhgmmdjx/image/upload/v1759209689/u71QEFc_bet4rv.png";
+    const FALLBACK =
+      "https://res.cloudinary.com/djhgmmdjx/image/upload/v1759209689/u71QEFc_bet4rv.png";
 
-    snap.forEach((child) => {
-      const item = child.val();
-      // Contar géneros
-      const genres = (item.genres || "").split(";").map(g => g.trim()).filter(Boolean);
-      genres.forEach(g => { genreCount[g] = (genreCount[g] || 0) + 1; });
-      if (item.type === "series") series.push(item);
-      else movies.push(item);
+    // ── Historial → películas VISTAS y series TERMINADAS ──────────
+    const history = [];
+    histSnap.forEach((child) => {
+      const item = child.val() || {};
+      item.key = child.key;
+      if (!item.contentId) item.contentId = child.key;
+      history.push(item);
     });
 
     const byDate = (a, b) => (b.viewedAt || 0) - (a.viewedAt || 0);
-    movies.sort(byDate);
-    series.sort(byDate);
+    const watchedMovies = history
+      .filter((h) => h.type !== "series" && _upmIsWatchedMovie(h))
+      .sort(byDate);
 
-    // Stats row
+    const done = await _upmLoadCompletedSeries(userId, history);
+    const seriesData = appState?.content?.series || {};
+    const doneSeries = [...done.entries()]
+      .sort((a, b) => (b[1].completedAt || 0) - (a[1].completedAt || 0))
+      .map(([id]) => {
+        const data = seriesData[id];
+        const entry = history.find((h) => h.contentId === id);
+        return {
+          title: data?.title || entry?.title || id,
+          poster:
+            (typeof data?.poster === "object"
+              ? data.poster?.posterUrl
+              : data?.poster) ||
+            entry?.poster ||
+            "",
+        };
+      });
+
+    const watching = _upmWatchingItems(history, done);
+
+    const nMovies = watchedMovies.length;
+    const nSeries = doneSeries.length;
+    const total = nMovies + nSeries;
+
+    // Header: contadores
     document.getElementById("upm-stats-row").innerHTML = `
-      <span><i class="fas fa-film"></i> <b>${movies.length}</b> Película${movies.length !== 1 ? "s" : ""}</span>
-      <span><i class="fas fa-tv"></i> <b>${series.length}</b> Serie${series.length !== 1 ? "s" : ""}</span>
+      <span><i class="fas fa-film"></i> <b>${nMovies}</b> Película${nMovies !== 1 ? "s" : ""}</span>
+      <span><i class="fas fa-tv"></i> <b>${nSeries}</b> Serie${nSeries !== 1 ? "s" : ""}</span>
     `;
 
-    // Top géneros
-    const topGenres = Object.entries(genreCount)
-      .sort(([,a],[,b]) => b - a)
+    // ── Géneros favoritos (desde el catálogo, igual que el perfil) ─
+    const genreCount = new Map();
+    const catMovies = appState?.content?.movies || {};
+    history.forEach((item) => {
+      if (item.type === "series") {
+        if (!done.has(item.contentId)) return;
+      } else if (!_upmIsWatchedMovie(item)) return;
+      const c = catMovies[item.contentId] || seriesData[item.contentId];
+      const raw = c
+        ? c.genres || c.Generos || c.Géneros || c.generos || ""
+        : item.genres || "";
+      String(raw)
+        .split(";")
+        .map((g) => g.trim())
+        .filter(Boolean)
+        .forEach((g) => genreCount.set(g, (genreCount.get(g) || 0) + 1));
+    });
+    const topGenres = [...genreCount.entries()]
+      .sort((a, b) => b[1] - a[1])
       .slice(0, 5);
     const maxGenre = topGenres[0]?.[1] || 1;
 
-    // Últimas 6 películas y series
-    const lastMovies = movies.slice(0, 6);
-    const lastSeries = series.slice(0, 6);
+    // ── Distribución películas / series ───────────────────────────
+    let distHTML = "";
+    if (total > 0) {
+      const moviePct = Math.round((nMovies / total) * 100);
+      const seriesPct = 100 - moviePct;
+      distHTML = `
+      <div class="upm-section">
+        <p class="upm-section-title"><i class="fas fa-chart-bar"></i> Distribución</p>
+        <div class="upm-dist-bar">
+          <div class="upm-dist-movie" style="width:${moviePct}%"></div>
+          <div class="upm-dist-series" style="width:${seriesPct}%"></div>
+        </div>
+        <div class="upm-dist-legend">
+          <span><i class="upm-dist-dot upm-dist-dot--movie"></i> Películas ${moviePct}%</span>
+          <span><i class="upm-dist-dot upm-dist-dot--series"></i> Series ${seriesPct}%</span>
+        </div>
+      </div>`;
+    }
 
-    const renderPosters = (items) => items.map(item => `
+    const renderPosters = (items, badge, withProgress) =>
+      items
+        .map(
+          (item) => `
       <div class="upm-card">
-        <img src="${safeUrl(item.poster) || FALLBACK}" alt="${esc(item.title)}" class="upm-card-poster"
-             onerror="this.src='${FALLBACK}'">
+        <div class="upm-card-poster-wrap">
+          ${badge ? `<span class="upm-card-badge">${badge}</span>` : ""}
+          <img src="${safeUrl(item.poster) || FALLBACK}" alt="${esc(item.title)}" class="upm-card-poster"
+               onerror="this.src='${FALLBACK}'">
+          ${withProgress && item.progress > 0 ? `<div class="upm-card-progress"><div style="width:${Math.min(100, item.progress * 100).toFixed(1)}%"></div></div>` : ""}
+        </div>
         <p class="upm-card-title">${esc(item.title || "")}</p>
+        ${item.sub ? `<p class="upm-card-sub">${esc(item.sub)}</p>` : ""}
       </div>
-    `).join("");
+    `,
+        )
+        .join("");
+
+    const lastMovies = watchedMovies.slice(0, 6);
+    const lastSeries = doneSeries.slice(0, 6);
 
     body.innerHTML = `
       <!-- Stats cards -->
       <div class="upm-mini-stats">
         <div class="upm-mini-stat">
-          <span class="upm-mini-stat__val">${movies.length + series.length}</span>
+          <span class="upm-mini-stat__val">${total}</span>
           <span class="upm-mini-stat__lbl">Total vistas</span>
         </div>
         <div class="upm-mini-stat">
-          <span class="upm-mini-stat__val">${movies.length}</span>
+          <span class="upm-mini-stat__val">${nMovies}</span>
           <span class="upm-mini-stat__lbl">Películas</span>
         </div>
         <div class="upm-mini-stat">
-          <span class="upm-mini-stat__val">${series.length}</span>
+          <span class="upm-mini-stat__val">${nSeries}</span>
           <span class="upm-mini-stat__lbl">Series</span>
         </div>
       </div>
+
+      ${watching.length ? `
+      <!-- Viendo -->
+      <div class="upm-section">
+        <p class="upm-section-title"><i class="far fa-play-circle"></i> Viendo</p>
+        <div class="upm-grid">${renderPosters(watching, "", true)}</div>
+      </div>` : ""}
+
+      ${distHTML}
 
       ${topGenres.length ? `
       <!-- Géneros favoritos -->
@@ -3232,9 +3546,9 @@ export async function openUserProfile(userId, userName, photoURL) {
         <div class="upm-genres">
           ${topGenres.map(([g, count]) => `
             <div class="upm-genre-row">
-              <span class="upm-genre-name">${g}</span>
+              <span class="upm-genre-name">${esc(g)}</span>
               <div class="upm-genre-bar-wrap">
-                <div class="upm-genre-bar" style="width:${Math.round(count/maxGenre*100)}%"></div>
+                <div class="upm-genre-bar" style="width:${Math.round((count / maxGenre) * 100)}%"></div>
               </div>
               <span class="upm-genre-count">${count}</span>
             </div>
@@ -3243,24 +3557,24 @@ export async function openUserProfile(userId, userName, photoURL) {
       </div>` : ""}
 
       ${lastMovies.length ? `
-      <!-- Últimas películas -->
+      <!-- Películas vistas -->
       <div class="upm-section">
-        <p class="upm-section-title"><i class="fas fa-film"></i> Últimas películas</p>
-        <div class="upm-grid">${renderPosters(lastMovies)}</div>
+        <p class="upm-section-title"><i class="fas fa-film"></i> Películas vistas</p>
+        <div class="upm-grid">${renderPosters(lastMovies, "Vista")}</div>
       </div>` : ""}
 
       ${lastSeries.length ? `
-      <!-- Últimas series -->
+      <!-- Series terminadas -->
       <div class="upm-section">
-        <p class="upm-section-title"><i class="fas fa-tv"></i> Últimas series</p>
-        <div class="upm-grid">${renderPosters(lastSeries)}</div>
+        <p class="upm-section-title"><i class="fas fa-tv"></i> Series vistas</p>
+        <div class="upm-grid">${renderPosters(lastSeries, "Terminada")}</div>
       </div>` : ""}
     `;
-
   } catch (err) {
     console.error("[UserProfile]", err);
     const body = document.getElementById("upm-body");
-    if (body) body.innerHTML = `<div class="upm-empty"><i class="fas fa-exclamation-circle"></i><p>No se pudo cargar el perfil.</p></div>`;
+    if (body)
+      body.innerHTML = `<div class="upm-empty"><i class="fas fa-exclamation-circle"></i><p>No se pudo cargar el perfil.</p></div>`;
   }
 }
 
