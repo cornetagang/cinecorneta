@@ -928,6 +928,8 @@ let _activeTab = "all";
 let _activeStarFilter = "all";
 let _activeUserFilter = "";
 let _currentPage = 1;
+let _reviewsQuery = null;
+let _reviewsHandler = null;
 const REVIEWS_PER_PAGE = 6;
 
 export function renderReviewsGrid() {
@@ -940,12 +942,20 @@ export function renderReviewsGrid() {
   grid.className = "reviews-list";
   grid.innerHTML = `<div class="reviews-loading"><i class="fas fa-spinner fa-spin"></i> Cargando reseñas...</div>`;
 
-  db.ref("reviews")
-    .limitToLast(500)
-    .on("value", async (snapshot) => {
-      grid.innerHTML = "";
+  // Cada vez que se entraba a Reseñas se añadía OTRO listener sin quitar el
+  // anterior (renderizados repetidos y página reiniciada varias veces).
+  if (_reviewsQuery && _reviewsHandler) {
+    _reviewsQuery.off("value", _reviewsHandler);
+  }
+  _reviewsQuery = db.ref("reviews").limitToLast(500);
+  _reviewsHandler = async (snapshot) => {
+      // Solo se vacía la lista en la primera carga. En actualizaciones en tiempo
+      // real se deja el contenido actual hasta tener el nuevo: vaciarlo mientras
+      // se esperaba la red encogía la página y el navegador saltaba al inicio.
+      if (_allReviews.length === 0) grid.innerHTML = "";
 
       if (!snapshot.exists()) {
+        grid.innerHTML = "";
         grid.innerHTML = `
                 <div class="reviews-empty">
                     <i class="far fa-comment-dots"></i>
@@ -996,14 +1006,19 @@ export function renderReviewsGrid() {
         });
       }
 
-      // Re-aplica el filtro actual (preserva selección del usuario en actualizaciones)
-      _applyAllFilters();
-    });
+      // Re-aplica el filtro actual (preserva selección del usuario y su página)
+      _applyAllFilters(!isFirstLoad);
+    };
+  _reviewsQuery.on("value", _reviewsHandler);
 }
 
-function _renderFiltered() {
+function _renderFiltered(preserveScroll = true) {
   const grid = DOM.reviewsGrid;
   if (!grid) return;
+
+  const prevScroll = window.scrollY;
+  const prevHeight = grid.offsetHeight;
+  if (preserveScroll && prevHeight) grid.style.minHeight = prevHeight + "px";
 
   grid.innerHTML = "";
 
@@ -1014,6 +1029,7 @@ function _renderFiltered() {
       msg = `No se encontraron reseñas de "@${_activeUserFilter}".`;
     grid.innerHTML = `<div class="reviews-empty"><i class="far fa-comment-dots"></i><p>${msg}</p></div>`;
     _renderPagination();
+    _restoreScrollAfterRender(grid, prevScroll, preserveScroll);
     return;
   }
 
@@ -1033,6 +1049,14 @@ function _renderFiltered() {
   grid.appendChild(fragment);
 
   _renderPagination();
+  _restoreScrollAfterRender(grid, prevScroll, preserveScroll);
+}
+
+function _restoreScrollAfterRender(grid, prevScroll, preserveScroll) {
+  grid.style.minHeight = "";
+  if (preserveScroll && Math.abs(window.scrollY - prevScroll) > 1) {
+    window.scrollTo({ top: prevScroll, behavior: "instant" });
+  }
 }
 
 function _renderPagination() {
@@ -1096,7 +1120,7 @@ function _renderPagination() {
       const page = parseInt(btn.dataset.page);
       if (page && page !== _currentPage) {
         _currentPage = page;
-        _renderFiltered();
+        _renderFiltered(false);
         // Scroll suave al tope del grid
         DOM.reviewsGrid.scrollIntoView({ behavior: "smooth", block: "start" });
         // Scroll al tope del contenedor de reseñas para leer desde arriba
@@ -1112,7 +1136,7 @@ function _renderPagination() {
   });
 }
 
-function _applyAllFilters() {
+function _applyAllFilters(keepPage = false) {
   let result = _allReviews;
   const currentUser = auth.currentUser;
   let contextLabel = null;
@@ -1138,7 +1162,10 @@ function _applyAllFilters() {
   }
 
   _filteredReviews = result;
-  _currentPage = 1;
+  // Solo se vuelve a la página 1 cuando el usuario cambia un filtro. Con una
+  // actualización en tiempo real (o al volver a la pestaña) se conserva la
+  // página actual; _renderFiltered() la ajusta si ya no existe.
+  if (!keepPage) _currentPage = 1;
   _renderFiltered();
 }
 
@@ -1992,6 +2019,70 @@ function setupReviewTruncation() {
 }
 
 // ===========================================================
+// GUARDA DE SCROLL PARA MODALES
+// body.modal-open deja el <body> en position:fixed, lo que encoge el documento y
+// manda la página al inicio. Mientras un modal de reseñas está abierto se anula
+// ese position:fixed (el overflow:hidden ya impide el scroll de fondo) y, por
+// si acaso, se restaura el scroll al cerrar.
+// ===========================================================
+let _scrollKeepCount = 0;
+
+function _ensureScrollKeepStyle() {
+  if (document.getElementById("rv-scroll-keep-style")) return;
+  const st = document.createElement("style");
+  st.id = "rv-scroll-keep-style";
+  st.textContent =
+    "html body.modal-open.rv-keep-scroll{position:static !important;top:auto !important;" +
+    "left:auto !important;right:auto !important;bottom:auto !important;" +
+    "overflow:hidden !important;}";
+  document.head.appendChild(st);
+}
+
+function _guardPageScroll(modal) {
+  _ensureScrollKeepStyle();
+  const y = window.scrollY;
+  const body = document.body;
+  let seenShow = false;
+  let done = false;
+
+  // Se aplica ANTES de que el modal abra, para que el body nunca llegue a fijarse
+  _scrollKeepCount++;
+  body.classList.add("rv-keep-scroll");
+
+  const goBack = () => {
+    if (Math.abs(window.scrollY - y) > 1) {
+      window.scrollTo({ top: y, behavior: "instant" });
+    }
+  };
+
+  const release = () => {
+    if (done) return;
+    done = true;
+    observer.disconnect();
+    _scrollKeepCount = Math.max(0, _scrollKeepCount - 1);
+    if (_scrollKeepCount === 0) body.classList.remove("rv-keep-scroll");
+  };
+
+  const observer = new MutationObserver(() => {
+    const isShown = modal.classList.contains("show");
+    if (isShown && !seenShow) {
+      seenShow = true;
+      goBack();
+      requestAnimationFrame(goBack);
+    } else if (!isShown && seenShow) {
+      release();
+      goBack();
+      requestAnimationFrame(goBack);
+      [100, 300].forEach((t) => setTimeout(goBack, t));
+    }
+  });
+  observer.observe(modal, { attributes: true, attributeFilter: ["class"] });
+
+  // Seguridad: si el modal nunca llega a mostrarse, no dejar nada colgado
+  setTimeout(() => { if (!seenShow) release(); }, 2000);
+}
+
+// ===========================================================
 // MODAL: VER RESEÑA COMPLETA (con comentarios)
 // ===========================================================
 export function openFullReview(reviewData) {
@@ -2284,6 +2375,7 @@ export function openFullReview(reviewData) {
   }
 
   // ── Abrir modal ─────────────────────────────────────────────
+  _guardPageScroll(modal);
   document.body.style.overflow = "hidden";
 
   if (ModalManager && typeof ModalManager.open === "function") {
@@ -2688,6 +2780,7 @@ export async function openContentReviews(contentId, contentTitle) {
   }
 
   // Abrir modal
+  _guardPageScroll(modal);
   if (ModalManager && typeof ModalManager.open === "function") {
     ModalManager.open(modal, { closeOnEsc: true, nested: true });
   } else {
