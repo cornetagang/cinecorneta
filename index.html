@@ -1249,7 +1249,7 @@
             </div>
 
             <!-- Películas + Series (un solo card compartido) -->
-            <div class="prf-info-card prf-stat-pair">
+            <div class="prf-info-card prf-stat-pair prf-stat-pair--3">
               <div class="prf-stat-pair-item">
                 <svg class="prf-ic-icon prf-ic-icon--series" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                   <rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/>
@@ -1267,6 +1267,15 @@
                 <span class="prf-ic-value prf-ic-value--accent" id="stat-series-card">0</span>
                 <span class="prf-ic-sub">vistas</span>
               </div>
+              <div class="prf-stat-pair-divider"></div>
+              <div class="prf-stat-pair-item">
+                <svg class="prf-ic-icon prf-ic-icon--series" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/>
+                </svg>
+                <span class="prf-ic-label">Viendo</span>
+                <span class="prf-ic-value prf-ic-value--accent" id="stat-watching-card">0</span>
+                <span class="prf-ic-sub">en curso</span>
+              </div>
             </div>
 
           </div>
@@ -1283,15 +1292,26 @@
             </div>
           </div>
 
-          <!-- ── SECCIONES: ÚLTIMAS PELÍCULAS + SERIES ─────────────── -->
+          <!-- ── SECCIONES: VIENDO + PELÍCULAS VISTAS + SERIES VISTAS ─────────────── -->
           <div class="prf-sections-wrap">
+
+            <!-- Viendo: igual que Continuar viendo (películas + series en curso) -->
+            <div class="prf-section prf-section--watching">
+              <div class="prf-section-header">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/>
+                </svg>
+                <span>Viendo</span>
+              </div>
+              <div id="prf-history-watching" class="prf-poster-grid"></div>
+            </div>
 
             <div class="prf-section">
               <div class="prf-section-header">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <rect x="2" y="2" width="20" height="20" rx="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/>
                 </svg>
-                <span>Últimas Películas</span>
+                <span>Películas vistas</span>
               </div>
               <div id="prf-history-movies" class="prf-poster-grid"></div>
             </div>
@@ -1301,7 +1321,7 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/>
                 </svg>
-                <span>Últimas Series</span>
+                <span>Series vistas</span>
               </div>
               <div id="prf-history-series" class="prf-poster-grid"></div>
             </div>
@@ -2316,7 +2336,7 @@
     <script src="https://cdn.jsdelivr.net/npm/artplayer/dist/artplayer.js"></script>
 
     <!-- SCRIPT PRINCIPAL -->
-    <script src="script.js?v=52" type="module" defer></script>
+    <script src="script.js?v=57" type="module" defer></script>
     <!-- Scroll to top (catálogo) -->
   <button class="catalog-scroll-top" id="catalog-scroll-top" aria-label="Volver arriba">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
