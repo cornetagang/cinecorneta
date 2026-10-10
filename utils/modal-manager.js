@@ -5,6 +5,7 @@
 export const ModalManager = {
     active: null,
     stack: [], // Para modales anidados
+    _savedScrollY: null, // scroll de la página al abrir el primer modal
     
     /**
      * Abre un modal y cierra cualquier otro modal abierto
@@ -27,8 +28,14 @@ export const ModalManager = {
             this.stack.push(this.active);
         }
 
+        // Guardar el scroll de la página antes de bloquearla (solo con el primer modal)
+        if (!document.body.classList.contains('modal-open') && this._savedScrollY === null) {
+            this._savedScrollY = window.scrollY;
+        }
+
         // Abrir nuevo modal
         document.body.classList.add('modal-open');
+        this._lockScroll();
         modalElement.classList.add('show');
         this.active = modalElement;
 
@@ -77,6 +84,7 @@ export const ModalManager = {
             // Solo remover modal-open si no hay más modales
             if (!document.querySelector('.modal.show')) {
                 document.body.classList.remove('modal-open');
+                this._restoreScroll();
             }
         }
 
@@ -101,6 +109,45 @@ export const ModalManager = {
         this.active = null;
         this.stack = [];
         document.body.classList.remove('modal-open');
+        this._restoreScroll();
+    },
+
+    /**
+     * Devuelve la página al scroll que tenía antes de abrir el modal.
+     * Evita que el navegador la mande al inicio al quitar el bloqueo de scroll.
+     */
+    _lockScroll() {
+        const y = this._savedScrollY;
+        if (y === null || y === undefined) return;
+        const body = document.body;
+        // Si el CSS de .modal-open deja el body fijo, la página saltaría al inicio:
+        // se compensa con un top negativo igual al scroll que tenía.
+        if (getComputedStyle(body).position === 'fixed') {
+            body.style.top = `-${y}px`;
+            this._bodyOffsetApplied = true;
+        } else if (Math.abs(window.scrollY - y) > 1) {
+            window.scrollTo({ top: y, behavior: 'instant' });
+        }
+    },
+
+    _restoreScroll() {
+        const y = this._savedScrollY;
+        this._savedScrollY = null;
+        if (this._bodyOffsetApplied) {
+            document.body.style.top = '';
+            this._bodyOffsetApplied = false;
+        }
+        if (y === null || y === undefined) return;
+        const apply = () => {
+            if (Math.abs(window.scrollY - y) > 1) {
+                window.scrollTo({ top: y, behavior: 'instant' });
+            }
+        };
+        apply();
+        requestAnimationFrame(() => {
+            apply();
+            requestAnimationFrame(apply);
+        });
     },
 
     /**
