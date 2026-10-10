@@ -8985,6 +8985,94 @@ button.modal-review-count:hover {
   flex-shrink: 0;
 }
 
+/* ── Miniperfil: reseñas, distribución y badges (alineado con el perfil completo) ── */
+.upm-card-poster-wrap {
+  position: relative;
+}
+
+.upm-card-badge {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  z-index: 2;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.upm-card-sub {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--accent-color, #ff6a00);
+  margin: -2px 0 0;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.upm-card-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 0 0 8px 8px;
+  overflow: hidden;
+}
+
+.upm-card-progress > div {
+  height: 100%;
+  background: var(--accent-color, #ff6a00);
+}
+
+.upm-dist-bar {
+  display: flex;
+  height: 6px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.upm-dist-movie {
+  background: var(--accent-color, #ff6a00);
+}
+
+.upm-dist-series {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.upm-dist-legend {
+  display: flex;
+  gap: 14px;
+  margin-top: 8px;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.upm-dist-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 4px;
+}
+
+.upm-dist-dot--movie {
+  background: var(--accent-color, #ff6a00);
+}
+
+.upm-dist-dot--series {
+  background: rgba(255, 255, 255, 0.3);
+}
+
 /* ================================================================
        STREAMING PAGE — Layout estilo animesdigital
        ================================================================ */
@@ -11137,32 +11225,164 @@ button.modal-review-count:hover {
   }
 }
 
+/* ── Miniperfil: drawer inferior en móvil ── */
+.upm-grab {
+  display: none;
+}
+
+@keyframes upmSheetUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
 @media (max-width: 768px) {
-  .upm-content {
+  #user-profile-modal.modal {
+    align-items: flex-end;
+    justify-content: center;
+  }
+
+  #user-profile-modal .upm-content {
+    width: 100%;
     max-width: 100%;
-    border-radius: 16px 16px 0 0;
-    max-height: 92vh;
+    border-radius: 22px 22px 0 0;
+    max-height: 88vh;
+    max-height: 88dvh;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: none;
+    box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.55);
+    will-change: transform;
+  }
+
+  #user-profile-modal.show .upm-content {
+    animation: upmSheetUp 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* Asa para arrastrar */
+  .upm-grab {
+    display: block;
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.3);
+    z-index: 3;
+  }
+
+  .upm-header {
+    min-height: 0;
+    touch-action: none; /* el arrastre del drawer lo maneja JS */
   }
 
   .upm-header-info {
-    padding: 20px 18px 18px;
-    gap: 14px;
+    padding: 28px 56px 14px 16px;
+    gap: 12px;
   }
 
   .upm-avatar,
   .upm-avatar-placeholder {
-    width: 64px;
-    height: 64px;
-    font-size: 2.2rem;
+    width: 56px;
+    height: 56px;
+    font-size: 2rem;
   }
 
   .upm-username {
     font-size: 1.5rem;
+    margin-bottom: 4px;
   }
 
-  .upm-grid {
-    grid-template-columns: repeat(auto-fill, minmax(75px, 1fr));
+  .upm-stats-row {
+    gap: 12px;
+    font-size: 0.78rem;
+  }
+
+  #user-profile-modal .upm-content .close-btn {
+    top: 14px;
+    right: 14px;
+    width: 34px;
+    height: 34px;
+    font-size: 16px;
+    line-height: 1;
+    border-width: 1.5px;
+  }
+
+  .upm-body {
+    padding: 14px 16px calc(22px + env(safe-area-inset-bottom, 0px));
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .upm-mini-stats {
     gap: 8px;
+    margin-top: 4px;
+  }
+
+  .upm-mini-stat {
+    padding: 10px 6px;
+  }
+
+  .upm-mini-stat__val {
+    font-size: 1.3rem;
+  }
+
+  .upm-section {
+    margin-top: 16px;
+  }
+
+  /* Pósters en filas con scroll horizontal: el drawer se mantiene corto */
+  .upm-grid {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    margin: 0 -16px;
+    padding: 0 16px 4px;
+    scroll-padding-left: 16px; /* el snap respeta el margen izquierdo */
+    scrollbar-width: none;
+  }
+
+  /* Espacio al final de la fila (algunos navegadores ignoran el padding derecho) */
+  .upm-grid::after {
+    content: "";
+    flex: 0 0 6px;
+  }
+
+  .upm-grid::-webkit-scrollbar {
+    display: none;
+  }
+
+  .upm-card {
+    flex: 0 0 100px;
+    width: 100px;
+    min-width: 0; /* un título largo no debe ensanchar la tarjeta */
+    max-width: 100px;
+    scroll-snap-align: start;
+  }
+
+  .upm-card-poster-wrap {
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .upm-card-poster-wrap .upm-card-poster {
+    width: 100%;
+    height: 100%;
+    aspect-ratio: auto;
+    object-fit: cover;
+    display: block;
+  }
+
+  .upm-card-badge {
+    max-width: calc(100% - 10px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 7.5px;
+    padding: 2px 5px;
   }
 }
 
@@ -26146,4 +26366,24 @@ body:has(#full-review-modal.show) {
     width: 100% !important;
     opacity: 0.35;
   }
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   PERFIL — sección "Viendo" y tarjeta de 3 estadísticas
+══════════════════════════════════════════════════════════════ */
+/* "Viendo" ocupa todo el ancho de la grilla de secciones (en mobile es flex-column) */
+.prf-section--watching { grid-column: 1 / -1; }
+
+/* Tarjeta Películas · Series · Viendo: 3 ítems en el ancho de una columna */
+.prf-stat-pair--3 .prf-stat-pair-item { min-width: 0; padding: 20px 14px; }
+.prf-stat-pair--3 .prf-ic-label {
+  letter-spacing: 1.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (max-width: 1023px) {
+  .prf-stat-pair--3 .prf-stat-pair-item { padding: 14px 8px; }
+  .prf-stat-pair--3 .prf-ic-label { letter-spacing: 0.5px; font-size: 0.52rem; }
 }
