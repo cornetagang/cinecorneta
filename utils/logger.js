@@ -196,41 +196,69 @@ export const ErrorHandler = {
     },
 
     /**
+     * Un único intento de fetch (sin reintentos, sin notificaciones).
+     */
+    async _fetchOnce(url, options = {}, onProgress = null) {
+        const response = await fetch(url, options);
+        if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+
+        // Con onProgress se lee el cuerpo por trozos para informar los bytes recibidos.
+        // Si el navegador no soporta streams, se cae al método normal.
+        if (typeof onProgress === 'function' && response.body && response.body.getReader) {
+            const reader = response.body.getReader();
+            const chunks = [];
+            let loaded = 0;
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                chunks.push(value);
+                loaded += value.length;
+                onProgress(loaded);
+            }
+            return JSON.parse(await new Blob(chunks).text());
+        }
+
+        return await response.json();
+    },
+
+    /**
      * Wrapper para operaciones Fetch (API).
      * @param {Function|null} onProgress - Opcional: recibe los bytes descargados hasta el momento.
+     *
+     * Además de las opciones normales de fetch, acepta:
+     *   retries    - reintentos tras el primer fallo (default 0 = comportamiento anterior).
+     *   retryDelay - espera base en ms; se duplica en cada reintento (default 1500).
+     *   silent     - true: no muestra la notificación visual (el error igual se registra).
+     *
+     * El error solo se registra/notifica cuando se agotaron todos los intentos.
      */
     async fetchOperation(url, options = {}, onProgress = null) {
-        try {
-            const response = await fetch(url, options);
-            if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const { retries = 0, retryDelay = 1500, silent = false, ...fetchOptions } = options;
+        let lastError;
 
-            // Con onProgress se lee el cuerpo por trozos para informar los bytes recibidos.
-            // Si el navegador no soporta streams, se cae al método normal.
-            if (typeof onProgress === 'function' && response.body && response.body.getReader) {
-                const reader = response.body.getReader();
-                const chunks = [];
-                let loaded = 0;
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-                    chunks.push(value);
-                    loaded += value.length;
-                    onProgress(loaded);
+        for (let attempt = 0; attempt <= retries; attempt++) {
+            try {
+                return await ErrorHandler._fetchOnce(url, fetchOptions, onProgress);
+            } catch (error) {
+                lastError = error;
+                if (attempt < retries) {
+                    // Espera exponencial con algo de azar para no reintentar todos a la vez
+                    const wait = retryDelay * 2 ** attempt + Math.random() * 400;
+                    await new Promise((resolve) => setTimeout(resolve, wait));
                 }
-                return JSON.parse(await new Blob(chunks).text());
             }
+        }
 
-            return await response.json();
-        } catch (error) {
-            logError(error, `Fetch: ${url}`, 'error');
-            console.error('Fetch Error:', error);
-            
-            if (error.name === 'TypeError') {
+        logError(lastError, `Fetch: ${url}`, 'error');
+        console.error('Fetch Error:', lastError);
+
+        if (!silent) {
+            if (lastError && lastError.name === 'TypeError') {
                 this.show(this.types.NETWORK);
             } else {
                 this.show(this.types.CONTENT, 'Error al obtener datos del servidor.');
             }
-            throw error;
         }
+        throw lastError;
     }
 };
