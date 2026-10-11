@@ -981,66 +981,230 @@ function restoreContinueWatchingCarousel() {
     });
 }
 
-async function smartRefreshAndPatch() {
+// ── Descarga del API con tope de paralelismo, reintentos y tolerancia a fallos ──
+// Apps Script lee la hoja completa en cada petición y limita las ejecuciones
+// simultáneas. Lanzar todo junto (5 peticiones + una por saga) puede saturarlo y
+// devolver 404/errores sueltos. Acá se descarga con un máximo de peticiones en
+// paralelo, cada una con reintentos, y si alguna sección falla las demás igual
+// se aplican (la que falló conserva lo que ya había en caché).
+const API_MAX_PARALLEL = 4;
+
+async function fetchApiSections(jobs, limit = API_MAX_PARALLEL) {
+  const results = {};
+  const failed = [];
+  let next = 0;
+  const worker = async () => {
+    while (next < jobs.length) {
+      const job = jobs[next++];
+      try {
+        results[job.key] = await ErrorHandler.fetchOperation(job.url, {
+          retries: 3,
+          silent: true, // refresco en segundo plano: la app ya funciona desde caché
+        });
+      } catch {
+        failed.push(job.key);
+      }
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(limit, jobs.length) }, worker),
+  );
+  return { results, failed };
+}
+
+// Un solo refresco a la vez. Si llega otro disparo mientras uno corre (carga
+// inicial, listener de last_update, listeners de metadata, botón admin...),
+// no se lanza en paralelo: se encola UNA repetición para cuando termine.
+let _refreshInFlight = null;
+let _refreshQueued = false;
+let _refreshForce = false;
+
+// opts.force = true → descarga completa ignorando las versiones por sección.
+function smartRefreshAndPatch(opts = {}) {
+  if (opts.force) _refreshForce = true;
+  if (_refreshInFlight) {
+    _refreshQueued = true;
+    return _refreshInFlight;
+  }
+  _refreshInFlight = (async () => {
+    try {
+      let result;
+      do {
+        _refreshQueued = false;
+        const force = _refreshForce;
+        _refreshForce = false;
+        result = await smartRefreshOnce({ force });
+      } while (_refreshQueued);
+      return result;
+    } finally {
+      _refreshInFlight = null;
+      _refreshQueued = false;
+      _refreshForce = false;
+    }
+  })();
+  return _refreshInFlight;
+}
+
+// ── Versiones por sección (actualización incremental) ──────────────────────
+// El Apps Script expone `?data=manifest` con una versión por hoja (se actualiza
+// sola cuando editás esa hoja). Acá se guarda la última versión descargada de
+// cada sección; en cada refresco solo se piden las que cambiaron. Si el
+// manifest no existe o falla, se cae al comportamiento anterior (bajar todo).
+const SECTION_VERSIONS_KEY = "section_versions";
+const CORE_SECTION_KEYS = ["allMovies", "series", "episodes", "posters", "sagas_list"];
+// Red de seguridad: aunque el manifest diga "sin cambios", cada tanto se baja
+// todo, por si alguna hoja no está reportando bien sus versiones.
+const FULL_REFRESH_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+
+function loadSectionVersions() {
   try {
-    // 1. Descargar datos frescos en paralelo
-    const [series, episodes, allMovies, posters, sagasListData] =
-      await Promise.all([
-        ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=series`),
-        ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=episodes`),
-        ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=allMovies&order=desc`),
-        ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=PostersTemporadas`),
-        ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=sagas_list`),
-      ]);
+    const v = JSON.parse(localStorage.getItem(SECTION_VERSIONS_KEY));
+    return v && typeof v === "object" ? v : null;
+  } catch {
+    return null;
+  }
+}
 
-    const sagasArray = Object.values(sagasListData || {});
-    const sagasResults = await Promise.all(
-      sagasArray.map((saga) =>
-        ErrorHandler.fetchOperation(`${API_URL.BASE_URL}?data=${saga.id}`).then(
-          (data) => ({ id: saga.id, data }),
-        ),
-      ),
+function saveSectionVersions(versions) {
+  try {
+    localStorage.setItem(SECTION_VERSIONS_KEY, JSON.stringify(versions));
+  } catch {}
+}
+
+async function fetchSectionManifest() {
+  try {
+    const m = await ErrorHandler.fetchOperation(
+      `${API_URL.BASE_URL}?data=manifest&_=${Date.now()}`,
+      { retries: 2, silent: true },
     );
+    // Validar la forma: { nombreHoja: versión }. Si el Apps Script aún no
+    // conoce "manifest" puede devolver otra cosa (error, lista, etc.).
+    const ok =
+      m &&
+      typeof m === "object" &&
+      !Array.isArray(m) &&
+      !("error" in m) &&
+      Object.values(m).every((v) => typeof v === "string" || typeof v === "number");
+    return ok ? m : null;
+  } catch {
+    return null;
+  }
+}
 
-    const freshContent = {
-      allMovies,
-      series,
-      episodes,
-      posters,
-      sagas_list: sagasListData,
-    };
-    sagasResults.forEach(({ id, data }) => {
-      freshContent[id] = data;
-    });
-
-    // 2. Comparar con el caché actual
+async function smartRefreshOnce({ force = false } = {}) {
+  try {
     const cachedContent = cacheManager.get(cacheManager.keys.content);
 
+    // 0. ¿Qué secciones cambiaron? (1 petición liviana)
+    const manifest = await fetchSectionManifest();
+    const localVersions = loadSectionVersions();
+    const fullAgeOk =
+      !!localVersions &&
+      Date.now() - Number(localVersions.__fullAt || 0) < FULL_REFRESH_MAX_AGE_MS;
+    const useDelta = !!(manifest && cachedContent && localVersions && fullAgeOk && !force);
+    const ver = (name) => String(manifest?.[name] ?? "0");
+    const needs = (key, name) =>
+      !useDelta || !(key in cachedContent) || localVersions[name] !== ver(name);
+
+    // Versiones que se confirman SOLO para lo que se descargó bien
+    const newVersions = { ...(localVersions || {}) };
+    const commitVersions = (names, wasFull) => {
+      if (!manifest) return;
+      names.forEach((name) => (newVersions[name] = ver(name)));
+      // Marca de "descarga completa exitosa" para la red de seguridad
+      if (wasFull) newVersions.__fullAt = Date.now();
+      saveSectionVersions(newVersions);
+    };
+
+    // 1. Núcleo del catálogo: solo lo que cambió (con tope de paralelismo)
+    const coreAll = [
+      { key: "allMovies", name: "allMovies", url: `${API_URL.BASE_URL}?data=allMovies&order=desc` },
+      { key: "sagas_list", name: "sagas_list", url: `${API_URL.BASE_URL}?data=sagas_list` },
+      { key: "series", name: "series", url: `${API_URL.BASE_URL}?data=series` },
+      { key: "episodes", name: "episodes", url: `${API_URL.BASE_URL}?data=episodes` },
+      { key: "posters", name: "PostersTemporadas", url: `${API_URL.BASE_URL}?data=PostersTemporadas` },
+    ];
+    const coreJobs = coreAll.filter((j) => needs(j.key, j.name));
+    const core = await fetchApiSections(coreJobs);
+
+    // 2. Sagas: lista fresca si cambió, si no la del caché
+    const sagasListData =
+      core.results.sagas_list ?? cachedContent?.sagas_list ?? {};
+    const sagasArray = Object.values(sagasListData);
+    const sagaJobs = sagasArray
+      .filter((saga) => needs(saga.id, saga.id))
+      .map((saga) => ({
+        key: saga.id,
+        name: saga.id,
+        url: `${API_URL.BASE_URL}?data=${saga.id}`,
+      }));
+    const sagas = await fetchApiSections(sagaJobs);
+
+    const failed = [...core.failed, ...sagas.failed];
+    const fetchedResults = { ...core.results, ...sagas.results };
+    const nameOf = Object.fromEntries(
+      [...coreJobs, ...sagaJobs].map((j) => [j.key, j.name]),
+    );
+    const okNames = Object.keys(fetchedResults).map((k) => nameOf[k]);
+
+    // 3. Sin caché previa: se guarda solo si llegó TODO
     if (!cachedContent) {
-      // Sin caché previa: guardar directamente y parchear appState
-      cacheManager.set(cacheManager.keys.content, freshContent);
-      if (window.processDataPublic) window.processDataPublic(freshContent);
+      if (failed.length) {
+        console.warn("⚠ Sin caché y fallaron secciones, no se guarda:", failed);
+        return { changed: false, sections: [], failed };
+      }
+      cacheManager.set(cacheManager.keys.content, fetchedResults);
+      commitVersions(okNames, true);
+      if (window.processDataPublic) window.processDataPublic(fetchedResults);
       console.log("✓ Caché inicial guardada por smartRefreshAndPatch.");
-      return { changed: true, sections: Object.keys(freshContent) };
+      return { changed: true, sections: Object.keys(fetchedResults), failed };
+    }
+
+    // 4. Lo no descargado (sin cambios o fallido) conserva la caché
+    const freshContent = { ...cachedContent, ...fetchedResults };
+
+    // Sagas que ya no están en sagas_list se descartan (como antes)
+    if ("sagas_list" in core.results) {
+      const valid = new Set(sagasArray.map((s) => s.id));
+      Object.keys(freshContent).forEach((k) => {
+        if (!CORE_SECTION_KEYS.includes(k) && !valid.has(k)) delete freshContent[k];
+      });
+    }
+
+    if (failed.length) {
+      console.warn(
+        `⚠ No se pudieron actualizar [${failed.join(", ")}]; se conserva la caché de esas secciones.`,
+      );
+    }
+    if (useDelta) {
+      console.log(
+        `⟳ Actualización incremental: ${coreJobs.length + sagaJobs.length} sección(es) a revisar` +
+          (coreJobs.length + sagaJobs.length
+            ? ` [${[...coreJobs, ...sagaJobs].map((j) => j.key).join(", ")}]`
+            : ""),
+      );
     }
 
     const changedSections = detectChanges(cachedContent, freshContent);
 
     if (changedSections.length === 0) {
+      commitVersions(okNames, !useDelta && !failed.length);
       console.log("✓ Sin cambios detectados — caché vigente, sin tocar nada.");
-      return { changed: false, sections: [] };
+      return { changed: false, sections: [], failed };
     }
 
-    // 3. Solo actualizar las secciones que cambiaron
+    // 5. Solo actualizar las secciones que cambiaron
     const patchedCache = { ...cachedContent };
     changedSections.forEach((key) => {
-      patchedCache[key] = freshContent[key];
+      if (key in freshContent) patchedCache[key] = freshContent[key];
+      else delete patchedCache[key];
     });
 
     cacheManager.set(cacheManager.keys.content, patchedCache);
+    commitVersions(okNames, !useDelta && !failed.length);
     console.log(`✓ Caché actualizada parcialmente. Secciones: [${changedSections.join(", ")}]`);
 
-    // 4. Parchear appState y re-renderizar sin recargar la página
+    // 6. Parchear appState y re-renderizar sin recargar la página
     if (window.processDataPublic) window.processDataPublic(patchedCache);
 
     const activeNav = document.querySelector(
@@ -1060,10 +1224,10 @@ async function smartRefreshAndPatch() {
       window.showNotification("Contenido actualizado", "success");
     }
 
-    return { changed: true, sections: changedSections };
+    return { changed: true, sections: changedSections, failed };
   } catch (err) {
     console.warn("⚠ smartRefreshAndPatch falló, sin tocar el caché:", err);
-    return { changed: false, sections: [] };
+    return { changed: false, sections: [], failed: ["*"] };
   }
 }
 
@@ -1087,6 +1251,11 @@ async function fetchInitialDataWithCache() {
         // diff en background y solo actualizamos lo que cambió.
         // Ya no hay recarga de página ni borrado de caché completo.
         smartRefreshAndPatch().then((result) => {
+          if (result.failed?.length) {
+            // Falló alguna sección: devolver el timestamp para que se reintente
+            // en la próxima carga en vez de darla por actualizada.
+            localStorage.setItem("local_last_update", localLastUpdate);
+          }
           if (result.changed) {
             console.log(
               `✓ Actualización silenciosa aplicada. Secciones: [${result.sections.join(", ")}]`,
@@ -1313,7 +1482,7 @@ async function fetchInitialDataWithCache() {
       // Descarga JSON informando los bytes recibidos a la barra
       const fetchJson = (phase, key, url) =>
         progress.track(phase, key, (onBytes) =>
-          ErrorHandler.fetchOperation(url, {}, onBytes),
+          ErrorHandler.fetchOperation(url, { retries: 3 }, onBytes),
         );
 
       progress.phase("catalog", 7, "Descargando el catálogo");
@@ -1448,7 +1617,8 @@ async function refreshDataInBackground() {
   // Usamos una flag para ignorar el disparo inicial (ya tenemos el
   // caché cargado desde fetchInitialDataWithCache).
   const watchedNodes = [
-    "system_metadata/last_update", // disparo manual del admin
+    // "system_metadata/last_update" ya lo atiende fetchInitialDataWithCache;
+    // vigilarlo acá también disparaba el mismo refresco completo dos veces.
     "movie_metadata",              // metadata de películas
     "series_metadata",             // metadata de series
   ];
@@ -11597,7 +11767,7 @@ window.adminForceUpdate = async () => {
   }
 
   try {
-    await smartRefreshAndPatch();
+    await smartRefreshAndPatch({ force: true });
   } finally {
     // Siempre restaurar el botón, haya fallado o no
     if (btn) {
