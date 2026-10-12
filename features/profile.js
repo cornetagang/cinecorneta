@@ -38,7 +38,22 @@ let isDropdownInitialized = false;
 // Una película a medias (0 < progreso < 85%) está "en progreso": sigue en el
 // historial y en "Continuar viendo", pero no suma a las estadísticas.
 const WATCHED_MOVIE_RATIO = 0.85; // mantener igual a MOVIE_WATCHED_RATIO de player.js
+// IDs de películas marcadas como vistas (users/{uid}/roulette_watched). Esa marca
+// se escribe al llegar al 85% (o con "Marcar como vista") y NO se borra por volver
+// a ver la película: así "vista" y "continuar viendo" son cosas independientes.
+let _watchedMovieIds = new Set();
+async function _loadWatchedMovieIds(uid) {
+    try {
+        const snap = await shared.db.ref(`users/${uid}/roulette_watched`).once('value');
+        _watchedMovieIds = new Set(Object.keys(snap.val() || {}));
+    } catch (e) {
+        // sin la marca se cae al cálculo por progreso (comportamiento anterior)
+    }
+}
+
 function isWatchedMovieEntry(item) {
+    const id = item?.contentId || item?.key;
+    if (id && _watchedMovieIds.has(id)) return true; // vista alguna vez
     const p = item?.progress;
     if (typeof p !== 'number' || p === 0) return true;
     return p >= WATCHED_MOVIE_RATIO;
@@ -1335,6 +1350,7 @@ async function _loadRecentHistory(user) {
         }
 
         // Películas vistas (≥85% o marcadas con el ojo)
+        await _loadWatchedMovieIds(user.uid);
         const lastMovies = history.filter(h => h.type === 'movie' && isWatchedMovieEntry(h)).slice(0, 6);
 
         // Series vistas = TERMINADAS (más recientes primero). Se muestra la serie
@@ -1403,6 +1419,7 @@ async function calculateAndDisplayUserStats() {
         }
 
         const history = historySnapshot.val();
+        await _loadWatchedMovieIds(user.uid);
         let moviesWatched = 0;
 
         for (const item of Object.values(history)) {
