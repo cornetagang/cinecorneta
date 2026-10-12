@@ -9217,7 +9217,30 @@ function addToHistoryIfLoggedIn(contentId, type, episodeInfo = {}) {
   // Devolvemos la promesa del write para que los callers puedan
   // encadenar .then() / await y evitar race conditions al leer el historial
   // inmediatamente después (Bug 2).
-  return db.ref(`users/${user.uid}/history/${historyKey}`).set(historyEntry);
+  const historyRef = db.ref(`users/${user.uid}/history/${historyKey}`);
+
+  // Película YA TERMINADA (progreso ≥ 85%): volver a verla, saltar escenas o
+  // comentarla no le quita el estado de "vista". Antes cada guardado pisaba el
+  // progreso con la posición actual y la película volvía a "Viendo" con la
+  // barra casi vacía. (Las series ya lo resuelven con series_completed.)
+  // Para empezarla de cero, "Quitar de vistas" borra la entrada completa.
+  if (!isSeries) {
+    return historyRef.once("value").then((snap) => {
+      const prev = snap.val();
+      if (
+        prev &&
+        typeof prev.progress === "number" &&
+        prev.progress >= 0.85 &&
+        historyEntry.progress < prev.progress
+      ) {
+        historyEntry.progress = prev.progress;
+        delete historyEntry.time; // terminada: no hay punto de retomar
+      }
+      return historyRef.set(historyEntry);
+    });
+  }
+
+  return historyRef.set(historyEntry);
 }
 
 // ===========================================================
