@@ -7672,12 +7672,28 @@ async function openDetailsModal(id, type, triggerElement = null) {
         popover.appendChild(popStar);
 
         // — Ítem Ojo (solo películas logueadas) —
+        let refreshEyeUI = null;
         if (!isSeries && auth.currentUser) {
           const roulette = await getRouletteModule();
           await roulette.whenWatchedReady?.();
-          const isWatched = roulette.isMovieWatched
-            ? roulette.isMovieWatched(id)
-            : false;
+          // "Vista" = marcada en roulette_watched (se escribe al 85% o a mano) O
+          // entrada de historial terminada. Misma regla que el perfil, para que
+          // el menú y "Películas vistas" nunca se contradigan.
+          const isWatchedNow = async () => {
+            if (roulette.isMovieWatched?.(id)) return true;
+            try {
+              const snap = await db
+                .ref(`users/${auth.currentUser.uid}/history/${id}`)
+                .once("value");
+              const h = snap.val();
+              if (!h || h.type !== "movie") return false;
+              const pr = h.progress;
+              return typeof pr !== "number" || pr === 0 || pr >= 0.85;
+            } catch (_) {
+              return false;
+            }
+          };
+          const isWatched = await isWatchedNow();
 
           const divider1 = document.createElement("div");
           divider1.className = "dv-more-popover-divider";
@@ -7701,6 +7717,15 @@ async function openDetailsModal(id, type, triggerElement = null) {
             }
           };
           popover.appendChild(popEye);
+
+          // Se vuelve a calcular cada vez que se abre el menú: si la película se
+          // marcó mientras estaba abierta esta pantalla (al llegar al 85%), el
+          // texto se actualiza solo.
+          refreshEyeUI = async () => {
+            const w = await isWatchedNow();
+            popEye.classList.toggle("is-watched", w);
+            popEye.innerHTML = `<span class="dv-pop-icon"><i class="fas ${w ? "fa-eye" : "fa-eye-slash"}"></i></span><span>${w ? "Quitar de vistas" : "Marcar como vista"}</span>`;
+          };
         }
 
         // — Ítem Discord (solo admin) —
@@ -7748,6 +7773,7 @@ async function openDetailsModal(id, type, triggerElement = null) {
             .querySelectorAll(".dv-more-btn.active")
             .forEach((b) => b.classList.remove("active"));
           if (!isOpen) {
+            if (refreshEyeUI) refreshEyeUI();
             popover.classList.add("open");
             moreBtn.classList.add("active");
           }
@@ -8317,7 +8343,7 @@ async function openSeriesDetailView(id) {
       };
       setDoneUI(false);
       // Estado actual: marcada a mano, o terminada viéndola (último episodio al ≥90%).
-      (async () => {
+      const refreshSeriesDone = async () => {
         const user = auth.currentUser;
         if (!user) return;
         try {
@@ -8333,7 +8359,8 @@ async function openSeriesDetailView(id) {
             _isLastEpisodeOfSeries(id, h.season, h.lastEpisode);
           setDoneUI(doneSnap.exists() || derived);
         } catch (_) {}
-      })();
+      };
+      refreshSeriesDone();
       spPopDone.onclick = async () => {
         spPopover.classList.remove("open");
         spMoreBtn.classList.remove("active");
@@ -8411,6 +8438,7 @@ async function openSeriesDetailView(id) {
           .querySelectorAll(".dv-more-btn.active")
           .forEach((b) => b.classList.remove("active"));
         if (!isOpen) {
+          refreshSeriesDone(); // el estado puede haber cambiado viendo capítulos
           spPopover.classList.add("open");
           spMoreBtn.classList.add("active");
         }
@@ -9217,30 +9245,11 @@ function addToHistoryIfLoggedIn(contentId, type, episodeInfo = {}) {
   // Devolvemos la promesa del write para que los callers puedan
   // encadenar .then() / await y evitar race conditions al leer el historial
   // inmediatamente después (Bug 2).
-  const historyRef = db.ref(`users/${user.uid}/history/${historyKey}`);
-
-  // Película YA TERMINADA (progreso ≥ 85%): volver a verla, saltar escenas o
-  // comentarla no le quita el estado de "vista". Antes cada guardado pisaba el
-  // progreso con la posición actual y la película volvía a "Viendo" con la
-  // barra casi vacía. (Las series ya lo resuelven con series_completed.)
-  // Para empezarla de cero, "Quitar de vistas" borra la entrada completa.
-  if (!isSeries) {
-    return historyRef.once("value").then((snap) => {
-      const prev = snap.val();
-      if (
-        prev &&
-        typeof prev.progress === "number" &&
-        prev.progress >= 0.85 &&
-        historyEntry.progress < prev.progress
-      ) {
-        historyEntry.progress = prev.progress;
-        delete historyEntry.time; // terminada: no hay punto de retomar
-      }
-      return historyRef.set(historyEntry);
-    });
-  }
-
-  return historyRef.set(historyEntry);
+  // El progreso se guarda siempre tal cual (así una película que se vuelve a ver
+  // a medias reaparece en "Continuar viendo" y se puede retomar). El estado de
+  // "vista" NO depende de este valor: vive aparte en roulette_watched, que se
+  // escribe al llegar al 85% y no se borra por volver a ver la película.
+  return db.ref(`users/${user.uid}/history/${historyKey}`).set(historyEntry);
 }
 
 // ===========================================================
