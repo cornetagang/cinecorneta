@@ -1,0 +1,172 @@
+/* =============================================================
+   COMING-SOON.CSS — Series "Próximamente" (bloqueadas)
+   Cargar DESPUÉS de main.css y themes.css.
+   ============================================================= */
+
+/* ── Tarjetas (carrusel y grillas) ─────────────────────────── */
+.card-locked {
+  cursor: pointer;
+}
+
+.card-locked .lock-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px;
+  text-align: center;
+  border-radius: inherit;
+  background: linear-gradient(to top, rgba(5, 7, 10, 0.88), rgba(5, 7, 10, 0.55));
+  backdrop-filter: grayscale(0.85) blur(1.5px);
+  -webkit-backdrop-filter: grayscale(0.85) blur(1.5px);
+  pointer-events: none;
+}
+
+.card-locked .lock-overlay i {
+  font-size: 1.5rem;
+  color: var(--accent-color);
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.6));
+}
+
+.card-locked .lock-title {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: #fff;
+}
+
+.card-locked .lock-date {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--accent-color);
+}
+
+/* La insignia y el botón de lista quedan por encima del velo */
+.card-locked .badges-container {
+  z-index: 4;
+}
+.card-locked .btn-watchlist {
+  z-index: 4;
+}
+
+/* Sin info de hover (episodios, año…) en tarjetas bloqueadas */
+.card-locked .card-overlay {
+  display: none;
+}
+
+/* ── Detalle de serie: aviso en lugar de los botones ──────── */
+.sp-lock-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+  padding: 16px 22px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(13, 27, 42, 0.92), rgba(26, 58, 92, 0.78));
+  border: 1.5px solid rgba(74, 158, 255, 0.55);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.sp-lock-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 3px;
+  color: #4a9eff;
+}
+
+.sp-lock-date {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.sp-lock-count {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  font-variant-numeric: tabular-nums;
+}
+
+.sp-lock-admin-btn {
+  margin-top: 10px;
+  padding: 10px 22px;
+  font-size: 0.72rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0.85;
+}
+
+/* En laptops / zoom: aviso un poco más compacto */
+@media (max-height: 900px) {
+  .sp-lock-box {
+    padding: 12px 18px;
+    gap: 4px;
+  }
+  .sp-lock-date {
+    font-size: 0.95rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .sp-lock-box {
+    width: 100%;
+    align-items: center;
+    text-align: center;
+  }
+}
+
+/* ── Reproducir bloqueado: el botón muestra la cuenta regresiva ── */
+.sp-play-locked,
+.sp-play-locked:hover {
+  cursor: not-allowed !important;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(13, 27, 42, 0.92), rgba(26, 58, 92, 0.78)) !important;
+  border: 1.5px solid rgba(74, 158, 255, 0.55) !important;
+  color: #fff !important;
+  box-shadow: none !important;
+  opacity: 1;
+}
+
+.sp-play-locked i {
+  color: #4a9eff;
+  font-size: 1.05rem;
+  margin-right: 10px;
+}
+
+.sp-play-lock-text {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.15;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+.sp-play-lock-text small {
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: #4a9eff;
+}
+
+.sp-play-lock-text b {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #fff;
+}
+
+.sp-admin-preview-btn {
+  opacity: 0.85;
+}
