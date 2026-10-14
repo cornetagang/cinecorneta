@@ -305,6 +305,10 @@ function safePlay(target) {
 function _seriesBlocked(seriesId) {
   try { return !!window.isSeriesBlocked?.(seriesId); } catch (_) { return false; }
 }
+// Película bloqueada ("Próximamente"): tampoco se abre por ninguna vía
+function _movieBlocked(movieId) {
+  try { return !!window.isMovieBlocked?.(movieId); } catch (_) { return false; }
+}
 
 export function initPlayer(dependencies) {
   shared = dependencies;
@@ -6216,6 +6220,7 @@ function changeLanguage(seriesId, lang) {
 // 6. REPRODUCTOR DE PELÍCULAS
 export function openPlayerModal(movieId, movieTitle) {
   try {
+    if (_movieBlocked(movieId)) return;
     const movieData = findContentData(movieId);
 
     if (
