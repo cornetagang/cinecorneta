@@ -4535,8 +4535,9 @@ function _bentoSideTypeHTML(data, type, id) {
     // Determinar estado usando las mismas funciones que usan las tarjetas
     let info;
     if (id) {
-      const isNew = isDateRecent(data.date_added);
-      const hasNewEp = hasRecentEpisodes(id);
+      const _lk = !!getSeriesLock(id, data);
+      const isNew = !_lk && isDateRecent(data.date_added);
+      const hasNewEp = !_lk && hasRecentEpisodes(id);
 
       // Nueva temporada = temporada reciente que NO es la primera
       // (misma lógica que la sección Novedades)
@@ -4544,7 +4545,7 @@ function _bentoSideTypeHTML(data, type, id) {
       const _seasonOrder =
         (appState.content.seasonOrder || {})[id] ||
         Object.keys((appState.content.seriesEpisodes || {})[id] || {});
-      const hasNewSeason = Object.entries(_posters).some(
+      const hasNewSeason = !_lk && Object.entries(_posters).some(
         ([key, s]) =>
           typeof s === "object" &&
           isDateRecent(s.date_added) &&
@@ -4606,7 +4607,8 @@ function _bentoSideTypeHTML(data, type, id) {
     return { main: dot + info.text, sub };
   }
   // Película: mostrar "Estreno · Película" si es reciente, si no solo "Película"
-  const isNewMovie = isDateRecent(data.date_added);
+  const isNewMovie =
+    isDateRecent(data.date_added) && !(id && getMovieLock(id, data));
   const movieDot = isNewMovie
     ? `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#22c55e;margin-right:6px;vertical-align:middle;"></span>`
     : `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent-color);margin-right:6px;vertical-align:middle;"></span>`;
@@ -5508,7 +5510,9 @@ function _initNovedadesSection() {
 
   // ── Películas con date_added ─────────────────────────────────
   const movieItems = Object.entries(movies)
-    .filter(([, d]) => d.date_added)
+    // Solo películas ya estrenadas: con fecha/hora cumplida Y con videoId.
+    // getMovieLock cubre "aún no llega la fecha" y "llegó la fecha pero sin video".
+    .filter(([id, d]) => d.date_added && !getMovieLock(id, d))
     .map(([id, d]) => ({
       id,
       data: d,
@@ -5524,12 +5528,23 @@ function _initNovedadesSection() {
 
   // ── Series: temporadas con date_added en PostersTemporadas ──
   const seriesItems = Object.entries(series).flatMap(([id, d]) => {
+    // Serie bloqueada (fecha futura o sin videoId) → no es novedad
+    if (getSeriesLock(id, d)) return [];
     const episodesData = allEps[id] || {};
     const seasonOrder = allOrd[id] || Object.keys(episodesData);
     const posters = allPosters[id] || {};
 
     const seasonEntries = Object.entries(posters)
-      .filter(([, s]) => typeof s === "object" && s.date_added)
+      .filter(([seasonKey, s]) => {
+        if (typeof s !== "object" || !s.date_added) return false;
+        // Temporada que aún no sale (fecha/hora futura) → no es novedad
+        const when = _calParseDate(s.date_added);
+        if (when && when.ts > Date.now()) return false;
+        // Llegó la fecha pero ningún episodio tiene videoId → tampoco
+        const sEps = episodesData[seasonKey];
+        const sList = Array.isArray(sEps) ? sEps : Object.values(sEps || {});
+        return sList.some((ep) => ep && typeof ep === "object" && _calHasVideo(ep));
+      })
       .map(([seasonKey, s]) => ({
         seasonKey,
         date: new Date(s.date_added),
@@ -5603,6 +5618,8 @@ function _initNovedadesSection() {
   );
 
   const newEpisodeItems = Object.entries(series).flatMap(([id, d]) => {
+    // Serie bloqueada (fecha futura o sin videoId) → no es novedad
+    if (getSeriesLock(id, d)) return [];
     // Si esta serie ya tiene una temporada nueva en la fila, no la duplicamos
     const seriesStatus = (
       d.seriesStatus ||
@@ -5650,6 +5667,10 @@ function _initNovedadesSection() {
         // Si la fecha sigue siendo inválida, la saltamos
         if (isNaN(epDate.getTime())) return;
 
+        // Aún no sale (fecha/hora futura) o no tiene videoId → no cuenta
+        if (epDate.getTime() > Date.now()) return;
+        if (!_calHasVideo(ep)) return;
+
         if (!latestDate || epDate > latestDate) {
           latestDate = epDate;
           latestEp = ep;
@@ -5670,7 +5691,7 @@ function _initNovedadesSection() {
         const lastIdx = [...sList]
           .map((ep, i) => ({ ep, i }))
           .reverse()
-          .find(({ ep }) => ep?.title);
+          .find(({ ep }) => ep?.title && _calHasVideo(ep));
         if (lastIdx) {
           latestEp = lastIdx.ep;
           latestSeasonKey = sk;
