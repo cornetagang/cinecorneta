@@ -301,6 +301,11 @@ function safePlay(target) {
 }
 
 // 1. INICIALIZACIÓN
+// Serie bloqueada ("Próximamente"): ninguna vía de reproducción debe abrirla
+function _seriesBlocked(seriesId) {
+  try { return !!window.isSeriesBlocked?.(seriesId); } catch (_) { return false; }
+}
+
 export function initPlayer(dependencies) {
   shared = dependencies;
 
@@ -4374,6 +4379,7 @@ export function closeSeriesPlayerModal() {
 }
 
 export async function openSeriesPlayer(seriesId, forceSeasonGrid = false) {
+  if (_seriesBlocked(seriesId)) return;
   try {
     shared.closeAllModals();
 
@@ -6415,6 +6421,7 @@ function loadMovieInPlayer(videoId, movieId, movieData, lang = "es", onHalfway =
 // Espejo de openPlayerModal + loadMovieInPlayer con prefijo sp-
 // ===========================================================
 export async function playSeriesInDetailView(seriesId) {
+  if (_seriesBlocked(seriesId)) return;
   try {
     const seriesData = findContentData(seriesId);
     if (!seriesData) {
@@ -6752,6 +6759,7 @@ export async function playSeriesInDetailView(seriesId) {
 
 // ── Abre el reproductor nuevo (sp-detail-view) en un episodio específico ──
 export function playEpisodeInDetailView(seriesId, season, episodeIndex) {
+  if (_seriesBlocked(seriesId)) return;
   try {
     const seriesData = findContentData(seriesId);
     if (!seriesData) {
@@ -7888,6 +7896,7 @@ export function loadSeriesTrack(videoId, seriesId, seriesData, lang) {
 }
 
 export function playRandomEpisode(seriesId) {
+  if (_seriesBlocked(seriesId)) return;
   const episodesData = shared.appState.content.seriesEpisodes[seriesId];
   if (!episodesData) {
     shared.ErrorHandler.show(
@@ -7919,6 +7928,7 @@ export function playRandomEpisode(seriesId) {
 }
 
 export function openSeriesPlayerDirectlyToSeason(seriesId, seasonNum) {
+  if (_seriesBlocked(seriesId)) return;
   const seriesInfo = findContentData(seriesId);
   if (!seriesInfo) return;
 
@@ -7928,6 +7938,7 @@ export function openSeriesPlayerDirectlyToSeason(seriesId, seasonNum) {
 }
 
 export function openPlayerToEpisode(seriesId, seasonNum, episodeIndex) {
+  if (_seriesBlocked(seriesId)) return;
   const seriesInfo = findContentData(seriesId);
   if (!seriesInfo) return;
 
