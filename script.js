@@ -83,7 +83,7 @@ let statsModule = null;
 
 async function getPlayerModule() {
   if (playerModule) return playerModule;
-  const module = await import("./features/player.js?v=39");
+  const module = await import("./features/player.js?v=40");
   module.initPlayer({
     appState,
     DOM,
@@ -4407,7 +4407,7 @@ function _bentoDailyPick(movies, series, watchedIds = new Set(), topGenres = [],
       .filter(([, d]) => _isPlayable(d) && (_adminOk || !isAdminContent(d)))
       .map(([id, d]) => ({ id, data: d, type: "movie" })),
     ...Object.entries(series || {})
-      .filter(([, d]) => _isPlayable(d) && (_adminOk || !isAdminContent(d)))
+      .filter(([sid, d]) => _isPlayable(d) && (_adminOk || !isAdminContent(d)) && !getSeriesLock(sid, d))
       .map(([id, d]) => ({ id, data: d, type: "series" })),
   ].filter(({ id }) => !dismissed.has(id)); // "No me interesa": nunca se vuelve a recomendar
   if (!pool.length) return null;
@@ -5993,6 +5993,11 @@ function _bentoCreateCarousel(title, dataSource, type) {
       }
     }
 
+    const _lock = type === "series" ? getSeriesLock(id, item) : null;
+    if (_lock) {
+      badgeHTML = `<div class="new-episode-badge badge-proximamente">PRÓXIMAMENTE</div>`;
+      card.classList.add("card-locked");
+    }
     const ribbonHTML = badgeHTML
       ? `<div class="badges-container">${badgeHTML}</div>`
       : "";
@@ -6021,7 +6026,7 @@ function _bentoCreateCarousel(title, dataSource, type) {
       if (parts.length)
         infoHTML = `<div class="card-overlay-info">${parts.join(" · ")}</div>`;
     }
-    card.innerHTML = `${ribbonHTML}<div class="card-overlay">${infoHTML}</div>`;
+    card.innerHTML = `${ribbonHTML}<div class="card-overlay">${infoHTML}</div>${_lock ? _lockOverlayHTML(_lock) : ""}`;
     card.onclick = () => openDetailsModal(id, type);
     row.appendChild(card);
   });
@@ -6086,6 +6091,180 @@ const _calEpDate = (ep) =>
   _calEpField(ep, (k) => k.includes("estreno")) ||
   _calEpField(ep, (k) => k === "fecha" || k.includes("airdate") || k.includes("releasedate"));
 
+/* ── SERIES "PRÓXIMAMENTE": bloqueo por fecha + respaldo por videoId ─────────
+   Una serie es de "estreno programado" si, en la hoja de series:
+     · la columna estado dice "Próximamente" (con o sin fecha), o
+     · tiene fecha de estreno de serie (columna fechaEstreno / estreno /
+       releaseDate) o una fecha escrita dentro de estado
+       (ej.: "Próximamente 20/10/2026").
+   Mientras lo sea, queda BLOQUEADA si se cumple cualquiera de estas dos:
+     1) La fecha y hora de estreno (date_added de la serie) todavía no llegan.
+     2) Ningún episodio tiene videoId / videoId_es / videoId_en. Es el respaldo: aunque llegue la fecha, no
+        se abre hasta que subas al menos un capítulo.
+   Para desbloquearla no hay que tocar código: basta con que llegue la fecha Y que
+   haya un videoId. Un admin puede entrar igual (vista previa) para probarla. */
+const _LOCK_MON = ["ENE","FEB","MAR","ABR","MAY","JUN","JUL","AGO","SEP","OCT","NOV","DIC"];
+const _LOCK_DATE_KEYS = ["fechaestreno","fechadeestreno","estreno","releasedate","fechalanzamiento"];
+
+function _lockSeriesDate(d) {
+  for (const key of Object.keys(d || {})) {
+    if (!_LOCK_DATE_KEYS.includes(_calNormKey(key))) continue;
+    const v = d[key];
+    if (v === "" || v === null || v === undefined) continue;
+    const p = _calParseDate(v);
+    if (p) return p;
+  }
+  const m = String(d?.estado || "").match(/\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{4}/);
+  return m ? _calParseDate(m[0]) : null;
+}
+
+function _lockFmt(ts, dateOnly) {
+  const dt = new Date(ts);
+  return {
+    long: dt.toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" }),
+    short: `${dt.getDate()} ${_LOCK_MON[dt.getMonth()]}`,
+    time: dateOnly ? "" : dt.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }),
+  };
+}
+
+// Devuelve null si la serie está disponible, o { reason: "date" | "video", ts, long, short, time }.
+// La fecha y hora de estreno la manda SIEMPRE date_added de la hoja de series.
+//   · Antes de esa fecha/hora → bloqueada con cuenta regresiva (reason "date").
+//   · Llegada la fecha: si algún episodio tiene videoId / videoId_es / videoId_en → disponible.
+//   · Llegada la fecha y sin ningún video → sigue bloqueada, "Próximamente" (reason "video").
+function getSeriesLock(id, data) {
+  try {
+    data = appState.content.series[id] || data;
+    if (!data) return null;
+    const est = String(data.estado || "").trim().toLowerCase();
+    if (est === "vetada" || est === "mantenimiento") return null; // otros estados: no tocar
+    const explicit = /pr[oó]xim/.test(est);
+
+    let hasVideo = false;
+    let hasRows = false;
+    let firstEp = null;
+    const seasons = appState.content.seriesEpisodes[id] || {};
+    Object.values(seasons).forEach((sea) => {
+      (Array.isArray(sea) ? sea : Object.values(sea || {})).forEach((ep) => {
+        if (!ep || typeof ep !== "object") return;
+        hasRows = true;
+        if (_calHasVideo(ep)) hasVideo = true;
+        const pd = _calParseDate(_calEpDate(ep));
+        if (pd && (!firstEp || pd.ts < firstEp.ts)) firstEp = pd;
+      });
+    });
+
+    // date_added primero; si no hay, fecha propia de la serie o primer episodio sin video
+    const when = _calParseDate(data.date_added) || _lockSeriesDate(data) || (!hasVideo ? firstEp : null);
+    if (when && Date.now() < when.ts) {
+      return { reason: "date", ts: when.ts, ..._lockFmt(when.ts, when.dateOnly) };
+    }
+    if (hasVideo) return null;
+    // Llegó la fecha pero no hay videos: solo se bloquea si es un estreno programado
+    // (estado "Próximamente" o episodios cargados en la hoja sin videoId).
+    if (explicit || hasRows) {
+      return when
+        ? { reason: "video", ts: when.ts, ..._lockFmt(when.ts, when.dateOnly) }
+        : { reason: "video", ts: null, long: "", short: "", time: "" };
+    }
+    return null;
+  } catch (e) {
+    console.warn("[getSeriesLock]", e);
+    return null;
+  }
+}
+window.getSeriesLock = getSeriesLock;
+// Bloqueada para el usuario actual (los admin pueden entrar a probar)
+window.isSeriesBlocked = (id) => !!getSeriesLock(id) && !isAdminUser();
+
+function _lockOverlayHTML(l) {
+  const sub = l.reason === "date" ? l.short : "MUY PRONTO";
+  return `<div class="lock-overlay"><i class="fas fa-lock"></i><span class="lock-title">PRÓXIMAMENTE</span><span class="lock-date">${sub}</span></div>`;
+}
+
+// Detalle de serie bloqueada: el propio botón Reproducir muestra la cuenta regresiva y
+// queda deshabilitado. Al llegar la fecha y haber video se recarga desbloqueado.
+function _applySeriesLockUI(view, id, data) {
+  if (view._lockTimer) { clearInterval(view._lockTimer); view._lockTimer = null; }
+  view.querySelectorAll(".sp-admin-preview-btn").forEach((el) => el.remove());
+
+  const lock = getSeriesLock(id, data);
+  view.classList.toggle("sp-locked", !!lock);
+
+  const desktopPlay = document.querySelector("#sp-btn-group .sp-btn-play");
+  const mobPlay = document.getElementById("sp-mob-play-inline");
+  const playBtns = [desktopPlay, mobPlay].filter(Boolean);
+
+  playBtns.forEach((b) => {
+    if (!lock && b.dataset.origHtml !== undefined) { // volver al botón normal
+      b.innerHTML = b.dataset.origHtml;
+      delete b.dataset.origHtml;
+    }
+    b.style.display = "";
+    b.disabled = !!lock;
+    b.classList.toggle("sp-play-locked", !!lock);
+    b.setAttribute("aria-disabled", lock ? "true" : "false");
+  });
+  if (!lock) return;
+
+  playBtns.forEach((b) => {
+    if (b.dataset.origHtml === undefined) b.dataset.origHtml = b.innerHTML;
+    b.onclick = (e) => { if (e) { e.preventDefault(); e.stopPropagation(); } };
+  });
+
+  // Admin: botón aparte para probar la serie sin tocar el Reproducir bloqueado
+  if (isAdminUser()) {
+    const prev = document.createElement("button");
+    prev.className = "sp-btn-icon sp-admin-preview-btn";
+    prev.title = "Vista previa (admin)";
+    prev.innerHTML = `<i class="fas fa-eye"></i>`;
+    prev.onclick = async (e) => {
+      e.stopPropagation();
+      const player = await getPlayerModule();
+      await player.playSeriesInDetailView(id);
+    };
+    const anchor = window.innerWidth < 768 ? mobPlay : desktopPlay;
+    if (anchor) anchor.insertAdjacentElement("afterend", prev);
+  }
+
+  const pad = (n) => String(n).padStart(2, "0");
+  const paint = () => {
+    if (view.style.display === "none") { // la serie se cerró: detener el contador
+      clearInterval(view._lockTimer);
+      view._lockTimer = null;
+      return;
+    }
+    const l = getSeriesLock(id, data);
+    if (!l) { // llegó la fecha y hay video con la página abierta → desbloquear
+      clearInterval(view._lockTimer);
+      view._lockTimer = null;
+      openSeriesDetailView(id);
+      return;
+    }
+    let top, bottom, tip;
+    if (l.reason === "date") {
+      const dt = new Date(l.ts);
+      const hm = l.time ? ` · ${pad(dt.getHours())}:${pad(dt.getMinutes())}` : "";
+      top = `ESTRENO ${l.short}${hm}`;
+      const diff = Math.max(0, l.ts - Date.now());
+      const dd = Math.floor(diff / 86400000);
+      const hh = Math.floor((diff % 86400000) / 3600000);
+      const mm = Math.floor((diff % 3600000) / 60000);
+      const ss = Math.floor((diff % 60000) / 1000);
+      bottom = dd > 0 ? `${dd}d ${pad(hh)}h ${pad(mm)}m ${pad(ss)}s` : `${pad(hh)}:${pad(mm)}:${pad(ss)}`;
+      tip = `Estreno el ${l.long}${l.time ? " · " + l.time : ""}`;
+    } else {
+      top = "PRÓXIMAMENTE";
+      bottom = "Preparando capítulos";
+      tip = "Estamos preparando los capítulos";
+    }
+    const html = `<i class="fas fa-lock"></i><span class="sp-play-lock-text"><small>${top}</small><b>${bottom}</b></span>`;
+    playBtns.forEach((b) => { b.innerHTML = html; b.title = tip; });
+  };
+  paint();
+  view._lockTimer = setInterval(paint, 1000);
+}
+
 // Acepta YYYY-MM-DD[ HH:mm], DD/MM/YYYY[ HH:mm] e ISO con zona. Sin zona = hora local.
 // Si la hora es exactamente 00:00 se trata como "solo fecha" (no se sabe la hora).
 function _calParseDate(value) {
@@ -6105,9 +6284,9 @@ function _calParseDate(value) {
     if (m) {
       d = new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0));
     } else if (
-      (m = str.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})(?:[ T,]+(\d{1,2}):(\d{2}))?$/))
+      (m = str.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})(?:[ T,]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/))
     ) {
-      d = new Date(+m[3], +m[2] - 1, +m[1], +(m[4] || 0), +(m[5] || 0));
+      d = new Date(+m[3], +m[2] - 1, +m[1], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0));
     } else {
       d = new Date(str);
     }
@@ -8467,6 +8646,9 @@ async function openSeriesDetailView(id) {
       }
     }
 
+    // ── Serie "Próximamente": bloquea el play y muestra fecha + cuenta regresiva ──
+    _applySeriesLockUI(view, id, data);
+
     // ── Guardar estado para el botón Volver ───────────────────
     view.dataset.fromFilter = appState.currentFilter || "all";
 
@@ -10098,6 +10280,15 @@ function createMovieCardElement(
     }
   }
 
+  const _lock =
+    type === "series" && options.source !== "continuar-viendo"
+      ? getSeriesLock(id, data)
+      : null;
+  if (_lock) {
+    badgesAccumulator = `<div class="new-episode-badge badge-proximamente">PRÓXIMAMENTE</div>`;
+    card.classList.add("card-locked");
+  }
+
   let ribbonHTML =
     badgesAccumulator !== ""
       ? `<div class="badges-container">${badgesAccumulator}</div>`
@@ -10199,7 +10390,7 @@ function createMovieCardElement(
       ? `<div class="card-rating-container">${reviewsModule.getStarsHTML(appState.content.averages[id], true)}</div>`
       : '<div class="card-rating-container"></div>';
 
-  card.innerHTML = `${ribbonHTML}<div class="img-container-placeholder"></div>${ratingHTML}${watchlistBtnHTML}`;
+  card.innerHTML = `${ribbonHTML}<div class="img-container-placeholder"></div>${ratingHTML}${watchlistBtnHTML}${_lock ? _lockOverlayHTML(_lock) : ""}`;
 
   // La imagen se coloca dentro del placeholder (con tamaño real para que el
   // IntersectionObserver pueda detectarla) y solo se descarga cuando entra
