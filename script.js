@@ -6270,20 +6270,6 @@ function _applyPlayLockUI(view, id, data, o) {
     b.onclick = (e) => { if (e) { e.preventDefault(); e.stopPropagation(); } };
   });
 
-  // Admin: botón aparte para probar sin tocar el Reproducir bloqueado
-  if (isAdminUser()) {
-    const prev = document.createElement("button");
-    prev.className = `${o.iconClass} sp-admin-preview-btn`;
-    prev.title = "Vista previa (admin)";
-    prev.innerHTML = `<i class="fas fa-eye"></i>`;
-    prev.onclick = async (e) => {
-      e.stopPropagation();
-      await o.preview();
-    };
-    const anchor = window.innerWidth < 768 ? mobPlay : desktopPlay;
-    if (anchor) anchor.insertAdjacentElement("afterend", prev);
-  }
-
   const pad = (n) => String(n).padStart(2, "0");
   const paint = () => {
     if (view.style.display === "none") { // se cerró: detener el contador
