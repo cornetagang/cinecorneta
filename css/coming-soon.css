@@ -170,3 +170,101 @@
 .sp-admin-preview-btn {
   opacity: 0.85;
 }
+
+/* =============================================================
+   AJUSTES MÓVIL / TARJETAS ESTRECHAS
+   ============================================================= */
+
+/* ── Insignia "PRÓXIMAMENTE" dentro de la tarjeta: que no se corte ── */
+.card-locked .badges-container {
+  max-width: calc(100% - 12px);
+}
+
+.card-locked .new-episode-badge {
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .card-locked .new-episode-badge {
+    font-size: 0.48rem;
+    letter-spacing: 0.3px;
+    padding: 3px 6px;
+  }
+
+  .card-locked .lock-overlay {
+    gap: 5px;
+    padding: 8px;
+  }
+
+  .card-locked .lock-overlay i {
+    font-size: 1.3rem;
+  }
+
+  .card-locked .lock-title {
+    font-size: 0.56rem;
+    letter-spacing: 1.4px;
+  }
+
+  .card-locked .lock-date {
+    font-size: 0.72rem;
+  }
+
+  /* ── Detalle (película y serie): botón Reproducir bloqueado ──
+     Ocupa su propia fila completa; "Ver más tarde", vista previa
+     admin y menú pasan a la fila de abajo, sin cortarse. */
+  .dv-mob-score-row:has(.sp-play-locked),
+  .sp-mob-score-row:has(.sp-play-locked) {
+    flex-wrap: wrap;
+    row-gap: 10px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .dv-mob-score-row:has(.sp-play-locked) > .dv-mob-score-divider,
+  .sp-mob-score-row:has(.sp-play-locked) > .sp-mob-score-divider {
+    display: none;
+  }
+
+  .dv-mob-play-inline.sp-play-locked,
+  .sp-mob-play-inline.sp-play-locked {
+    flex: 1 1 100%;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    margin: 0;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  .sp-play-locked i {
+    margin-right: 0;
+    flex-shrink: 0;
+  }
+
+  .sp-play-locked .sp-play-lock-text {
+    min-width: 0;
+  }
+
+  .sp-play-locked .sp-play-lock-text small {
+    font-size: 0.55rem;
+    letter-spacing: 1px;
+  }
+
+  .sp-play-locked .sp-play-lock-text b {
+    font-size: 0.8rem;
+  }
+}
