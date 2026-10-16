@@ -449,6 +449,180 @@ function destroyPrevious(container) {
   container._assPluginRef = null;
 }
 
+// ===========================================================
+// 🎚️ BARRA DE TIEMPO PROPIA (solo PC con mouse)
+// -----------------------------------------------------------
+// Reemplaza a la barra nativa de ArtPlayer (que se oculta por CSS).
+// El aspecto y la zona clicable se ajustan en css/laptop-fix.css
+// (TIER 8). En móvil/tablet NO se instala: sigue la barra nativa.
+//
+// Notas:
+//  • Se monta en el contenedor "top" de ArtPlayer (.art-progress),
+//    así hereda gratis el mostrar/ocultar y la mini barra.
+//  • La barra debe ocupar TODO el ancho de ese contenedor: la barra
+//    nativa (oculta) sigue escuchando clics ahí y calcula igual.
+// ===========================================================
+function installCustomProgressBar(art) {
+  try {
+    if (!window.matchMedia?.("(hover: hover) and (pointer: fine)").matches) return;
+    if (!art || art.option?.isLive || art._ccProgInstalled) return;
+    art._ccProgInstalled = true;
+
+    const $player = art.template.$player;
+    const clamp = (n, a, b) => Math.min(b, Math.max(a, n));
+    const pad = (n) => String(n).padStart(2, "0");
+    const fmt = (sec) => {
+      const s = Math.max(0, Math.floor(Number.isFinite(sec) ? sec : 0));
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      return h ? `${h}:${pad(m)}:${pad(s % 60)}` : `${pad(m)}:${pad(s % 60)}`;
+    };
+
+    art.controls.add({
+      name: "cc-progress",
+      position: "top",
+      index: 5,
+      html: `
+        <div class="cc-prog" role="slider" aria-label="Barra de tiempo"
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div class="cc-prog-track">
+            <div class="cc-prog-loaded"></div>
+            <div class="cc-prog-hover"></div>
+            <div class="cc-prog-played"></div>
+            <div class="cc-prog-thumb"></div>
+          </div>
+          <div class="cc-prog-tip">00:00</div>
+        </div>`,
+      mounted: ($ctl) => {
+        const $bar = $ctl.querySelector(".cc-prog");
+        const $loaded = $ctl.querySelector(".cc-prog-loaded");
+        const $hover = $ctl.querySelector(".cc-prog-hover");
+        const $played = $ctl.querySelector(".cc-prog-played");
+        const $thumb = $ctl.querySelector(".cc-prog-thumb");
+        const $tip = $ctl.querySelector(".cc-prog-tip");
+        if (!$bar) return;
+
+        let dragging = false;
+        let lastSeek = 0;
+
+        const pctFromEvent = (e) => {
+          const r = $bar.getBoundingClientRect();
+          return r.width ? clamp((e.clientX - r.left) / r.width, 0, 1) : 0;
+        };
+
+        const setPlayed = (p) => {
+          const v = `${p * 100}%`;
+          $played.style.width = v;
+          $thumb.style.left = v;
+          $bar.setAttribute("aria-valuenow", String(Math.round(p * 100)));
+        };
+
+        const setLoaded = () => {
+          const l = Number(art.loaded);
+          $loaded.style.width = `${clamp(Number.isFinite(l) ? l : 0, 0, 1) * 100}%`;
+        };
+
+        const showTip = (p) => {
+          $tip.textContent = fmt(p * (art.duration || 0));
+          const w = $bar.clientWidth;
+          const tw = $tip.offsetWidth;
+          $tip.style.left = `${clamp(p * w - tw / 2, 0, Math.max(0, w - tw))}px`;
+        };
+
+        const seekTo = (p) => {
+          const d = art.duration;
+          if (Number.isFinite(d) && d > 0) art.seek = p * d;
+        };
+
+        // ── Avance / cargado: se redibuja con los eventos del video ──
+        const refresh = () => {
+          if (!dragging) setPlayed(clamp(Number(art.played) || 0, 0, 1));
+          setLoaded();
+        };
+        [
+          "video:timeupdate",
+          "video:progress",
+          "video:loadedmetadata",
+          "video:durationchange",
+          "video:seeked",
+        ].forEach((ev) => art.on(ev, refresh));
+        art.on("video:ended", () => {
+          if (!dragging) setPlayed(1);
+        });
+        refresh();
+
+        // ── Mouse encima: relleno de hover + etiqueta con el tiempo ──
+        $bar.addEventListener("pointerenter", () => $bar.classList.add("is-hover"));
+        $bar.addEventListener("pointerleave", () => {
+          if (dragging) return;
+          $bar.classList.remove("is-hover");
+          $hover.style.width = "0";
+        });
+
+        $bar.addEventListener("pointermove", (e) => {
+          const p = pctFromEvent(e);
+          $hover.style.width = `${p * 100}%`;
+          showTip(p);
+          if (dragging) {
+            setPlayed(p);
+            const now = performance.now();
+            if (now - lastSeek >= 100) {
+              lastSeek = now;
+              seekTo(p);
+            }
+          }
+        });
+
+        // ── Clic y arrastre ──
+        // El mousedown no debe llegar al arrastre nativo (el nuestro lo
+        // reemplaza). El click SÍ se deja pasar para no romper el cierre
+        // de menús/paneles que escuchan clics en el documento.
+        $bar.addEventListener("mousedown", (e) => e.stopPropagation());
+
+        $bar.addEventListener("pointerdown", (e) => {
+          if (e.button !== 0 || !(art.duration > 0)) return;
+          dragging = true;
+          lastSeek = performance.now();
+          try { $bar.setPointerCapture(e.pointerId); } catch (_) {}
+          $bar.classList.add("is-drag");
+          $player.classList.add("cc-prog-dragging");
+          const p = pctFromEvent(e);
+          setPlayed(p);
+          showTip(p);
+          seekTo(p);
+        });
+
+        const endDrag = (e) => {
+          if (!dragging) return;
+          dragging = false;
+          try { $bar.releasePointerCapture(e.pointerId); } catch (_) {}
+          $bar.classList.remove("is-drag");
+          $player.classList.remove("cc-prog-dragging");
+          const p = pctFromEvent(e);
+          setPlayed(p);
+          seekTo(p);
+          // Si el mouse terminó fuera de la barra, se apaga el estado hover
+          const r = $bar.getBoundingClientRect();
+          const inside =
+            e.clientX >= r.left && e.clientX <= r.right &&
+            e.clientY >= r.top - 14 && e.clientY <= r.bottom + 14;
+          if (!inside) {
+            $bar.classList.remove("is-hover");
+            $hover.style.width = "0";
+          }
+        };
+        $bar.addEventListener("pointerup", endDrag);
+        $bar.addEventListener("pointercancel", endDrag);
+      },
+    });
+
+    // Activa los estilos (y oculta la barra nativa) solo cuando ya se montó la nuestra
+    $player.classList.add("cc-prog-on");
+  } catch (err) {
+    console.warn("[Player] No se pudo instalar la barra de tiempo propia:", err);
+  }
+}
+
 class CinePlayer {
   constructor(containerSelector, options = {}) {
     this.container =
@@ -687,6 +861,9 @@ class CinePlayer {
     const art = new Artplayer(artConfig);
     this.art = art;
     this.container._artInstance = art;
+
+    // 🎚️ Barra de tiempo propia (solo PC con mouse; ver installCustomProgressBar)
+    art.on("ready", () => installCustomProgressBar(art));
 
     // ─── Montar subtítulos según tipo ────────────────────────
     if (safeSubUrl) {
