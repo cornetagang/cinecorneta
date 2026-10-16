@@ -4530,6 +4530,53 @@ const _SERIE_STATUS_LABELS = {
   nueva_temporada: { text: "Nueva temporada", dot: "#3b82f6" },
 };
 
+// ── Último episodio YA ESTRENADO de una serie ─────────────────
+// Misma lógica que la sección Novedades: el de releaseDate más reciente que
+// ya llegó y que tiene video. Si ningún episodio trae fecha, el último con
+// título y video. Devuelve { seasonKey, seasonNum, epNum } o null.
+// (Contar los episodios con título daba números de más: incluye los que
+//  todavía no salen, como "E07… E13" sin video.)
+function _getLatestReleasedEpisode(id) {
+  const episodesData = (appState.content.seriesEpisodes || {})[id] || {};
+  const seasonOrder =
+    (appState.content.seasonOrder || {})[id] || Object.keys(episodesData);
+  const toList = (s) => (Array.isArray(s) ? s : Object.values(s || {}));
+
+  let best = null;
+  let bestTime = null;
+  seasonOrder.forEach((seasonKey, sIdx) => {
+    const seasonEps = episodesData[seasonKey];
+    if (!seasonEps) return;
+    toList(seasonEps).forEach((ep, idx) => {
+      if (!ep?.releaseDate) return;
+      let ds = ep.releaseDate;
+      if (typeof ds === "string" && ds.includes("/")) {
+        const sp = ds.trim().split(" ");
+        const dmy = sp[0].split("/");
+        if (dmy.length === 3) ds = `${dmy[1]}/${dmy[0]}/${dmy[2]} ${sp[1] || ""}`.trim();
+      }
+      const t = new Date(ds).getTime();
+      if (isNaN(t) || t > Date.now() || !_calHasVideo(ep)) return;
+      if (bestTime === null || t > bestTime) {
+        bestTime = t;
+        best = { seasonKey, seasonNum: sIdx + 1, epNum: idx + 1 };
+      }
+    });
+  });
+  if (best) return best;
+
+  // Ningún episodio con fecha: el último con título y video
+  for (let i = seasonOrder.length - 1; i >= 0; i--) {
+    const list = toList(episodesData[seasonOrder[i]]);
+    for (let j = list.length - 1; j >= 0; j--) {
+      if (list[j]?.title && _calHasVideo(list[j])) {
+        return { seasonKey: seasonOrder[i], seasonNum: i + 1, epNum: j + 1 };
+      }
+    }
+  }
+  return null;
+}
+
 function _bentoSideTypeHTML(data, type, id) {
   if (type === "series") {
     // Determinar estado usando las mismas funciones que usan las tarjetas
@@ -4582,19 +4629,27 @@ function _bentoSideTypeHTML(data, type, id) {
           (appState.content.seasonOrder || {})[id] || Object.keys(episodesData);
         const totalSeasons = seasonOrder.length;
         if (totalSeasons > 0) {
-          const lastKey = seasonOrder[totalSeasons - 1];
-          const lastSeason = episodesData[lastKey];
+          // Último episodio ya estrenado (igual que Novedades), no el total de títulos
+          const latest = _getLatestReleasedEpisode(id);
+          let lastKey = seasonOrder[totalSeasons - 1];
           let epCount = 0;
-          if (Array.isArray(lastSeason)) {
-            epCount = lastSeason.filter((ep) => ep && ep.title).length;
-          } else if (lastSeason && typeof lastSeason === "object") {
-            epCount = Object.values(lastSeason).filter(
-              (ep) => ep && ep.title,
-            ).length;
+          if (latest) {
+            lastKey = latest.seasonKey;
+            epCount = latest.epNum;
+          } else {
+            // Respaldo: sin datos de estreno se cuenta como antes
+            const lastSeason = episodesData[lastKey];
+            if (Array.isArray(lastSeason)) {
+              epCount = lastSeason.filter((ep) => ep && ep.title).length;
+            } else if (lastSeason && typeof lastSeason === "object") {
+              epCount = Object.values(lastSeason).filter(
+                (ep) => ep && ep.title,
+              ).length;
+            }
           }
           if (epCount > 0) {
             const epPart = `Episodio ${epCount}`;
-            const _sLabel = getSeasonDisplayInfo(id, data, lastKey, totalSeasons).label;
+            const _sLabel = getSeasonDisplayInfo(id, data, lastKey, seasonOrder.indexOf(lastKey) + 1).label;
             detail = totalSeasons > 1 ? `${_sLabel} — ${epPart}` : epPart;
           }
         }
