@@ -560,3 +560,327 @@
     margin-bottom: 8px;
   }
 }
+
+/* =============================================================
+   TIER 7 — SERIES, SOLO PC EN VENTANA ANGOSTA (≤ 768 px)
+   -------------------------------------------------------------
+   Caso específico: en PC con la ventana a media pantalla o con zoom
+   alto se usa el layout "móvil" (video + franja de info fijos arriba,
+   lista de episodios scrolleando por debajo). La franja usa un
+   degradado casi transparente y los títulos de los episodios se
+   veían a través de ella.
+
+   Solo aplica a dispositivos con mouse (hover + pointer fine), así
+   que NO afecta a teléfonos ni tablets, que son táctiles
+   (pointer: coarse) y ya se ven bien.
+   ============================================================= */
+@media (max-width: 768px) and (hover: hover) and (pointer: fine) {
+  .sp-ps-left .sp-ps-info-strip,
+  .sp-ps-left .sp-ep-info-strip {
+    background:
+      linear-gradient(
+        to top,
+        rgba(var(--accent-rgb), 0.09) 0%,
+        rgba(var(--accent-rgb), 0) 100%
+      ),
+      var(--panel-dark, #18191a) !important;
+  }
+}
+
+
+/* =============================================================
+   TIER 8 — BARRA DE TIEMPO PROPIA DEL REPRODUCTOR (solo PC con mouse)
+   -------------------------------------------------------------
+   La crea installCustomProgressBar() en player.js y reemplaza a la
+   barra nativa de ArtPlayer (que queda oculta). Solo se activa en
+   dispositivos con mouse; en móvil/tablet el JS no hace nada y sigue
+   la barra nativa. Todo lo que se puede ajustar está en las variables
+   de abajo.
+   ============================================================= */
+div.art-video-player.cc-prog-on {
+  --cc-prog-h: 3px;            /* grosor normal de la barra */
+  --cc-prog-h-hover: 6px;      /* grosor con el mouse encima */
+  --cc-prog-hit-up: 14px;      /* zona clicable extra hacia ARRIBA */
+  --cc-icon-clip: 8px;         /* cuánto se recorta de arriba el área clicable de ⏮ ⏭ (ver más abajo) */
+  --cc-prog-hit-down: 18px;    /* zona clicable extra hacia ABAJO (debe llegar hasta ⏮ ⏭) */
+  --cc-prog-thumb: 14px;       /* tamaño del puntito */
+  --cc-prog-track: rgba(255, 255, 255, 0.25);        /* fondo */
+  --cc-prog-loaded: rgba(255, 255, 255, 0.25);       /* parte ya cargada */
+  --cc-prog-hover-fill: rgba(255, 255, 255, 0.25);   /* relleno hasta el mouse */
+  --cc-prog-played: var(--accent-color, var(--art-theme, #f00)); /* parte vista */
+}
+
+/* Se oculta la barra nativa (sigue existiendo, solo no se ve) */
+.cc-prog-on .art-bottom .art-progress .art-control-progress {
+  display: none !important;
+}
+
+/* La barra ocupa exactamente la misma altura que la nativa (6px),
+   así no se mueve nada del diseño. */
+.cc-prog-on .art-control-cc-progress {
+  display: block;
+  width: 100%;
+}
+
+.cc-prog {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: var(--art-progress-height, 6px);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+/* Zona clicable ampliada (invisible). Si algún día los botones de
+   abajo vuelven a estorbar, se ajusta con --cc-prog-hit-up/down. */
+.cc-prog::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(-1 * var(--cc-prog-hit-up));
+  bottom: calc(-1 * var(--cc-prog-hit-down));
+}
+
+.cc-prog-track {
+  position: relative;
+  width: 100%;
+  height: var(--cc-prog-h);
+  background: var(--cc-prog-track);
+  transition: height 0.2s ease;
+}
+
+.cc-prog.is-hover .cc-prog-track,
+.cc-prog.is-drag .cc-prog-track {
+  height: var(--cc-prog-h-hover);
+}
+
+.cc-prog-loaded,
+.cc-prog-hover,
+.cc-prog-played {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 0;
+  pointer-events: none;
+}
+.cc-prog-loaded { background: var(--cc-prog-loaded); }
+.cc-prog-hover  { background: var(--cc-prog-hover-fill); }
+.cc-prog-played { background: var(--cc-prog-played); }
+
+/* Puntito: aparece al pasar el mouse o arrastrar */
+.cc-prog-thumb {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: var(--cc-prog-thumb);
+  height: var(--cc-prog-thumb);
+  margin: calc(var(--cc-prog-thumb) / -2) 0 0 calc(var(--cc-prog-thumb) / -2);
+  border-radius: 50%;
+  background: var(--cc-prog-played);
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
+  transform: scale(0);
+  transition: transform 0.15s ease;
+  pointer-events: none;
+  z-index: 2;
+}
+.cc-prog.is-hover .cc-prog-thumb,
+.cc-prog.is-drag .cc-prog-thumb {
+  transform: scale(1);
+}
+
+/* Etiqueta con el tiempo */
+.cc-prog-tip {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 12px);
+  padding: 3px 7px;
+  font-size: 12px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.75);
+  border-radius: 3px;
+  opacity: 0;
+  transform: scale(0.8);
+  transform-origin: bottom center;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  pointer-events: none;
+  z-index: 3;
+}
+.cc-prog.is-hover .cc-prog-tip,
+.cc-prog.is-drag .cc-prog-tip {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* ── Botones ⏮ ⏭: zona clicable más baja (sin mover nada) ──────────────
+   Antes la caja del botón medía 46px y empezaba pegada a la barra, así que
+   tocar un poco debajo de la línea cambiaba de episodio. Ahora:
+   1) La fila de controles deja pasar los clics por sus espacios vacíos
+      (los botones sí los siguen recibiendo).
+   2) En ⏮ ⏭ ya no cuenta la caja de 46px, solo el icono, y al icono se le
+      recorta lo de arriba (que está vacío). La franja liberada (~12px)
+      pasa a ser parte de la barra de tiempo.
+   El diseño NO cambia: ni el icono ni el globito se mueven.
+   Para quitar más/menos zona de botón: cambia --cc-icon-clip.
+   Para aplicarlo a otro botón, agrégalo a las listas de abajo. */
+.cc-prog-on .art-bottom .art-controls,
+.cc-prog-on .art-bottom .art-controls .art-controls-left,
+.cc-prog-on .art-bottom .art-controls .art-controls-right {
+  pointer-events: none;
+}
+.cc-prog-on .art-bottom .art-controls .art-control {
+  pointer-events: auto;
+}
+
+.cc-prog-on .art-bottom .art-controls .art-control.art-control-btn-prev-ep,
+.cc-prog-on .art-bottom .art-controls .art-control.art-control-btn-next-ep {
+  pointer-events: none;
+}
+.cc-prog-on .art-bottom .art-controls .art-control-btn-prev-ep .art-icon,
+.cc-prog-on .art-bottom .art-controls .art-control-btn-next-ep .art-icon {
+  pointer-events: auto;
+  clip-path: inset(var(--cc-icon-clip) 0 0 0);
+}
+
+/* Mini barra (controles ocultos): fina, sin puntito, sin etiqueta ni zona extra.
+   ArtPlayer ya baja el contenedor; aquí solo se simplifica lo de dentro. */
+.art-mini-progress-bar .cc-prog-thumb,
+.art-mini-progress-bar .cc-prog-tip {
+  display: none;
+}
+.art-mini-progress-bar .cc-prog::before {
+  display: none;
+}
+.art-mini-progress-bar .cc-prog .cc-prog-track {
+  height: var(--cc-prog-h);
+}
+
+/* Tema Halloween: el puntito es la calabaza (igual que en la barra nativa) */
+:root.tema-halloween div.art-video-player.cc-prog-on .cc-prog-thumb {
+  --cc-prog-thumb: var(--pumpkin-dot, 20px);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  filter: drop-shadow(0 0 4px rgba(var(--accent-rgb), 0.7));
+}
+:root.tema-halloween div.art-video-player.cc-prog-on .cc-prog-thumb::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-color: var(--accent-color);
+  -webkit-mask: var(--pumpkin-mask) center / contain no-repeat;
+  mask: var(--pumpkin-mask) center / contain no-repeat;
+}
+:root.tema-halloween div.art-video-player.cc-prog-on .cc-prog.is-hover .cc-prog-thumb,
+:root.tema-halloween div.art-video-player.cc-prog-on .cc-prog.is-drag .cc-prog-thumb {
+  transform: scale(1.15);
+}
+
+
+/* =============================================================
+   TIER 9 — SIN GLOBITOS (TOOLTIPS) EN LOS BOTONES DEL REPRODUCTOR
+   -------------------------------------------------------------
+   ArtPlayer pone una etiqueta flotante (Play, Fullscreen, Episodio
+   anterior…) a cada botón; solo existen en PC con mouse. Aquí se
+   ocultan todas. Los botones funcionan igual y conservan su
+   aria-label para lectores de pantalla.
+   NO afecta a la etiqueta de tiempo de la barra (esa es .cc-prog-tip).
+   Para volver a mostrarlas, borra este bloque.
+   ============================================================= */
+.art-video-player [class*="hint--"]::before,
+.art-video-player [class*="hint--"]::after {
+  display: none !important;
+}
+
+
+/* =============================================================
+   TIER 10 — BOTONES DEL REPRODUCTOR: RESALTE AL PASAR EL MOUSE (PC)
+   -------------------------------------------------------------
+   Al pasar el mouse por un botón (▶ ⏮ ⏭ volumen, CC, ajustes, pantalla
+   completa…) el icono crece un poquito y cambia al color de acento del
+   cine (--accent-color, el que esté seleccionado en el tema).
+   Solo en PC con mouse; en móvil/tablet no hace nada.
+   ============================================================= */
+@media (hover: hover) and (pointer: fine) {
+  div.art-video-player {
+    --cc-btn-hover-scale: 1.15;  /* cuánto crece el icono (1 = nada) */
+    --cc-btn-hover-color: var(--accent-color, var(--art-theme, #f00));
+  }
+
+  /* Suaviza el cambio de color */
+  .art-video-player .art-controls .art-control > svg,
+  .art-video-player .art-controls .art-control > .art-icon svg {
+    transition: fill 0.15s ease, transform 0.15s ease;
+  }
+
+  /* Color de acento (solo el icono del botón, no los paneles que cuelgan de él) */
+  .art-video-player .art-controls .art-control:hover > svg,
+  .art-video-player .art-controls .art-control:hover > .art-icon svg {
+    fill: var(--cc-btn-hover-color);
+  }
+
+  /* Mini zoom: los iconos con envoltorio .art-icon ya traen un zoom base (1.1) */
+  .art-video-player .art-controls .art-control:hover > .art-icon {
+    transform: scale(calc(var(--art-control-icon-scale, 1.1) * var(--cc-btn-hover-scale)));
+  }
+  /* ⟲10 / ↷10 / modo B&N: el svg va suelto, sin .art-icon */
+  .art-video-player .art-controls .art-control:hover > svg {
+    transform: scale(var(--cc-btn-hover-scale));
+  }
+
+  /* Al hacer clic se "hunde" un poco, como en ArtPlayer */
+  .art-video-player .art-controls .art-control:hover > .art-icon:active {
+    transform: scale(calc(var(--art-control-icon-scale, 1.1) * 0.88));
+  }
+  .art-video-player .art-controls .art-control:hover > svg:active {
+    transform: scale(0.92);
+  }
+}
+
+
+/* =============================================================
+   TIER 11 — BANNERS DE DETALLE (serie y película) EN PC CON VENTANA ANGOSTA
+   -------------------------------------------------------------
+   Problema: con la ventana angosta (≤ 768 px) se usa el layout móvil, que
+   fija el banner en 200 px de alto (256 px en series, con la barra). Eso
+   está pensado para un teléfono de ~400 px de ancho; en una ventana de
+   600–768 px el banner queda como una tira muy delgada: el cover recorta
+   casi toda la imagen y el personaje desaparece.
+
+   Solución: el alto del banner ahora crece con el ancho de la ventana
+   (proporción 16:9, o sea la imagen completa), con un mínimo de 200 px y un
+   máximo de 440 px. En series, el bloque con logo y botones sube/baja lo
+   mismo para seguir montado sobre la parte baja del banner, como antes.
+
+   Solo PC con mouse (hover + pointer fine): teléfonos y tablets quedan
+   exactamente igual. Ajustes: --cc-banner-h.
+   ============================================================= */
+@media (max-width: 768px) and (hover: hover) and (pointer: fine) {
+  .sp-detail-view,
+  .detail-view {
+    --cc-banner-h: clamp(200px, 56.25vw, 440px);
+  }
+
+  /* ── Serie: el banner pasa bajo la barra fija (50px de margen superior) ── */
+  .sp-detail-view .sp-hero-banner {
+    height: calc(var(--cc-banner-h) + var(--top-h, 56px));
+  }
+
+  /* Antes: 140px + barra con banner de 200px (el bloque se montaba 60px
+     por encima del borde inferior del banner). Se mantiene ese solape. */
+  .sp-detail-view .sp-hero-content {
+    margin-top: calc(var(--cc-banner-h) - 60px + var(--top-h, 56px));
+  }
+
+  /* ── Película: el banner va en el flujo, debajo de la barra ── */
+  .detail-view .dv-hero-banner {
+    height: var(--cc-banner-h);
+  }
+}
