@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       limit:
-        description: "Máximo de sprites por shard (vacío = sin límite; usa 2 o 3 para probar)"
+        description: "Máximo de sprites por shard (vacío = 10). Con 8 shards, 10 = hasta 80 videos por ejecución"
         required: false
         default: ""
       ids:
@@ -35,7 +35,7 @@ jobs:
           CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
           SHARD: ${{ matrix.shard }}
           SHARDS: 8
-          LIMIT: ${{ github.event.inputs.limit }}
+          LIMIT: ${{ github.event.inputs.limit || '10' }}  # tope por shard: protege el límite diario de peticiones del Worker
           IDS: ${{ github.event.inputs.ids }}
           MAX_MINUTES: 320
         run: node scripts/generate-sprites.mjs
