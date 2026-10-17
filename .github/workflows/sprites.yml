@@ -1,0 +1,41 @@
+name: Generar sprites de miniaturas
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Máximo de sprites por shard (vacío = sin límite; usa 2 o 3 para probar)"
+        required: false
+        default: ""
+      ids:
+        description: "Solo estos videoId separados por coma (vacío = todo el catálogo)"
+        required: false
+        default: ""
+  schedule:
+    - cron: "0 7 * * *"   # cada día; solo genera los que faltan
+
+jobs:
+  sprites:
+    runs-on: ubuntu-latest
+    timeout-minutes: 345
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Instalar ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Generar y subir sprites
+        env:
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+          SHARD: ${{ matrix.shard }}
+          SHARDS: 8
+          LIMIT: ${{ github.event.inputs.limit }}
+          IDS: ${{ github.event.inputs.ids }}
+          MAX_MINUTES: 320
+        run: node scripts/generate-sprites.mjs
