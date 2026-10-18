@@ -78,14 +78,27 @@ async function fetchCatalogIds() {
 // ── Utilidades de video ─────────────────────────────────────
 const videoUrl = (id) => `${WORKER_URL}/?id=${encodeURIComponent(id)}&type=video`;
 
-// Mismo cálculo que player.js (_detectFastStart): Content-Range de un Range 0-2047
+// Mismo cálculo que player.js (_detectFastStart): Content-Range de un Range 0-2047.
+// Reintenta 3 veces y, si falla, devuelve el motivo (HTTP y texto) para el log.
 async function getContentLength(url) {
-  const r = await fetch(url, { headers: { Range: "bytes=0-2047", "user-agent": UA }, redirect: "follow" });
-  if (!r.ok && r.status !== 206) { await r.body?.cancel(); return null; }
-  const cr = r.headers.get("content-range");
-  const len = cr ? parseInt(cr.split("/")[1], 10) || null : parseInt(r.headers.get("content-length"), 10) || null;
-  await r.body?.cancel();
-  return len;
+  let info = "";
+  for (let a = 0; a < 3; a++) {
+    if (a > 0) await sleep([0, 3000, 10000][a]);
+    try {
+      const r = await fetch(url, { headers: { Range: "bytes=0-2047", "user-agent": UA }, redirect: "follow" });
+      if (r.ok || r.status === 206) {
+        const cr = r.headers.get("content-range");
+        const len = cr ? parseInt(cr.split("/")[1], 10) || null : parseInt(r.headers.get("content-length"), 10) || null;
+        await r.body?.cancel();
+        if (len) return { len };
+        info = `HTTP ${r.status} sin tamaño en las cabeceras`;
+      } else {
+        const txt = (await r.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 160);
+        info = `HTTP ${r.status} ${txt}`;
+      }
+    } catch (e) { info = `red: ${e.message}`; }
+  }
+  return { len: null, info };
 }
 
 async function spriteExists(key) {
@@ -218,13 +231,14 @@ async function main() {
   const mine = all.filter((_, i) => i % SHARDS === SHARD);
   log(`${all.length} videos en el catálogo, ${mine.length} en este shard`);
 
-  let made = 0, skipped = 0, errors = 0;
+  let made = 0, skipped = 0, errors = 0, streak = 0; // streak = errores seguidos
   for (const id of mine) {
     if (made >= LIMIT) { log("LIMIT alcanzado"); break; }
+    if (streak >= 3) { log("3 errores seguidos: se detiene este shard para no gastar peticiones del Worker. Se reintenta en la próxima ejecución."); break; }
     if (Date.now() > DEADLINE) { log("tiempo máximo alcanzado, se continúa en la próxima ejecución"); break; }
     try {
-      const len = await getContentLength(videoUrl(id));
-      if (!len) { log(`✗ ${id}: sin tamaño (¿Worker/Drive no responde?)`); errors++; continue; }
+      const { len, info } = await getContentLength(videoUrl(id));
+      if (!len) { log(`✗ ${id}: sin tamaño → ${info}`); errors++; streak++; continue; }
       const key = `${id}_${len}`;
       if (!DRY && (await spriteExists(key))) { skipped++; continue; }
       const t0 = Date.now();
@@ -237,9 +251,9 @@ async function main() {
         const url = await upload(key, buf);
         log(`✓ ${key} ${Math.round(buf.length / 1024)} KB, ${Math.round(dur / 60)} min de video, ${failed} huecos, ${Math.round((Date.now() - t0) / 1000)} s → ${url}`);
       }
-      made++;
+      made++; streak = 0;
     } catch (e) {
-      errors++;
+      errors++; streak++;
       log(`✗ ${id}: ${String(e.message).split("\n")[0]}`);
     }
   }
