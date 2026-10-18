@@ -5,7 +5,7 @@
 /**
  * URL del Cloudflare Worker para el Reproductor (ArtPlayer + Subtitles)
  */
-export const WORKER_URL = "https://cinecorneta.benja104lokito.workers.dev";
+export const WORKER_URL = "https://cinecorneta.cornetagang.workers.dev";
 
 /**
  * Configuración de Firebase
@@ -24,6 +24,10 @@ export const firebaseConfig = {
  * URLs de API
  */
 export const API_URL = {
+    // Catálogo (lecturas ?data=...) servido por el Worker con caché. Para volver al
+    // Apps Script directo, poner aquí el mismo valor que BASE_URL.
+    CATALOG_URL: WORKER_URL + '/api',
+
     BASE_URL: 'https://script.google.com/macros/s/AKfycbwVU0jgVzV_TbtSWZzV0utl-DwSVh7cnTTXDSDxP0tVfEEYA7vYoAJOjOmHU1l0Y9Wz/exec',
     
     endpoints: {
