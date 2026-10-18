@@ -20,7 +20,7 @@ import crypto from "node:crypto";
 
 const run = promisify(execFile);
 
-const WORKER_URL = process.env.WORKER_URL || "https://cinecorneta.benja104lokito.workers.dev";
+const WORKER_URL = process.env.WORKER_URL || "https://cinecorneta.cornetagang.workers.dev";
 const APPS_SCRIPT_URL =
   "https://script.google.com/macros/s/AKfycbwVU0jgVzV_TbtSWZzV0utl-DwSVh7cnTTXDSDxP0tVfEEYA7vYoAJOjOmHU1l0Y9Wz/exec";
 const CLOUD = process.env.CLOUD_NAME || "ualxljd6";
