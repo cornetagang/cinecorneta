@@ -96,27 +96,50 @@ async function spriteExists(key) {
 }
 
 async function getDuration(url) {
-  const { stdout } = await run(
-    "ffprobe",
-    ["-v", "error", "-user_agent", UA, "-show_entries", "format=duration", "-of", "csv=p=0", url],
-    { timeout: 60_000 },
-  );
-  const d = parseFloat(stdout.trim());
-  return Number.isFinite(d) && d > 1 ? d : null;
+  let lastErr;
+  for (let a = 0; a < 4; a++) {
+    if (a > 0) await sleep([0, 2000, 6000, 15000][a]);
+    try {
+      const { stdout } = await run(
+        "ffprobe",
+        ["-v", "error", "-user_agent", UA, "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "5",
+         "-reconnect_on_http_error", "429,500,502,503,504",
+         "-show_entries", "format=duration", "-of", "csv=p=0", url],
+        { timeout: 60_000 },
+      );
+      const d = parseFloat(stdout.trim());
+      if (Number.isFinite(d) && d > 1) return d;
+      lastErr = new Error("duración no válida");
+    } catch (e) { lastErr = e; }
+  }
+  throw new Error(`no se pudo leer la duración (${String(lastErr?.stderr || lastErr?.message || lastErr).trim().split("\n").filter(Boolean).pop()?.replace(/https?:\/\/\S+/g, "<url>").slice(0, 120)})`);
 }
 
-async function grabFrame(url, t, file) {
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const CONC = Number(process.env.FRAMES_CONCURRENCY || 3);
+const errCount = new Map(); // causa → veces (para el diagnóstico)
+const noteErr = (e) => {
+  const raw = String(e?.stderr || e?.message || e).trim().split("\n").filter(Boolean).pop() || "error desconocido";
+  const k = raw.replace(/https?:\/\/\S+/g, "<url>").slice(0, 140);
+  errCount.set(k, (errCount.get(k) || 0) + 1);
+};
+
+async function grabFrame(url, t, file, attempts = 4) {
   const vf = `scale=${FW}:${FH}:force_original_aspect_ratio=decrease,pad=${FW}:${FH}:(ow-iw)/2:(oh-ih)/2:black`;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let a = 0; a < attempts; a++) {
+    if (a > 0) await sleep([0, 2000, 6000, 15000][a] ?? 15000); // espera creciente entre intentos
     try {
       await run(
         "ffmpeg",
-        ["-v", "error", "-y", "-user_agent", UA, "-ss", t.toFixed(3), "-i", url, "-frames:v", "1", "-vf", vf, "-q:v", "4", file],
+        ["-v", "error", "-y", "-user_agent", UA,
+         "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "5",
+         "-reconnect_on_http_error", "429,500,502,503,504",
+         "-ss", t.toFixed(3), "-i", url, "-frames:v", "1", "-vf", vf, "-q:v", "4", file],
         { timeout: 90_000 },
       );
       await fs.access(file);
       return true;
-    } catch { /* reintenta */ }
+    } catch (e) { noteErr(e); }
   }
   return false;
 }
@@ -136,12 +159,23 @@ async function buildSprite(id, key) {
   try {
     const ok = new Array(N).fill(false);
     const idxs = Array.from({ length: N }, (_, i) => i);
-    await pool(idxs, 4, async (i) => {
-      // mismo instante que el escáner del player: centro de la casilla
-      const t = Math.min(((i + 0.5) / N) * dur, dur - 0.1);
-      ok[i] = await grabFrame(url, t, path.join(dir, `f${String(i + 1).padStart(3, "0")}.jpg`));
-    });
+    const frameFile = (i) => path.join(dir, `f${String(i + 1).padStart(3, "0")}.jpg`);
+    // mismo instante que el escáner del player: centro de la casilla
+    const timeOf = (i) => Math.min(((i + 0.5) / N) * dur, dur - 0.1);
+    await pool(idxs, CONC, async (i) => { ok[i] = await grabFrame(url, timeOf(i), frameFile(i)); });
+    // segunda pasada solo con los que faltan, tras una pausa (por si Drive/Worker limitaba)
+    let missing = idxs.filter((i) => !ok[i]);
+    if (missing.length) {
+      log(`  ${missing.length} cuadros fallaron; reintentando tras una pausa…`);
+      await sleep(20_000);
+      await pool(missing, 2, async (i) => { ok[i] = await grabFrame(url, timeOf(i), frameFile(i), 3); });
+    }
     const failed = ok.filter((v) => !v).length;
+    if (errCount.size) {
+      const top = [...errCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+      log(`  causas de fallo en cuadros: ${top.map(([k, n]) => `${n}× ${k}`).join(" | ")}`);
+      errCount.clear();
+    }
     if (failed > N * 0.1) throw new Error(`fallaron ${failed}/${N} cuadros`);
     // huecos sueltos: repetir el cuadro anterior (o el siguiente si es el primero)
     for (let i = 0; i < N; i++) {
@@ -206,7 +240,7 @@ async function main() {
       made++;
     } catch (e) {
       errors++;
-      log(`✗ ${id}: ${e.message}`);
+      log(`✗ ${id}: ${String(e.message).split("\n")[0]}`);
     }
   }
   log(`Fin: ${made} generados, ${skipped} ya existían, ${errors} con error`);
