@@ -4336,7 +4336,12 @@ function preloadHeroImages(movieIds) {
 function _bentoLatest(obj, type) {
   // Devuelve el item más reciente de un objeto {id: data}
   if (!obj) return null;
-  const entries = Object.entries(obj);
+  const _adminOk = isAdminUser();
+  const entries = Object.entries(obj).filter(([id, d]) => {
+    // Lo que aún no sale (Próximamente) no debe verse en el bento: parece que ya salió
+    const lk = type === "movie" ? getMovieLock(id, d) : getSeriesLock(id, d);
+    return !lk && (_adminOk || !isAdminContent(d));
+  });
   if (!entries.length) return null;
   entries.sort((a, b) => {
     const tsA = getLatestUpdateTimestamp(a[0], a[1], type);
@@ -4931,19 +4936,42 @@ function _populateMobileHero(id, data, type) {
 }
 
 // ── Poblar panel lateral ──────────────────────────────────────
-function _bentoPopulateSide(sideId, typeId, titleId, logoId, id, data, type) {
+function _bentoPopulateSide(sideId, typeId, titleId, logoId, id, data, type, novedad) {
   const el = document.getElementById(sideId);
   if (!el) return;
-  el.style.backgroundImage = `url('${data.banner || data.poster || ""}')`;
+  // Bento: la temporada nueva usa el banner de la serie (como el estreno); solo el
+  // capítulo nuevo usa la miniatura del episodio. En la fila de Novedades no cambia.
+  const _sideBg = novedad
+    ? novedad.typeLabel === "Nueva temp."
+      ? data.banner || data.poster || novedad.epThumb || ""
+      : _novedadBgImage(novedad)
+    : data.banner || data.poster || "";
+  el.style.backgroundImage = `url('${_sideBg}')`;
   el.style.cursor = "pointer";
-  el.onclick = () => openDetailsModal(id, type);
+  el.onclick = novedad ? () => _novedadOpen(novedad) : () => openDetailsModal(id, type);
 
   const typeEl = document.getElementById(typeId);
   const titleEl = document.getElementById(titleId);
   const logoEl = document.getElementById(logoId);
   if (typeEl) {
-    const { main, sub } = _bentoSideTypeHTML(data, type, id);
-    typeEl.innerHTML = main + sub;
+    if (novedad) {
+      // Misma etiqueta que la tarjeta de Novedades (+ episodio en nuevo cap.)
+      const dot = `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${novedad.typeColor};margin-right:6px;vertical-align:middle;"></span>`;
+      const text =
+        novedad.type === "movie"
+          ? "Estreno · Película"
+          : novedad.typeLabel === "Estreno"
+            ? "Estreno · Serie"
+            : novedad.typeLabel;
+      const sub =
+        novedad.type === "series" && novedad.epDetail && novedad.typeLabel === "Nuevo cap."
+          ? `<div style="font-size:0.62rem;color:rgba(255,255,255,0.75);margin-top:3px;letter-spacing:0.5px;font-weight:600;text-transform:none">${novedad.epDetail}</div>`
+          : "";
+      typeEl.innerHTML = dot + text + sub;
+    } else {
+      const { main, sub } = _bentoSideTypeHTML(data, type, id);
+      typeEl.innerHTML = main + sub;
+    }
   }
 
   // Logo o título
@@ -5274,6 +5302,24 @@ async function _bentoDismissCurrent() {
 }
 
 // ── setupHero → initBento ─────────────────────────────────────
+// Destino del clic de una novedad (fila de Novedades y bento), según su etiqueta:
+//  · Nuevo cap.  → ese capítulo.
+//  · Nueva temp. → el primer episodio con video de esa temporada.
+// El resto de casos (estreno, película, universo) no cambia.
+function _novedadTarget(nov) {
+  if (!nov || nov.type !== "series") return nov;
+  const out = { ...nov };
+  if (nov.typeLabel === "Nuevo cap.") {
+    if (out.lastEpIdx == null) out.lastEpIdx = nov.latestEpIdx;
+  } else if (nov.typeLabel === "Nueva temp." && nov.lastSeason != null) {
+    const sEps = ((appState.content.seriesEpisodes || {})[nov.id] || {})[nov.lastSeason];
+    const list = Array.isArray(sEps) ? sEps : Object.values(sEps || {});
+    const first = list.findIndex((ep) => ep && typeof ep === "object" && _calHasVideo(ep));
+    if (first >= 0) out.lastEpIdx = first;
+  }
+  return out;
+}
+
 function setupHero() {
   _calRefreshBadge(); // el catálogo pudo cambiar: actualizar el globo del calendario
   clearInterval(appState.ui.heroInterval);
@@ -5383,8 +5429,16 @@ function setupHero() {
     _bentoCheckCurrentWatched();
   }
 
+  // Paneles laterales: lo más nuevo de Novedades (misma miniatura, etiqueta y
+  // acción). Si Novedades no tiene película o serie, se usa el último del catálogo.
+  let novedades = [];
+  try { novedades = _buildNovedadesItems() || []; } catch (_) {}
+  const _adminSide = isAdminUser();
+  const _novOk = (i) => _adminSide || !isAdminContent(i.data);
+
   // Panel lado 1: última película
-  const latestMovie = _bentoLatest(movies, "movie");
+  const novMovie = novedades.find((i) => i.type === "movie" && _novOk(i));
+  const latestMovie = novMovie || _bentoLatest(movies, "movie");
   if (latestMovie)
     _bentoPopulateSide(
       "bentoSide1",
@@ -5394,10 +5448,12 @@ function setupHero() {
       latestMovie.id,
       latestMovie.data,
       "movie",
+      novMovie || null,
     );
 
-  // Panel lado 2: última serie
-  const latestSerie = _bentoLatest(series, "series");
+  // Panel lado 2: última serie (con la miniatura del capítulo nuevo)
+  const novSerie = novedades.find((i) => i.type === "series" && _novOk(i));
+  const latestSerie = novSerie || _bentoLatest(series, "series");
   if (latestSerie)
     _bentoPopulateSide(
       "bentoSide2",
@@ -5407,6 +5463,7 @@ function setupHero() {
       latestSerie.id,
       latestSerie.data,
       "series",
+      novSerie || null,
     );
 }
 
@@ -5553,10 +5610,9 @@ function generateCarousels() {
   _bentoCreateUniversosCarousel();
 }
 
-function _initNovedadesSection() {
-  const container = DOM.carouselContainer;
-  if (!container) return;
-
+// Items de Novedades (ya ordenados y recortados a 10). Los usan la fila de
+// Novedades y los paneles laterales del bento para mostrar exactamente lo mismo.
+function _buildNovedadesItems() {
   const movies = appState.content.movies || {};
   const series = appState.content.series || {};
   const allEps = appState.content.seriesEpisodes || {};
@@ -5617,9 +5673,15 @@ function _initNovedadesSection() {
       // Episodio destino al tocar la tarjeta: el último con título de la
       // temporada (el más reciente). La miniatura sale de ese mismo episodio.
       let targetIdx = -1;
+      // Preferir el último episodio con título Y video (ya disponible);
+      // si ninguno tiene video, el último con título como antes.
       epList.forEach((ep, i) => {
-        if (ep?.title) targetIdx = i;
+        if (ep?.title && _calHasVideo(ep)) targetIdx = i;
       });
+      if (targetIdx < 0)
+        epList.forEach((ep, i) => {
+          if (ep?.title) targetIdx = i;
+        });
       if (targetIdx < 0) targetIdx = epList.length > 0 ? epList.length - 1 : 0;
       const targetEp = epList[targetIdx];
 
@@ -5796,7 +5858,7 @@ function _initNovedadesSection() {
             ? `${getSeasonDisplayInfo(id, d, latestSeasonKey, seasonNum).abbr} · E${epNum}`
             : `Episodio ${epNum}`,
         lastSeason: latestSeasonKey,
-        latestEpIdx,
+        lastEpIdx: latestEpIdx,
       },
     ];
   });
@@ -5822,6 +5884,44 @@ function _initNovedadesSection() {
     .sort((a, b) => b.sortDate - a.sortDate)
     .slice(0, 10);
 
+  return all.map((item) => _novedadTarget(item));
+}
+
+// Imagen de fondo según el tipo de novedad (igual que la fila de Novedades):
+// nuevo cap. / nueva temp. → miniatura del episodio; estreno de serie → banner.
+function _novedadBgImage({ data, type, typeLabel, epThumb }) {
+  const isSeries = type === "series";
+  const useEpThumb =
+    !isSeries || typeLabel === "Nuevo cap." || typeLabel === "Nueva temp.";
+  return useEpThumb
+    ? (epThumb || data.banner || data.poster || "")
+    : (data.banner || data.poster || epThumb || "");
+}
+
+// Acción al tocar una novedad (compartida por Novedades y el bento).
+async function _novedadOpen({ id, data, type, lastSeason, lastEpIdx }) {
+  const isSeries = type === "series";
+  if (type === "saga") {
+    appState.ui._fromUniverse = id;
+    switchView("sagas");
+  } else if (isSeries && lastSeason != null && lastEpIdx != null) {
+    await openSeriesDetailView(id);
+    const player = await getPlayerModule();
+    player.playEpisodeInDetailView(id, lastSeason, lastEpIdx);
+  } else if (!isSeries) {
+    const href = data.link || data.href;
+    if (href) window.location.href = href;
+    else openDetailsModal(id, "movie");
+  } else {
+    openDetailsModal(id, "series");
+  }
+}
+
+function _initNovedadesSection() {
+  const container = DOM.carouselContainer;
+  if (!container) return;
+
+  const all = _buildNovedadesItems();
   if (!all.length) return;
 
   const block = document.createElement("div");
@@ -5859,13 +5959,7 @@ function _initNovedadesSection() {
       lastEpIdx,
     }) => {
       const isSeries = type === "series";
-      // Nuevo capítulo / nueva temporada → miniatura del episodio; estreno de
-      // serie → banner de la serie; películas → su imagen.
-      const useEpThumb =
-        !isSeries || typeLabel === "Nuevo cap." || typeLabel === "Nueva temp.";
-      const bgImage = useEpThumb
-        ? (epThumb || data.banner || data.poster || "")
-        : (data.banner || data.poster || epThumb || "");
+      const bgImage = _novedadBgImage({ data, type, typeLabel, epThumb });
       const labelHTML = `<span style="display:inline-flex;align-items:center;gap:5px">
         <span style="width:6px;height:6px;border-radius:50%;background:${typeColor};display:inline-block"></span>
         ${typeLabel}
@@ -5891,22 +5985,8 @@ function _initNovedadesSection() {
         </div>
       </div>`;
 
-      card.onclick = async () => {
-        if (type === "saga") {
-          appState.ui._fromUniverse = id;
-          switchView("sagas");
-        } else if (isSeries && lastSeason != null && lastEpIdx != null) {
-          await openSeriesDetailView(id);
-          const player = await getPlayerModule();
-          player.playEpisodeInDetailView(id, lastSeason, lastEpIdx);
-        } else if (!isSeries) {
-          const href = data.link || data.href;
-          if (href) window.location.href = href;
-          else openDetailsModal(id, "movie");
-        } else {
-          openDetailsModal(id, "series");
-        }
-      };
+      card.onclick = () =>
+        _novedadOpen({ id, data, type, lastSeason, lastEpIdx });
 
       row.appendChild(card);
     },
@@ -6002,10 +6082,17 @@ function _bentoCreateCarousel(title, dataSource, type) {
   if (!dataSource || !Object.keys(dataSource).length) return;
   const container = DOM.carouselContainer;
 
+  // Orden: 1) estrenos/novedades ya disponibles, 2) Próximamente, 3) el resto.
+  // Así lo que aún no sale nunca queda antes que un estreno real.
+  const _lockOf = (id, d) => (type === "series" ? getSeriesLock(id, d) : getMovieLock(id, d));
+  const _rank = ([id, d]) => {
+    if (_lockOf(id, d)) return 1;
+    return getLatestUpdateTimestamp(id, d, type) > 0 ? 0 : 2;
+  };
   const entries = Object.entries(dataSource).sort((a, b) => {
-    const tA = getLatestUpdateTimestamp(a[0], a[1], type);
-    const tB = getLatestUpdateTimestamp(b[0], b[1], type);
-    return tB - tA;
+    const rA = _rank(a), rB = _rank(b);
+    if (rA !== rB) return rA - rB;
+    return getLatestUpdateTimestamp(b[0], b[1], type) - getLatestUpdateTimestamp(a[0], a[1], type);
   });
 
   // Sección wrapper
@@ -10337,7 +10424,9 @@ function isDateRecent(dateString) {
   const diffTime = now - date;
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-  return diffDays <= 5 && diffDays >= 0;
+  // diffTime < 0 = fecha futura (aún no llega): no es "reciente".
+  // (Sin esto, Math.ceil(-0.4) da -0 y un estreno de mañana pasaba como reciente.)
+  return diffTime >= 0 && diffDays <= 5;
 }
 
 function hasRecentSeasonFromPosters(seriesId) {
@@ -10684,6 +10773,10 @@ async function removeFromContinueWatching(historyKey, cardElement) {
 
 function getLatestUpdateTimestamp(id, data, type) {
   let maxTimestamp = 0;
+
+  // Próximamente (fecha futura o sin video): no cuenta como novedad ni sube en el orden
+  const _lk = type === "movie" ? getMovieLock(id, data) : getSeriesLock(id, data);
+  if (_lk) return 0;
 
   if (data.date_added) {
     const d = new Date(data.date_added);
