@@ -5670,19 +5670,12 @@ function _buildNovedadesItems() {
       const epList = Array.isArray(seasonEps)
         ? seasonEps
         : Object.values(seasonEps || {});
-      // Episodio destino al tocar la tarjeta: el último con título de la
-      // temporada (el más reciente). La miniatura sale de ese mismo episodio.
-      let targetIdx = -1;
-      // Preferir el último episodio con título Y video (ya disponible);
-      // si ninguno tiene video, el último con título como antes.
-      epList.forEach((ep, i) => {
-        if (ep?.title && _calHasVideo(ep)) targetIdx = i;
-      });
-      if (targetIdx < 0)
-        epList.forEach((ep, i) => {
-          if (ep?.title) targetIdx = i;
-        });
-      if (targetIdx < 0) targetIdx = epList.length > 0 ? epList.length - 1 : 0;
+      // Episodio destino al tocar la tarjeta. Estreno de serie y temporada nueva
+      // son un "inicio": van al PRIMER episodio disponible (con título y video).
+      // Si ninguno tiene video, al primero con título.
+      let targetIdx = epList.findIndex((ep) => ep?.title && _calHasVideo(ep));
+      if (targetIdx < 0) targetIdx = epList.findIndex((ep) => ep?.title);
+      if (targetIdx < 0) targetIdx = 0;
       const targetEp = epList[targetIdx];
 
       const typeLabel = seasonNum > 1 ? "Nueva temp." : "Estreno";
@@ -5899,8 +5892,28 @@ function _novedadBgImage({ data, type, typeLabel, epThumb }) {
 }
 
 // Acción al tocar una novedad (compartida por Novedades y el bento).
-async function _novedadOpen({ id, data, type, lastSeason, lastEpIdx }) {
+async function _novedadOpen({ id, data, type, typeLabel, lastSeason, lastEpIdx }) {
   const isSeries = type === "series";
+
+  // Estreno de serie / temporada nueva: si la persona ya va viendo esa serie,
+  // retomar donde va (igual que "Continuar viendo"); si no ha visto nada, se
+  // abre el episodio que trae la tarjeta (el primero). "Nuevo cap." abre ese
+  // capítulo concreto, sin importar el progreso.
+  if (isSeries && (typeLabel === "Estreno" || typeLabel === "Nueva temp.")) {
+    const cw = (window._cinecorneta_continueWatching || []).find(
+      (h) =>
+        h.contentId === id &&
+        h.type === "series" &&
+        h.season != null &&
+        h.lastEpisode != null,
+    );
+    if (cw) {
+      const player = await getPlayerModule();
+      player.openPlayerToEpisode(id, cw.season, Number(cw.lastEpisode));
+      return;
+    }
+  }
+
   if (type === "saga") {
     appState.ui._fromUniverse = id;
     switchView("sagas");
@@ -5986,7 +5999,7 @@ function _initNovedadesSection() {
       </div>`;
 
       card.onclick = () =>
-        _novedadOpen({ id, data, type, lastSeason, lastEpIdx });
+        _novedadOpen({ id, data, type, typeLabel, lastSeason, lastEpIdx });
 
       row.appendChild(card);
     },
