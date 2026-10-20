@@ -5924,8 +5924,11 @@ async function _novedadOpen({ id, data, type, typeLabel, lastSeason, lastEpIdx }
         h.lastEpisode != null,
     );
     if (cw) {
+      // Mismo reproductor/vista de serie que el resto de Novedades (no el modal
+      // de "Continuar viendo"); el minuto guardado se retoma igual.
+      await openSeriesDetailView(id);
       const player = await getPlayerModule();
-      player.openPlayerToEpisode(id, cw.season, Number(cw.lastEpisode));
+      player.playEpisodeInDetailView(id, cw.season, Number(cw.lastEpisode));
       return;
     }
   }
