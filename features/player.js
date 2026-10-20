@@ -1273,6 +1273,9 @@ if (grayscale) {
             if (activeLang === "en" && targetEp.subId_en) {
               subId = targetEp.subId_en;
               subType = targetEp.subType_en || "srt";
+            } else if (activeLang === "jp" && targetEp.subId_jp) {
+              subId = targetEp.subId_jp;
+              subType = targetEp.subType_jp || "srt";
             } else if (targetEp.subId_es) {
               subId = targetEp.subId_es;
               subType = targetEp.subType_es || "srt";
@@ -1462,6 +1465,9 @@ if (grayscale) {
             if (activeLang === "en" && targetEp.subId_en) {
               subId = targetEp.subId_en;
               subType = targetEp.subType_en || "srt";
+            } else if (activeLang === "jp" && targetEp.subId_jp) {
+              subId = targetEp.subId_jp;
+              subType = targetEp.subType_jp || "srt";
             } else if (targetEp.subId_es) {
               subId = targetEp.subId_es;
               subType = targetEp.subType_es || "srt";
@@ -1955,6 +1961,9 @@ if (grayscale) {
             if (activeLang === "en" && ep.subId_en) {
               subId = ep.subId_en;
               subType = ep.subType_en || "srt";
+            } else if (activeLang === "jp" && ep.subId_jp) {
+              subId = ep.subId_jp;
+              subType = ep.subType_jp || "srt";
             } else if (ep.subId_es) {
               subId = ep.subId_es;
               subType = ep.subType_es || "srt";
@@ -3421,6 +3430,9 @@ if (grayscale) {
               if (activeLang === "en" && ep.subId_en) {
                 epSubId = ep.subId_en;
                 epSubType = ep.subType_en || "srt";
+              } else if (activeLang === "jp" && ep.subId_jp) {
+                epSubId = ep.subId_jp;
+                epSubType = ep.subType_jp || "srt";
               } else if (ep.subId_es) {
                 epSubId = ep.subId_es;
                 epSubType = ep.subType_es || "srt";
@@ -3898,10 +3910,6 @@ function getLangTracks(data) {
     });
   }
 
-  if (rawJp) {
-    tracks.push({ id: rawJp, lang: "jp", label: originalLabels[1] || "Alt" });
-  }
-
   if (rawEs) {
     // El video puede estar guardado en el campo _es por convención aunque
     // el audio real NO sea español (ej: películas en inglés sin doblaje,
@@ -3918,6 +3926,11 @@ function getLangTracks(data) {
     });
   } else if (rawMain && mainIsSpanish) {
     tracks.push({ id: rawMain, lang: "es", label: spanishLabel });
+  }
+
+  // Tercer audio (Japonés): va al final → Original · Latino · Japonés
+  if (rawJp) {
+    tracks.push({ id: rawJp, lang: "jp", label: originalLabels[1] || "Japonés" });
   }
 
   return tracks;
@@ -4922,6 +4935,8 @@ export async function renderEpisodePlayer(
 
     const seasonHasEn = episodes.some((ep) => ep?.videoId_en?.trim());
     const seasonHasEs = episodes.some((ep) => ep?.videoId_es?.trim());
+    const _epJp = (ep) => (ep?.videoId_jp || ep?.videoId_alt || "").trim();
+    const seasonHasJp = episodes.some((ep) => _epJp(ep));
 
     const syntheticEp = {
       ...firstEpisode,
@@ -4931,6 +4946,8 @@ export async function renderEpisodePlayer(
       videoId_es: seasonHasEs
         ? episodes.find((ep) => ep?.videoId_es?.trim())?.videoId_es
         : "",
+      videoId_jp: seasonHasJp ? _epJp(episodes.find((ep) => _epJp(ep))) : "",
+      videoId_alt: "",
     };
     const seriesTracks = getLangTracks(syntheticEp);
     const hasLangOptions = seriesTracks.length > 1;
@@ -5462,9 +5479,12 @@ export async function renderEpisodePlayer(
                                     <span class="sp-ep-dot">·</span>
                                     <span class="sp-ep-lang" id="sp-ep-lang-${seriesId}">
                                         ${
-                                          initialLang === "es"
+                                          seriesTracks.find(
+                                            (t) => t.lang === initialLang,
+                                          )?.label ||
+                                          (initialLang === "es"
                                             ? "Latino"
-                                            : "Original"
+                                            : "Original")
                                         }
                                     </span>
                                 </div>
@@ -6221,6 +6241,9 @@ function openEpisode(seriesId, season, newEpisodeIndex) {
     if (lang === "en" && episode.subId_en) {
       subId = episode.subId_en;
       subType = episode.subType_en || "srt";
+    } else if (lang === "jp" && episode.subId_jp) {
+      subId = episode.subId_jp;
+      subType = episode.subType_jp || "srt";
     } else if (episode.subId_es) {
       subId = episode.subId_es;
       subType = episode.subType_es || "srt";
@@ -6518,9 +6541,9 @@ export function openPlayerModal(movieId, movieTitle) {
     // Sincronizar toggle visual con el idioma real cargado
     if (tracks.length > 1) {
       document.querySelectorAll(".dv-lang-btn").forEach((btn) => {
-        const isActive = btn.onclick
-          ?.toString()
-          .includes(`"${preferredTrack.lang}"`);
+        const isActive = btn.dataset.lang
+          ? btn.dataset.lang === preferredTrack.lang
+          : btn.onclick?.toString().includes(`"${preferredTrack.lang}"`);
         btn.classList.toggle("active", isActive);
       });
 
@@ -6572,6 +6595,9 @@ function loadMovieInPlayer(videoId, movieId, movieData, lang = "es", onHalfway =
   if (lang === "en" && movieData.subId_en) {
     subId = movieData.subId_en;
     subType = movieData.subType_en || "srt";
+  } else if (lang === "jp" && movieData.subId_jp) {
+    subId = movieData.subId_jp;
+    subType = movieData.subType_jp || "srt";
   } else if (movieData.subId_es) {
     subId = movieData.subId_es;
     subType = movieData.subType_es || "srt";
@@ -7149,6 +7175,8 @@ function _spChangeLang(seriesId, lang) {
     resolvedVideoId = currentEp.videoId_en;
   else if (lang === "es" && currentEp.videoId_es)
     resolvedVideoId = currentEp.videoId_es;
+  else if (lang === "jp" && (currentEp.videoId_jp || currentEp.videoId_alt))
+    resolvedVideoId = currentEp.videoId_jp || currentEp.videoId_alt;
   else resolvedVideoId = currentEp.videoId;
 
   loadSeriesInDetailPlayer(resolvedVideoId, seriesId, currentEp, lang);
@@ -8023,6 +8051,9 @@ function loadSeriesInDetailPlayer(videoId, seriesId, episodeData, lang = "es") {
   if (lang === "en" && episodeData.subId_en) {
     subId = episodeData.subId_en;
     subType = episodeData.subType_en || "srt";
+  } else if (lang === "jp" && episodeData.subId_jp) {
+    subId = episodeData.subId_jp;
+    subType = episodeData.subType_jp || "srt";
   } else if (episodeData.subId_es) {
     subId = episodeData.subId_es;
     subType = episodeData.subType_es || "srt";
@@ -8059,6 +8090,8 @@ export function loadSeriesTrack(videoId, seriesId, seriesData, lang) {
       resolvedVideoId = currentEp.videoId_en;
     else if (lang === "es" && currentEp.videoId_es)
       resolvedVideoId = currentEp.videoId_es;
+    else if (lang === "jp" && (currentEp.videoId_jp || currentEp.videoId_alt))
+      resolvedVideoId = currentEp.videoId_jp || currentEp.videoId_alt;
     else resolvedVideoId = currentEp.videoId;
 
     loadSeriesInDetailPlayer(resolvedVideoId, seriesId, currentEp, lang);
