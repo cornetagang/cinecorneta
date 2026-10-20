@@ -7769,9 +7769,38 @@ async function openDetailsModal(id, type, triggerElement = null) {
       if (durationBadge) durationBadge.style.display = "none";
     }
 
-    // ── Toggle de idioma (solo si hay 2 idiomas) ──────────────
+    // ── Toggle de idioma (Original · Latino · Japonés) ────────
+    // Hasta 3 audios: videoId_en (original), videoId_es (latino) y
+    // videoId_jp / videoId_alt (japonés). El toggle aparece con 2 o más.
+    const _dvRawLang = (data.language || data.idioma || data.audio || "").trim();
+    const _dvParts = _dvRawLang
+      .split(/[-;|]/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+    const _dvSpanish = ["latino", "español", "castellano", "doblado", "esp"];
+    const _dvIsEs = (l) => _dvSpanish.some((s) => l.toLowerCase().includes(s));
+    const _dvOrig = _dvParts.filter((l) => !_dvIsEs(l));
+    const _dvEnId = (data.videoId_en || "").trim();
+    const _dvEsId = (data.videoId_es || "").trim();
+    const _dvJpId = (data.videoId_jp || data.videoId_alt || "").trim();
+    const tempTracks = [];
+    if (_dvEnId)
+      tempTracks.push({
+        id: _dvEnId,
+        lang: "en",
+        label: _dvOrig[0] || (_dvJpId ? "Original" : "Inglés"),
+      });
+    if (_dvEsId)
+      tempTracks.push({
+        id: _dvEsId,
+        lang: "es",
+        label: _dvParts.find(_dvIsEs) || "Latino",
+      });
+    if (_dvJpId)
+      tempTracks.push({ id: _dvJpId, lang: "jp", label: _dvOrig[1] || "Japonés" });
+    const hasMultiLang = tempTracks.length >= 2;
+
     const langToggle = document.getElementById("dv-lang-toggle");
-    const hasMultiLang = !!(data.videoId_es && data.videoId_en);
     if (langToggle) {
       langToggle.style.display = hasMultiLang ? "flex" : "none";
       const langBadge = document.getElementById("dv-lang-badge");
@@ -7784,37 +7813,24 @@ async function openDetailsModal(id, type, triggerElement = null) {
         }
       }
       if (hasMultiLang) {
-        const latBtn = document.getElementById("dv-lang-btn-latino");
-        const engBtn = document.getElementById("dv-lang-btn-ingles");
-        const rawLang = (data.language || "").trim();
-        const langParts = rawLang
-          .split(/[-;|]/)
-          .map((l) => l.trim())
-          .filter(Boolean);
-        const SPANISH = ["latino", "español", "castellano", "doblado", "esp"];
-        const isSpanish = (l) =>
-          SPANISH.some((s) => l.toLowerCase().includes(s));
-        const esLabel = langParts.find((l) => isSpanish(l)) || "Latino";
-        const enLabel = langParts.find((l) => !isSpanish(l)) || "Inglés";
-
-        if (latBtn) {
-          latBtn.textContent = enLabel;
-          latBtn.classList.add("active"); // inglés activo por defecto
-        }
-        if (engBtn) {
-          engBtn.textContent = esLabel;
-          engBtn.classList.remove("active");
-        }
-
-        if (latBtn) latBtn.onclick = () => window.dvSetLang("en", latBtn);
-        if (engBtn) engBtn.onclick = () => window.dvSetLang("es", engBtn);
+        langToggle.innerHTML = "";
+        tempTracks.forEach((t, i) => {
+          if (i > 0) {
+            const sep = document.createElement("span");
+            sep.className = "dv-lang-sep";
+            sep.textContent = "|";
+            langToggle.appendChild(sep);
+          }
+          const b = document.createElement("button");
+          b.className = "dv-lang-btn";
+          b.id = `dv-lang-btn-${t.lang}`;
+          b.dataset.lang = t.lang;
+          b.textContent = t.label;
+          b.onclick = () => window.dvSetLang(t.lang, b);
+          langToggle.appendChild(b);
+        });
 
         // Guardar tracks para dvSetLang aunque no se haya reproducido aún
-        const tempTracks = [];
-        if (data.videoId_en)
-          tempTracks.push({ id: data.videoId_en, lang: "en", label: enLabel });
-        if (data.videoId_es)
-          tempTracks.push({ id: data.videoId_es, lang: "es", label: esLabel });
         window._dvTracks = tempTracks;
         window._dvCurrentMovieId = id;
         window._dvCurrentMovieData = data;
@@ -7823,8 +7839,9 @@ async function openDetailsModal(id, type, triggerElement = null) {
         // vio, el original ("en"), como antes.
         const initialLang = resolveMovieLang(id, tempTracks);
         window._dvActiveLang = initialLang;
-        if (latBtn) latBtn.classList.toggle("active", initialLang === "en");
-        if (engBtn) engBtn.classList.toggle("active", initialLang === "es");
+        langToggle
+          .querySelectorAll(".dv-lang-btn")
+          .forEach((b) => b.classList.toggle("active", b.dataset.lang === initialLang));
       }
     }
 
@@ -7889,41 +7906,28 @@ async function openDetailsModal(id, type, triggerElement = null) {
       };
     }
 
-    // ── Selector idioma mobile ────────────────────────────────
+    // ── Selector idioma mobile (Original · Latino · Japonés) ──
     const langSection = document.getElementById("dv-lang-section");
-    const langOpt1 = document.getElementById("dv-lang-opt-1");
-    const langOpt2 = document.getElementById("dv-lang-opt-2");
+    const langBtns = langSection?.querySelector(".dv-lang-section-btns");
     if (langSection) {
-      if (hasMultiLang && langOpt1 && langOpt2) {
-        const _rawLang = (data.language || "").trim();
-        const _parts = _rawLang
-          .split(/[-;|]/)
-          .map((l) => l.trim())
-          .filter(Boolean);
-        const _SPANISH = ["latino", "español", "castellano", "doblado", "esp"];
-        const _isSpanish = (l) =>
-          _SPANISH.some((s) => l.toLowerCase().includes(s));
-        const _esLabel = _parts.find((l) => _isSpanish(l)) || "Latino";
-        const _enLabel = _parts.find((l) => !_isSpanish(l)) || "Inglés";
-        langOpt1.textContent = _enLabel;
-        langOpt2.textContent = _esLabel;
-        // Inglés activo por defecto
-        langOpt1.classList.add("active");
-        langOpt2.classList.remove("active");
-        langOpt1.onclick = () => {
-          window.dvSetLang("en", langOpt1);
-          document
-            .querySelectorAll(".dv-lang-option")
-            .forEach((b) => b.classList.remove("active"));
-          langOpt1.classList.add("active");
-        };
-        langOpt2.onclick = () => {
-          window.dvSetLang("es", langOpt2);
-          document
-            .querySelectorAll(".dv-lang-option")
-            .forEach((b) => b.classList.remove("active"));
-          langOpt2.classList.add("active");
-        };
+      if (hasMultiLang && langBtns) {
+        langBtns.innerHTML = "";
+        tempTracks.forEach((t) => {
+          const b = document.createElement("button");
+          b.className =
+            "dv-lang-option" + (t.lang === window._dvActiveLang ? " active" : "");
+          b.id = `dv-lang-opt-${t.lang}`;
+          b.dataset.lang = t.lang;
+          b.textContent = t.label;
+          b.onclick = () => {
+            window.dvSetLang(t.lang, b);
+            langBtns
+              .querySelectorAll(".dv-lang-option")
+              .forEach((x) => x.classList.remove("active"));
+            b.classList.add("active");
+          };
+          langBtns.appendChild(b);
+        });
         langSection.classList.add("dv-lang-section--visible");
         langSection.style.display = ""; // Dejar que CSS controle según breakpoint
       } else {
@@ -8505,7 +8509,9 @@ async function openSeriesDetailView(id) {
       } else if (parts.length === 1) {
         label = parts[0];
       } else if (hasMultiLang) {
-        label = "Latino · Inglés";
+        label =
+          "Latino · Inglés" +
+          (_spFirstEp?.videoId_jp || _spFirstEp?.videoId_alt ? " · Japonés" : "");
       } else if (_spFirstEp?.videoId_es) {
         label = "Latino";
       } else if (_spFirstEp?.videoId_en) {
@@ -9030,7 +9036,9 @@ function resolveMovieLang(movieId, tracks) {
   if (h && available.has(h.lang) && (!best || h.ts > best.ts)) {
     best = h;
   }
-  return best ? best.lang : "en";
+  if (best) return best.lang;
+  // Por defecto el original; si no existe (p. ej. solo Latino + Japonés), el primero disponible
+  return available.has("en") ? "en" : (tracks && tracks[0] && tracks[0].lang) || "en";
 }
 
 window.dvSetLang = async function (lang, btn) {
