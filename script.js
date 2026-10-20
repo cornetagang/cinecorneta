@@ -5305,7 +5305,8 @@ async function _bentoDismissCurrent() {
 // Destino del clic de una novedad (fila de Novedades y bento), según su etiqueta:
 //  · Nuevo cap.  → ese capítulo.
 //  · Nueva temp. → el primer episodio con video de esa temporada.
-// El resto de casos (estreno, película, universo) no cambia.
+//  · Estreno (serie) → el primer episodio con video de la serie.
+// El resto de casos (película, universo) no cambia.
 function _novedadTarget(nov) {
   if (!nov || nov.type !== "series") return nov;
   const out = { ...nov };
@@ -5316,6 +5317,21 @@ function _novedadTarget(nov) {
     const list = Array.isArray(sEps) ? sEps : Object.values(sEps || {});
     const first = list.findIndex((ep) => ep && typeof ep === "object" && _calHasVideo(ep));
     if (first >= 0) out.lastEpIdx = first;
+  } else if (nov.typeLabel === "Estreno") {
+    // Una serie estrenada puede llegar por la vía de "capítulos nuevos" apuntando
+    // al último episodio: se corrige al primero disponible de la serie.
+    const all = (appState.content.seriesEpisodes || {})[nov.id] || {};
+    const order = (appState.content.seasonOrder || {})[nov.id] || Object.keys(all);
+    for (const sk of order) {
+      const sEps = all[sk];
+      const list = Array.isArray(sEps) ? sEps : Object.values(sEps || {});
+      const first = list.findIndex((ep) => ep && typeof ep === "object" && _calHasVideo(ep));
+      if (first >= 0) {
+        out.lastSeason = sk;
+        out.lastEpIdx = first;
+        break;
+      }
+    }
   }
   return out;
 }
