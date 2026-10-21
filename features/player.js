@@ -1264,7 +1264,9 @@ if (grayscale) {
             const activeLang =
               savedLang && tracks.some((t) => t.lang === savedLang)
                 ? savedLang
-                : window._spActiveLang || tracks[0]?.lang || "es";
+                : tracks.some((t) => t.lang === window._spActiveLang)
+          ? window._spActiveLang
+          : tracks[0]?.lang || "es";
             const track =
               tracks.find((t) => t.lang === activeLang) || tracks[0];
             if (!track) return;
@@ -1456,7 +1458,9 @@ if (grayscale) {
             const activeLang =
               savedLang && tracks.some((t) => t.lang === savedLang)
                 ? savedLang
-                : window._spActiveLang || tracks[0]?.lang || "es";
+                : tracks.some((t) => t.lang === window._spActiveLang)
+          ? window._spActiveLang
+          : tracks[0]?.lang || "es";
             const track =
               tracks.find((t) => t.lang === activeLang) || tracks[0];
             if (!track) return;
@@ -1954,7 +1958,9 @@ if (grayscale) {
             const activeLang =
               savedLang && tracks.some((t) => t.lang === savedLang)
                 ? savedLang
-                : window._spActiveLang || tracks[0]?.lang || "es";
+                : tracks.some((t) => t.lang === window._spActiveLang)
+          ? window._spActiveLang
+          : tracks[0]?.lang || "es";
             const track = tracks.find((t) => t.lang === activeLang) || tracks[0];
 
             let subId, subType;
@@ -3422,7 +3428,9 @@ if (grayscale) {
               const activeLang =
                 savedLang && tracks.some((t) => t.lang === savedLang)
                   ? savedLang
-                  : window._spActiveLang || tracks[0]?.lang || "es";
+                  : tracks.some((t) => t.lang === window._spActiveLang)
+          ? window._spActiveLang
+          : tracks[0]?.lang || "es";
               const track =
                 tracks.find((t) => t.lang === activeLang) || tracks[0];
 
@@ -6771,7 +6779,9 @@ export async function playSeriesInDetailView(seriesId) {
     const activeLang =
       savedLang && tracks.some((t) => t.lang === savedLang)
         ? savedLang
-        : window._spActiveLang || tracks[0].lang;
+        : tracks.some((t) => t.lang === window._spActiveLang)
+          ? window._spActiveLang
+          : tracks[0].lang;
     const preferredTrack =
       tracks.find((t) => t.lang === activeLang) || tracks[0];
 
@@ -6998,7 +7008,9 @@ export function playEpisodeInDetailView(seriesId, season, episodeIndex) {
     const activeLang =
       savedLang && tracks.some((t) => t.lang === savedLang)
         ? savedLang
-        : window._spActiveLang || tracks[0]?.lang || "es";
+        : tracks.some((t) => t.lang === window._spActiveLang)
+          ? window._spActiveLang
+          : tracks[0]?.lang || "es";
     const preferredTrack =
       tracks.find((t) => t.lang === activeLang) || tracks[0];
     if (!preferredTrack && !_isEpisodeUnreleased(episode)) {
@@ -7201,6 +7213,24 @@ function updateSeasonHeaderLabel() {
 }
 
 // ── Función auxiliar: llena el panel sp-ps con temporadas y episodios ──
+// Regla única para elegir la pista de audio de un episodio de serie.
+// Orden: 1) idioma elegido por la persona para ESTA serie (se guarda al cambiarlo,
+// así que siempre está al día), 2) idioma activo en el reproductor, 3) el idioma
+// con el que se dibujó el panel, 4) la primera pista. Solo cuenta si ESE episodio
+// tiene esa pista; si no, pasa al siguiente criterio.
+function _pickSeriesTrack(seriesId, tracks, fallbackLang) {
+  if (!tracks || !tracks.length) return undefined;
+  let pref = null;
+  try {
+    pref = (JSON.parse(localStorage.getItem("seriesLangPrefs")) || {})[seriesId];
+  } catch (_) {}
+  for (const wanted of [pref, window._spActiveLang, fallbackLang]) {
+    const t = wanted && tracks.find((x) => x.lang === wanted);
+    if (t) return t;
+  }
+  return tracks[0];
+}
+
 function _fillSpPsPanel(seriesId, activeSeasonKey, activeEpIndex, lang) {
   const episodesData = shared.appState.content.seriesEpisodes[seriesId] || {};
   const postersData = shared.appState.content.seasonPosters[seriesId] || {};
@@ -7258,7 +7288,7 @@ function _fillSpPsPanel(seriesId, activeSeasonKey, activeEpIndex, lang) {
           shared.appState.content.seriesEpisodes[seriesId]?.[key] || [];
         if (eps[0]) {
           const t = getLangTracks(eps[0]);
-          const track = t.find((x) => x.lang === lang) || t[0];
+          const track = _pickSeriesTrack(seriesId, t, lang);
           if (track || _isEpisodeUnreleased(eps[0]))
             loadSeriesInDetailPlayer(
               track?.id,
@@ -7344,7 +7374,7 @@ function _fillSpPsPanel(seriesId, activeSeasonKey, activeEpIndex, lang) {
               [];
             if (eps[0]) {
               const t = getLangTracks(eps[0]);
-              const track = t.find((x) => x.lang === lang) || t[0];
+              const track = _pickSeriesTrack(seriesId, t, lang);
               if (track || _isEpisodeUnreleased(eps[0]))
                 loadSeriesInDetailPlayer(
               track?.id,
@@ -7643,7 +7673,7 @@ function _fillSpPsPanel(seriesId, activeSeasonKey, activeEpIndex, lang) {
 
       // Reproducir
       const t = getLangTracks(ep);
-      const track = t.find((x) => x.lang === lang) || t[0];
+      const track = _pickSeriesTrack(seriesId, t, lang);
       if (track || _isEpisodeUnreleased(ep))
         loadSeriesInDetailPlayer(
               track?.id,
@@ -7674,7 +7704,7 @@ function _fillSpPsPanel(seriesId, activeSeasonKey, activeEpIndex, lang) {
       _index: activeEpIndex,
     };
     const t = getLangTracks(activeEp);
-    const track = t.find((x) => x.lang === lang) || t[0];
+    const track = _pickSeriesTrack(seriesId, t, lang);
     _updateSpPsInfo(
       activeEp,
       activeSeasonKey,
@@ -7979,6 +8009,10 @@ function _seriesCloudResumeTime(seriesId, episodeData, lang) {
 function loadSeriesInDetailPlayer(videoId, seriesId, episodeData, lang = "es") {
   const container = document.getElementById("sp-video-container");
   if (!container) return;
+
+  // El idioma activo siempre es el del video que se carga (evita que el estado
+  // y lo que suena se desincronicen al cambiar de episodio).
+  if (lang) window._spActiveLang = lang;
 
   // ✅ AGREGAR ESTAS LÍNEAS — setean el estado que lee el panel de episodios
   shared.appState.player.activeSeriesId = seriesId;
