@@ -13,6 +13,8 @@
       type="image/png"
       href="https://res.cloudinary.com/djhgmmdjx/image/upload/v1759209689/u71QEFc_bet4rv.png"
     />
+    <link rel="preconnect" href="https://image.tmdb.org" />
+    <link rel="preconnect" href="https://res.cloudinary.com" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -61,8 +63,8 @@
         } catch (e) {}
       })();
     </script>
-    <link rel="stylesheet" href="css/main.css?v=35" />
-    <link rel="stylesheet" href="css/themes.css?v=3" />
+    <link rel="stylesheet" href="css/main.css?v=38" />
+    <link rel="stylesheet" href="css/themes.css?v=4" />
     <link rel="stylesheet" href="css/laptop-fix.css?v=11" />
     <link rel="stylesheet" href="css/coming-soon.css?v=6" />
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
@@ -399,11 +401,6 @@
           Mi Perfil
         </a>
 
-        <a href="#" class="nav-dropdown-item nav-roulette-btn" data-filter="roulette">
-          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12a1 1 0 0 1-10 0 1 1 0 0 0-10 0"/><path d="M7 20.7a1 1 0 1 1 5-8.7 1 1 0 1 0 5-8.6"/><path d="M7 3.3a1 1 0 1 1 5 8.6 1 1 0 1 0 5 8.6"/><circle cx="12" cy="12" r="10"/></svg>
-          Ruleta
-        </a>
-
         <a href="#" class="nav-dropdown-item" data-filter="stats">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>
@@ -559,118 +556,8 @@
         >
           <!-- Bento — escritorio -->
           <div class="featured-section">
-            <div class="featured-label">Corneta Gang</div>
-            <div class="bento-grid">
-              <!-- Panel grande: recomendación del día -->
-              <div class="bento-main" id="bentoMain">
-  <div class="bento-tag" id="bentoTag">
-    <svg width="7" height="7" viewBox="0 0 8 8" fill="currentColor">
-      <circle cx="4" cy="4" r="4" />
-    </svg>
-    <span id="bentoTagText">Recomendación del día</span>
-  </div>
-  <div class="bento-main-content">
-    <img id="bentoLogo"
-                    class="bento-logo"
-                    src=""
-                    alt=""
-                    style="display: none"
-                  />
-                  <h2
-                    id="bentoTitleText"
-                    style="
-                      font-size: 2rem;
-                      font-weight: 900;
-                      margin: 0 0 12px;
-                      display: none;
-                    "
-                  ></h2>
-                  <p class="bento-desc" id="bentoDesc"></p>
-                  <div class="bento-meta">
-                    <span class="bento-rating" id="bentoRating"></span>
-                    <span class="bento-meta-dot">·</span>
-                    <span id="bentoYear"></span>
-                    <span class="bento-meta-dot bento-dot-genres">·</span>
-                    <span id="bentoGenres"></span>
-                    <span class="bento-meta-dot bento-dot-duration">·</span>
-                    <span id="bentoDuration"></span>
-                  </div>
-                  <div class="bento-actions">
-                    <button class="btn-bento-play" id="bentoPlayBtn">
-                      <svg
-                        width="13"
-                        height="13"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                      >
-                        <path d="M5 3l14 9-14 9V3z" />
-                      </svg>
-                      <span class="t-long">Reproducir</span><span class="t-short">Ver</span>
-                    </button>
-                    <button class="btn-bento-info" id="bentoInfoBtn">
-                      <span class="t-long">Más info</span><span class="t-short">Info</span>
-                    </button>
-                    <button class="btn-bento-info btn-bento-dismiss" id="bentoDismissBtn" type="button" title="No volver a recomendarme esto" aria-label="No me interesa">
-                      <span class="t-long">No me interesa</span><span class="t-short">No me interesa</span><span class="t-x" aria-hidden="true">✕</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Panel lado 1: última película -->
-              <div class="bento-side" id="bentoSide1">
-                <div class="bento-side-type" id="bentoSide1Type"></div>
-                <div class="bento-side-content">
-                  <div>
-                    <img
-                      id="bentoSide1Logo"
-                      class="bento-side-logo"
-                      src=""
-                      alt=""
-                      style="display: none"
-                    />
-                    <div class="bento-side-title" id="bentoSide1Title"></div>
-                  </div>
-                  <div class="bento-side-play">
-                    <svg
-                      width="13"
-                      height="13"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
-                      <path d="M5 3l14 9-14 9V3z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Panel lado 2: última serie -->
-              <div class="bento-side" id="bentoSide2">
-                <div class="bento-side-type" id="bentoSide2Type"></div>
-                <div class="bento-side-content">
-                  <div>
-                    <img
-                      id="bentoSide2Logo"
-                      class="bento-side-logo"
-                      src=""
-                      alt=""
-                      style="display: none"
-                    />
-                    <div class="bento-side-title" id="bentoSide2Title"></div>
-                  </div>
-                  <div class="bento-side-play">
-                    <svg
-                      width="13"
-                      height="13"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
-                      <path d="M5 3l14 9-14 9V3z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <div class="featured-label">Cine Corneta</div>
+            <section id="novHero" class="nh" aria-roledescription="carousel" aria-label="Novedades"></section>
           </div>
 
           <!-- Hero móvil — estilo TMDB (solo mobile) -->
@@ -2338,7 +2225,10 @@
     <script src="https://cdn.jsdelivr.net/npm/artplayer/dist/artplayer.js"></script>
 
     <!-- SCRIPT PRINCIPAL -->
-    <script src="script.js?v=69" type="module" defer></script>
+    <script src="script.js?v=79" type="module" defer></script>
+    <script src="extras/google-auth.js?v=4" defer></script>
+    <script src="extras/weather.js?v=14" defer></script>
+    <script src="extras/weather-picks.js?v=2" defer></script>
     <!-- Scroll to top (catálogo) -->
   <button class="catalog-scroll-top" id="catalog-scroll-top" aria-label="Volver arriba">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
