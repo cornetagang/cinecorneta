@@ -19,7 +19,16 @@ export class CacheManager {
             return true;
         } catch (error) {
             console.error('Error al guardar en caché:', error);
-            if (error.name === 'QuotaExceededError') this.cleanup(true);
+            if (error.name === 'QuotaExceededError' || error.code === 22) {
+                // Se libera espacio y se reintenta una vez antes de rendirse
+                this.cleanup(true);
+                try {
+                    localStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now(), ttl, version: this.version }));
+                    return true;
+                } catch (retryError) {
+                    console.error('La caché no cabe en localStorage:', retryError);
+                }
+            }
             return false;
         }
     }

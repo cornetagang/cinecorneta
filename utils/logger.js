@@ -197,28 +197,70 @@ export const ErrorHandler = {
 
     /**
      * Un único intento de fetch (sin reintentos, sin notificaciones).
+     *
+     * Con `timing` evita que una petición colgada deje la app esperando para siempre:
+     *   timeout - ms máximos hasta que el servidor empieza a responder (0 = sin límite).
+     *   stall   - ms máximos sin recibir datos una vez que empezó la descarga (0 = sin límite).
+     * Una descarga lenta pero que sigue avanzando NO se corta: el límite se reinicia con cada trozo.
      */
-    async _fetchOnce(url, options = {}, onProgress = null) {
-        const response = await fetch(url, options);
-        if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-
-        // Con onProgress se lee el cuerpo por trozos para informar los bytes recibidos.
-        // Si el navegador no soporta streams, se cae al método normal.
-        if (typeof onProgress === 'function' && response.body && response.body.getReader) {
-            const reader = response.body.getReader();
-            const chunks = [];
-            let loaded = 0;
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                chunks.push(value);
-                loaded += value.length;
-                onProgress(loaded);
-            }
-            return JSON.parse(await new Blob(chunks).text());
+    async _fetchOnce(url, options = {}, onProgress = null, timing = {}) {
+        const { signal: outerSignal, ...fetchOptions } = options;
+        const ttfb = timing.timeout || 0;
+        const stall = timing.stall || 0;
+        const ctrl = new AbortController();
+        let timer = null;
+        let timedOut = false;
+        const arm = (ms) => {
+            clearTimeout(timer);
+            if (ms > 0) timer = setTimeout(() => { timedOut = true; ctrl.abort(); }, ms);
+        };
+        if (outerSignal) {
+            if (outerSignal.aborted) ctrl.abort();
+            else outerSignal.addEventListener('abort', () => ctrl.abort(), { once: true });
         }
 
-        return await response.json();
+        try {
+            arm(ttfb);
+            const response = await fetch(url, { ...fetchOptions, signal: ctrl.signal });
+            if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+
+            // Se lee el cuerpo por trozos: sirve para informar los bytes recibidos y para
+            // detectar una descarga detenida. Si el navegador no soporta streams, se cae al método normal.
+            if (response.body && response.body.getReader) {
+                const reader = response.body.getReader();
+                const chunks = [];
+                let loaded = 0;
+                arm(stall);
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    chunks.push(value);
+                    loaded += value.length;
+                    if (typeof onProgress === 'function') onProgress(loaded);
+                    arm(stall);
+                }
+                return JSON.parse(await new Blob(chunks).text());
+            }
+
+            return await response.json();
+        } catch (error) {
+            if (timedOut) {
+                const e = new Error('Tiempo de espera agotado: el servidor no respondió a tiempo.');
+                e.name = 'TimeoutError';
+                throw e;
+            }
+            throw error;
+        } finally {
+            clearTimeout(timer);
+        }
+    },
+
+    /**
+     * ¿La respuesta es el aviso de error del Apps Script ({ "error": "..." } con HTTP 200)?
+     */
+    _isApiError(data) {
+        return !!data && typeof data === 'object' && !Array.isArray(data) &&
+            typeof data.error === 'string' && Object.keys(data).length === 1;
     },
 
     /**
@@ -229,18 +271,34 @@ export const ErrorHandler = {
      *   retries    - reintentos tras el primer fallo (default 0 = comportamiento anterior).
      *   retryDelay - espera base en ms; se duplica en cada reintento (default 1500).
      *   silent     - true: no muestra la notificación visual (el error igual se registra).
+     *   timeout    - ms hasta que el servidor empieza a responder (default 45000; 0 = sin límite).
+     *   stall      - ms máximos sin recibir datos durante la descarga (default 25000; 0 = sin límite).
+     *   rejectApiErrors - true: una respuesta { error: "..." } del Apps Script cuenta como fallo
+     *                (se reintenta) en vez de tomarse como datos válidos.
      *
      * El error solo se registra/notifica cuando se agotaron todos los intentos.
      */
     async fetchOperation(url, options = {}, onProgress = null) {
-        const { retries = 0, retryDelay = 1500, silent = false, ...fetchOptions } = options;
+        const {
+            retries = 0, retryDelay = 1500, silent = false,
+            timeout = 45000, stall = 25000, rejectApiErrors = false,
+            ...fetchOptions
+        } = options;
         let lastError;
 
         for (let attempt = 0; attempt <= retries; attempt++) {
             try {
-                return await ErrorHandler._fetchOnce(url, fetchOptions, onProgress);
+                const data = await ErrorHandler._fetchOnce(url, fetchOptions, onProgress, { timeout, stall });
+                if (rejectApiErrors && ErrorHandler._isApiError(data)) {
+                    const e = new Error(`API: ${data.error}`);
+                    // "La hoja ... no fue encontrada" no se arregla reintentando
+                    e.permanent = /no fue encontrada|Falta el par/i.test(data.error);
+                    throw e;
+                }
+                return data;
             } catch (error) {
                 lastError = error;
+                if (error && error.permanent) break;
                 if (attempt < retries) {
                     // Espera exponencial con algo de azar para no reintentar todos a la vez
                     const wait = retryDelay * 2 ** attempt + Math.random() * 400;

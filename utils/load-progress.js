@@ -150,7 +150,7 @@ export class LoadProgress {
       setTimeout(() => {
         if (!this.el) return;
         this.hintEl.textContent =
-          "Está tardando más de lo normal, pero sigue descargando. Solo pasa la primera vez.";
+          "Está tardando más de lo normal, pero sigue descargando. Si se alarga, se abrirá igual y terminará de cargar por detrás. Solo pasa la primera vez.";
         this.hintEl.classList.add("is-visible");
       }, SLOW_HINT_MS),
     );

@@ -1,11 +1,16 @@
-// ==================== =======================================
+// ===========================================================
 // SISTEMA DE LAZY LOADING DE IMÁGENES
 // ===========================================================
 
 export class LazyImageLoader {
     constructor() {
         this.observer = null;
-        this.options = { root: null, rootMargin: '50px', threshold: 0.01 };
+        // Margen amplio: las imágenes se piden antes de llegar a la pantalla.
+        this.options = { root: null, rootMargin: '700px 300px', threshold: 0.01 };
+        // Carruseles con scroll horizontal: un observador por carrusel, porque
+        // con root = null el propio carrusel recorta lo que queda fuera de él
+        // y el margen no tendría efecto.
+        this.scrollObservers = new Map();
         this.init();
     }
 
@@ -14,15 +19,45 @@ export class LazyImageLoader {
             this.loadAllImages();
             return;
         }
-        this.observer = new IntersectionObserver((entries) => {
+        this.observer = this.createObserver(this.options);
+        this.observeImages();
+    }
+
+    createObserver(options) {
+        const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
                     this.loadImage(entry.target);
-                    this.observer.unobserve(entry.target);
+                    observer.unobserve(entry.target);
                 }
             });
-        }, this.options);
-        this.observeImages();
+        }, options);
+        return observer;
+    }
+
+    // Carrusel horizontal más cercano (ancestro con overflow-x: auto/scroll), o null.
+    findHorizontalScroller(img) {
+        let el = img.parentElement;
+        while (el && el !== document.body) {
+            const ox = getComputedStyle(el).overflowX;
+            if ((ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth) return el;
+            el = el.parentElement;
+        }
+        return null;
+    }
+
+    observeWithin(img) {
+        const scroller = this.findHorizontalScroller(img);
+        if (!scroller) { this.observer.observe(img); return; }
+        let obs = this.scrollObservers.get(scroller);
+        if (!obs) {
+            obs = this.createObserver({ root: scroller, rootMargin: '0px 800px', threshold: 0.01 });
+            this.scrollObservers.set(scroller, obs);
+        }
+        // Se observa también con el observador general, por si el carrusel
+        // está fuera de pantalla verticalmente: gana el que llegue primero.
+        obs.observe(img);
+        this.observer.observe(img);
     }
 
     observeImages() {
@@ -32,7 +67,7 @@ export class LazyImageLoader {
 
     loadImage(img) {
         const src = img.dataset.src;
-        if (!src) return;
+        if (!src || img.classList.contains('lazy-loading')) return;
         img.classList.add('lazy-loading');
         const tempImg = new Image();
         tempImg.onload = () => {
@@ -61,7 +96,12 @@ export class LazyImageLoader {
 
     observe(img) {
         if (this.observer) {
-            this.observer.observe(img);
+            // La tarjeta puede no estar aún en el DOM: se decide el observador un frame después.
+            requestAnimationFrame(() => {
+                if (!img.dataset.src) return; // ya cargada
+                if (img.isConnected) this.observeWithin(img);
+                else this.observer.observe(img);
+            });
         } else {
             // Sin soporte de IntersectionObserver: cargar de inmediato
             this.loadImage(img);
