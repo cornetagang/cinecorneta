@@ -31,6 +31,118 @@ const cf = {
     wrapperWidth:  0,
 };
 
+// ── Ruleta 3D (opcional) ─────────────────────────────────────────────────────
+// Si algo falla (sin WebGL, sin red al CDN, módulo ausente) se usa el cover-flow.
+// Para desactivarla:  localStorage.roulette3d = "off"
+const r3d = {
+    wheel:  null,   // instancia devuelta por createWheel()
+    active: false,  // true mientras la rueda 3D es la que está en pantalla
+};
+let r3dModPromise = null;
+
+function r3dAllowed() {
+    try { return localStorage.getItem('roulette3d') !== 'off'; }
+    catch (_) { return true; }
+}
+
+function loadR3DModule() {
+    if (!r3dModPromise) {
+        r3dModPromise = import('./roulette3d.js').catch((err) => {
+            r3dModPromise = null; // permite reintentar
+            throw err;
+        });
+    }
+    return r3dModPromise;
+}
+
+// ── UI dentro de la escena 3D (menú de modos + pantalla de carga) ───────────
+const sceneUI = {
+    root: null, loading: null, bar: null, label: null, modebar: null, panels: null,
+    inScene: false,   // true = el menú de modos vive dentro de la escena
+    busy: false,      // true mientras se muestra la pantalla de carga
+    homes: [],        // dónde estaban los paneles originalmente (para el respaldo)
+    sync: null,       // sincroniza el modo activo con los botones
+    showLoading() {}, hideLoading() {}, setProgress() {}, enable() {},
+};
+
+function injectSceneStyles() {
+    if (document.getElementById('roulette-scene-ui-styles')) return;
+    const st = document.createElement('style');
+    st.id = 'roulette-scene-ui-styles';
+    st.textContent = `
+    .roulette-modal-content.r3d-ui-on { max-width: 940px; }
+    .roulette-modal-content.r3d-ui-on .roulette-mode-toggle { display:none !important; }
+    .roulette-modal-content.r3d-ui-on .roulette-carousel-wrapper {
+      height: clamp(340px, 56vh, 490px); perspective: none; overflow: hidden; position: relative;
+      background: radial-gradient(ellipse at 50% 60%, #1c212c 0%, #0b0d12 75%); }
+    .roulette-modal-content.r3d-ui-on .roulette-carousel-wrapper::before,
+    .roulette-modal-content.r3d-ui-on .roulette-carousel-wrapper::after { display:none; }
+    .roulette-modal-content.r3d-ui-on .roulette-carousel-track,
+    .roulette-modal-content.r3d-ui-on .roulette-selector { display:none !important; }
+
+    .r3d-ui { position:absolute; inset:0; z-index:12; pointer-events:none; }
+    .r3d-side { position:absolute; top:10px; right:10px; width:188px; align-items:flex-end; max-height:calc(100% - 20px);
+      display:flex; flex-direction:column; gap:8px; pointer-events:none; transition:opacity .35s ease; }
+    .r3d-modebar { display:flex; flex-direction:column; gap:2px; padding:5px; border-radius:14px; width:100%;
+      background:rgba(8,10,14,.74); border:1px solid rgba(255,255,255,.14); backdrop-filter:blur(6px);
+      pointer-events:auto; }
+    .r3d-modebar button { border:0; cursor:pointer; color:rgba(255,255,255,.7); background:transparent;
+      font:600 12px/1 sans-serif; padding:8px 10px; border-radius:9px; text-align:left; white-space:nowrap;
+      display:flex; align-items:center; gap:8px; transition:background .2s ease, color .2s ease; }
+    .r3d-modebar button::before { content:""; width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,.3); flex:none; }
+    .r3d-modebar button:hover { color:#fff; background:rgba(255,255,255,.08); }
+    .r3d-modebar button.active { color:#fff; background:rgba(229,9,20,.9); box-shadow:0 0 12px rgba(229,9,20,.35); }
+    .r3d-modebar button.active::before { background:#fff; }
+    .r3d-modebar .r3d-mode-head { justify-content:space-between; color:#fff; padding:9px 10px; }
+    .r3d-modebar .r3d-mode-head::before { display:none; }
+    .r3d-mode-head .r3d-mode-cur { display:flex; align-items:center; gap:8px; }
+    .r3d-mode-head .r3d-mode-cur::before { content:\"\"; width:6px; height:6px; border-radius:50%; background:#e50914; box-shadow:0 0 8px rgba(229,9,20,.8); }
+    .r3d-mode-head .r3d-chev { width:7px; height:7px; border-right:2px solid currentColor; border-bottom:2px solid currentColor;
+      transform:rotate(45deg) translate(-2px,-2px); transition:transform .2s ease; opacity:.8; }
+    .r3d-modebar.open .r3d-chev { transform:rotate(-135deg) translate(-2px,-2px); }
+    .r3d-mode-list { display:none; flex-direction:column; gap:2px; margin-top:2px; padding-top:4px; border-top:1px solid rgba(255,255,255,.1); }
+    .r3d-modebar.open .r3d-mode-list { display:flex; }
+    .r3d-panels { pointer-events:auto; }
+    .r3d-panels > * { background:rgba(8,10,14,.8); border:1px solid rgba(255,255,255,.14);
+      border-radius:12px; padding:8px; backdrop-filter:blur(6px); margin:0 !important; font-size:11.5px; }
+    .r3d-panels input { font-size:12.5px !important; padding:7px 9px 7px 30px !important; min-height:0 !important; }
+    .r3d-panels [id$="-hint"] { font-size:11px !important; margin:6px 2px 0 !important; line-height:1.3; }
+    .roulette-carousel-wrapper:has(.r3d-stage[data-state="spinning"]) .r3d-side { opacity:0; pointer-events:none; }
+
+    .r3d-loading { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center;
+      justify-content:center; gap:14px; padding:0 8%; text-align:center; pointer-events:auto; color:#fff;
+      background:radial-gradient(ellipse at 50% 55%, rgba(28,33,44,.96), rgba(8,10,14,.98));
+      opacity:0; visibility:hidden; transition:opacity .45s ease, visibility 0s linear .45s; }
+    .r3d-loading.on { opacity:1; visibility:visible; transition:opacity .2s ease; }
+    .r3d-loading-ring { width:54px; height:54px; border-radius:50%; border:4px solid rgba(255,255,255,.14);
+      border-top-color:#e50914; border-right-color:#f5c542; animation:r3dspin 1s linear infinite; }
+    @keyframes r3dspin { to { transform:rotate(360deg); } }
+    .r3d-loading-label { font:600 14px/1.3 sans-serif; color:rgba(255,255,255,.9); }
+    .r3d-loading-bar { width:min(260px, 70%); height:5px; border-radius:99px; background:rgba(255,255,255,.14); overflow:hidden; }
+    .r3d-loading-bar > i { display:block; height:100%; width:4%; border-radius:inherit;
+      background:linear-gradient(90deg,#e50914,#f5c542); transition:width .35s ease; }
+    @media (max-width:560px) { .r3d-side { width:158px; } }
+    `;
+    document.head.appendChild(st);
+}
+
+/** Oculta la rueda 3D y devuelve el modal al aspecto del cover-flow */
+function leave3D() {
+    r3d.active = false;
+    if (r3d.wheel) r3d.wheel.hide();
+    shared?.DOM?.rouletteModal
+        ?.querySelector('.roulette-modal-content')
+        ?.classList.remove('r3d-on');
+}
+
+function dispose3D() {
+    leave3D();
+    if (r3d.wheel) {
+        try { r3d.wheel.dispose(); } catch (_) { /* nada */ }
+        r3d.wheel = null;
+    }
+}
+
 /** Easing ease-in-out cúbico — simula slot machine */
 function easeSpin(t) {
     return t < 0.5
@@ -196,6 +308,7 @@ async function unmarkAsWatched(movieId) {
 
 function closeRouletteModal() {
     stopCoverFlowLoop(); // liberar recursos al cerrar
+    if (r3d.wheel) r3d.wheel.pause();
     if (shared.DOM.rouletteModal) shared.DOM.rouletteModal.classList.remove('show');
     if (!document.querySelector('.modal.show')) document.body.classList.remove('modal-open');
 }
@@ -222,6 +335,127 @@ function setupRouletteLogic() {
     const genrePanel    = shared.DOM.rouletteModal.querySelector('#genre-roulette-panel');
     const rouletteTitle = shared.DOM.rouletteModal.querySelector('#roulette-title');
 
+    // ── UI dentro de la escena: menú de modos + pantalla de carga ───────────
+    const setupSceneUI = () => {
+        const wrapper = shared.DOM.rouletteModal.querySelector('.roulette-carousel-wrapper');
+        const content = shared.DOM.rouletteModal.querySelector('.roulette-modal-content');
+        if (!wrapper || !content || sceneUI.root) return;
+        injectSceneStyles();
+        if (getComputedStyle(wrapper).position === 'static') wrapper.style.position = 'relative';
+
+        const root = document.createElement('div');
+        root.className = 'r3d-ui';
+
+        const modebar = document.createElement('div');
+        modebar.className = 'r3d-modebar';
+        const modeLabels = { normal: 'Normal', custom: 'Personalizada', genre: 'Por género' };
+
+        // Botón principal (muestra el modo actual y despliega/pliega la lista)
+        const head = document.createElement('button');
+        head.type = 'button';
+        head.className = 'r3d-mode-head';
+        head.setAttribute('aria-haspopup', 'true');
+        head.setAttribute('aria-expanded', 'false');
+        head.innerHTML = '<span class="r3d-mode-cur"></span><span class="r3d-chev"></span>';
+        const headLabel = head.querySelector('.r3d-mode-cur');
+        const setOpen = (open) => {
+            modebar.classList.toggle('open', open);
+            head.setAttribute('aria-expanded', String(open));
+        };
+        head.addEventListener('click', () => setOpen(!modebar.classList.contains('open')));
+        // Cerrar al hacer clic fuera del menú
+        document.addEventListener('click', (e) => {
+            if (!modebar.contains(e.target)) setOpen(false);
+        });
+
+        const list = document.createElement('div');
+        list.className = 'r3d-mode-list';
+        Object.entries(modeLabels).forEach(([m, label]) => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.dataset.mode = m;
+            b.textContent = label;
+            b.addEventListener('click', () => {
+                setOpen(false);
+                if (sceneUI.busy) return;
+                const cur = customMode ? 'custom' : genreMode ? 'genre' : 'normal';
+                if (m !== cur) setMode(m);
+            });
+            list.appendChild(b);
+        });
+        modebar.append(head, list);
+
+        const panels = document.createElement('div');
+        panels.className = 'r3d-panels';
+
+        const loading = document.createElement('div');
+        loading.className = 'r3d-loading';
+        loading.innerHTML = '<div class="r3d-loading-ring"></div><div class="r3d-loading-label"></div>'
+                          + '<div class="r3d-loading-bar"><i></i></div>';
+
+        const side = document.createElement('div');
+        side.className = 'r3d-side';
+        side.append(modebar, panels);
+        root.append(side, loading);
+        wrapper.appendChild(root);
+
+        sceneUI.root    = root;
+        sceneUI.modebar = modebar;
+        sceneUI.panels  = panels;
+        sceneUI.loading = loading;
+        sceneUI.label   = loading.querySelector('.r3d-loading-label');
+        sceneUI.bar     = loading.querySelector('.r3d-loading-bar > i');
+
+        sceneUI.sync = () => {
+            const cur = customMode ? 'custom' : genreMode ? 'genre' : 'normal';
+            list.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.mode === cur));
+            headLabel.textContent = modeLabels[cur];
+        };
+        sceneUI.showLoading = (text = 'Cargando la ruleta…', p = 0.05) => {
+            if (!sceneUI.inScene) return;
+            sceneUI.busy = true;
+            loading.classList.add('on');
+            sceneUI.setProgress(p, text);
+        };
+        sceneUI.setProgress = (p, text) => {
+            if (text && sceneUI.label) sceneUI.label.textContent = text;
+            if (sceneUI.bar) sceneUI.bar.style.width = Math.max(4, Math.min(100, Math.round(p * 100))) + '%';
+        };
+        sceneUI.hideLoading = () => {
+            sceneUI.busy = false;
+            loading.classList.remove('on');
+        };
+        // Mueve los paneles de búsqueda dentro de la escena (o los devuelve a su sitio)
+        sceneUI.enable = (on) => {
+            if (on === sceneUI.inScene) return;
+            sceneUI.inScene = on;
+            content.classList.toggle('r3d-ui-on', on);
+            root.style.display = on ? '' : 'none';
+            const list = [customPanel, genrePanel].filter(Boolean);
+            if (on) {
+                sceneUI.homes = list.map((el) => ({ el, parent: el.parentNode, next: el.nextSibling }));
+                list.forEach((el) => panels.appendChild(el));
+                sceneUI.sync();
+            } else {
+                sceneUI.hideLoading();
+                sceneUI.homes.forEach(({ el, parent, next }) => {
+                    if (parent && parent.isConnected) parent.insertBefore(el, next && next.parentNode === parent ? next : null);
+                });
+                sceneUI.homes = [];
+            }
+        };
+
+        if (r3dAllowed()) {
+            sceneUI.enable(true);
+            // Si no hay WebGL o falla el módulo, se vuelve al menú de siempre
+            loadR3DModule()
+                .then((mod) => { if (!mod.webglAvailable()) sceneUI.enable(false); })
+                .catch(() => sceneUI.enable(false));
+        } else {
+            root.style.display = 'none';
+        }
+    };
+
     const setMode = (mode) => {
         customMode    = mode === 'custom';
         genreMode     = mode === 'genre';
@@ -229,6 +463,7 @@ function setupRouletteLogic() {
         btnModeNormal?.classList.toggle('active', mode === 'normal');
         btnModeCustom?.classList.toggle('active', customMode);
         btnModeGenre?.classList.toggle('active', genreMode);
+        sceneUI.sync?.();
         if (customPanel)   customPanel.style.display = customMode ? 'block' : 'none';
         if (genrePanel)    genrePanel.style.display  = genreMode  ? 'block' : 'none';
         if (btnVista)      btnVista.style.display    = customMode ? 'none'  : '';
@@ -238,6 +473,9 @@ function setupRouletteLogic() {
                                       :              'Película Aleatoria';
         }
 
+        buildToken++;
+        leave3D();
+        sceneUI.hideLoading();
         spinDone      = false;
         selectedMovie = null;
         setActionButtons(false);
@@ -280,6 +518,7 @@ function setupRouletteLogic() {
     btnModeNormal?.addEventListener('click', () => { if (customMode || genreMode) setMode('normal'); });
     btnModeCustom?.addEventListener('click', () => { if (!customMode) setMode('custom'); });
     btnModeGenre?.addEventListener('click',  () => { if (!genreMode)  setMode('genre');  });
+    setupSceneUI();
 
     // ── Buscador (modo personalizado) ────────────────────────────────────────
     const searchInput   = shared.DOM.rouletteModal.querySelector('#crp-search-input');
@@ -495,8 +734,60 @@ function setupRouletteLogic() {
         });
     }
 
+    // ── Ruleta 3D: montaje con respaldo automático ──────────────────────────
+    let buildToken = 0; // se incrementa en cada recarga/cambio de modo
+
+    /** Devuelve true si la rueda 3D quedó (o quedará) en pantalla. */
+    const mount3D = async (entries, winnerId) => {
+        if (!r3dAllowed()) return false;
+        const token   = buildToken;
+        const content = shared.DOM.rouletteModal.querySelector('.roulette-modal-content');
+        const wrapper = shared.DOM.rouletteModal.querySelector('.roulette-carousel-wrapper');
+        if (!content || !wrapper) return false;
+        try {
+            sceneUI.showLoading('Cargando motor 3D…', 0.08);
+            const mod = await loadR3DModule();
+            if (!mod.webglAvailable()) { sceneUI.enable(false); return false; }
+            if (token !== buildToken) return true;
+            if (getComputedStyle(wrapper).position === 'static') wrapper.style.position = 'relative';
+            if (r3d.wheel && r3d.wheel.isDead()) dispose3D();
+            if (!r3d.wheel) {
+                sceneUI.setProgress(0.2, 'Armando la ruleta…');
+                r3d.wheel = await mod.createWheel(wrapper);
+            }
+            if (token !== buildToken) return true; // otra carga más reciente se encarga
+            const { items, winnerIndex } = mod.prepareWheelItems(entries, winnerId);
+
+            // La pantalla de carga se quita cuando la mayoría de pósters ya está lista
+            let finished = false;
+            let timer = null;
+            const finish = () => {
+                if (finished) return;
+                finished = true;
+                clearTimeout(timer);
+                if (token === buildToken) sceneUI.hideLoading();
+            };
+            timer = setTimeout(finish, 8000); // nunca se queda atascada
+            sceneUI.setProgress(0.4, 'Cargando pósters…');
+            r3d.wheel.setItems(items, winnerIndex, (done, total) => {
+                if (finished || token !== buildToken) return;
+                sceneUI.setProgress(0.4 + 0.6 * (done / total), `Cargando pósters ${done} de ${total}`);
+                if (done >= total) setTimeout(finish, 250);
+            });
+            content.classList.add('r3d-on');
+            r3d.wheel.show();
+            r3d.active = true;
+            return true;
+        } catch (err) {
+            console.warn('[Ruleta 3D] usando cover-flow:', err);
+            dispose3D();
+            sceneUI.enable(false);
+            return false;
+        }
+    };
+
     // Arma el carrusel a partir de un array de { id, data } (repite si hay pocas)
-    const buildFromPool = (poolArr, rouletteTrack) => {
+    const buildFromPool = async (poolArr, rouletteTrack) => {
         const _sel = shared.DOM.rouletteModal.querySelector('.roulette-selector');
         if (_sel) _sel.style.visibility = 'visible';
 
@@ -510,6 +801,13 @@ function setupRouletteLogic() {
         }
         const finalPickIndex = Math.floor(repeated.length * 0.6);
         selectedMovie = repeated[finalPickIndex];
+
+        const winnerEntry = selectedMovie;
+        if (await mount3D(
+            poolArr.map((m) => ({ id: m.id, title: m.data?.title, poster: m.data?.poster })),
+            winnerEntry.id
+        )) return;
+        sceneUI.hideLoading();
 
         repeated.forEach((item, index) => {
             const card = shared.createMovieCardElement(item.id, item.data, 'movie', 'roulette', false);
@@ -534,6 +832,8 @@ function setupRouletteLogic() {
         const rouletteTrack = shared.DOM.rouletteModal.querySelector('#roulette-carousel-track');
         if (!rouletteTrack) return;
 
+        buildToken++;
+        leave3D();
         spinDone      = false;
         selectedMovie = null;
         setActionButtons(false);
@@ -547,6 +847,8 @@ function setupRouletteLogic() {
         rouletteTrack.style.transform = 'translateX(0px)';
         rouletteTrack.innerHTML = '';
         spinButton.disabled = false;
+        if (!customMode && !genreMode) sceneUI.showLoading('Cargando la ruleta…', 0.05);
+        else sceneUI.hideLoading();
 
         // ── MODO PERSONALIZADO ────────────────────────────────────────────────
         if (customMode) {
@@ -554,7 +856,7 @@ function setupRouletteLogic() {
                 spinButton.disabled = true;
                 return;
             }
-            buildFromPool(customPool, rouletteTrack);
+            await buildFromPool(customPool, rouletteTrack);
             return;
         }
 
@@ -577,26 +879,20 @@ function setupRouletteLogic() {
                 spinButton.disabled = true;
                 return;
             }
-            buildFromPool(genrePool, rouletteTrack);
+            await buildFromPool(genrePool, rouletteTrack);
             return;
         }
 
         // ── MODO NORMAL ───────────────────────────────────────────────────────
         if (!shared.appState.content.movies || Object.keys(shared.appState.content.movies).length < 10) {
+            sceneUI.hideLoading();
             rouletteTrack.innerHTML = `<p>No hay suficientes películas.</p>`;
             spinButton.disabled = true;
             return;
         }
 
+        // Solo películas sueltas (allmovies): los universos/sagas ya no entran al sorteo normal
         const fullPool = { ...shared.appState.content.movies };
-        if (shared.appState.content.sagas) {
-            for (const sagaData of Object.values(shared.appState.content.sagas)) {
-                if (!sagaData) continue;
-                for (const [id, item] of Object.entries(sagaData)) {
-                    if ((item.type || 'movie') === 'movie') fullPool[id] = item;
-                }
-            }
-        }
 
         const availableIds = Object.keys(fullPool).filter(id => {
             if (watchedMovieIds.has(id)) return false;
@@ -606,6 +902,7 @@ function setupRouletteLogic() {
         });
 
         if (availableIds.length < 5) {
+            sceneUI.hideLoading();
             rouletteTrack.innerHTML = `<p style="color:var(--text-muted);padding:20px;text-align:center;">Ya viste todas las películas disponibles 🎉</p>`;
             spinButton.disabled = true;
             return;
@@ -615,6 +912,12 @@ function setupRouletteLogic() {
         const batchIds      = shuffled.slice(0, Math.min(35, availableIds.length));
         const finalPickIndex = Math.floor(batchIds.length * 0.6);
         selectedMovie = { id: batchIds[finalPickIndex], data: fullPool[batchIds[finalPickIndex]] };
+
+        if (await mount3D(
+            batchIds.map((id) => ({ id, title: fullPool[id]?.title, poster: fullPool[id]?.poster })),
+            selectedMovie.id
+        )) return;
+        sceneUI.hideLoading();
 
         batchIds.forEach((id, index) => {
             const card = shared.createMovieCardElement(id, fullPool[id], 'movie', 'roulette', false);
@@ -636,6 +939,7 @@ function setupRouletteLogic() {
 
     // ── GIRAR ────────────────────────────────────────────────────────────────
     spinButton.addEventListener('click', async () => {
+        if (sceneUI.busy) return; // la ruleta aún se está cargando
         if (spinDone || !selectedMovie) {
             spinDone = false;
             setActionButtons(false);
@@ -646,6 +950,25 @@ function setupRouletteLogic() {
 
         spinButton.disabled = true;
         setActionButtons(false);
+
+        const finishSpin = () => {
+            spinDone            = true;
+            spinButton.disabled = false;
+
+            if (btnVista) {
+                const yaVista = watchedMovieIds.has(selectedMovie.id);
+                btnVista.innerHTML = yaVista
+                    ? `<i class="fas fa-eye"></i> Quitar`
+                    : `<i class="fas fa-eye-slash"></i> Vista`;
+            }
+            setActionButtons(true);
+        };
+
+        // Rueda 3D: la ganadora ya está decidida, la rueda solo se detiene en ella
+        if (r3d.active && r3d.wheel) {
+            r3d.wheel.spin(finishSpin);
+            return;
+        }
 
         const rouletteTrack = shared.DOM.rouletteModal.querySelector('#roulette-carousel-track');
         rouletteTrack.classList.add('is-spinning');
@@ -670,16 +993,7 @@ function setupRouletteLogic() {
 
         cf.onSpinEnd = () => {
             rouletteTrack.classList.remove('is-spinning');
-            spinDone            = true;
-            spinButton.disabled = false;
-
-            if (btnVista) {
-                const yaVista = watchedMovieIds.has(selectedMovie.id);
-                btnVista.innerHTML = yaVista
-                    ? `<i class="fas fa-eye"></i> Quitar`
-                    : `<i class="fas fa-eye-slash"></i> Vista`;
-            }
-            setActionButtons(true);
+            finishSpin();
         };
     });
 
@@ -761,6 +1075,9 @@ export async function openRouletteModal() {
         if (chipsEl)  chipsEl.innerHTML  = '';
         if (hintEl)   hintEl.textContent = 'Agrega al menos 2 películas para girar';
         if (searchEl) searchEl.value     = '';
+        sceneUI.sync?.();
+        sceneUI.showLoading('Cargando la ruleta…', 0.05);
+        loadR3DModule().then((m) => m.preload && m.preload()).catch(() => {});
 
         await loadWatchedFromFirebase();
         if (window.loadRouletteMovies) window.loadRouletteMovies();

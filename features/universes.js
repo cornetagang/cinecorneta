@@ -24,6 +24,15 @@ let currentSagaObj = null;
 let _lastGalaxyPos = null;
 let _lastPlanetPos = null;
 let gridMode = false;
+
+// Preferencia de vista del hub (galaxia / cuadrícula): se recuerda entre visitas
+const VIEW_PREF_KEY = "univ_view_mode"; // "grid" | "galaxy"
+function loadViewPref() {
+  try { return localStorage.getItem(VIEW_PREF_KEY) === "grid"; } catch (_) { return false; }
+}
+function saveViewPref(isGrid) {
+  try { localStorage.setItem(VIEW_PREF_KEY, isGrid ? "grid" : "galaxy"); } catch (_) {}
+}
 let sortMode = "saga"; // 'saga' | 'cronologico'
 
 // NUEVAS VARIABLES PARA MARVEL (o cualquier universo con fases)
@@ -116,6 +125,9 @@ export function renderUniversesHub() {
   gPan = { x: 0, y: 0 };
   gScale = 1;
   applyGalaxy();
+
+  // Si la persona había elegido la cuadrícula, se vuelve a abrir así
+  if (loadViewPref() && !gridMode) toggleViewMode();
 }
 
 // Marca si una saga está oculta del hub público (columna 'oculto' del
@@ -2504,6 +2516,7 @@ function buildGridView(sagas) {
 
 function toggleViewMode() {
   gridMode = !gridMode;
+  saveViewPref(gridMode);
   const icon = document.getElementById("univ-toggle-icon");
   const gw = document.getElementById("univ-galaxy-wrapper");
   const gv = document.getElementById("univ-grid-view");

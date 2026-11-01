@@ -22,7 +22,7 @@ import ContentManager from "../utils/content-manager.js";
 // ─── CDN del plugin oficial (ESM) ─────────────────────────────
 // Se carga una vez y se cachea en módulo → no re-descarga por episodio
 const ASS_PLUGIN_CDN =
-  "/cinecorentatesteos/assests/js/artplayer-plugin-jassub.js";
+  "/cinecorneta/assests/js/artplayer-plugin-jassub.js";
 
 // ─── Cache global del módulo (singleton por sesión) ───────────
 let _assPluginModule = null;
@@ -1039,8 +1039,8 @@ class CinePlayer {
         // 1. Botón de Retroceder 10s (A la izquierda del Play)
         art.controls.add({
           name: "backward10",
-          position: "left",
-          index: 5,
+          position: "right",
+          index: 1,
           // Icono SVG oficial de Material Design (Replay 10)
           html: '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 5V1l-5 5 5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6h-2c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8zm-1.1 11h-.85v-3.26l-1.01.31v-.69l1.77-.63h.09V16zm4.28-1.76c0 .32-.03.6-.1.82s-.17.42-.29.57-.28.26-.45.33-.37.1-.59.1-.41-.03-.59-.1-.33-.18-.46-.33-.23-.34-.29-.57-.1-.5-.1-.82v-1.4c0-.32.03-.6.1-.82s.17-.42.29-.57.28-.26.46-.33.37-.1.59-.1.41.03.59.1.33.18.45.33.22.34.29.57.1.5.1.82v1.4zm-1.74-1.54c-.04-.13-.11-.21-.21-.26s-.22-.08-.36-.08-.27.03-.36.08-.17.13-.21.27.06-.32.06-.58v1.66c0 .25.02.45.06.58s.11.22.21.27.22.08.36.08.27-.03.36-.08.17-.13.21-.27.06-.32.06-.58v-1.66c0-.25-.02-.45-.06-.58z"/></svg>',
           tooltip: "Retroceder 10s",
@@ -1053,8 +1053,8 @@ class CinePlayer {
         // 2. Botón de Adelantar 10s (A la derecha del Play)
         art.controls.add({
           name: "forward10",
-          position: "left",
-          index: 15,
+          position: "right",
+          index: 2,
           // Icono SVG oficial de Material Design (Forward 10)
           html: '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M18 13c0 3.31-2.69 6-6 6s-6-2.69-6-6 2.69-6 6-6v4l5-5-5-5v4c-4.42 0-8 3.58-8 8s3.58 8 8 8 8-3.58 8-8h-2zm-5.66 3h-.85v-3.26l-1.01.31v-.69l1.77-.63h.09V16zm4.28-1.76c0 .32-.03.6-.1.82s-.17.42-.29.57-.28.26-.45.33-.37.1-.59.1-.41-.03-.59-.1-.33-.18-.46-.33-.23-.34-.29-.57-.1-.5-.1-.82v-1.4c0-.32.03-.6.1-.82s.17-.42.29-.57.28-.26.46-.33.37-.1.59-.1.41.03.59.1.33.18.45.33.22.34.29.57.1.5.1.82v1.4zm-1.74-1.54c-.04-.13-.11-.21-.21-.26s-.22-.08-.36-.08-.27.03-.36.08-.17.13-.21.26-.06.32-.06.58v1.66c0 .25.02.45.06.58s.11.22.21.27.22.08.36.08.27-.03.36-.08.17-.13.21-.27.06-.32.06-.58v-1.66c0-.25-.02-.45-.06-.58z"/></svg>',
           tooltip: "Adelantar 10s",
@@ -1208,8 +1208,8 @@ if (grayscale) {
     if (window.appState?.player?.activeSeriesId) {
       art.controls.add({
         name: "btn-prev-ep",
-        position: "left",
-        index: 19,
+        position: "right",
+        index: 3,
         tooltip: "Episodio Anterior",
         html: '<i class="art-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="#ffffff"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"></path></svg></i>',
         click: function () {
@@ -1401,8 +1401,8 @@ if (grayscale) {
     if (window.appState?.player?.activeSeriesId) {
       art.controls.add({
         name: "btn-next-ep",
-        position: "left",
-        index: 20,
+        position: "right",
+        index: 4,
         tooltip: "Siguiente Capítulo",
         html: '<i class="art-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="#ffffff"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"></path></svg></i>',
         click: function () {
@@ -4353,12 +4353,24 @@ function commitMovieWatch(force = false) {
   const mw = _movieWatch;
   if (!mw) return;
   if (mw.watchedDone) return; // ya quedó con progress 1 vía markMovieAsWatched
+  // Si ahora se está viendo una serie, la sesión de película quedó huérfana:
+  // se descarta sin escribir nada.
+  if (shared?.appState?.player?.activeSeriesId) {
+    _movieWatch = null;
+    return;
+  }
 
   // Refrescar el ratio con el estado real del player (cubre el último tramo
   // entre timeupdate y el cierre).
+  // Solo se lee el player activo si es el de ESTA película. Antes se leía el
+  // player que estuviera activo (p. ej. un episodio de serie) y su tiempo/ratio
+  // se escribía en el historial de la película → "Continuar viendo" mostraba
+  // progreso de una película que nunca se vio.
   try {
-    const art = shared?.appState?.player?.activeCineInstance?.container?._artInstance;
-    if (art && art.duration > 0 && art.currentTime > 5) {
+    const container = shared?.appState?.player?.activeCineInstance?.container;
+    const art = container?._artInstance;
+    const isThisMovie = container?._movieId === mw.movieId;
+    if (isThisMovie && art && art.duration > 0 && art.currentTime > 5) {
       mw.ratio =
         art.duration - art.currentTime < 60
           ? 1
@@ -6594,6 +6606,7 @@ function loadMovieInPlayer(videoId, movieId, movieData, lang = "es", onHalfway =
   const artContainer = document.createElement("div");
   artContainer.className = "artplayer-container";
   artContainer.style.cssText = "width:100%;height:100%;background:#000;display:flex;align-items:center;justify-content:center;";
+  artContainer._movieId = movieId; // marca a qué película pertenece este player
   container.appendChild(artContainer);
 
   shared.appState.player.activeCineInstance = new CinePlayer(artContainer);

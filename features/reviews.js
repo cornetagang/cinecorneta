@@ -1195,7 +1195,47 @@ function _setupTabsBar() {
 }
 
 // ── Panel lateral de usuarios con reseñas ───────────────────────────────
+// Barra de scroll de la lista de críticos: aparece SOLO si los críticos no caben en pantalla
+// (overflow auto); cuando aparece es fina y discreta (sin flechas ni riel) y arrastrable, y la lista
+// se puede recorrer con el teclado (ver _syncUsersListFocus).
+function _ensureUsersListStyle() {
+  if (document.getElementById("rv-users-list-style")) return;
+  const st = document.createElement("style");
+  st.id = "rv-users-list-style";
+  st.textContent =
+    "#rsp-users-list{overflow-y:auto !important;scrollbar-width:thin !important;scrollbar-color:rgba(255,255,255,.22) transparent !important;}" +
+    "#rsp-users-list::-webkit-scrollbar{width:5px !important;height:5px !important;background:transparent !important;}" +
+    "#rsp-users-list::-webkit-scrollbar-track{background:transparent !important;}" +
+    "#rsp-users-list::-webkit-scrollbar-button{display:none !important;width:0 !important;height:0 !important;}" +
+    "#rsp-users-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.22) !important;border-radius:10px !important;}" +
+    "#rsp-users-list::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.4) !important;}" +
+    "#rsp-users-list.rsp-fits{overflow-y:hidden !important;}" +
+    "#rsp-users-list:focus-visible{outline:2px solid var(--accent-color,#e50914);outline-offset:2px;border-radius:8px;}";
+  document.head.appendChild(st);
+}
+
+// La barra solo debe aparecer si algún crítico queda realmente cortado. Si todos se ven completos
+// (el "desborde" es solo relleno/margen de la lista) se oculta; y solo entonces es enfocable con Tab.
+function _syncUsersListFocus(list) {
+  if (!list || !list.isConnected || list.offsetParent === null) return; // oculta: no se puede medir
+  let scrollable = list.scrollHeight > list.clientHeight + 1;
+  const last = list.lastElementChild;
+  if (scrollable && last && list.scrollTop === 0) {
+    const visibleBottom = list.getBoundingClientRect().top + list.clientTop + list.clientHeight;
+    if (last.getBoundingClientRect().bottom <= visibleBottom + 1) scrollable = false;
+  }
+  list.classList.toggle("rsp-fits", !scrollable);
+  if (scrollable) {
+    list.tabIndex = 0;
+    list.setAttribute("aria-label", "Lista de críticos");
+  } else {
+    list.removeAttribute("tabindex");
+    list.removeAttribute("aria-label");
+  }
+}
+
 function _renderUsersPanel(reviews) {
+  _ensureUsersListStyle();
   const panel = document.getElementById("rsp-users-panel");
   const list  = document.getElementById("rsp-users-list");
   if (!panel || !list) return;
@@ -1257,6 +1297,16 @@ function _renderUsersPanel(reviews) {
 
     list.appendChild(li);
   });
+
+  // Enfocable con Tab (flechas / RePág / Espacio) solo si hay que desplazar; se recalcula al
+  // cambiar el tamaño de la pantalla o la cantidad de críticos
+  _syncUsersListFocus(list);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => _syncUsersListFocus(list));
+  if (!list._rvFocusObs) {
+    list._rvFocusObs = true;
+    if (window.ResizeObserver) new ResizeObserver(() => _syncUsersListFocus(list)).observe(list);
+    window.addEventListener("resize", () => _syncUsersListFocus(list), { passive: true });
+  }
 }
 
 function _renderStatsPanel(reviews, contextLabel = null) {
