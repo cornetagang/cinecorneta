@@ -103,7 +103,7 @@ const EFFECTS = {
         layer.appendChild(web);
       }
 
-      // left: % de la pantalla · rest: px desde arriba en reposo · bob: px que baja y sube
+      // left: % del ancho útil (pantalla menos la barra lateral) · rest: px desde arriba en reposo · bob: px que baja y sube
       const spiders = isMobile()
         ? [{ left: 12, rest: 64, bob: 44, dur: 11, scale: 0.8 }]
         : [
@@ -114,7 +114,7 @@ const EFFECTS = {
         const el = document.createElement("div");
         el.className = "fx-spider";
         el.style.cssText =
-          `left:${sp.left}%;top:${sp.rest}px;` +
+          `left:calc(var(--rail-w, 0px) + (100% - var(--rail-w, 0px)) * ${sp.left / 100});top:${sp.rest}px;` +
           `--bob:${sp.bob}px;--spider-scale:${sp.scale};` +
           `animation-duration:${sp.dur}s;` +
           `animation-delay:-${rand(0, sp.dur).toFixed(1)}s;`;
