@@ -61,8 +61,23 @@ export const UI = {
     ROWS_PER_PAGE: 4,     // cuántas filas quieres ver por página
 
     getColumns() {
+        // 1) Lo más fiable: contar las columnas REALES que el navegador le dio a la grilla
+        //    del catálogo (así la última fila siempre sale completa, con o sin barra lateral).
+        const grid = document.querySelector('#full-grid-container .grid');
+        if (grid && grid.offsetParent !== null) {
+            const tracks = getComputedStyle(grid).gridTemplateColumns;
+            if (tracks && tracks !== 'none') {
+                const n = tracks.trim().split(/\s+/).length;
+                if (n >= 1) return Math.max(2, n);
+            }
+        }
+
+        // 2) Respaldo (grilla aún no creada u oculta): misma cuenta que hace el CSS.
+        //    La barra lateral (--rail-w, solo >= 768 px) le quita ancho al contenido y
+        //    la barra de scroll también (clientWidth no la incluye).
+        const rail = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--rail-w')) || 0;
         const padding = window.innerWidth * (this.GRID_PADDING_VW / 100);
-        const available = window.innerWidth - padding;
+        const available = document.documentElement.clientWidth - rail - padding;
         return Math.max(2, Math.floor((available + this.GRID_GAP) / (this.CARD_MIN_WIDTH + this.GRID_GAP)));
     },
 
