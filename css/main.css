@@ -12584,6 +12584,224 @@ nav .logo.active {
   margin-bottom: 0;
 }
 
+/* =============================================================
+   BARRA LATERAL — escritorio y tablet (>= 768 px)
+   Reemplaza el nav superior. Reutiliza <nav class="main-nav">,
+   los data-filter, el buscador (#search-container) y el selector
+   de color. En móvil (< 768 px) sigue la barra inferior.
+   Los temas (themes.css) usan --rail-w para adaptarse a ella.
+   ============================================================= */
+@media (min-width: 768px) {
+  :root { --rail-w: 76px; }
+
+  /* El contenido se corre a la derecha de la barra */
+  .page-wrapper { padding-left: var(--rail-w); }
+
+  /* ── La barra ─────────────────────────────────────────────── */
+  nav.main-nav {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: var(--rail-w);
+    padding: 16px 0 18px;
+    top: 0; bottom: 0; left: 0; right: auto;
+    background: rgba(8, 10, 14, 0.96);
+    /* Sin backdrop-filter: si no, el buscador "fixed" se posicionaría dentro de la barra */
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-bottom: 0;
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .nav-right { display: contents; }
+
+  /* ── Logo: cuadrado redondeado con "CC" ──────────────────── */
+  nav .logo, nav .logo:hover, nav .logo.active {
+    display: grid;
+    place-items: center;
+    align-content: center;
+    width: 48px; height: 48px;
+    margin-bottom: 14px;
+    border-radius: 16px;
+    font-size: 0;
+    letter-spacing: 0;
+    background: rgba(var(--accent-rgb), 0.14) !important;
+  }
+  nav .logo > * { display: none; }
+  nav .logo::before {
+    content: "CC";
+    font-size: 1rem;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+    color: var(--accent-color);
+  }
+
+  /* ── Enlaces: solo iconos, con etiqueta al pasar el mouse ── */
+  .nav-pill {
+    flex-direction: column;
+    gap: 6px;
+    margin: auto 0; /* centra los iconos en el alto libre de la barra */
+    padding: 0;
+    background: none;
+    border: 0;
+    border-radius: 0;
+  }
+  .nav-pill a {
+    position: relative;
+    display: grid;
+    place-items: center;
+    align-content: center; /* el texto oculto del enlace es una fila más; sin esto empuja el icono hacia arriba */
+    width: 48px; height: 48px;
+    padding: 0;
+    border-radius: 20px;
+    font-size: 0;
+    letter-spacing: 0;
+  }
+  .nav-pill a::before {
+    content: "";
+    width: 22px; height: 22px;
+    background: currentColor;
+    -webkit-mask: var(--ic) center / contain no-repeat;
+    mask: var(--ic) center / contain no-repeat;
+  }
+  .nav-pill a::after {
+    content: var(--tip);
+    position: absolute;
+    left: calc(100% + 14px);
+    top: 50%;
+    transform: translate(-4px, -50%);
+    padding: 7px 12px;
+    border-radius: 12px;
+    background: rgba(20, 24, 32, 0.97);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+    color: var(--text-light);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    z-index: 5;
+  }
+  .nav-pill a:hover::after,
+  .nav-pill a:focus-visible::after { opacity: 1; transform: translate(0, -50%); }
+  .nav-pill a:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2px; }
+  .nav-pill a.active {
+    background: none; /* sin cuadro detrás: solo brilla el icono */
+    color: var(--accent-color);
+    box-shadow: none;
+    filter: drop-shadow(0 0 6px rgba(var(--accent-rgb), 0.85))
+            drop-shadow(0 0 14px rgba(var(--accent-rgb), 0.45));
+  }
+  .nav-pill a[data-filter="all"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z'/%3E%3C/svg%3E"); --tip: "Inicio"; }
+  .nav-pill a[data-filter="movie"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2'/%3E%3Cpath d='M7 3v18M17 3v18M3 8h4M3 12h18M3 16h4M17 8h4M17 16h4'/%3E%3C/svg%3E"); --tip: "Películas"; }
+  .nav-pill a[data-filter="series"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='7' width='20' height='14' rx='2'/%3E%3Cpath d='m17 2-5 5-5-5'/%3E%3C/svg%3E"); --tip: "Series"; }
+  .nav-pill a[data-filter="sagas"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18'/%3E%3C/svg%3E"); --tip: "Universos"; }
+  .nav-pill a[data-filter="reviews"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z'/%3E%3C/svg%3E"); --tip: "Reseñas"; }
+
+  /* ── Parte baja: color y perfil ──────────────────────────── */
+  .color-picker-btn {
+    width: 48px; height: 48px;
+    justify-content: center;
+    border-radius: 20px;
+  }
+  .color-picker-btn:hover { background: rgba(255, 255, 255, 0.07); }
+  .color-picker-btn svg { width: 22px; height: 22px; }
+  .nav-avatar-btn { width: 42px; height: 42px; }
+
+  /* Los paneles se abren al lado de la barra, abajo */
+  .color-panel, .nav-dropdown {
+    top: auto; right: auto;
+    bottom: 16px;
+    left: calc(var(--rail-w) + 12px);
+    transform-origin: bottom left;
+  }
+
+  /* ── Clima (weather.js): botón compacto y panel a un costado ──
+     Los estilos de weather.js se inyectan después de este archivo, por eso
+     se usa nav.main-nav para ganar en especificidad sin tocar weather.js. */
+  nav.main-nav .wx-wrap { display: block; flex: none; } /* weather.js lo oculta entre 768 y 1100 px: con la barra sí cabe */
+  nav.main-nav .wx-btn {
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    width: 48px; height: 48px;
+    padding: 0;
+    border: 0;
+    border-radius: 20px;
+    background: none;
+    font-size: 0.68rem;
+    letter-spacing: 0;
+  }
+  nav.main-nav .wx-btn i { font-size: 16px; }
+  nav.main-nav .wx-time, nav.main-nav .wx-sep { display: none; }
+  nav.main-nav .wx-btn:hover { background: rgba(255, 255, 255, 0.07); border: 0; }
+  nav.main-nav .wx-btn.open {
+    background: none;
+    border: 0;
+    filter: drop-shadow(0 0 6px rgba(var(--accent-rgb), 0.85)) drop-shadow(0 0 14px rgba(var(--accent-rgb), 0.45));
+  }
+  nav.main-nav .wx-pop {
+    position: fixed;
+    top: 16px; bottom: auto;
+    left: calc(var(--rail-w) + 12px);
+    right: auto;
+    max-height: calc(100vh - 32px);
+  }
+  nav.main-nav .wx-pop.expanded { width: min(680px, calc(100vw - var(--rail-w) - 48px)); }
+
+  /* ── Buscador: píldora flotante arriba, con botón circular ── */
+  #search-container {
+    position: fixed;
+    top: 16px;
+    left: calc(var(--rail-w) + (100vw - var(--rail-w)) / 2);
+    transform: translateX(-50%);
+    width: min(560px, calc(100vw - var(--rail-w) - 48px));
+    max-width: none;
+    margin: 0;
+    flex-direction: row-reverse;
+    padding: 5px 5px 5px 20px;
+    background: rgba(14, 17, 23, 0.72);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+    z-index: 1001;
+  }
+  #search-container:focus-within {
+    max-width: none;
+    width: min(640px, calc(100vw - var(--rail-w) - 48px));
+  }
+  #search-container svg,
+  #search-container:focus-within svg {
+    width: 34px; height: 34px;
+    padding: 9px;
+    border-radius: 50%;
+    background: var(--accent-color);
+    color: #fff;
+    opacity: 1;
+    box-shadow: 0 4px 18px rgba(var(--accent-rgb), 0.34);
+    pointer-events: none;
+  }
+
+  /* ── Adaptación al sitio real ────────────────────────────── */
+  /* En tablet (768–992) se mostraba la barra inferior: con la lateral sobra */
+  .bottom-nav { display: none !important; }
+  .page-wrapper { padding-bottom: 0; }
+
+  /* Los tooltips salen fuera de la barra: no recortarlos */
+  nav.main-nav { overflow: visible; z-index: 1000; }
+
+  /* Icono de perfil del sitio (SVG de 16 px) y contenedor del usuario logueado */
+  .nav-avatar-placeholder svg { width: 18px; height: 18px; }
+  #user-profile-container { gap: 0; }
+
+  /* Menú de usuario / login: se abren junto a la barra (main.css los fija a la derecha) */
+  .nav-auth-dropdown { right: auto; }
+}
+
 /* ── BENTO GRID ── */
 @keyframes fadeUp {
   from {
@@ -12624,7 +12842,7 @@ nav .logo.active {
 
 .bento-grid {
   display: grid;
-  grid-template-columns: 1.15fr 0.85fr;
+  grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr 1fr;
   gap: 12px;
   height: clamp(400px, 52vh, 560px);
@@ -12699,8 +12917,15 @@ nav .logo.active {
   font-size: 0.88rem;
   color: #ffffff;
   line-height: 1.7;
-  max-width: 400px;
+  max-width: 480px;
   margin-bottom: 26px;
+  /* Sinopsis larga: máximo 4 líneas con "…" para que no tape la imagen */
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  /* Legible aunque debajo haya una zona clara de la imagen */
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 2px 14px rgba(0, 0, 0, 0.75);
 }
 
 @media (max-height: 900px) {
@@ -12733,8 +12958,9 @@ nav .logo.active {
 
 .bento-actions {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .btn-bento-play {
@@ -12743,8 +12969,9 @@ nav .logo.active {
   gap: 8px;
   background: var(--accent-color);
   color: white;
-  padding: 12px 28px;
-  border-radius: 8px;
+  height: 44px;
+  padding: 0 30px;
+  border-radius: 9999px;
   border: none;
   outline: none;
   cursor: pointer;
@@ -12753,12 +12980,13 @@ nav .logo.active {
   letter-spacing: 1.5px;
   text-transform: uppercase;
   text-decoration: none;
+  white-space: nowrap;
   transition: var(--transition);
-  box-shadow: 0 4px 16px rgba(var(--accent-rgb), 0.35);
+  box-shadow: 0 4px 24px rgba(var(--accent-rgb), 0.34);
 }
 .btn-bento-play:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(var(--accent-rgb), 0.5);
+  box-shadow: 0 8px 28px rgba(var(--accent-rgb), 0.5);
   filter: brightness(1.1);
 }
 
@@ -12766,24 +12994,64 @@ nav .logo.active {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   color: white;
-  padding: 12px 22px;
-  border-radius: 8px;
+  height: 44px;
+  padding: 0 26px;
+  border-radius: 9999px;
   outline: none;
   cursor: pointer;
-  font-weight: 600;
-  font-size: 0.75rem;
-  letter-spacing: 1px;
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 1.2px;
   text-transform: uppercase;
   text-decoration: none;
-  backdrop-filter: blur(10px);
+  white-space: nowrap;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
   transition: var(--transition);
 }
 .btn-bento-info:hover {
-  background: rgba(255, 255, 255, 0.18);
-  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+/* Cualquier otro botón dentro de las acciones del bento
+   ("No me interesa", etc.): misma píldora, más discreto */
+.bento-actions > :is(a, button):not(.btn-bento-play):not(.btn-bento-info) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 26px;
+  border-radius: 9999px;
+  box-sizing: border-box;
+  white-space: nowrap;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  outline: none;
+  transition: var(--transition);
+}
+.bento-actions > :is(a, button):not(.btn-bento-play):not(.btn-bento-info):hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+.bento-actions > :is(a, button):focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 3px;
 }
 
 /* Side cards */
@@ -12874,6 +13142,35 @@ nav .logo.active {
   display: block;
   margin-bottom: 6px;
   filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.6));
+}
+
+/* Bento de 2 cuadros: película (izquierda) y lo último de series (derecha).
+   El cuadro derecho ocupa las dos filas; el segundo panel lateral ya no se usa. */
+#bentoSide1 {
+  grid-row: 1 / 3;
+  border-radius: 20px; /* igual que la tarjeta de la izquierda */
+}
+#bentoSide2 {
+  display: none;
+}
+#bentoSide1 .bento-side-content {
+  padding: 26px 30px;
+}
+#bentoSide1 .bento-side-logo {
+  max-width: 340px;
+  max-height: 96px;
+  margin-bottom: 10px;
+}
+#bentoSide1 .bento-side-title {
+  font-size: 1.6rem;
+}
+#bentoSide1 .bento-side-type {
+  top: 18px;
+  left: 22px;
+}
+#bentoSide1 .bento-side-play {
+  width: 48px;
+  height: 48px;
 }
 
 .bento-side-play {
@@ -13039,6 +13336,23 @@ nav .logo.active {
   text-align: center;
   margin-top: 6px;
 }
+.card-overlay-requested {
+  font-family: "Montserrat", sans-serif;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 0.3px;
+  text-align: center;
+  margin-top: 3px;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card-overlay-requested b {
+  font-weight: 700;
+  color: var(--accent-color);
+}
 
 /* ── CONTINUAR VIENDO ── */
 .cw-track {
@@ -13156,7 +13470,7 @@ nav .logo.active {
 
 .univ-card-badge {
   position: absolute;
-  bottom: 10px;
+  top: 10px;
   right: 12px;
   font-size: 0.58rem;
   font-weight: 700;
@@ -13173,6 +13487,32 @@ nav .logo.active {
 .univ-card:hover .univ-card-badge {
   opacity: 1;
   transform: translateY(0);
+}
+
+/* Info inferior de la tarjeta de universo (títulos + quién lo pidió) */
+.univ-card-info {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0 14px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 3;
+  opacity: 0;
+  transform: translateY(4px);
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+  pointer-events: none;
+}
+.univ-card:hover .univ-card-info {
+  opacity: 1;
+  transform: translateY(0);
+}
+.univ-card-info .card-overlay-info {
+  margin-top: 0;
 }
 /* ══════════════════════════════════════════
    MOBILE — TARJETAS POSTER (120px, overlay visible)
@@ -13204,7 +13544,8 @@ nav .logo.active {
   }
 
   /* Botón de play dentro del overlay */
-  .card-overlay-info {
+  .card-overlay-info,
+  .card-overlay-requested {
     display: none; /* en móvil mostramos solo el play, no texto */
   }
 
@@ -13504,13 +13845,16 @@ nav .logo.active {
   }
 
   .btn-bento-play {
-    padding: 10px 20px !important;
+    height: 40px !important;
+    padding: 0 22px !important;
     font-size: 0.68rem !important;
     letter-spacing: 1px !important;
   }
 
-  .btn-bento-info {
-    padding: 10px 16px !important;
+  .btn-bento-info,
+  .bento-actions > :is(a, button):not(.btn-bento-play):not(.btn-bento-info) {
+    height: 40px !important;
+    padding: 0 18px !important;
     font-size: 0.68rem !important;
   }
 
@@ -26386,4 +26730,931 @@ body:has(#full-review-modal.show) {
 @media (max-width: 1023px) {
   .prf-stat-pair--3 .prf-stat-pair-item { padding: 14px 8px; }
   .prf-stat-pair--3 .prf-ic-label { letter-spacing: 0.5px; font-size: 0.52rem; }
+}
+
+/* =============================================================
+   BARRA LATERAL — vistas de detalle (película y serie)
+   Antes el banner arrancaba 80 px más abajo para dejar libre el nav
+   superior. Con la barra lateral ese espacio sobra: el banner sube
+   hasta el borde y el buscador flotante queda por encima (z-index
+   1001, la vista de detalle es 400). El botón "Volver" se corre a la
+   derecha de la barra y baja lo justo para no chocar con el buscador.
+   Va al final del archivo y desde 769 px para no tocar el diseño móvil
+   (que usa max-width: 768px).
+   ============================================================= */
+@media (min-width: 769px) {
+  .detail-view .dv-hero-banner,
+  .sp-hero .sp-hero-banner { top: 0; }
+
+  .dv-back-btn,
+  .sp-back-btn {
+    top: 72px;
+    /* alineado con el borde izquierdo del contenido (padding de 5 % del área útil) */
+    left: calc(var(--rail-w, 76px) + (100vw - var(--rail-w, 76px)) * 0.05);
+  }
+
+  /* Centrado con la barra: estas vistas eran fixed a pantalla completa (inset: 0)
+     y sus paddings/anchos se calculaban sobre todo el ancho, pero los primeros
+     76 px quedan tapados por la barra. Se arrancan a la derecha de la barra y así
+     el reproductor (y el panel de capítulos) quedan centrados en el espacio visible. */
+  .detail-view,
+  .sp-detail-view { left: var(--rail-w, 76px); }
+
+  /* Página de reproductor (película/serie): player.js la fija con inset y 100vw !important */
+  html body #series-player-page.player-layout-view {
+    left: var(--rail-w, 76px) !important;
+    width: auto !important;
+  }
+}
+
+/* =============================================================
+   BARRA LATERAL — vista Universos (universes.js)
+   1) universes.js mide el alto del nav para colocar sus controles
+      (buscador, vista cuadrícula, ajustes) y el botón Volver. Con la
+      barra lateral el nav mide todo el alto de la pantalla, y los
+      controles quedaban ~1000 px más abajo, fuera de la vista. Se fija
+      --univ-nav-h en 60 px (lo que ocupa el buscador flotante) para que
+      queden justo debajo de él, como antes.
+   2) La vista es un overlay fixed a pantalla completa: arranca a la
+      derecha de la barra para que el mapa, el botón Volver y la
+      etiqueta queden centrados en el espacio visible.
+   3) La scrollbar de la derecha era la de la página que queda detrás
+      del overlay y no sirve para nada: se bloquea mientras Universos
+      está abierto (el scroll interno de cada universo no se toca).
+   ============================================================= */
+@media (min-width: 768px) {
+  html body #sagas-hub-container {
+    left: var(--rail-w, 76px) !important;
+    --univ-nav-h: 60px !important; /* gana al valor inline que escribe universes.js */
+  }
+
+  html:has(#sagas-hub-container:not([style*="display: none"]):not([style*="display:none"])) {
+    overflow: hidden;
+  }
+}
+
+/* Con ancho suficiente los controles suben a la misma fila del buscador flotante */
+@media (min-width: 1380px) {
+  #sagas-hub-container #univ-controls { top: 16px; }
+}
+
+/* =============================================================
+   BARRA LATERAL — calendario de episodios como popover
+   script.js crea #cal-overlay (modal a pantalla completa con fondo
+   oscuro). Desde 768 px se muestra como el panel del clima: pegado a
+   la derecha de la barra, sin fondo oscuro y sin bloquear la página
+   (script.js lo cierra con clic fuera, Esc o el mismo botón).
+   En móvil (< 768 px) sigue el modal que sube desde abajo.
+   Los estilos de script.js se inyectan después de este archivo, por
+   eso los selectores llevan "body" para ganar en especificidad.
+   ============================================================= */
+@media (min-width: 768px) {
+  body .cal-overlay {
+    z-index: 1100;
+    padding: 0;
+    align-items: flex-start;
+    justify-content: flex-start;
+    background: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    pointer-events: none; /* la página de atrás sigue usable; solo el panel recibe clics */
+  }
+  body .cal-overlay .cal-panel {
+    pointer-events: auto;
+    position: fixed;
+    top: 16px;
+    left: calc(var(--rail-w, 76px) + 12px);
+    width: min(430px, calc(100vw - var(--rail-w, 76px) - 24px));
+    max-height: calc(100vh - 32px);
+    border-radius: 16px;
+    background: rgba(12, 14, 20, 0.97);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+    animation: calPopIn 0.18s ease;
+  }
+  @keyframes calPopIn {
+    from { opacity: 0; transform: translateX(-8px); }
+    to   { opacity: 1; transform: none; }
+  }
+  .cal-btn.open {
+    background: rgba(var(--accent-rgb), 0.2);
+    border-color: var(--accent-color);
+  }
+}
+
+/* =============================================================
+   RESEÑAS — panel lateral de "Profesionales" más suave
+   Antes era una franja plana de alto completo, con esquinas rectas y
+   solo una línea a la derecha. Ahora es una tarjeta flotante de
+   esquinas redondeadas (como la barra lateral) con tres bloques
+   redondeados dentro: promedio, filtro por estrellas y críticos.
+   Solo escritorio (> 860 px); en móvil no cambia nada.
+   ============================================================= */
+@media (min-width: 861px) {
+  .reviews-two-col {
+    grid-template-columns: 272px minmax(0, 1fr);
+    column-gap: 28px; /* separa la tarjeta del feed (antes se pegaban) */
+  }
+
+  .reviews-sidebar {
+    top: 76px; /* queda justo debajo del buscador flotante */
+    height: auto;
+    max-height: calc(100vh - 76px - 20px);
+    padding: 26px 18px 18px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 28px;
+    background: linear-gradient(
+      165deg,
+      rgba(var(--accent-rgb), 0.07),
+      rgba(255, 255, 255, 0.025) 40%,
+      rgba(255, 255, 255, 0.015)
+    );
+    box-shadow:
+      0 12px 40px rgba(0, 0, 0, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  /* Bloques internos: bandejas redondeadas */
+  .reviews-sidebar .rsp-chart-header {
+    padding: 14px 16px;
+    border: 0;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.04);
+  }
+  .reviews-sidebar .rsp-chart-bars {
+    padding: 14px 14px 12px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.03);
+  }
+  .reviews-sidebar .rsp-chart-bars::before { margin-left: 2px; }
+  .reviews-sidebar .rsp-chart-bar-track { height: 6px; }
+
+  .reviews-sidebar .rsp-users-panel {
+    margin-top: 12px;
+    padding: 14px 8px 8px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.03);
+  }
+  .reviews-sidebar .rsp-users-label { margin-left: 8px; }
+  .reviews-sidebar .rsp-user-item { border-radius: 14px; }
+}
+
+/* =============================================================
+   BARRA LATERAL EXPANDIBLE
+   El botón #rail-toggle (lo crea script.js) ensancha la barra de 76 a
+   232 px POR ENCIMA del contenido: --rail-w no cambia, así que nada se
+   mueve.
+
+   Clave para que no haya saltos: contraída y expandida usan EL MISMO
+   layout. La barra siempre tiene 14 px de padding a cada lado (76 - 28 =
+   48 px = ancho de un botón) y cada botón es una fila con el icono fijo
+   a 13 px de su borde izquierdo. Expandir solo ensancha la barra: los
+   iconos no se mueven y la etiqueta (que siempre está ahí, pero
+   transparente) aparece con un fundido rápido; al contraer desaparece
+   antes de que la barra se cierre.
+   Las etiquetas salen del texto de los enlaces y, para clima, calendario,
+   color y el botón de contraer, de ::after.
+   El botón del calendario se iguala al resto de iconos.
+   ============================================================= */
+.rail-toggle { display: none; }
+
+@media (min-width: 768px) {
+  nav.main-nav {
+    align-items: stretch;           /* los botones llenan el ancho útil (48 px contraída) */
+    padding-left: 14px;
+    padding-right: 14px;
+    transition: width 0.25s cubic-bezier(0.165, 0.84, 0.44, 1), box-shadow 0.25s ease;
+  }
+  nav.main-nav .logo { transition: none; }
+
+  /* ── Enlaces ── */
+  nav.main-nav .nav-pill a {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    height: 48px;
+    padding: 0 13px;
+    font-size: 0;  /* contraída: el texto no desborda la barra (si no, su zona invisible capturaba el mouse hasta ~155 px) */
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    text-transform: none;
+    white-space: nowrap;
+    -webkit-text-fill-color: transparent;  /* etiqueta invisible */
+    transition: background 0.2s, color 0.2s, filter 0.2s, -webkit-text-fill-color 0.08s ease;
+  }
+  nav.main-nav .nav-pill a::before { flex: none; }
+  /* El tooltip (::after) hereda el texto transparente del enlace: se le devuelve el color */
+  nav.main-nav .nav-pill a::after { -webkit-text-fill-color: currentColor; }
+
+  /* ── Botones con icono + etiqueta en ::after ── */
+  .rail-toggle,
+  nav.main-nav .cal-btn,
+  nav.main-nav .color-picker-btn {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 14px;
+    width: 100%;
+    height: 48px;
+    padding: 0 13px;
+    border: 0;
+    border-radius: 20px;
+    background: none;
+    color: var(--text-muted);
+    font-family: var(--font-main);
+    font-size: 0.82rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, filter 0.2s;
+  }
+  .rail-toggle:hover,
+  nav.main-nav .color-picker-btn:hover { background: rgba(255, 255, 255, 0.07); }
+  .rail-toggle:hover { color: var(--text-light); }
+  .rail-toggle:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2px; }
+  .rail-toggle svg,
+  nav.main-nav .color-picker-btn svg { width: 22px; height: 22px; flex: none; }
+  .rail-toggle svg { transition: transform 0.25s ease; }
+
+  /* Calendario */
+  nav.main-nav .cal-btn i { flex: none; width: 22px; font-size: 18px; text-align: center; color: inherit; }
+  nav.main-nav .cal-btn:hover { background: rgba(255, 255, 255, 0.07); border: 0; color: var(--accent-color); }
+  nav.main-nav .cal-btn.open {
+    background: none;
+    border: 0;
+    color: var(--accent-color);
+    filter: drop-shadow(0 0 6px rgba(var(--accent-rgb), 0.85)) drop-shadow(0 0 14px rgba(var(--accent-rgb), 0.45));
+  }
+  nav.main-nav .cal-badge { top: 6px; right: auto; left: 27px; }
+
+  /* Clima: icono con la temperatura debajo (columna 1) y la etiqueta a un lado (columna 2) */
+  nav.main-nav .wx-wrap { width: 100%; }
+  nav.main-nav .wx-btn {
+    display: grid;
+    grid-template-columns: 26px auto;
+    grid-template-rows: auto auto;
+    align-content: center;
+    justify-content: start; /* antes quedaba "center" (de la versión anterior) y el grupo se corría */
+    justify-items: center;
+    column-gap: 12px;
+    row-gap: 3px;
+    width: 100%;
+    height: 48px;
+    padding: 0 0 0 11px;
+    border: 0;
+    border-radius: 20px;
+    background: none;
+    font-size: 0.68rem;
+    letter-spacing: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    transition: background 0.2s, filter 0.2s;
+  }
+  nav.main-nav .wx-btn i { grid-area: 1 / 1; width: auto; font-size: 16px; }
+  nav.main-nav .wx-btn .wx-t { grid-area: 2 / 1; }
+  nav.main-nav .wx-btn::after {
+    grid-area: 1 / 2 / 3 / 3;
+    align-self: center;
+    justify-self: start;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+
+  /* Etiquetas de ::after: siempre presentes, transparentes al contraer */
+  nav.main-nav .wx-btn::after,
+  nav.main-nav .cal-btn::after,
+  nav.main-nav .color-picker-btn::after,
+  .rail-toggle::after {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.08s ease;
+  }
+  nav.main-nav .wx-btn::after       { content: "Clima"; }
+  nav.main-nav .cal-btn::after      { content: "Calendario"; }
+  nav.main-nav .color-picker-btn::after { content: "Color"; }
+  .rail-toggle::after               { content: "Contraer"; }
+
+  /* Avatar: mantiene su forma redonda, alineado con los iconos */
+  nav.main-nav .nav-avatar-btn { align-self: flex-start; margin-left: 3px; }
+
+  /* ── Barra expandida: solo se ensancha y se revelan las etiquetas ── */
+  nav.main-nav.expanded {
+    width: 232px;
+    box-shadow: 12px 0 50px rgba(0, 0, 0, 0.55);
+  }
+  /* El buscador flotante pasa por debajo de la barra si se cruzan en ventanas angostas */
+  body:has(nav.main-nav.expanded) #search-container { z-index: 999; }
+
+  nav.main-nav.expanded .nav-pill a {
+    font-size: 0.82rem;
+    -webkit-text-fill-color: currentColor;
+    transition: background 0.2s, color 0.2s, filter 0.2s, -webkit-text-fill-color 0.18s ease 0.08s;
+  }
+  nav.main-nav.expanded .nav-pill a::after { display: none; } /* ya no hace falta el tooltip */
+  nav.main-nav.expanded .nav-pill a:hover:not(.active) { background: rgba(255, 255, 255, 0.06); }
+
+  nav.main-nav.expanded .wx-btn::after,
+  nav.main-nav.expanded .cal-btn::after,
+  nav.main-nav.expanded .color-picker-btn::after,
+  nav.main-nav.expanded .rail-toggle::after {
+    opacity: 1;
+    transition: opacity 0.18s ease 0.08s;
+  }
+  nav.main-nav.expanded .rail-toggle svg { transform: rotate(180deg); }
+
+  /* Logo: la marca "CC" se queda exactamente donde estaba (mismo cuadro de
+     48 px, alineado con los iconos) y el nombre aparece a su lado, sin fondo.
+     El cuadro tintado pasa de la etiqueta a ::after para que el texto no
+     quede dentro de una pastilla ancha. */
+  nav.main-nav.expanded .logo,
+  nav.main-nav.expanded .logo:hover,
+  nav.main-nav.expanded .logo.active {
+    display: block;
+    position: relative;
+    z-index: 0;
+    width: 100%;
+    height: 48px;
+    background: none !important;
+    font-size: 0.95rem;
+    line-height: 48px;
+    letter-spacing: 1px;
+    text-indent: 63px; /* el nombre arranca a la misma altura que las etiquetas de abajo */
+    white-space: nowrap;
+    overflow: hidden;  /* el texto se va revelando con la barra y no se sale de ella */
+  }
+  nav.main-nav.expanded .logo::after {
+    content: "";
+    position: absolute;
+    left: 0; top: 0;
+    width: 48px; height: 48px;
+    border-radius: 16px;
+    background: rgba(var(--accent-rgb), 0.14);
+    z-index: -1;
+  }
+  nav.main-nav.expanded .logo::before {
+    position: absolute;
+    left: 0; top: 0;
+    width: 48px; height: 48px;
+    display: grid;
+    place-items: center;
+    text-indent: 0;
+  }
+  /* Halloween: la calabaza mide 28 px y va centrada en el cuadro de 48 */
+  :root.tema-halloween nav.main-nav.expanded .logo::before {
+    width: 28px; height: 28px;
+    left: 10px; top: 10px;
+  }
+  nav.main-nav.expanded .logo > * { display: inline-block; text-indent: 0; } /* la O-calabaza de Halloween */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  nav.main-nav, .rail-toggle svg { transition: none; }
+}
+
+/* =============================================================
+   AVISOS (toast) — "Contenido actualizado", etc.
+   Estaban a 90 px del borde para quedar bajo el nav superior. Con la
+   barra lateral suben: en pantallas anchas van en la misma fila del
+   buscador flotante (arriba a la derecha); en ventanas angostas, justo
+   debajo de él para no tapar su borde. Móvil (< 768 px) no cambia.
+   ============================================================= */
+@media (min-width: 768px) {
+  #toast-container { top: 72px; }
+}
+@media (min-width: 1440px) {
+  #toast-container { top: 16px; }
+}
+
+/* =============================================================
+   LOGO DE LA BARRA — imagen por tema
+   script.js pone un <img class="logo-img"> dentro del logo (ver "LOGO
+   DE LA BARRA (por tema)" al final de script.js, donde está la lista de
+   logos). La imagen ocupa TODO el cuadro de 48 px, contraída o
+   expandida. Si no carga, no se marca .has-img y se ve el "CC" de antes.
+   Móvil (< 768 px): el logo sigue siendo texto.
+   ============================================================= */
+.logo-img { display: none; }
+
+@media (min-width: 768px) {
+  nav.main-nav .logo.has-img { position: relative; }
+  /* la imagen reemplaza al "CC" (y a la calabaza de Halloween) */
+  :root nav.main-nav .logo.has-img::before { content: none; display: none; }
+
+  nav.main-nav .logo.has-img > .logo-img {
+    display: block;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 16px;
+    object-fit: cover;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+  /* expandida: el logo ocupa solo el cuadro de 48 px; el nombre va a su lado */
+  nav.main-nav.expanded .logo.has-img > .logo-img {
+    inset: 0 auto auto 0;
+    width: 48px;
+    height: 48px;
+  }
+}
+
+/* =============================================================
+   HERO CARRUSEL DE NOVEDADES  (reemplaza al bento)
+   · ≥1024px: carrusel con slide central + vecinos detrás.
+   · <1024px: tarjetas con swipe (scroll-snap), banner arriba e info abajo.
+   Usa las variables del sitio: --accent-color, --bg-dark, --panel-dark…
+   ============================================================= */
+
+.featured-section.nh-empty { display: none !important; }
+
+.nh {
+  --h: clamp(250px, 27vw, 400px);          /* alto del slide central */
+  --mw: calc(var(--h) * 16 / 9);           /* ancho del banner */
+  --pw: clamp(250px, 24vw, 320px);         /* ancho del panel de info */
+  --p: calc(var(--mw) * 0.14);             /* cuánto asoma cada vecino */
+  --r: 16px;
+  --bleed: 5vw;
+  position: relative;
+  color: var(--text-light);
+  font-family: var(--font-main);
+}
+
+.nh-stage { position: relative; height: var(--h); overflow: hidden; }
+
+.nh-track {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: calc(var(--mw) + var(--pw));
+  height: var(--h);
+  transform: translateX(-50%);
+}
+
+/* ── Slide ───────────────────────────────────────────────── */
+.nh-slide {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--mw);
+  height: 100%;
+  transition: transform 0.85s cubic-bezier(0.45, 0, 0.15, 1), opacity 0.6s ease;
+  will-change: transform, opacity;
+}
+.nh-slide.nh-nt,
+.nh-slide.nh-nt * { transition: none !important; }
+
+.nh-slide[data-o="0"]  { z-index: 5; }
+.nh-slide[data-o="1"]  { z-index: 4; transform: translateX(calc(var(--pw) + var(--p) + var(--mw) * 0.08)) scale(0.84); }
+.nh-slide[data-o="2"]  { z-index: 3; transform: translateX(calc(var(--pw) + var(--p) * 1.55 + var(--mw) * 0.15)) scale(0.7); }
+.nh-slide[data-o="3"]  { z-index: 2; opacity: 0; pointer-events: none; transform: translateX(calc(var(--pw) + var(--p) * 1.55 + var(--mw) * 0.15)) scale(0.6); }
+.nh-slide[data-o="-1"] { z-index: 4; transform: translateX(calc(var(--p) * -1 - var(--mw) * 0.08)) scale(0.84); }
+.nh-slide[data-o="-2"] { z-index: 3; transform: translateX(calc(var(--p) * -1.55 - var(--mw) * 0.15)) scale(0.7); }
+.nh-slide[data-o="-3"] { z-index: 2; opacity: 0; pointer-events: none; transform: translateX(calc(var(--p) * -1.55 - var(--mw) * 0.15)) scale(0.6); }
+
+/* ── Banner / miniatura ──────────────────────────────────── */
+.nh-media {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: #0b0d12;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  border-radius: var(--r);
+  transition: border-radius 0.4s ease;
+}
+.nh-slide[data-o="0"] .nh-media { border-radius: var(--r) 0 0 var(--r); }
+
+.nh-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+.nh-img.is-in { opacity: 1; }
+
+/* Oscurece los vecinos para que el central mande */
+.nh-media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--bg-dark);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.85s ease;
+}
+.nh-slide[data-o="1"] .nh-media::after,
+.nh-slide[data-o="-1"] .nh-media::after { opacity: 0.5; }
+.nh-slide[data-o="2"] .nh-media::after,
+.nh-slide[data-o="-2"] .nh-media::after { opacity: 0.72; }
+.nh-slide[data-o="3"] .nh-media::after,
+.nh-slide[data-o="-3"] .nh-media::after { opacity: 0.85; }
+
+.nh-badge {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px 5px 9px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.2;
+  color: #fff;
+}
+.nh-badge { transition: opacity 0.3s ease; }
+@media (min-width: 1024px) {
+  .nh-slide:not([data-o="0"]) .nh-badge { opacity: 0; }
+}
+.nh-badge i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--dot, #22c55e);
+}
+
+/* ── Panel de info (a la derecha del slide central) ─────── */
+.nh-info {
+  position: absolute;
+  left: 100%;
+  top: 0;
+  width: var(--pw);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  background: var(--panel-dark);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-left: 0;
+  border-radius: 0 var(--r) var(--r) 0;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0s 0.3s;
+}
+.nh-slide[data-o="0"] .nh-info {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.55s ease 0.35s, visibility 0s;
+}
+
+.nh-head { display: flex; gap: 12px; align-items: flex-start; }
+.nh-poster {
+  flex: 0 0 auto;
+  width: clamp(58px, 5.4vw, 78px);
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #0b0d12;
+}
+.nh-head-text { min-width: 0; }
+
+.nh-title {
+  margin: 0;
+  font-family: "Bebas Neue", sans-serif;
+  font-weight: 400;
+  font-size: clamp(1.3rem, 1.9vw, 1.65rem);
+  line-height: 1.02;
+  letter-spacing: 0.8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.nh-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  margin: 7px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: rgba(248, 250, 252, 0.78);
+}
+.nh-meta li + li::before {
+  content: "";
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  margin-right: 10px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  vertical-align: middle;
+}
+.nh-when {
+  margin: 6px 0 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--accent-color);
+}
+.nh-ep {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.nh-syn {
+  margin: 0;
+  min-height: 0;
+  font-size: 0.76rem;
+  line-height: 1.55;
+  color: rgba(248, 250, 252, 0.7);
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.nh-cta {
+  margin-top: auto;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--accent-color);
+  color: #fff;
+  font: 800 0.76rem var(--font-main);
+  cursor: pointer;
+  transition: filter 0.2s ease;
+}
+.nh-cta:hover { filter: brightness(1.12); }
+
+/* ── Flechas y puntos ────────────────────────────────────── */
+.nh-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 10;
+  width: 40px;
+  height: 40px;
+  margin-top: -20px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #fff;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.nh-arrow:hover { background: rgba(var(--accent-rgb), 0.85); border-color: transparent; }
+.nh-prev { left: 8px; }
+.nh-next { right: 8px; }
+
+.nh-dots { display: flex; justify-content: center; gap: 2px; margin-top: 14px; }
+.nh-dot {
+  padding: 6px 3px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.nh-dot::before {
+  content: "";
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.22);
+  transition: width 0.3s ease, background 0.3s ease;
+}
+.nh-dot[aria-current="true"]::before { width: 20px; background: var(--accent-color); }
+
+.nh-media:focus-visible,
+.nh-arrow:focus-visible,
+.nh-dot:focus-visible,
+.nh-cta:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 3px; }
+
+/* Pantallas de ~1024–1279: panel un poco más compacto */
+@media (max-width: 1279px) {
+  .nh-syn { -webkit-line-clamp: 3; }
+}
+
+/* ══ Tablet y móvil: tarjetas con swipe ═════════════════════ */
+@media (max-width: 767px) { .nh { --bleed: 14px; } }
+
+@media (max-width: 1023px) {
+  .nh-stage { height: auto; overflow: visible; }
+  .nh-arrow { display: none; }
+
+  .nh-track {
+    position: relative;
+    left: auto;
+    width: auto;
+    height: auto;
+    transform: none;
+    display: flex;
+    gap: 12px;
+    margin: 0 calc(var(--bleed) * -1);
+    padding: 0 var(--bleed);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scroll-padding: 0 var(--bleed);
+    scrollbar-width: none;
+  }
+  .nh-track::-webkit-scrollbar { display: none; }
+
+  .nh-slide {
+    position: relative;
+    flex: 0 0 min(86%, 540px);
+    width: auto;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    scroll-snap-align: start;
+    transform: none !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    transition: none;
+  }
+  .nh-media {
+    height: auto;
+    aspect-ratio: 16 / 9;
+    border-radius: var(--r) var(--r) 0 0 !important;
+  }
+  .nh-media::after { display: none; }
+
+  .nh-info {
+    position: static;
+    width: auto;
+    height: auto;
+    flex: 1;
+    padding: 12px 14px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-top: 0;
+    border-radius: 0 0 var(--r) var(--r);
+    opacity: 1 !important;
+    visibility: visible !important;
+    transition: none;
+  }
+  .nh-poster { width: 62px; }
+  .nh-title { font-size: 1.4rem; }
+  .nh-syn { -webkit-line-clamp: 3; }
+  .nh-cta { display: none; }
+}
+
+.modo-liviano .nh-badge,
+.modo-liviano .nh-arrow { backdrop-filter: none; -webkit-backdrop-filter: none; }
+
+/* Carrusel de novedades: sin blur en la imagen activa, blur solo en los vecinos */
+.nh-img[data-src] { filter: none; }
+/* Solo escritorio: en móvil (deslizar) no hay slide central ni vecinos */
+@media (min-width: 1024px) {
+  .nh .nh-slide:not([data-o="0"]) .nh-img {
+    filter: blur(5px) !important;
+    transition: opacity 0.5s ease, filter 0.85s ease;
+  }
+  .nh .nh-slide[data-o="0"] .nh-img { filter: none !important; }
+}
+
+/* Universos: lista de títulos dentro del panel de info */
+.nh-list-label {
+  margin: 0;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: rgba(248, 250, 252, 0.45);
+}
+.nh-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.nh-list li {
+  position: relative;
+  padding-left: 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: rgba(248, 250, 252, 0.82);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nh-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.5em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent-color);
+}
+.nh-list .nh-list-more {
+  color: rgba(248, 250, 252, 0.5);
+  font-weight: 700;
+}
+.nh-list .nh-list-more::before { display: none; }
+
+@media (max-width: 1023px) {
+  .nh-list li:nth-child(n + 5):not(.nh-list-more) { display: none; }
+}
+
+/* Logo del título dentro del panel de info del carrusel */
+.nh-title.nh-title--logo {
+  display: block;
+  overflow: visible;
+  line-height: 0;
+}
+.nh-logo {
+  display: block;
+  max-width: 100%;
+  max-height: clamp(38px, 4vw, 56px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  object-position: left center;
+}
+@media (max-width: 1023px) {
+  .nh-logo { max-height: 44px; }
+}
+
+/* Géneros completos bajo la fila año · duración */
+.nh-genres {
+  margin: 5px 0 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: rgba(248, 250, 252, 0.78);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* El panel de info no es clicable (solo la imagen y el botón abren la novedad) */
+.nh-info { cursor: default; }
+.nh-info .nh-cta { cursor: pointer; }
+
+/* Pie del panel: botón a la izquierda, fecha (Hoy / Ayer…) abajo a la derecha */
+.nh-foot {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.nh-foot .nh-cta { margin-top: 0; align-self: auto; }
+.nh-foot .nh-when--foot {
+  margin: 0 0 0 auto;
+  white-space: nowrap;
+}
+
+/* Avance automático del carrusel: desplazamiento más lento y suave que el manual */
+.nh.nh-auto .nh-slide {
+  transition: transform 1.2s cubic-bezier(0.45, 0, 0.15, 1), opacity 0.8s ease;
+}
+.nh.nh-auto .nh-media::after { transition: opacity 1.2s ease; }
+.nh.nh-auto .nh-slide[data-o="0"] .nh-info {
+  transition: opacity 0.6s ease 0.5s, visibility 0s;
+}
+/* ── Escritorio: al reproducir, el reproductor ocupa toda la altura de la vista ──
+   Sin la barra de búsqueda arriba ya no hay nada que tape lo que queda del hero
+   (botones, "Volver"); con min-height:100vh el scroll deja el reproductor
+   alineado al borde superior y esa franja nunca se ve. */
+@media (min-width: 768px) {
+  .detail-view .dv-player-section[style*="display: block"] {
+    display: flex !important;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 100vh;
+    box-sizing: border-box;
+  }
 }

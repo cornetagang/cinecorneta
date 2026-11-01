@@ -130,6 +130,23 @@ html.tema-fx-off .theme-fx-layer {
   height: 100%;
 }
 
+/* Con la barra lateral (>= 768 px, ver main.css): el logo "CC" pasa a ser una
+   calabaza del color del acento, y la telaraña de la esquina izquierda se
+   corre para no quedar tapada por la barra (--rail-w). Las arañas se
+   reposicionan igual desde fx-themes.js. */
+@media (min-width: 768px) {
+  :root.tema-halloween nav .logo::before {
+    content: "";
+    width: 28px;
+    height: 28px;
+    background: var(--accent-color);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 6c-5.2 0-9 2.9-9 7.2S6.8 21 12 21s9-3.5 9-7.8S17.2 6 12 6z'/%3E%3Cpath d='M12 6c-2.6 1.8-2.6 13.2 0 15M12 6c2.6 1.8 2.6 13.2 0 15'/%3E%3Cpath d='M12 6c0-1.6.6-3 2.2-3.6'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 6c-5.2 0-9 2.9-9 7.2S6.8 21 12 21s9-3.5 9-7.8S17.2 6 12 6z'/%3E%3Cpath d='M12 6c-2.6 1.8-2.6 13.2 0 15M12 6c2.6 1.8 2.6 13.2 0 15'/%3E%3Cpath d='M12 6c0-1.6.6-3 2.2-3.6'/%3E%3C/svg%3E") center / contain no-repeat;
+    filter: drop-shadow(0 0 6px rgba(var(--accent-rgb), 0.55));
+  }
+  :root.tema-halloween .theme-deco-layer .fx-web--tl { left: var(--rail-w, 0px); }
+}
+
 /* Selección de texto con la paleta del tema */
 :root.tema-halloween ::selection {
   background: rgba(var(--accent-rgb), 0.85);
