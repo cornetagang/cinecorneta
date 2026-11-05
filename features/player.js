@@ -22,7 +22,7 @@ import ContentManager from "../utils/content-manager.js";
 // ─── CDN del plugin oficial (ESM) ─────────────────────────────
 // Se carga una vez y se cachea en módulo → no re-descarga por episodio
 const ASS_PLUGIN_CDN =
-  "/cinecorneta/assests/js/artplayer-plugin-jassub.js";
+  "/cinecorneta/assets/js/artplayer-plugin-jassub.js";
 
 // ─── Cache global del módulo (singleton por sesión) ───────────
 let _assPluginModule = null;
