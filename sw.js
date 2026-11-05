@@ -1,0 +1,1 @@
+importScripts("extras/sw.js");
