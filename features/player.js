@@ -2179,9 +2179,9 @@ if (grayscale) {
         // fallbackFont: NOMBRE de fuente (no URL) — debe existir en availableFonts.
         fallbackFont: FALLBACK_FONT_NAME,
 
-        workerUrl: "/cinecorentatesteos/assests/js/jassub-worker.js",
-        wasmUrl: "/cinecorentatesteos/assests/js/jassub-worker.wasm",
-        legacyWasmUrl: "/cinecorentatesteos/assests/js/jassub-worker-legacy.js",
+        workerUrl: "/cinecorneta/assets/js/jassub-worker.js",
+        wasmUrl: "/cinecorneta/assets/js/jassub-worker.wasm",
+        legacyWasmUrl: "/cinecorneta/assets/js/jassub-worker-legacy.js",
         libassMemoryLimit: 40,
         prescaleFactor: 0.8,
         dropAllAnimations: false,
