@@ -101,7 +101,7 @@ let statsModule = null;
 
 async function getPlayerModule() {
   if (playerModule) return playerModule;
-  const module = await import("./features/player.js?v=40");
+  const module = await import("./features/player.js?v=41");
   module.initPlayer({
     appState,
     DOM,
@@ -5473,9 +5473,11 @@ function _nhLayout() {
     sl._o = o;
     const v = o > 2 ? 3 : o < -2 ? -3 : o;
     sl.dataset.o = v;
-    sl.setAttribute("aria-hidden", v === 0 ? "false" : "true");
-    sl.querySelector(".nh-media").tabIndex = v === 0 ? 0 : -1;
-    sl.querySelector(".nh-cta").tabIndex = v === 0 ? 0 : -1;
+    const active = v === 0;
+    if (!active && sl.contains(document.activeElement)) document.activeElement.blur();
+    sl.setAttribute("aria-hidden", active ? "false" : "true");
+    sl.querySelector(".nh-media").tabIndex = active ? 0 : -1;
+    sl.querySelector(".nh-cta").tabIndex = active ? 0 : -1;
     if (Math.abs(o) <= 3) _nhEnsureImg(sl);
   });
   _nhDots();
